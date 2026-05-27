@@ -1,22 +1,22 @@
 :root {
-  --bg: #0A0E0C;
-  --surface: #12191500;
-  --surface-2: #161E1A;
-  --surface-3: #1A2421;
-  --border: #1F2A26;
-  --border-strong: #2A3833;
-  --text-1: #FFFFFF;
-  --text-2: #B3BAB6;
-  --text-3: #6B7570;
-  --text-4: #4A524E;
-  --accent: #3FE0A4;
-  --accent-dim: rgba(63,224,164,0.12);
-  --accent-line: rgba(63,224,164,0.3);
-  --amber: #E5B544;
-  --amber-dim: rgba(229,181,68,0.12);
-  --red: #E56B6B;
-  --red-dim: rgba(229,107,107,0.1);
-  --purple: #A78BFA;
+  --bg: #132130;
+  --surface: transparent;
+  --surface-2: #172632;
+  --surface-3: #1F3140;
+  --border: rgba(255,255,255,0.07);
+  --border-strong: rgba(255,255,255,0.12);
+  --text-1: #F2F5F2;
+  --text-2: #8FA99A;
+  --text-3: #556878;
+  --text-4: #3A4F5E;
+  --accent: #3DD68C;
+  --accent-dim: rgba(61,214,140,0.10);
+  --accent-line: rgba(61,214,140,0.22);
+  --amber: #D4924A;
+  --amber-dim: rgba(212,146,74,0.10);
+  --red: #C95F5F;
+  --red-dim: rgba(201,95,95,0.10);
+  --purple: #8B76D4;
 }
 
 * {
@@ -64,14 +64,14 @@ body {
 .brand-logo {
   width: 28px;
   height: 28px;
-  background: linear-gradient(135deg,#3FE0A4,#2A8A64);
+  background: linear-gradient(135deg,#3DD68C,#1E7A4A);
   border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 13px;
-  color: #0A0E0C;
+  color: #132130;
 }
 
 .brand-name {
@@ -108,7 +108,7 @@ body {
   justify-content: center;
   font-size: 11px;
   font-weight: 700;
-  color: #0A0E0C;
+  color: #132130;
 }
 
 .account-name {
@@ -195,6 +195,9 @@ body {
 .main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
@@ -241,14 +244,18 @@ body {
   display: flex;
   align-items: center;
   gap: 7px;
-  background: linear-gradient(135deg,#3FE0A4,#4DD4C7);
-  color: #0A0E0C;
+  background: linear-gradient(135deg, rgb(0, 180, 138) 0%, rgb(236, 214, 127) 100%);
+  color: #0a1a12;
   border: none;
   border-radius: 7px;
   padding: 7px 13px;
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+}
+.ask-ai-btn:hover {
+  background: linear-gradient(135deg, rgb(0, 200, 155) 0%, rgb(245, 225, 140) 100%);
+  opacity: 0.92;
 }
 
 /* COMPANY HEADER */
@@ -260,8 +267,8 @@ body {
   display: flex;
   align-items: center;
   gap: 18px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: #1F3140;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
   padding: 18px 22px;
 }
@@ -269,7 +276,7 @@ body {
 .company-logo {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg,#1E4D8C,#2A6BAA);
+  background: #1F3140;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -328,9 +335,9 @@ body {
 }
 
 .header-btn.primary {
-  background: linear-gradient(135deg,#3FE0A4,#4DD4C7);
-  color: #0A0E0C;
-  border: none;
+  background: var(--surface-3);
+  color: var(--text-1);
+  border: 1px solid var(--border-strong);
   font-weight: 600;
 }
 
@@ -687,11 +694,11 @@ body {
 }
 
 .bar-fill.green {
-  background: linear-gradient(90deg, #2A8A64, #3FE0A4);
+  background: linear-gradient(90deg, #1A6B44, #3DD68C);
 }
 
 .bar-fill.amber {
-  background: linear-gradient(90deg, #A07A20, #E5B544);
+  background: linear-gradient(90deg, #7A4E20, #D4924A);
 }
 
 .bar-fill.grey {
@@ -1341,9 +1348,7 @@ body {
 }
 
 .integration-hero {
-  background:
-    radial-gradient(circle at top right, rgba(63,224,164,0.14), transparent 30%),
-    linear-gradient(135deg, #151F1A, #101713);
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 18px;
   display: grid;
@@ -1413,7 +1418,7 @@ body {
 }
 
 .customer-type-card {
-  background: #151D19;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 14px;
   color: inherit;
@@ -1497,7 +1502,7 @@ body {
 }
 
 .integration-card {
-  background: #151D19;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 13px;
   color: inherit;
@@ -1766,7 +1771,7 @@ body {
 }
 
 .marketplace-app-card {
-  background: #151D19;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 16px;
   color: inherit;
@@ -1793,10 +1798,7 @@ body {
 
 .marketplace-card-art {
   align-items: center;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(63,224,164,0.16), transparent 34%),
-    radial-gradient(circle at 80% 16%, rgba(167,139,250,0.14), transparent 30%),
-    #F3EFE8;
+  background: #172632;
   display: flex;
   justify-content: space-between;
   min-height: 98px;
@@ -1951,7 +1953,7 @@ body {
 }
 
 .customer-answer-group {
-  background: #101713;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 999px;
   display: flex;
@@ -2024,7 +2026,7 @@ body {
 
 .marketplace-app-card,
 .marketplace-app-card.compact {
-  background: #151D19;
+  background: #172632;
   border-color: var(--border);
   box-shadow: 0 10px 26px rgba(0,0,0,0.12);
   min-height: 236px;
@@ -2037,10 +2039,7 @@ body {
 }
 
 .marketplace-card-art {
-  background:
-    radial-gradient(circle at 20% 20%, rgba(63,224,164,0.16), transparent 34%),
-    radial-gradient(circle at 80% 16%, rgba(167,139,250,0.14), transparent 30%),
-    #101713;
+  background: #172632;
   min-height: 82px;
   padding: 14px;
 }
@@ -3102,10 +3101,7 @@ body {
 }
 
 .integration-hero {
-  background:
-    radial-gradient(circle at 18% 10%, rgba(63,224,164,0.18), transparent 30%),
-    radial-gradient(circle at 92% 18%, rgba(167,139,250,0.12), transparent 28%),
-    #111915;
+  background: #172632;
   gap: 30px;
   grid-template-columns: minmax(0, 1fr) 330px;
   padding: 28px;
@@ -3185,7 +3181,7 @@ body {
 .integration-card {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.035), transparent),
-    #151D19;
+    #172632;
   min-height: 292px;
   padding: 16px;
 }
@@ -3287,8 +3283,8 @@ body {
 }
 
 .dev-panel {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: #1F3140;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
   padding: 16px;
 }
@@ -3344,10 +3340,8 @@ body {
 
 .overview-hero {
   align-items: center;
-  background:
-    radial-gradient(circle at top right, rgba(63,224,164,0.16), transparent 34%),
-    #101612;
-  border: 1px solid var(--border);
+  background: #1F3140;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
   display: flex;
   justify-content: space-between;
@@ -3409,7 +3403,7 @@ body {
 }
 
 .maturity-road {
-  background: #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 12px;
   display: grid;
@@ -3484,7 +3478,7 @@ body {
 }
 
 .overview-timeline {
-  background: #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 12px;
   margin-top: 14px;
@@ -3765,7 +3759,7 @@ body {
 }
 
 .release-roadmap-board {
-  background: #0F1512;
+  background: #132130;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
@@ -3818,7 +3812,7 @@ body {
 }
 
 .release-plan-card {
-  background: #151D19;
+  background: #172632;
   border-radius: 12px;
   box-shadow: 0 1px 0 rgba(255,255,255,0.02);
   min-height: 150px;
@@ -3947,7 +3941,7 @@ body {
 
 .release-dot {
   background: var(--accent);
-  border: 5px solid #0F1512;
+  border: 5px solid #132130;
   border-radius: 50%;
   box-shadow: 0 0 0 1px var(--accent-line), 0 0 12px rgba(63,224,164,0.28);
   height: 20px;
@@ -3979,7 +3973,7 @@ body {
 }
 
 .release-readiness-card {
-  background: rgba(255,255,255,0.02);
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 10px;
   color: inherit;
@@ -4007,7 +4001,7 @@ body {
 
 .release-readiness-card.category-closed {
   border-color: rgba(96,165,250,0.24);
-  background: rgba(96,165,250,0.04);
+  background: #172632;
 }
 
 .release-readiness-card.category-closed:hover,
@@ -4017,7 +4011,7 @@ body {
 
 .release-readiness-card.category-future {
   border-color: rgba(167,139,250,0.25);
-  background: rgba(167,139,250,0.05);
+  background: #172632;
 }
 
 .release-readiness-card.category-future:hover,
@@ -4082,9 +4076,7 @@ body {
 }
 
 .release-note-panel {
-  background:
-    radial-gradient(circle at top right, rgba(167,139,250,0.12), transparent 38%),
-    var(--surface-2);
+  background: var(--surface-2);
   animation: releaseNotePop 220ms cubic-bezier(0.16,1,0.3,1) both;
   border: 1px solid rgba(167,139,250,0.28);
   border-radius: 12px;
@@ -4217,9 +4209,7 @@ body {
 }
 
 .roadmap-detail-card {
-  background:
-    radial-gradient(circle at top right, rgba(63,224,164,0.12), transparent 36%),
-    #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 10px;
   min-height: 360px;
@@ -4397,7 +4387,7 @@ body {
 }
 
 .selected-work {
-  background: #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 10px;
@@ -4438,9 +4428,7 @@ body {
 
 .design-hero {
   align-items: center;
-  background:
-    radial-gradient(circle at top right, rgba(63,224,164,0.16), transparent 34%),
-    #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 12px;
   display: flex;
@@ -4497,14 +4485,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 8px;
 }
 
 .design-entry {
-  background: #151D19;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 10px;
   color: inherit;
@@ -4542,7 +4530,7 @@ body {
 
 .launchpad-top-link {
   align-items: center;
-  background: #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 10px;
   display: flex;
@@ -4622,7 +4610,7 @@ body {
 }
 
 .design-preview-caption {
-  background: #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 10px;
   margin-top: 10px;
@@ -4665,9 +4653,7 @@ body {
 .design-note-panel,
 .quality-summary-panel {
   animation: releaseNotePop 220ms cubic-bezier(0.16,1,0.3,1) both;
-  background:
-    radial-gradient(circle at top right, rgba(63,224,164,0.12), transparent 40%),
-    var(--surface-2);
+  background: var(--surface-2);
   border: 1px solid var(--accent-line);
   border-radius: 12px;
   box-shadow: -12px 0 32px rgba(0,0,0,0.28);
@@ -4719,7 +4705,7 @@ body {
   align-items: center;
   background:
     linear-gradient(90deg, rgba(63,224,164,0.11), rgba(167,139,250,0.08)),
-    #101612;
+    #172632;
   border: 1px solid var(--border);
   border-radius: 10px;
   display: flex;
@@ -4846,7 +4832,7 @@ body {
 }
 
 .quality-week-card {
-  background: #151D19;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 10px;
   color: inherit;
@@ -4889,7 +4875,7 @@ body {
   align-items: center;
   background:
     linear-gradient(90deg, rgba(63,224,164,0.1), rgba(167,139,250,0.07)),
-    #101612;
+    #172632;
   border: 1px solid var(--border);
   border-radius: 10px;
   display: flex;
@@ -4987,9 +4973,7 @@ body {
 .pulse-panel .quality-summary-panel {
   align-self: stretch;
   animation: fadeUp 0.2s ease forwards;
-  background:
-    radial-gradient(circle at top right, rgba(63,224,164,0.12), transparent 40%),
-    var(--surface-2);
+  background: var(--surface-2);
   border: 1px solid var(--accent-line);
   border-radius: 12px;
   box-shadow: none;
@@ -5189,7 +5173,7 @@ body {
 }
 
 .pulse-client-note {
-  background: #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 10px;
@@ -5256,9 +5240,9 @@ body {
 
 .pulse-score {
   align-items: center;
-  background: linear-gradient(135deg,#3FE0A4,#2A8A64);
+  background: linear-gradient(135deg,#3DD68C,#1E7A4A);
   border-radius: 12px;
-  color: #0A0E0C;
+  color: #132130;
   display: flex;
   font-size: 24px;
   font-weight: 800;
@@ -5325,7 +5309,7 @@ body {
 }
 
 .pulse-trend {
-  background: #101612;
+  background: #172632;
   border: 1px solid var(--border);
   border-radius: 8px;
   margin-top: 10px;
@@ -5411,7 +5395,7 @@ body {
 }
 
 .preview-line.wide {
-  background: linear-gradient(90deg,#3FE0A4,#4DD4C7);
+  background: linear-gradient(90deg,#3DD68C,#2BB87A);
   width: 82%;
 }
 
@@ -5486,10 +5470,8 @@ body {
 }
 
 .marketing-hero {
-  background:
-    radial-gradient(circle at top right, rgba(63,224,164,0.13), transparent 34%),
-    linear-gradient(135deg, #151F1A, #101713);
-  border: 1px solid var(--border);
+  background: #1F3140;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 16px;
   display: grid;
   gap: 16px;
@@ -5585,8 +5567,8 @@ body {
 
 .marketing-metric-card,
 .marketing-panel {
-  background: #151D19;
-  border: 1px solid var(--border);
+  background: #1F3140;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 13px;
 }
 

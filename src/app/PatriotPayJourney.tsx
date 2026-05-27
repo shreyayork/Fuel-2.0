@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import "./PatriotPayJourney.css";
+import ConnectorsPage from "./IntegrationSetupPage.tsx";
 
 const tracks = [
   {
     id: "rd",
     icon: "⚙",
     iconBg: "rgba(63,224,164,0.12)",
-    iconColor: "#3FE0A4",
+    iconColor: "#3DD68C",
     name: "Development",
     sub: "R&D · Engineering, AI, UX, QA, DevOps",
     health: "green",
@@ -14,10 +15,10 @@ const tracks = [
     fill: 82,
     stat: { label: "Active since", val: "Feb 2024" },
     team: [
-      { initials: "JL", bg: "linear-gradient(135deg,#3FE0A4,#2A8A64)", color: "#0A0E0C", name: "Jake L.", role: "Lead Engineer", alloc: "100%" },
-      { initials: "RK", bg: "linear-gradient(135deg,#E5B544,#A07A20)", color: "#0A0E0C", name: "Ryan K.", role: "QA Engineer", alloc: "75%" },
-      { initials: "PH", bg: "linear-gradient(135deg,#A78BFA,#6D4AC4)", color: "#fff", name: "Pierre H.", role: "DevOps", alloc: "50%" },
-      { initials: "AM", bg: "linear-gradient(135deg,#4DD4C7,#2A7A74)", color: "#0A0E0C", name: "Amy M.", role: "UX Designer", alloc: "50%" },
+      { initials: "JL", bg: "linear-gradient(135deg,#3DD68C,#1E7A4A)", color: "#080C09", name: "Jake L.", role: "Lead Engineer", alloc: "100%" },
+      { initials: "RK", bg: "linear-gradient(135deg,#D4924A,#7A4E20)", color: "#080C09", name: "Ryan K.", role: "QA Engineer", alloc: "75%" },
+      { initials: "PH", bg: "linear-gradient(135deg,#8B76D4,#5040A4)", color: "#fff", name: "Pierre H.", role: "DevOps", alloc: "50%" },
+      { initials: "AM", bg: "linear-gradient(135deg,#2BB8A0,#1A6A64)", color: "#080C09", name: "Amy M.", role: "UX Designer", alloc: "50%" },
     ],
     milestones: [
       { pct: 10, label: "Architecture scoped", done: true },
@@ -29,18 +30,18 @@ const tracks = [
       { pct: 82, label: "QA regression suite · 4 envs", done: true },
     ],
     chips: [
-      { label: "MVP build", color: "#3FE0A4" },
-      { label: "AI Agent", color: "#3FE0A4" },
-      { label: "Postgres migration", color: "#3FE0A4" },
-      { label: "QA suite live", color: "#3FE0A4" },
-      { label: "Operator Thread — in progress", color: "#E5B544" },
+      { label: "MVP build", color: "#3DD68C" },
+      { label: "AI Agent", color: "#3DD68C" },
+      { label: "Postgres migration", color: "#3DD68C" },
+      { label: "QA suite live", color: "#3DD68C" },
+      { label: "Operator Thread — in progress", color: "#D4924A" },
     ],
   },
   {
     id: "gtm",
     icon: "↗",
     iconBg: "rgba(229,181,68,0.12)",
-    iconColor: "#E5B544",
+    iconColor: "#D4924A",
     name: "Marketing",
     sub: "Marketing · Website, SEO, CRM, outreach, brand",
     health: "amber",
@@ -49,7 +50,7 @@ const tracks = [
     stat: { label: "Active since", val: "Oct 2023" },
     team: [
       { initials: "SG", bg: "linear-gradient(135deg,#F97316,#B34E0A)", color: "#fff", name: "Shreya G.", role: "Account Lead", alloc: "25%" },
-      { initials: "AM", bg: "linear-gradient(135deg,#4DD4C7,#2A7A74)", color: "#0A0E0C", name: "Amy M.", role: "UX Designer", alloc: "50%" },
+      { initials: "AM", bg: "linear-gradient(135deg,#2BB8A0,#1A6A64)", color: "#080C09", name: "Amy M.", role: "UX Designer", alloc: "50%" },
     ],
     milestones: [
       { pct: 12, label: "ICP defined", done: true },
@@ -58,10 +59,10 @@ const tracks = [
       { pct: 52, label: "First 12 customers signed", done: true },
     ],
     chips: [
-      { label: "Website live", color: "#3FE0A4" },
-      { label: "Outreach sequences", color: "#3FE0A4" },
-      { label: "12 customers", color: "#3FE0A4" },
-      { label: "No repeatable GTM motion", color: "#E5B544" },
+      { label: "Website live", color: "#3DD68C" },
+      { label: "Outreach sequences", color: "#3DD68C" },
+      { label: "12 customers", color: "#3DD68C" },
+      { label: "No repeatable GTM motion", color: "#D4924A" },
       { label: "SEO not started", color: "#E56B6B" },
     ],
   },
@@ -69,7 +70,7 @@ const tracks = [
     id: "revops",
     icon: "◎",
     iconBg: "rgba(167,139,250,0.12)",
-    iconColor: "#A78BFA",
+    iconColor: "#8B76D4",
     name: "Revenue Operations",
     sub: "RevOps · CRM, pipeline, attribution, analytics",
     health: "amber",
@@ -85,9 +86,9 @@ const tracks = [
       { pct: 38, label: "CAC tracking — partial", done: false },
     ],
     chips: [
-      { label: "HubSpot live", color: "#3FE0A4" },
-      { label: "Pipeline built", color: "#3FE0A4" },
-      { label: "CAC tracking partial", color: "#E5B544" },
+      { label: "HubSpot live", color: "#3DD68C" },
+      { label: "Pipeline built", color: "#3DD68C" },
+      { label: "CAC tracking partial", color: "#D4924A" },
       { label: "Attribution not set up", color: "#E56B6B" },
     ],
   },
@@ -105,8 +106,8 @@ const tracks = [
     team: [],
     milestones: [],
     chips: [
-      { label: "Books not formalised", color: "#E5B544" },
-      { label: "No forecast model", color: "#E5B544" },
+      { label: "Books not formalised", color: "#D4924A" },
+      { label: "No forecast model", color: "#D4924A" },
       { label: "Growth planning window approaching", color: "#E56B6B" },
     ],
   },
@@ -221,7 +222,7 @@ const marketingDetail = {
     { label: "Direct", value: 23, color: "#8FC5B7" },
     { label: "Paid", value: 18, color: "#D8B77D" },
     { label: "Social", value: 6, color: "#C99582" },
-    { label: "Referral", value: 3, color: "#A78BFA" },
+    { label: "Referral", value: 3, color: "#8B76D4" },
   ],
   acquisitionFunnel: [
     { label: "Landing page", value: 100, detail: "10.4K users" },
@@ -244,7 +245,7 @@ const integrationOptions = [
     productType: "York IE product",
     tag: "Design approvals",
     icon: "✦",
-    color: "#3FE0A4",
+    color: "#3DD68C",
     price: 149,
     description: "Create and approve product screens, then bring decision-ready design context into Fuel.",
     bullets: ["Approval workflow", "Preview links", "Client-ready handoff"],
@@ -256,7 +257,7 @@ const integrationOptions = [
     productType: "York IE product",
     tag: "Code quality",
     icon: "◆",
-    color: "#4DD4C7",
+    color: "#2BB8A0",
     price: 199,
     description: "Turn engineering activity into simple quality, stability, and release-readiness signals.",
     bullets: ["Quality summaries", "Stability signals", "Release confidence"],
@@ -279,7 +280,7 @@ const integrationOptions = [
     productType: "Project management",
     tag: "Issue tracking",
     icon: "▱",
-    color: "#E5B544",
+    color: "#D4924A",
     price: 89,
     description: "Connect Linear issues for teams that run product delivery outside Jira.",
     bullets: ["Issue status", "Team ownership", "Planning signals"],
@@ -348,7 +349,7 @@ const marketingIntegrationOptions = [
     productType: "Organic search",
     tag: "Google search visibility",
     icon: "SC",
-    color: "#3FE0A4",
+    color: "#3DD68C",
     price: 69,
     description: "Pull organic clicks, impressions, CTR, ranking movement, and query opportunities from Google Search Console.",
     bullets: ["Clicks", "Queries", "CTR"],
@@ -361,7 +362,7 @@ const gtmDashboardAccessOption = {
   productType: "York IE service",
   tag: "Managed marketing reporting",
   icon: "Y",
-  color: "#3FE0A4",
+  color: "#3DD68C",
   price: 0,
   description: "Request access to the York IE-managed GTM dashboard that already combines traffic, paid media, SEO, and social signals.",
   bullets: ["Managed setup", "Dashboard access", "York IE support"],
@@ -398,8 +399,8 @@ const journeyIntegrationGroups = [
     id: "finops",
     label: "FinOps",
     options: [
-      { id: "quickbooks", name: "QuickBooks", productType: "Finance", tag: "Accounting", icon: "QB", color: "#3FE0A4", price: 89, description: "Connect accounting data for financial visibility and operating cadence.", bullets: ["Accounting", "P&L", "Cash"] },
-      { id: "stripe", name: "Stripe", productType: "Payments", tag: "Revenue", icon: "$", color: "#A78BFA", price: 79, description: "Bring payment, subscription, and revenue movement into your operating view.", bullets: ["Payments", "MRR", "Revenue"] },
+      { id: "quickbooks", name: "QuickBooks", productType: "Finance", tag: "Accounting", icon: "QB", color: "#3DD68C", price: 89, description: "Connect accounting data for financial visibility and operating cadence.", bullets: ["Accounting", "P&L", "Cash"] },
+      { id: "stripe", name: "Stripe", productType: "Payments", tag: "Revenue", icon: "$", color: "#8B76D4", price: 79, description: "Bring payment, subscription, and revenue movement into your operating view.", bullets: ["Payments", "MRR", "Revenue"] },
     ],
   },
 ];
@@ -1184,9 +1185,9 @@ function DevelopmentDetailPage({ onBack }) {
       <div className="dev-tabs">
         {[
           { id: "overview", label: "Overview", sub: "Project" },
-          { id: "roadmap", label: "Roadmap", sub: "Jira" },
+          { id: "roadmap", label: "Roadmap", sub: "" },
           { id: "design", label: "Design Studio", sub: "Launchpad" },
-          { id: "quality", label: "Code Quality", sub: "Pulse" },
+          { id: "quality", label: "Execution Health", sub: "Pulse" },
         ].map((tab) => (
           <button
             className={`dev-tab-btn ${activeDevTab === tab.id ? "active" : ""}`}
@@ -1244,7 +1245,7 @@ function DevelopmentDetailPage({ onBack }) {
                 <strong>Top 5</strong>
               </div>
               {overviewUpdates.map((update) => (
-                <div className="overview-update" key={`${update.source}-${update.title}`}>
+                <div className="overview-update" key={`${update.source}-${update.title}`} style={{ paddingLeft: "12px", paddingRight: "12px" }}>
                   <div className="overview-dot"></div>
                   <div>
                     <span>{update.source} · {update.date}</span>
@@ -1516,7 +1517,7 @@ function DevelopmentDetailPage({ onBack }) {
           <section className="dev-panel pulse-panel">
           <div className="panel-heading">
             <span>Pulse</span>
-            <strong>Code Quality</strong>
+            <strong>Execution Health</strong>
           </div>
           <div className={`quality-workspace ${openQualityWeek ? "with-sidebar" : ""}`}>
             <div className="quality-main-area">
@@ -2075,9 +2076,8 @@ export default function PatriotPayJourney() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
   const [activePage, setActivePage] = useState("journey");
-  const [developmentIntegrations, setDevelopmentIntegrations] = useState(null);
-  const [marketingIntegrations, setMarketingIntegrations] = useState(null);
-  const [journeyStarted, setJourneyStarted] = useState(false);
+  const [developmentIntegrations, setDevelopmentIntegrations] = useState(true);
+  const [marketingIntegrations, setMarketingIntegrations] = useState(true);
 
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
@@ -2096,9 +2096,9 @@ export default function PatriotPayJourney() {
         milestones: [],
         emptyText: "Connect integrations to unlock Development progress",
         chips: [
-          { label: "Launchpad available", color: "#3FE0A4" },
-          { label: "Pulse available", color: "#4DD4C7" },
-        { label: "Analysis + playbooks", color: "#E5B544" },
+          { label: "Launchpad available", color: "#3DD68C" },
+          { label: "Pulse available", color: "#2BB8A0" },
+        { label: "Analysis + playbooks", color: "#D4924A" },
         ],
       };
     }
@@ -2114,9 +2114,9 @@ export default function PatriotPayJourney() {
         milestones: [],
         emptyText: "Connect marketing sources to unlock Marketing snapshot",
         chips: [
-          { label: "GTM dashboard access", color: "#3FE0A4" },
+          { label: "GTM dashboard access", color: "#3DD68C" },
           { label: "Google Analytics", color: "#F59E0B" },
-          { label: "Ads, SEO, social", color: "#E5B544" },
+          { label: "Ads, SEO, social", color: "#D4924A" },
         ],
       };
     }
@@ -2172,27 +2172,6 @@ export default function PatriotPayJourney() {
     setActivePage(page);
   }
 
-  function saveJourneyIntegrations(selectedIds) {
-    const selected = new Set(selectedIds);
-    const developmentSelected = integrationOptions.some((option) => selected.has(option.id));
-    const marketingSelected = marketingIntegrationOptions.some((option) => selected.has(option.id));
-
-    setJourneyStarted(true);
-
-    if (developmentSelected) {
-      setDevelopmentIntegrations({
-        customerType: "fuel",
-        integrations: integrationOptions.filter((option) => selected.has(option.id)).map((option) => option.id),
-      });
-    }
-
-    if (marketingSelected) {
-      setMarketingIntegrations({
-        customerType: "fuel",
-        integrations: marketingIntegrationOptions.filter((option) => selected.has(option.id)).map((option) => option.id),
-      });
-    }
-  }
 
   return (
     <div className="app">
@@ -2228,6 +2207,12 @@ export default function PatriotPayJourney() {
           <div className="nav-item">▤ Playbooks</div>
         </div>
         <div className="nav-section">
+          <div className="nav-label">Integrations</div>
+          <div className="nav-item" style={{ cursor: "pointer" }} onClick={() => setActivePage("connectors")}>
+            ⟳ Connectors <span className="nav-count">13</span>
+          </div>
+        </div>
+        <div className="nav-section">
           <div className="nav-label">Network</div>
           <div className="nav-item">
             ◉ Advisors <span className="nav-count">32</span>
@@ -2241,7 +2226,7 @@ export default function PatriotPayJourney() {
         </div>
         <div className="nav-section">
           <div className="nav-label">Recently viewed</div>
-          <div className="recent-item active">
+          <div className="recent-item active" style={{ cursor: "pointer" }} onClick={() => setActivePage("journey")}>
             <div className="recent-favicon" style={{ background: "#1E4D8C", color: "#fff" }}>
               P
             </div>
@@ -2276,7 +2261,9 @@ export default function PatriotPayJourney() {
       </aside>
 
       <div className="main">
-        <div className="topbar">
+        {activePage === "connectors" ? (
+          <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
+        ) : (<><div className="topbar">
           <div className="breadcrumb">
             Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
             <span className="current">Company</span>
@@ -2285,6 +2272,18 @@ export default function PatriotPayJourney() {
             <div className="search-box">
               <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
             </div>
+            <button
+              onClick={() => setActivePage("connectors")}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 7, padding: "5px 12px", cursor: "pointer",
+                fontSize: 12, color: "var(--text-2)", fontFamily: "inherit",
+                transition: "all 0.15s",
+              }}
+            >
+              <span style={{ fontSize: 14, lineHeight: 1 }}>⟳</span> Connectors
+            </button>
             <button className="ask-ai-btn">✦ Ask Fuel AI</button>
             <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Q4 '25 · Nov 8</span>
           </div>
@@ -2351,8 +2350,6 @@ export default function PatriotPayJourney() {
             <DevelopmentDetailPage onBack={() => setActivePage("journey")} />
           ) : activePage === "marketing" ? (
             <MarketingDetailPage onBack={() => setActivePage("journey")} />
-          ) : !journeyStarted && !developmentIntegrations && !marketingIntegrations ? (
-            <JourneyEmptyState onConnectIntegrations={saveJourneyIntegrations} />
           ) : (
             <>
               <div className="journey-header">
@@ -2370,7 +2367,7 @@ export default function PatriotPayJourney() {
                 </div>
               </div>
 
-              <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "6px 22px 8px" }}>
+              <div style={{ background: "#1F3140", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "6px 22px 8px" }}>
                 <div className="tracks" id="tracks">
                   {displayTracks.map((track, index) => (
                     <TrackRow
@@ -2399,6 +2396,7 @@ export default function PatriotPayJourney() {
             </>
           )}
         </div>
+        </>)}
       </div>
     </div>
   );
