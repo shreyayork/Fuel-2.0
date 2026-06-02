@@ -2700,18 +2700,53 @@ function SignalsPage({
 
   return (
     <section className="signals-screenshot-page">
-      <div className="signals-empty-panel">
+      <div className="signals-private-panel">
         <div>
-          <span>No generated signals yet</span>
-          <h3>Signals will appear after the company profile is complete</h3>
+          <span>No private data on file</span>
+          <h2>See how patriotpay stacks up against peers</h2>
           <p>
-            Fuel needs the profile and benchmark context before it can generate a detailed signal timeline. You can still
-            log a signal manually at any time.
+            Below is what the <strong>B2B Saas · Seed · US</strong> cohort looks like across the distribution. Complete
+            the company profile and benchmark inputs to place patriotpay on these bars.
           </p>
+          <label className="signals-cohort-select">
+            cohort
+            <select defaultValue="b2b_saas:seed:us">
+              <option value="b2b_saas:growth:us">B2B Saas · Growth · US · n=94</option>
+              <option value="b2b_saas:seed:us">B2B Saas · Seed · US · n=147</option>
+              <option value="b2b_saas:series_a:us">B2B Saas · Series A · US · n=203</option>
+              <option value="dev_tools:series_a:us">Dev Tools · Series A · US · n=41</option>
+            </select>
+          </label>
+        </div>
+        <button className="signals-add-private" onClick={onFinishProfile}>Finish profile →</button>
+      </div>
+
+      <div className="signals-benchmark-panel">
+        <div className="signals-panel-heading">
+          <span>Cohort benchmarks · 2026-Q2</span>
+          <em>No overlay yet — finish profile to place patriotpay on these bars</em>
+        </div>
+        <div className="signals-benchmark-grid">
+          {benchmarkRows.map((row) => (
+            <div className="signals-benchmark-item" key={row.label}>
+              <div className="signals-benchmark-title">
+                {row.label}
+                {row.hint ? <span>{row.hint}</span> : null}
+              </div>
+              <div className="signals-bar"><b /><i /></div>
+              <div className="signals-benchmark-scale">
+                {row.values.map(value => <span key={value}>{value}</span>)}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-      <div className="signals-secondary-actions">
-        <button className="signals-log-action">+ Log signal</button>
+
+      <div className="signals-timeline-panel">
+        <div className="signals-timeline-head">
+          <strong>Signal timeline</strong>
+          <button>+ Log signal</button>
+        </div>
       </div>
     </section>
   );
@@ -2994,6 +3029,24 @@ function BenchmarkGuide({ verifiedCount }: { verifiedCount: string }) {
   );
 }
 
+function TourPromptBanner({ onStartTour, onDismiss }: { onStartTour: () => void; onDismiss: () => void }) {
+  return (
+    <div className="tour-prompt-banner">
+      <div>
+        <span>New workspace tour</span>
+        <strong>Want a quick walkthrough of Fuel?</strong>
+        <p>
+          See how Overview, Context Feed, Signals, Initiatives, and Playbooks work together now that your profile is set up.
+        </p>
+      </div>
+      <div className="tour-prompt-actions">
+        <button onClick={onStartTour}>Take tour</button>
+        <button className="secondary" onClick={onDismiss}>Maybe later</button>
+      </div>
+    </div>
+  );
+}
+
 function InitiativesPage() {
   const [isCreating, setIsCreating] = useState(false);
 
@@ -3104,7 +3157,7 @@ function OverviewPage({ activeTourTarget, profileComplete, onEditProfile }: { ac
         </div>
       ) : null}
 
-      <div className={`overview-metric-grid ${activeTourTarget === "overview" ? "tour-highlight" : ""}`}>
+      <div className="overview-metric-grid">
         {stats.map(stat => (
           <div className={`overview-metric-card ${stat.missing ? "missing" : ""}`} key={stat.label}>
             <span>{stat.label}</span>
@@ -3116,7 +3169,7 @@ function OverviewPage({ activeTourTarget, profileComplete, onEditProfile }: { ac
 
       <div className="overview-layout-grid">
         <div className="overview-main-column">
-          <div className={`overview-panel ${activeTourTarget === "overview" ? "tour-highlight" : ""}`}>
+          <div className="overview-panel">
             <div className="overview-panel-head">
               <span>About</span>
               <button onClick={onEditProfile}>Edit profile →</button>
@@ -3672,6 +3725,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
   const [profileComplete, setProfileComplete] = useState(initialPage === "signals-loading" || startsWithTourAfterSignals);
+  const [showTourPrompt, setShowTourPrompt] = useState(false);
   const isProfileWizard = activePage === "profile-wizard";
   const tourSteps = [
     {
@@ -3754,9 +3808,14 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
 
     const timer = window.setTimeout(() => {
       if (startsWithTourAfterSignals) {
-        setTourStep(0);
-        setTourOpen(true);
-        setActivePage(tourSteps[0].page);
+        setActivePage("signals");
+        try {
+          const snoozedUntil = Number(window.localStorage.getItem("fuelTourPromptSnoozedUntil") || 0);
+          const tourTaken = window.localStorage.getItem("fuelWorkspaceTourTaken") === "true";
+          setShowTourPrompt(!tourTaken && Date.now() > snoozedUntil);
+        } catch {
+          setShowTourPrompt(true);
+        }
         return;
       }
 
@@ -3770,7 +3829,8 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
 
   useEffect(() => {
     function closeDropdown(event) {
-      if (!event.target.closest(".t-more")) {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest(".t-more")) {
         setOpenDropdown(null);
       }
     }
@@ -3809,8 +3869,23 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
   }
 
   function startTour() {
+    setShowTourPrompt(false);
+    try {
+      window.localStorage.setItem("fuelWorkspaceTourTaken", "true");
+    } catch {
+      // Ignore storage failures in preview/demo environments.
+    }
     setTourOpen(true);
     setTourIndex(0);
+  }
+
+  function dismissTourPrompt() {
+    setShowTourPrompt(false);
+    try {
+      window.localStorage.setItem("fuelTourPromptSnoozedUntil", String(Date.now() + 24 * 60 * 60 * 1000));
+    } catch {
+      // Ignore storage failures in preview/demo environments.
+    }
   }
 
   function closeTour() {
@@ -3967,6 +4042,9 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
               </div>
             </div>
             <div className="header-actions">
+              {profileComplete && !isProfileWizard ? (
+                <button className="header-btn" onClick={startTour}>Tour</button>
+              ) : null}
               <button className={`header-btn ${tourOpen && tourSteps[tourStep].target === "playbooks" ? "tour-highlight" : ""}`}>Playbooks ▾</button>
               <button className="header-btn primary">≡ Generate brief</button>
             </div>
@@ -3974,7 +4052,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
         </div> : null}
 
         {!isProfileWizard ? <div className="tabs">
-          <div className={`tab ${activePage === "overview" ? "active" : ""}`} onClick={() => setActivePage("overview")}>Overview</div>
+          <div className={`tab ${activePage === "overview" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "overview" ? "tour-highlight" : ""}`} onClick={() => setActivePage("overview")}>Overview</div>
           <div className={`tab ${activePage === "signals" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} onClick={() => setActivePage("signals")}>Signals</div>
           <div className={`tab ${activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "context" ? "tour-highlight" : ""}`} onClick={() => setActivePage("context-feed")}>Context Feed</div>
           <div
@@ -3989,6 +4067,13 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
           <div className="tab">Data Room</div>
           <div className={`tab ${activePage === "journey" ? "active" : ""}`} onClick={() => setActivePage("journey")}>Current Updates</div>
         </div> : null}
+
+        {!isProfileWizard && showTourPrompt ? (
+          <TourPromptBanner
+            onStartTour={startTour}
+            onDismiss={dismissTourPrompt}
+          />
+        ) : null}
 
         <div className={`content ${isProfileWizard ? "profile-wizard-content" : ""}`}>
           {activePage === "development-setup" ? (
