@@ -193,6 +193,116 @@ const suggestionMessages = {
   },
 };
 
+const milestoneInsights = {
+  rd: {
+    "Architecture scoped": {
+      update: "Your core product architecture is scoped and ready for build sequencing.",
+      playbook: "Technical Architecture Readiness Review",
+      next: "Use this to validate integration points before the next build milestone.",
+    },
+    "MVP deployed to beta": {
+      update: "Your MVP is in beta, so feedback can now be tied directly to roadmap priorities.",
+      playbook: "Beta Feedback Prioritization",
+      next: "Turn early usage patterns into the next release plan.",
+      playbooks: [
+        {
+          title: "Beta Feedback Prioritization",
+          next: "Turn early usage patterns into the next release plan.",
+        },
+        {
+          title: "Activation Signal Review",
+          next: "Compare onboarding events, drop-offs, and qualitative feedback before the next sprint.",
+        },
+        {
+          title: "Roadmap Triage Sprint",
+          next: "Separate quick fixes, product gaps, and strategic bets into a release-ready backlog.",
+        },
+      ],
+    },
+    "UX sprint 1 complete": {
+      update: "The first UX sprint is complete and core flows are ready for refinement.",
+      playbook: "Workflow Friction Review",
+      next: "Identify where users slow down before the next design sprint.",
+    },
+    "UX sprint 2 — flow redesign": {
+      update: "The redesigned flow is ready to support cleaner handoff into engineering.",
+      playbook: "Design-to-Development Handoff",
+      next: "Confirm accepted states, edge cases, and approval notes before build.",
+    },
+    "PostgreSQL migration": {
+      update: "The database migration is complete and infrastructure risk is lower.",
+      playbook: "Scale Readiness Check",
+      next: "Review performance, observability, and backup confidence before expansion.",
+    },
+    "Patient Billing Agent launched": {
+      update: "The billing agent is live, giving your team a production workflow to measure.",
+      playbook: "Launch Signal Review",
+      next: "Use adoption and support signals to define the next product iteration.",
+    },
+    "QA regression suite · 4 envs": {
+      update: "Regression coverage is live across environments, improving release confidence.",
+      playbook: "Release Readiness Playbook",
+      next: "Use Pulse quality signals to decide what is ready to ship next.",
+    },
+  },
+  gtm: {
+    "ICP defined": {
+      update: "Your ideal customer profile is defined and ready to guide campaigns.",
+      playbook: "ICP Validation Sprint",
+      next: "Test the ICP against real outreach and conversion signals.",
+    },
+    "patriotpay.com launched": {
+      update: "Your website is live and can now become the center of demand capture.",
+      playbook: "Website Conversion Review",
+      next: "Review page intent, conversion paths, and analytics coverage.",
+    },
+    "Outreach sequences live": {
+      update: "Outbound sequences are live and early response quality can be measured.",
+      playbook: "Outbound Performance Review",
+      next: "Compare messaging, personas, and reply quality before scaling volume.",
+    },
+    "First 12 customers signed": {
+      update: "Your first customer base is in place, giving you stronger proof points.",
+      playbook: "Repeatable GTM Motion",
+      next: "Use customer patterns to shape the next scalable acquisition channel.",
+    },
+  },
+  revops: {
+    "HubSpot configured": {
+      update: "Your CRM foundation is configured and ready for cleaner operating cadence.",
+      playbook: "CRM Hygiene Review",
+      next: "Confirm lifecycle stages, ownership, and required fields before reporting.",
+    },
+    "Deal pipeline built": {
+      update: "Your deal pipeline is structured enough to track sales movement.",
+      playbook: "Pipeline Operating Rhythm",
+      next: "Use stage movement and conversion gaps to guide weekly review.",
+    },
+    "CAC tracking — partial": {
+      update: "CAC tracking has started, but attribution still needs completion.",
+      playbook: "Attribution Completion Plan",
+      next: "Connect spend, source, and deal data before increasing GTM investment.",
+    },
+  },
+};
+
+function getMilestoneInsight(track, milestone) {
+  const trackInsights = milestoneInsights[track.id] || {};
+  return trackInsights[milestone.label] || {
+    update: milestone.done
+      ? `You completed "${milestone.label}" and moved this track forward.`
+      : `"${milestone.label}" is the next milestone to unlock more progress.`,
+    playbook: milestone.done ? `${track.name} Next-Level Review` : `${track.name} Activation Plan`,
+    next: milestone.done
+      ? "Review what changed, what worked, and what should be prioritized next."
+      : "Use this to clarify owners, blockers, and the path to completion.",
+  };
+}
+
+function getMilestonePlaybooks(insight) {
+  return insight.playbooks || [{ title: insight.playbook, next: insight.next }];
+}
+
 const marketingDetail = {
   dashboardUrl: "https://gtm.york.ie/patriot-pay/marketing-dashboard",
   updatedAt: "Last 90 days",
@@ -416,7 +526,7 @@ const developmentDetail = {
       category: "active",
       owner: "Jake L.",
       due: "Nov 15",
-      summary: "Build operator handoff threads so care teams can resolve billing exceptions without leaving Patriot Pay.",
+      summary: "Build operator handoff threads so care teams can resolve billing exceptions without leaving patriotpay.",
     },
     {
       key: "PP-141",
@@ -456,7 +566,7 @@ const developmentDetail = {
     },
   ],
   pulse: {
-    project: "Patriot Pay",
+    project: "patriotpay",
     range: "May 12 to May 19",
     dimensions: [
       {
@@ -1041,6 +1151,231 @@ function IntegrationSetupPage({
   );
 }
 
+function ManualDevelopmentWizard({ data, onClose, onSave }) {
+  const [step, setStep] = useState(0);
+  const [draft, setDraft] = useState(data);
+  const steps = ["Dates", "Milestones", "Team"];
+
+  function initialsFromName(name) {
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "TM";
+  }
+
+  function updateMilestone(index, key, value) {
+    setDraft((current) => ({
+      ...current,
+      milestones: current.milestones.map((milestone, milestoneIndex) => (
+        milestoneIndex === index ? { ...milestone, [key]: value } : milestone
+      )),
+    }));
+  }
+
+  function updateTeam(index, key, value) {
+    setDraft((current) => ({
+      ...current,
+      team: current.team.map((member, memberIndex) => (
+        memberIndex === index
+          ? { ...member, [key]: value, initials: key === "name" ? initialsFromName(value) : member.initials }
+          : member
+      )),
+    }));
+  }
+
+  return (
+    <div className="manual-modal-backdrop">
+      <div className="manual-modal" role="dialog" aria-modal="true" aria-label="Edit development tracking">
+        <div className="manual-modal-head">
+          <div>
+            <span>Manual tracking</span>
+            <strong>Edit development plan</strong>
+          </div>
+          <button onClick={onClose}>×</button>
+        </div>
+        <div className="manual-wizard-steps">
+          {steps.map((label, index) => (
+            <button className={step === index ? "active" : ""} key={label} onClick={() => setStep(index)}>
+              {index + 1}. {label}
+            </button>
+          ))}
+        </div>
+
+        {step === 0 ? (
+          <div className="manual-form-grid">
+            <label>
+              <span>Start date</span>
+              <input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} />
+            </label>
+            <label>
+              <span>MVP release</span>
+              <input type="date" value={draft.mvpDate} onChange={(event) => setDraft({ ...draft, mvpDate: event.target.value })} />
+            </label>
+            <label>
+              <span>End date / final release</span>
+              <input type="date" value={draft.releaseDate} onChange={(event) => setDraft({ ...draft, releaseDate: event.target.value })} />
+            </label>
+            <label>
+              <span>Progress</span>
+              <input type="number" min="0" max="100" value={draft.progress} onChange={(event) => setDraft({ ...draft, progress: Number(event.target.value) })} />
+            </label>
+            <label className="wide">
+              <span>Summary</span>
+              <textarea value={draft.summary} onChange={(event) => setDraft({ ...draft, summary: event.target.value })} />
+            </label>
+          </div>
+        ) : null}
+
+        {step === 1 ? (
+          <div className="manual-list-editor">
+            {draft.milestones.map((milestone, index) => (
+              <div className="manual-editor-card" key={`milestone-${index}`}>
+                <label>
+                  <span>Milestone</span>
+                  <input value={milestone.label} onChange={(event) => updateMilestone(index, "label", event.target.value)} />
+                </label>
+                <label>
+                  <span>Progress</span>
+                  <input type="number" min="0" max="100" value={milestone.progress} onChange={(event) => updateMilestone(index, "progress", Number(event.target.value))} />
+                </label>
+                <label>
+                  <span>Milestone date</span>
+                  <input type="date" value={milestone.date || ""} onChange={(event) => updateMilestone(index, "date", event.target.value)} />
+                </label>
+                <label className="wide">
+                  <span>Comment</span>
+                  <textarea value={milestone.comment} onChange={(event) => updateMilestone(index, "comment", event.target.value)} />
+                </label>
+              </div>
+            ))}
+            <button
+              className="manual-add-row"
+              onClick={() => setDraft((current) => ({
+                ...current,
+                milestones: [...current.milestones, { label: "New milestone", progress: 0, date: current.mvpDate, comment: "Add a short update." }],
+              }))}
+            >
+              + Add milestone
+            </button>
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="manual-list-editor">
+            {draft.team.map((member, index) => (
+              <div className="manual-editor-card team" key={`member-${index}`}>
+                <label>
+                  <span>Name</span>
+                  <input value={member.name} onChange={(event) => updateTeam(index, "name", event.target.value)} />
+                </label>
+                <label>
+                  <span>Role</span>
+                  <input value={member.role} onChange={(event) => updateTeam(index, "role", event.target.value)} />
+                </label>
+                <label>
+                  <span>Allocation</span>
+                  <input value={member.alloc} onChange={(event) => updateTeam(index, "alloc", event.target.value)} />
+                </label>
+              </div>
+            ))}
+            <button
+              className="manual-add-row"
+              onClick={() => setDraft((current) => ({
+                ...current,
+                team: [
+                  ...current.team,
+                  {
+                    initials: "TM",
+                    bg: "linear-gradient(135deg,#8B76D4,#5040A4)",
+                    color: "#fff",
+                    name: "Team Member",
+                    role: "Role",
+                    alloc: "50%",
+                  },
+                ],
+              }))}
+            >
+              + Add team member
+            </button>
+          </div>
+        ) : null}
+
+        <div className="manual-modal-actions">
+          <button className="journey-soft-btn" onClick={onClose}>Cancel</button>
+          {step > 0 ? <button className="journey-soft-btn" onClick={() => setStep(step - 1)}>Back</button> : null}
+          {step < steps.length - 1 ? (
+            <button className="journey-primary-btn" onClick={() => setStep(step + 1)}>Next</button>
+          ) : (
+            <button className="journey-primary-btn" onClick={() => onSave(draft)}>Save plan</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManualDevelopmentSummary({ data, onBack, onEdit }) {
+  return (
+    <div className="development-page">
+      <div className="detail-page-header">
+        <button className="back-btn" onClick={onBack}>‹ Back to journey</button>
+        <div className="detail-title-row">
+          <div>
+            <div className="detail-eyebrow">Development · Manual tracking</div>
+            <div className="detail-title">Development Summary</div>
+            <div className="detail-subtitle">Milestones, dates, team, and progress are maintained manually.</div>
+          </div>
+          <button className="manual-edit-btn" onClick={onEdit}>Edit plan</button>
+        </div>
+      </div>
+
+      <section className="manual-summary-panel">
+        <div className="manual-summary-hero">
+          <div>
+            <span>Action plan</span>
+            <h3>MVP release is targeted for {data.mvpDate}, with final release on {data.releaseDate}</h3>
+            <p>{data.summary}</p>
+          </div>
+          <div className="manual-progress-card">
+            <strong>{data.progress}%</strong>
+            <span>defined progress</span>
+          </div>
+        </div>
+
+        <div className="manual-summary-grid">
+          <div className="manual-card large">
+            <span>Milestones</span>
+            {data.milestones.length ? data.milestones.map((milestone) => (
+              <div className="manual-milestone-row" key={milestone.label}>
+                <div>
+                  <strong>{milestone.label}</strong>
+                  <p>{milestone.date ? `${milestone.date} · ` : ""}{milestone.comment}</p>
+                </div>
+                <em>{milestone.progress}%</em>
+              </div>
+            )) : <p className="manual-empty-copy">No milestones added yet. Use Edit plan to add milestone comments and progress.</p>}
+          </div>
+          <div className="manual-card">
+            <span>Team</span>
+            {data.team.length ? data.team.map((member) => (
+              <div className="manual-team-row" key={member.name}>
+                <div className="t-drop-avatar" style={{ background: member.bg, color: member.color }}>{member.initials}</div>
+                <div>
+                  <strong>{member.name}</strong>
+                  <p>{member.role} · {member.alloc}</p>
+                </div>
+              </div>
+            )) : <p className="manual-empty-copy">No team members defined yet.</p>}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function DevelopmentDetailPage({ onBack }) {
   const canStartDevelopment = developmentDetail.designApproved;
   const developmentTrack = tracks.find((track) => track.id === "rd");
@@ -1055,6 +1390,8 @@ function DevelopmentDetailPage({ onBack }) {
   const [openReleaseNoteKey, setOpenReleaseNoteKey] = useState(null);
   const [releaseNoteOrigin, setReleaseNoteOrigin] = useState("origin-top");
   const [releaseNoteClosing, setReleaseNoteClosing] = useState(false);
+  const [mvpTargetDate, setMvpTargetDate] = useState("2025-07-20");
+  const [targetReleaseDate, setTargetReleaseDate] = useState("2025-08-05");
   const activeRoadmap = developmentDetail.roadmap.find((item) => item.key === activeRoadmapKey) || developmentDetail.roadmap[0];
   const activeSignal = roadmapSignals[activeRoadmap.key] || roadmapSignals[developmentDetail.roadmap[0].key];
   const pulse = activeSignal.pulse || developmentDetail.pulse;
@@ -1129,6 +1466,11 @@ function DevelopmentDetailPage({ onBack }) {
     { source: "Team", title: "Mobile Intake remains queued", date: "Nov 5", detail: "Design is approved, but implementation waits for sprint capacity." },
   ];
   const valueStages = ["Foundation", "Acceleration", "Scale", "Optimization"];
+  const releaseHighlights = [
+    "Release timeline is aligned with the client and reviewed weekly.",
+    "Current sprint work is active, with priority refinements being addressed.",
+    "Design review is complete for the next release milestone.",
+  ];
 
   function closeReleaseNote() {
     setReleaseNoteClosing(true);
@@ -1171,7 +1513,7 @@ function DevelopmentDetailPage({ onBack }) {
           <div>
             <div className="detail-eyebrow">Development · York Services</div>
             <div className="detail-title">Latest Development Updates</div>
-            <div className="detail-subtitle">Roadmap, Pulse quality signals, and Launchpad design approval for Patriot Pay.</div>
+            <div className="detail-subtitle">Roadmap, Pulse quality signals, and Launchpad design approval for patriotpay.</div>
           </div>
           <div className="detail-title-actions">
             <ResourceAllocation track={developmentTrack} />
@@ -1185,7 +1527,7 @@ function DevelopmentDetailPage({ onBack }) {
       <div className="dev-tabs">
         {[
           { id: "overview", label: "Overview", sub: "Project" },
-          { id: "roadmap", label: "Roadmap", sub: "" },
+          { id: "roadmap", label: "Roadmap", sub: "Strategic" },
           { id: "design", label: "Design Studio", sub: "Launchpad" },
           { id: "quality", label: "Execution Health", sub: "Pulse" },
         ].map((tab) => (
@@ -1260,6 +1602,36 @@ function DevelopmentDetailPage({ onBack }) {
 
         {activeDevTab === "roadmap" ? (
           <section className="dev-panel roadmap-panel roadmap-panel-full">
+          <div className="roadmap-strategy-summary">
+            <div className="roadmap-strategy-main">
+              <span>Action plan</span>
+              <h3>MVP release is targeted for 20 Jul, with final release following on 05 Aug</h3>
+              <div className="ai-release-summary">
+                <span>Summary</span>
+                {releaseHighlights.map((highlight) => (
+                  <p key={highlight}>{highlight}</p>
+                ))}
+              </div>
+            </div>
+            <div className="roadmap-date-card">
+              <label>
+                <span>MVP release</span>
+                <input
+                  type="date"
+                  value={mvpTargetDate}
+                  onChange={(event) => setMvpTargetDate(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Final release</span>
+                <input
+                  type="date"
+                  value={targetReleaseDate}
+                  onChange={(event) => setTargetReleaseDate(event.target.value)}
+                />
+              </label>
+            </div>
+          </div>
           <div className="panel-heading">
             <span>Jira Module</span>
             <strong>Project Roadmap</strong>
@@ -1820,7 +2192,7 @@ function JourneyEmptyState({ onConnectIntegrations }) {
         <>
           <section className="journey-empty-hero">
             <div>
-              <span>Your Journey starts here</span>
+              <span>Current Updates start here</span>
               <h2>York IE helps turn startup activity into an operating system for durable growth.</h2>
               <p>Start with services and playbooks from York IE, or connect your own systems so Fuel can summarize signals across your business.</p>
               <div className="journey-empty-actions">
@@ -1975,6 +2347,25 @@ function JourneyEmptyState({ onConnectIntegrations }) {
 
 function TrackRow({ track, index, isOpen, onToggle, onOpenDetail, barsAnimated, openDropdown, setOpenDropdown }) {
   const updates = trackUpdates[track.id];
+  const [activeMilestone, setActiveMilestone] = useState(null);
+  const activeMilestoneDetails = track.milestones.find((milestone) => milestone.label === activeMilestone);
+  const activeMilestoneInsight = activeMilestoneDetails ? getMilestoneInsight(track, activeMilestoneDetails) : null;
+  const activeMilestonePlaybooks = activeMilestoneInsight ? getMilestonePlaybooks(activeMilestoneInsight) : [];
+  const activeMilestoneLeft = activeMilestoneDetails
+    ? `${Math.min(Math.max(activeMilestoneDetails.pct, 18), 76)}%`
+    : "50%";
+  const milestonePopupId = `milestone-popup-${track.id}`;
+
+  useEffect(() => {
+    if (!activeMilestone) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setActiveMilestone(null);
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [activeMilestone]);
 
   return (
     <div className={`track ${isOpen ? "open" : ""}`} data-id={track.id} style={{ animationDelay: `${index * 0.08}s` }}>
@@ -2023,16 +2414,88 @@ function TrackRow({ track, index, isOpen, onToggle, onOpenDetail, barsAnimated, 
           <span>{track.emptyText || "Not yet started · available to engage"}</span>
         </div>
       ) : (
-        <div className="bar-container">
+        <div className={`bar-container ${track.manual ? "manual" : ""}`}>
           <div className={`bar-fill ${track.health}`} style={{ width: barsAnimated ? `${track.fill}%` : "0%" }} />
-          {track.milestones.map((milestone) => (
-            <div className="tick" key={milestone.label} style={{ left: `${milestone.pct}%` }}>
-              <div className={`tick-dot ${milestone.done ? "done" : "amber"}`} />
-              <div className="tick-label">{milestone.label}</div>
-            </div>
-          ))}
+          {track.milestones.map((milestone) => {
+            const isMilestoneActive = activeMilestone === milestone.label;
+
+            return (
+              <div
+                className={`tick ${isMilestoneActive ? "active" : ""}`}
+                key={milestone.label}
+                style={{ left: `${milestone.pct}%` }}
+                role="button"
+                tabIndex={0}
+                aria-label={`${milestone.label} milestone details`}
+                aria-haspopup="dialog"
+                aria-expanded={isMilestoneActive}
+                aria-controls={isMilestoneActive ? milestonePopupId : undefined}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveMilestone(current => current === milestone.label ? null : milestone.label);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setActiveMilestone(current => current === milestone.label ? null : milestone.label);
+                  }
+                }}
+              >
+                <span className={`tick-dot ${milestone.done ? "done" : "amber"}`} />
+                <span className="tick-label">{milestone.label}</span>
+              </div>
+            );
+          })}
         </div>
       )}
+
+      {activeMilestoneDetails && activeMilestoneInsight ? (
+        <>
+          <div className="milestone-popup-scrim" />
+          <div
+            id={milestonePopupId}
+            className="milestone-popup"
+            style={{ left: activeMilestoneLeft }}
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby={`${milestonePopupId}-title`}
+          >
+            <div className="milestone-popup-header">
+              <span className={`milestone-popup-status ${activeMilestoneDetails.done ? "done" : "next"}`}>
+                {activeMilestoneDetails.done ? "Milestone achieved" : "Next milestone"}
+              </span>
+              <button
+                className="milestone-popup-close"
+                type="button"
+                aria-label="Close milestone details"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveMilestone(null);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <h3 id={`${milestonePopupId}-title`}>{activeMilestoneDetails.label}</h3>
+            <p className="milestone-popup-summary">{activeMilestoneInsight.update}</p>
+            <div className="milestone-popup-section">
+              <span>Suggested playbooks</span>
+              <div className="milestone-playbook-list">
+                {activeMilestonePlaybooks.map((playbook, playbookIndex) => (
+                  <div className="milestone-playbook-item" key={playbook.title}>
+                    <div className="milestone-playbook-number">{playbookIndex + 1}</div>
+                    <div>
+                      <strong>{playbook.title}</strong>
+                      <p>{playbook.next}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
 
       <div className="milestone-chips">
         {track.chips.map((chip) => (
@@ -2044,26 +2507,776 @@ function TrackRow({ track, index, isOpen, onToggle, onOpenDetail, barsAnimated, 
       </div>
 
       <div className="track-updates">
-        <div className="updates-inner">
+        {track.manual ? (
+          <div className="updates-inner">
+            <div>
+              <div className="updates-col-label">⬡ Manual milestones</div>
+              {track.milestones.map((milestone) => (
+                <div className="update-row" key={`${track.id}-manual-${milestone.label}`}>
+                  <span className={`update-type ${milestone.done ? "done" : "open"}`}>{milestone.done ? "Done" : "Open"}</span>
+                  <span>{milestone.label}</span>
+                  <span className="update-date">{milestone.date || `${milestone.progress ?? milestone.pct}%`}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div className="updates-col-label">◈ Summary</div>
+              <div className="update-row">
+                <span className="update-type note">Manual</span>
+                <span>Progress and team are maintained from the edit plan wizard.</span>
+                <span className="update-date">Live</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="updates-inner">
+            <div>
+              <div className="updates-col-label">⬡ Work items</div>
+              {updates.jira.map((row) => (
+                <div className="update-row" key={`${track.id}-jira-${row.text}`}>
+                  <span className={`update-type ${row.type}`}>{updateTypeLabel(row.type)}</span>
+                  <span>{row.text}</span>
+                  <span className="update-date">{row.date}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div className="updates-col-label">◈ Notes & updates</div>
+              {updates.notes.map((row) => (
+                <div className="update-row" key={`${track.id}-note-${row.text}`}>
+                  <span className="update-type note">Note</span>
+                  <span>{row.text}</span>
+                  <span className="update-date">{row.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SignalsPage({
+  isProfileComplete,
+  onLinkConnectors,
+}: {
+  isProfileComplete: boolean;
+  onLinkConnectors: () => void;
+}) {
+  const benchmarkRows = [
+    { label: "ARR", values: ["Bot 25% $150k", "Median $500k", "Top 25% $1.2M", "Top 10% $2.5M"] },
+    { label: "CAC payback", hint: "lower is better", values: ["Bot 25% 10.0mo", "Median 16.0mo", "Top 25% 26.0mo", "Top 10% 42.0mo"] },
+    { label: "Burn multiple", hint: "lower is better", values: ["Bot 25% 1.30x", "Median 2.10x", "Top 25% 3.40x", "Top 10% 5.50x"] },
+    { label: "Headcount (FTE)", values: ["Bot 25% 6", "Median 12", "Top 25% 22", "Top 10% 40"] },
+    { label: "Paid customers", values: ["Bot 25% 10", "Median 40", "Top 25% 150", "Top 10% 500"] },
+    { label: "Cash on hand", values: ["Bot 25% $500k", "Median $1.5M", "Top 25% $3.0M", "Top 10% $6.0M"] },
+    { label: "Monthly burn", hint: "lower is better", values: ["Bot 25% $40k", "Median $80k", "Top 25% $180k", "Top 10% $350k"] },
+    { label: "ARR growth YoY", values: ["Bot 25% 120%", "Median 200%", "Top 25% 350%", "Top 10% 600%"] },
+    { label: "Gross margin", values: ["Bot 25% 55%", "Median 72%", "Top 25% 82%", "Top 10% 88%"] },
+    { label: "Net revenue retention", values: ["Bot 25% 95%", "Median 108%", "Top 25% 125%", "Top 10% 145%"] },
+    { label: "Logo retention", values: ["Bot 25% 80%", "Median 88%", "Top 25% 93%", "Top 10% 97%"] },
+  ];
+  const signalRows = [
+    { type: "fundraising", text: "Investor intros wanted", highlight: "Innovius Capital", date: "2026-q2", age: "15d ago", title: "I'm pleased to introduce you to Ethan from Innovius Capital. He'd love to learn more about patriotpay and your capital strategy." },
+    { type: "gtm", text: "Channel / GTM challenges", highlight: "Stuck creating bespoke solutions for each customer; only 20% overlap between customer data models.", date: "2026-q1", age: "1mo ago", title: "Major bottleneck: stuck creating bespoke solutions for each customer. Currently only 20% overlap between customer data models." },
+    { type: "team", text: "FTE headcount", highlight: "2", date: "2026-q1", confidence: "50%", age: "1mo ago", title: "Anna and Aditya joined." },
+    { type: "strategic", text: "Key opportunities", highlight: "Build standardized platform with customer portal, AI model outputs, reporting, and troubleshooting widgets.", date: "2026-q1", age: "1mo ago", title: "Planned platform features: customer login portal, AI model outputs, reporting, and troubleshooting widgets." },
+    { type: "gtm", text: "Primary GTM motion", highlight: "Sales-led with heavy customer discovery and workshop-based onboarding.", date: "2026-q1", age: "1mo ago", title: "Customer discovery phase takes months. Workshop-heavy process to build trust." },
+    { type: "product", text: "Product portfolio breadth", highlight: "1", date: "2026-q1", confidence: "60%", age: "1mo ago", title: "Current state: no customer portal exists. Customers receive data via Excel, Snowflake, or original format." },
+    { type: "strategic", text: "Key risks", highlight: "Data inconsistency across geographies; gappy datasets require estimates.", date: "2026-q1", age: "1mo ago", title: "Data challenges across regions. Gappy, inconsistent datasets require estimates." },
+  ];
+  const connectorPrompts = [
+    { title: "Project management", text: "Connect Jira, Linear, or Asana to read milestones, scope movement, and release progress." },
+    { title: "Meetings", text: "Link calls and transcripts to extract customer asks, investor feedback, and decision signals." },
+    { title: "Revenue and support", text: "Bring CRM, billing, and support activity into the model for sharper growth and risk signals." },
+  ];
+
+  if (isProfileComplete) {
+    return (
+      <section className="signals-screenshot-page">
+        <div className="signals-private-panel">
           <div>
-            <div className="updates-col-label">⬡ Work items</div>
-            {updates.jira.map((row) => (
-              <div className="update-row" key={`${track.id}-jira-${row.text}`}>
-                <span className={`update-type ${row.type}`}>{updateTypeLabel(row.type)}</span>
-                <span>{row.text}</span>
-                <span className="update-date">{row.date}</span>
+            <span>Private benchmark applied</span>
+            <h2>See how patriotpay stacks up against peers</h2>
+            <p>
+              Fuel placed Patriot Pay against the <strong>B2B Saas · Seed · US</strong> cohort using the completed profile,
+              benchmark inputs, York IE project context, and first available signals.
+            </p>
+            <label className="signals-cohort-select">
+              cohort
+              <select defaultValue="b2b_saas:seed:us">
+                <option value="b2b_saas:growth:us">B2B Saas · Growth · US · n=94</option>
+                <option value="b2b_saas:seed:us">B2B Saas · Seed · US · n=147</option>
+                <option value="b2b_saas:series_a:us">B2B Saas · Series A · US · n=203</option>
+                <option value="dev_tools:series_a:us">Dev Tools · Series A · US · n=41</option>
+              </select>
+            </label>
+          </div>
+          <button className="signals-add-private">Update private data →</button>
+        </div>
+
+        <div className="signals-benchmark-panel">
+          <div className="signals-panel-heading">
+            <span>Cohort benchmarks · 2026-Q2</span>
+            <em>Profile complete · benchmark overlay active</em>
+          </div>
+          <div className="signals-benchmark-grid">
+            {benchmarkRows.map((row) => (
+              <div className="signals-benchmark-item" key={row.label}>
+                <div className="signals-benchmark-title">
+                  {row.label}
+                  {row.hint ? <span>{row.hint}</span> : null}
+                </div>
+                <div className="signals-bar"><b /><i /></div>
+                <div className="signals-benchmark-scale">
+                  {row.values.map(value => <span key={value}>{value}</span>)}
+                </div>
               </div>
             ))}
           </div>
-          <div>
-            <div className="updates-col-label">◈ Notes & updates</div>
-            {updates.notes.map((row) => (
-              <div className="update-row" key={`${track.id}-note-${row.text}`}>
-                <span className="update-type note">Note</span>
-                <span>{row.text}</span>
-                <span className="update-date">{row.date}</span>
+        </div>
+
+        <div className="signals-timeline-panel">
+          <div className="signals-timeline-head">
+            <strong>Signal timeline</strong>
+            <button>+ Log signal</button>
+          </div>
+          <div className="signals-filter-row">
+            {["All", "fundraising", "gtm", "product", "strategic", "team"].map((filter, index) => (
+              <span className={index === 0 ? "active" : ""} key={filter}>{filter}</span>
+            ))}
+            <em>7 events</em>
+          </div>
+          <div className="signals-timeline-list">
+            {signalRows.map(row => (
+              <div className="signals-timeline-row" key={`${row.type}-${row.text}`} title={row.title}>
+                <span className="signals-row-type">{row.type}</span>
+                <div className="signals-row-content">
+                  <div className="signals-row-primary">
+                    <strong>{row.text}</strong>
+                    <time>{row.date}</time>
+                    {row.confidence ? <small>conf {row.confidence}</small> : null}
+                  </div>
+                  <p>{row.highlight}</p>
+                </div>
+                <div className="signals-row-meta">
+                  <button>provenance</button>
+                  <span className="signals-row-age">{row.age}</span>
+                </div>
+                <em>×</em>
               </div>
             ))}
+          </div>
+          <div className="signals-footnote">
+            Overlay uses <span>b2b_saas:seed:us</span>. Explore all cohorts on <a>Benchmarks</a>.
+          </div>
+        </div>
+
+        <div className="signals-connectors-panel">
+          <div className="signals-connectors-copy">
+            <span>Generate more signals</span>
+            <h3>Link the tools patriotpay already uses</h3>
+            <p>
+              Connect project management, meetings, CRM, billing, and support tools to give Fuel more context and produce
+              more accurate launch, growth, fundraising, and risk signals.
+            </p>
+          </div>
+          <div className="signals-connector-grid">
+            {connectorPrompts.map(prompt => (
+              <div className="signals-connector-card" key={prompt.title}>
+                <strong>{prompt.title}</strong>
+                <p>{prompt.text}</p>
+              </div>
+            ))}
+          </div>
+          <button className="signals-connectors-action" onClick={onLinkConnectors}>
+            Link more connectors →
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="signals-screenshot-page">
+      <div className="signals-empty-panel">
+        <div>
+          <span>No generated signals yet</span>
+          <h3>Signals will appear after the company profile is complete</h3>
+          <p>
+            Fuel needs the profile and benchmark context before it can generate a detailed signal timeline. You can still
+            log a signal manually at any time.
+          </p>
+        </div>
+      </div>
+      <div className="signals-secondary-actions">
+        <button className="signals-log-action">+ Log signal</button>
+      </div>
+    </section>
+  );
+}
+
+function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void; onSubmitBenchmark: () => void }) {
+  const [stage, setStage] = useState("profile");
+  const [benchmarkStep, setBenchmarkStep] = useState(0);
+  const benchmarkSteps = [
+    {
+      title: "Revenue + retention",
+      subtitle: "The headline number every benchmark band keys off. ARR in USD, growth + retention in %.",
+      fields: ["ARR (annualized)", "ARR growth, YoY", "Net revenue retention", "Logo retention (annual)"],
+    },
+    {
+      title: "Capital efficiency",
+      subtitle: "Burn, runway, gross margin — how much fuel you have and how efficiently it converts.",
+      fields: ["Monthly burn (net)", "Cash on hand", "Gross margin"],
+    },
+    {
+      title: "Team + customers",
+      subtitle: "Size of the org and your paying-customer count.",
+      fields: ["Headcount (FTEs)", "Paying customers"],
+    },
+    {
+      title: "Anything worth flagging?",
+      subtitle: "Optional context that helps Fuel interpret the numbers.",
+      fields: ["Notable customers", "Current challenges"],
+      textarea: true,
+    },
+  ];
+  const currentBenchmark = benchmarkSteps[benchmarkStep];
+  const businessModels = ["SaaS / Software product", "Services / Consultancy", "Investment firm", "Operating + investment firm", "Other"];
+
+  if (stage === "profile") {
+    return (
+      <section className="finish-profile-shell">
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Signals</button>
+        <div className="finish-profile-card">
+          <span>Profile ready</span>
+          <h2>Looks like you're from Patriot Pay.</h2>
+          <p>We pieced together a quick profile from your homepage. Confirm what looks right and we'll set up your workspace.</p>
+
+          <label>
+            <em>Company</em>
+            <input defaultValue="Patriot Pay" />
+          </label>
+          <label>
+            <em>What they do</em>
+            <textarea defaultValue="Healthcare payments company helping practices modernize patient billing, collections, and revenue operations." />
+          </label>
+          <div className="wizard-section-label">Business model</div>
+          <div className="business-model-grid">
+            {businessModels.map(model => (
+              <button className={model === "Operating + investment firm" ? "active" : ""} key={model}>
+                <strong>{model}</strong>
+                <small>{model === "Operating + investment firm" ? "Both operating revenue and portfolio / investments." : "Fuel will tailor benchmarks and signals to this model."}</small>
+              </button>
+            ))}
+          </div>
+          <div className="profile-field-grid">
+            <label><em>Industry</em><input defaultValue="Healthcare payments" /></label>
+            <label><em>Founded</em><input placeholder="2021" /></label>
+            <label><em>City</em><input defaultValue="Boston" /></label>
+            <label><em>State / region</em><input defaultValue="MA" /></label>
+            <label><em>Country</em><input defaultValue="United States" /></label>
+            <label><em>Website</em><input defaultValue="https://patriotpay.com" /></label>
+          </div>
+          <label>
+            <em>LinkedIn</em>
+            <input placeholder="https://www.linkedin.com/company/patriotpay" />
+          </label>
+          <div className="verified-domain-note">You'll claim patriotpay.com as your verified company domain.</div>
+          <button className="wizard-primary" onClick={() => setStage("benchmark")}>Claim this company</button>
+        </div>
+
+        <aside className="agent-worklog-card">
+          <span>Agent worklog</span>
+          <p>Everything Fuel read to build this profile.</p>
+          {["Scanned homepage", "Detected company category", "Reading details into a profile", "Identified peer cohort"].map(item => (
+            <div className="agent-worklog-row" key={item}><i />{item}</div>
+          ))}
+        </aside>
+      </section>
+    );
+  }
+
+  if (stage === "review") {
+    return (
+      <section className="benchmark-wizard-shell">
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Signals</button>
+        <WizardRail activeStep={4} />
+        <div className="benchmark-card">
+          <span>Step 5 of 5 · Review</span>
+          <h2>Review and submit your benchmark.</h2>
+          <p>Submitting locks these numbers in for Patriot Pay · 2026-Q2 and contributes them to the verified cohort dataset.</p>
+          {["Revenue + retention", "Capital efficiency", "Team + customers", "Anything worth flagging"].map(group => (
+            <div className="benchmark-review-group" key={group}>
+              <strong>{group}</strong>
+              <div><span>Key numbers</span><em>You edited</em></div>
+              <div><span>Context</span><em>Needs your review</em></div>
+            </div>
+          ))}
+          <div className="benchmark-actions">
+            <button className="wizard-primary" onClick={() => setStage("results")}>Submit benchmark</button>
+            <button className="wizard-link" onClick={() => setStage("benchmark")}>Back to edit</button>
+          </div>
+        </div>
+        <BenchmarkGuide verifiedCount="9 of 11 fields verified" />
+      </section>
+    );
+  }
+
+  if (stage === "results") {
+    const journeyStages = [
+      { stage: "Stage 1", title: "Idea", detail: "Problem identified", done: true },
+      { stage: "Stage 2", title: "Pre-Product", detail: "Building MVP", active: true },
+      { stage: "Stage 3", title: "Pre-Revenue", detail: "MVP live · first users" },
+      { stage: "Stage 4", title: "Early Revenue", detail: "Paying customers" },
+      { stage: "Stage 5", title: "Product-Market Fit", detail: "Repeatable growth" },
+      { stage: "Stage 6", title: "Scaling", detail: "Rapid expansion" },
+      { stage: "Stage 7", title: "Market Leader", detail: "Category dominance" },
+    ];
+    const kpiGroups = [
+      {
+        group: "GTM",
+        sub: "Revenue + retention",
+        rows: [
+          { label: "ARR", values: "p25 $150K · p50 $500K · p75 $1.2M · p90 $2.5M", start: 6, end: 48, marker: 20 },
+          { label: "ARR growth, YoY", values: "p25 120% · p50 200% · p75 350% · p90 600%", start: 20, end: 58, marker: 34 },
+          { label: "Net revenue retention", values: "p25 95% · p50 108% · p75 125% · p90 145%", start: 66, end: 84, marker: 75 },
+        ],
+      },
+      {
+        group: "R&D",
+        sub: "Engineering + product",
+        rows: [
+          { label: "Headcount", values: "p25 6 · p50 12 · p75 22 · p90 40", start: 15, end: 55, marker: 30 },
+          { label: "Product maturity", values: "MVP build active · profile context ready", start: 18, end: 62, marker: 42 },
+        ],
+      },
+      {
+        group: "G&A",
+        sub: "Capital + efficiency",
+        rows: [
+          { label: "Cash on hand", values: "p25 $500K · p50 $1.5M · p75 $3.0M · p90 $6.0M", start: 22, end: 50, marker: 31 },
+          { label: "Monthly burn", values: "p25 $40K · p50 $80K · p75 $180K · p90 $350K", start: 12, end: 52, marker: 29 },
+          { label: "Gross margin", values: "p25 55% · p50 72% · p75 82% · p90 88%", start: 64, end: 92, marker: 73 },
+        ],
+      },
+    ];
+
+    return (
+      <section className="benchmark-wizard-shell generated-benchmark-shell">
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Signals</button>
+        <div className="generated-benchmark-card">
+          <div className="generated-stage-card">
+            <span>Your startup journey</span>
+            <div className="generated-stage-head">
+              <h2>Currently at <b>Pre-Product.</b></h2>
+              <em>AI estimate · from profile signal</em>
+            </div>
+            <div className="generated-stage-grid">
+              {journeyStages.map(item => (
+                <div className={`${item.active ? "active" : ""} ${item.done ? "done" : ""}`} key={item.stage}>
+                  {item.done ? <i>✓</i> : null}
+                  <span>{item.stage}</span>
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                </div>
+              ))}
+            </div>
+            <p className="generated-helper">We inferred this from your confirmed profile and benchmark inputs.</p>
+          </div>
+
+          <div className="generated-kpi-card">
+            <div className="generated-kpi-head">
+              <div>
+                <span>KPI snapshot</span>
+                <h2>How your cohort performs across R&D, GTM, and G&A.</h2>
+              </div>
+              <button onClick={() => setStage("benchmark")} aria-label="Edit benchmark numbers">✎</button>
+            </div>
+            <div className="generated-cohort-pill">Cohort · b2b saas · seed · US · n=147</div>
+            <p className="generated-helper">Cohort distribution shown below. Fuel uses this benchmark to generate stronger signals.</p>
+            <div className="generated-kpi-list">
+              {kpiGroups.map(group => (
+                <div className="generated-kpi-group" key={group.group}>
+                  <div>
+                    <strong>{group.group}</strong>
+                    <small>{group.sub}</small>
+                  </div>
+                  <div className="generated-kpi-rows">
+                    {group.rows.map(row => (
+                      <div className="generated-kpi-row" key={row.label}>
+                        <div className="generated-kpi-row-head">
+                          <span>{row.label}</span>
+                          <em>{row.values}</em>
+                        </div>
+                        <div className="generated-kpi-bar">
+                          <b style={{ left: `${row.start}%`, width: `${Math.max(4, row.end - row.start)}%` }} />
+                          <i style={{ left: `${row.marker}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="generated-benchmark-note">
+            <strong>Your benchmark is now ready.</strong> Fuel can use these signals to recommend playbooks and identify
+            the highest-leverage initiatives for your next stage.
+          </div>
+          <div className="benchmark-actions">
+            <button className="wizard-primary" onClick={onSubmitBenchmark}>Generate signals</button>
+            <button className="wizard-link" onClick={() => setStage("benchmark")}>Edit benchmark</button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="benchmark-wizard-shell">
+      <button className="profile-wizard-back" onClick={onBack}>← Back to Signals</button>
+      <WizardRail activeStep={benchmarkStep} />
+      <div className="benchmark-card">
+        <span>Step {benchmarkStep + 1} of 5 · KPI benchmark</span>
+        <h2>{currentBenchmark.title}</h2>
+        <p>{currentBenchmark.subtitle}</p>
+        <div className="benchmark-tailor-note">
+          Tailored for Patriot Pay. Confirm or add the numbers you know; untouched fields stay flagged for review.
+        </div>
+        {currentBenchmark.fields.map((field, index) => (
+          <label className="benchmark-field" key={field}>
+            <em>{field} <b>{index === 0 && benchmarkStep < 3 ? "Needs your input" : "Optional"}</b></em>
+            {currentBenchmark.textarea ? <textarea placeholder={field === "Notable customers" ? "e.g. landed Stripe and Notion in the last quarter" : "Anything that materially shapes the numbers above"} /> : <input placeholder={benchmarkStep < 2 ? "$" : "50"} />}
+          </label>
+        ))}
+        <div className="benchmark-actions">
+          {benchmarkStep > 0 ? <button className="wizard-link" onClick={() => setBenchmarkStep(step => step - 1)}>← Back</button> : null}
+          <button
+            className="wizard-primary"
+            onClick={() => benchmarkStep === benchmarkSteps.length - 1 ? setStage("review") : setBenchmarkStep(step => step + 1)}
+          >
+            {benchmarkStep === benchmarkSteps.length - 1 ? "Review →" : "Next →"}
+          </button>
+        </div>
+      </div>
+      <BenchmarkGuide verifiedCount={`${benchmarkStep * 2 + 1} of 11 fields verified`} />
+    </section>
+  );
+}
+
+function WizardRail({ activeStep }: { activeStep: number }) {
+  const steps = ["Revenue + retention", "Capital efficiency", "Team + customers", "Anything worth flagging?", "Review & submit"];
+  return (
+    <aside className="wizard-rail">
+      <span>Steps</span>
+      {steps.map((step, index) => (
+        <div className={index === activeStep ? "active" : index < activeStep ? "done" : ""} key={step}>
+          <i>{index < activeStep ? "✓" : index + 1}</i>
+          {step}
+        </div>
+      ))}
+    </aside>
+  );
+}
+
+function BenchmarkGuide({ verifiedCount }: { verifiedCount: string }) {
+  return (
+    <aside className="benchmark-guide">
+      <span>Fuel guidance</span>
+      <strong>{verifiedCount}</strong>
+      <p>Confirm each number Fuel can verify. Fresh submissions sharpen the bands for everyone.</p>
+      <div><b>Verified domain</b><em>Your input</em></div>
+    </aside>
+  );
+}
+
+function InitiativesPage() {
+  const [isCreating, setIsCreating] = useState(false);
+
+  return (
+    <section className="initiatives-page">
+      <div className="initiatives-head">
+        <div>
+          <h2>Initiatives</h2>
+          <p>Continuous and one-time work the operating team is running with this company.</p>
+        </div>
+        {isCreating ? (
+          <button className="initiatives-secondary-btn" onClick={() => setIsCreating(false)}>Cancel</button>
+        ) : (
+          <button className="initiatives-primary-btn" onClick={() => setIsCreating(true)}>+ New initiative</button>
+        )}
+      </div>
+
+      {isCreating ? (
+        <div className="initiative-form-card">
+          <div className="initiative-form-row">
+            <input placeholder="Initiative name (e.g. Enterprise GTM retool)" />
+            <select defaultValue="continuous">
+              <option value="continuous">Continuous</option>
+              <option value="one-time">One-time</option>
+            </select>
+            <select defaultValue="gtm">
+              <option value="gtm">GTM</option>
+              <option value="product">Product</option>
+              <option value="finance">Finance</option>
+              <option value="ops">Ops</option>
+            </select>
+          </div>
+          <textarea placeholder="What's the goal and why now? (optional)" />
+          <div className="initiative-form-row">
+            <input placeholder="Owner email (defaults to you)" />
+            <input placeholder="Due (e.g. 2026-q3)" />
+          </div>
+          <div className="initiative-form-actions">
+            <button className="initiatives-primary-btn">Create initiative</button>
+            <button className="initiatives-secondary-btn" onClick={() => setIsCreating(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className="initiatives-empty-card">
+          <strong>No initiatives yet</strong>
+          <p>
+            Start one manually with <span>+ New initiative</span>, or let Fuel generate suggested initiatives from Signals
+            once the company profile and context are complete.
+          </p>
+        </div>
+      )}
+
+      <div className="initiatives-signal-note">
+        <span>Generated from Signals</span>
+        <p>
+          When Fuel has enough profile, benchmark, and context data, signal patterns can become recommended initiatives
+          for GTM, product, finance, and operating priorities.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function OverviewPage({ activeTourTarget, profileComplete, onEditProfile }: { activeTourTarget?: string; profileComplete: boolean; onEditProfile: () => void }) {
+  const stats = [
+    { label: "Total funding", value: profileComplete ? "$4.2M" : "Needs input", hint: profileComplete ? "Seed stage" : "Finish profile", missing: !profileComplete },
+    { label: "Funding rounds", value: profileComplete ? "2" : "Needs review", hint: profileComplete ? "Latest: Seed" : "Funding data", missing: !profileComplete },
+    { label: "Last funding", value: profileComplete ? "Feb 2024" : "Add date", hint: profileComplete ? "York IE partner" : "Required", missing: !profileComplete },
+    { label: "Founded", value: "2021", hint: profileComplete ? "4 yrs active" : "From public source", missing: false },
+  ];
+  const details = [
+    { label: "Headquarters", value: profileComplete ? "Boston, MA, US" : "Needs review", missing: !profileComplete },
+    { label: "Employees", value: profileComplete ? "11-50" : "Add headcount", missing: !profileComplete },
+    { label: "Founded", value: "2021", missing: false },
+    { label: "LinkedIn", value: profileComplete ? "linkedin.com/company/patriotpay" : "Add LinkedIn URL", missing: !profileComplete },
+    { label: "Keywords", value: "patient billing · healthcare payments · revenue cycle · AI agent · SMB practices", missing: false },
+  ];
+  const rounds = [
+    { date: "Feb 2024", round: "Seed", amount: "$4.2M", investors: "York IE, Angels" },
+    { date: "Aug 2022", round: "Pre-seed", amount: "$750K", investors: "Founder network" },
+  ];
+  const similarCompanies = ["Cedar", "Inbox Health", "Rivet Health", "PayZen", "Finpay"];
+  const dataSources = [
+    ["Website", "public"],
+    ["LinkedIn", "company profile"],
+    ["Crunchbase", "funding"],
+    ["York IE", "customer context"],
+  ];
+
+  return (
+    <section className="overview-tour-page">
+      {!profileComplete ? (
+        <div className="overview-finish-profile-panel">
+          <div>
+            <span>Profile setup required</span>
+            <h3>Finish your profile to unlock Fuel recommendations</h3>
+            <p>
+              The more complete your company data is, the better Fuel can identify signals, recommend initiatives, suggest
+              the right playbooks, and generate useful operating context for Patriot Pay.
+            </p>
+          </div>
+          <button
+            className={`signals-finish-profile-action ${activeTourTarget === "finish-profile" ? "tour-highlight" : ""}`}
+            onClick={onEditProfile}
+          >
+            Finish profile
+          </button>
+        </div>
+      ) : null}
+
+      <div className={`overview-metric-grid ${activeTourTarget === "overview" ? "tour-highlight" : ""}`}>
+        {stats.map(stat => (
+          <div className={`overview-metric-card ${stat.missing ? "missing" : ""}`} key={stat.label}>
+            <span>{stat.label}</span>
+            <strong>{stat.value}</strong>
+            <em>{stat.hint}</em>
+          </div>
+        ))}
+      </div>
+
+      <div className="overview-layout-grid">
+        <div className="overview-main-column">
+          <div className={`overview-panel ${activeTourTarget === "overview" ? "tour-highlight" : ""}`}>
+            <div className="overview-panel-head">
+              <span>About</span>
+              <button onClick={onEditProfile}>Edit profile →</button>
+            </div>
+            <p>
+              Patriot Pay is a healthcare payments company helping medical practices modernize patient billing, collections,
+              and revenue operations through workflow automation and AI-assisted billing support.
+            </p>
+          </div>
+
+          <div className="overview-panel">
+            <span>Company Details</span>
+            <div className="overview-detail-list">
+              {details.map((item) => (
+                <div className={`overview-detail-row ${item.missing ? "missing" : ""}`} key={item.label}>
+                  <em>{item.label}</em>
+                  <strong>{item.value}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="overview-panel">
+            <div className="overview-panel-head">
+              <span>Funding Rounds</span>
+              <em>2 rounds</em>
+            </div>
+            <div className="overview-funding-table">
+              <div className="overview-funding-header">
+                <span>Date</span>
+                <span>Round</span>
+                <span>Amount</span>
+                <span>Investors</span>
+              </div>
+              {rounds.map(round => (
+                <div className="overview-funding-row" key={`${round.date}-${round.round}`}>
+                  <span>{round.date}</span>
+                  <span>{round.round}</span>
+                  <span>{round.amount}</span>
+                  <span>{round.investors}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className={`overview-panel ${activeTourTarget === "signals" ? "tour-highlight" : ""}`}>
+            <span>Recent Signals</span>
+            <p>
+              Detailed generated signals will appear after Patriot Pay finishes the profile and benchmark setup. Manual
+              signals can still be logged from the Signals tab.
+            </p>
+          </div>
+
+          <div className={`overview-panel ${activeTourTarget === "initiatives" ? "tour-highlight" : ""}`}>
+            <div className="overview-panel-head">
+              <span>Initiatives</span>
+              <button>Manage initiatives →</button>
+            </div>
+            <p>
+              Initiatives will be recommended from benchmark gaps, York IE project context, and generated signals once
+              setup is complete.
+            </p>
+          </div>
+        </div>
+
+        <aside className="overview-side-column">
+          <div className={`overview-panel ${activeTourTarget === "context" ? "tour-highlight" : ""}`}>
+            <span>Context</span>
+            <p>
+              No additional context sources connected yet. Add meeting notes, CRM activity, LinkedIn posts, or York IE
+              updates to make Fuel's signals more specific.
+            </p>
+          </div>
+
+          <div className="overview-panel">
+            <span>Similar Companies</span>
+            <div className="overview-company-list">
+              {similarCompanies.map(company => (
+                <div key={company}>{company}</div>
+              ))}
+            </div>
+          </div>
+
+          <div className="overview-panel">
+            <span>Data Sources</span>
+            <div className="overview-source-list">
+              {dataSources.map(([source, type]) => (
+                <div key={source}>
+                  <strong>{source}</strong>
+                  <em>{type}</em>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="overview-panel">
+            <span>Playbooks</span>
+            <p>
+              Playbooks are runbooks Fuel AI executes against the company using signal context and benchmarks. Pick one
+              from the catalog to produce an artifact you can act on, such as diligence, pricing reviews, audits, or
+              planning frameworks.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function GuidedTourOverlay({ step, total, title, text, onNext, onPrevious, onSkip }: {
+  step: number;
+  total: number;
+  title: string;
+  text: string;
+  onNext: () => void;
+  onPrevious: () => void;
+  onSkip: () => void;
+}) {
+  const [popoverStyle, setPopoverStyle] = useState({});
+
+  useEffect(() => {
+    function positionPopover() {
+      const highlighted = document.querySelector(".tour-highlight");
+      if (!highlighted) {
+        setPopoverStyle({});
+        return;
+      }
+
+      const rect = highlighted.getBoundingClientRect();
+      const popoverWidth = 306;
+      const pageMargin = 24;
+      const left = Math.min(
+        Math.max(rect.left, pageMargin),
+        window.innerWidth - popoverWidth - pageMargin
+      );
+
+      setPopoverStyle({
+        left,
+        right: "auto",
+        top: rect.bottom + 24,
+      });
+    }
+
+    positionPopover();
+    window.addEventListener("resize", positionPopover);
+    return () => window.removeEventListener("resize", positionPopover);
+  }, [step]);
+
+  return (
+    <div className="guided-tour-overlay">
+      <div className="guided-tour-backdrop" />
+      <div className="guided-tour-popover" style={popoverStyle}>
+        <div className="guided-tour-step-count">Step {step + 1} of {total}</div>
+        <h3>{title}</h3>
+        <p>{text}</p>
+        <div className="guided-tour-controls">
+          <button className="secondary" onClick={onSkip}>Skip</button>
+          <div>
+            <button className="secondary" onClick={onPrevious} disabled={step === 0}>Previous</button>
+            <button onClick={onNext}>{step === total - 1 ? "Finish" : "Next"}</button>
           </div>
         </div>
       </div>
@@ -2071,13 +3284,433 @@ function TrackRow({ track, index, isOpen, onToggle, onOpenDetail, barsAnimated, 
   );
 }
 
-export default function PatriotPayJourney() {
+function SignalsLoadingPage() {
+  return (
+    <section className="signals-loading-page">
+      <div className="signals-loading-card">
+        <div className="signals-loading-orb">
+          <span />
+          <span />
+          <span />
+        </div>
+        <span>Generating signals</span>
+        <h2>Generating your signals based on your profile</h2>
+        <p>
+          Fuel is combining your company profile, York account context, and benchmark cohort to prepare the first signal
+          view for patriotpay.
+        </p>
+        <div className="signals-loading-steps">
+          <div><i />Reading company profile</div>
+          <div><i />Linking York account context</div>
+          <div><i />Preparing benchmark and signal timeline</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: () => void; onStartTour: () => void }) {
+  const [connectorsOpen, setConnectorsOpen] = useState(false);
+  const [showConnectorIntro, setShowConnectorIntro] = useState(true);
+  const [selectedConnector, setSelectedConnector] = useState(null);
+  const [includedTooltip, setIncludedTooltip] = useState(null);
+  const contextConnectors = [
+    {
+      id: "granola",
+      name: "Granola",
+      type: "Meeting notes",
+      category: "Meetings",
+      icon: "G",
+      color: "#ECD67F",
+      status: "Connected",
+      description: "Pull structured meeting notes and decisions into Fuel so customer asks, blockers, and investor feedback become signal context.",
+      sources: ["transcripts", "decisions", "follow-ups"],
+      tone: "connected",
+    },
+    {
+      id: "google-meet",
+      name: "Google Meet",
+      type: "Meetings",
+      category: "Meetings",
+      icon: "GM",
+      color: "#00AC47",
+      includedLabel: "Included in context package",
+      status: "Connect",
+      description: "Bring sales calls, roadmap reviews, and weekly check-ins into the context feed for richer GTM and product signals.",
+      sources: ["calendar", "recordings", "attendees"],
+    },
+    {
+      id: "zoom",
+      name: "Zoom",
+      type: "Meetings",
+      category: "Meetings",
+      icon: "Z",
+      color: "#2D8CFF",
+      includedLabel: "Included in context package",
+      status: "Connect",
+      description: "Use Zoom conversations to identify repeated objections, expansion signals, stakeholder requests, and team commitments.",
+      sources: ["recordings", "transcripts", "topics"],
+    },
+    {
+      id: "linkedin",
+      name: "LinkedIn",
+      type: "Social signal",
+      category: "Social",
+      icon: "in",
+      color: "#0A66C2",
+      includedLabel: "Included in context package",
+      status: "Connect",
+      description: "Track founder posts, company announcements, hiring signals, investor engagement, and market narrative shifts.",
+      sources: ["posts", "engagement", "company updates"],
+    },
+    {
+      id: "hubspot",
+      name: "HubSpot",
+      type: "CRM activity",
+      category: "CRM",
+      icon: "H",
+      color: "#FF7A59",
+      status: "Connected",
+      description: "Sync emails, notes, lifecycle movement, and deal activity to give Fuel context behind growth and retention signals.",
+      sources: ["emails", "notes", "deals"],
+      tone: "connected",
+    },
+    {
+      id: "salesforce-context",
+      name: "Salesforce",
+      type: "CRM activity",
+      category: "CRM",
+      icon: "SF",
+      color: "#00A1E0",
+      includedLabel: "Included in context package",
+      status: "Connect",
+      description: "Bring account notes, opportunity movement, and activity history into the context layer behind revenue signals.",
+      sources: ["opportunities", "activities", "accounts"],
+    },
+    {
+      id: "gmail",
+      name: "Gmail",
+      type: "Email context",
+      category: "Email",
+      icon: "Gm",
+      color: "#EA4335",
+      includedLabel: "Included in context package",
+      status: "Connect",
+      description: "Use customer and investor email threads to understand commitments, asks, blockers, and follow-up signals.",
+      sources: ["threads", "contacts", "follow-ups"],
+    },
+    {
+      id: "outlook",
+      name: "Outlook",
+      type: "Email context",
+      category: "Email",
+      icon: "O",
+      color: "#0078D4",
+      includedLabel: "Included in context package",
+      status: "Connect",
+      description: "Connect Microsoft email and calendar context to enrich meetings, stakeholder activity, and GTM signals.",
+      sources: ["email", "calendar", "attendees"],
+    },
+  ];
+  const connectorFields = {
+    "google-meet": [
+      { label: "Google Workspace domain", placeholder: "patriotpay.com" },
+      { label: "Admin email", placeholder: "admin@patriotpay.com" },
+      { label: "OAuth client ID", placeholder: "Paste OAuth client ID" },
+      { label: "OAuth client secret", placeholder: "Paste OAuth client secret", secret: true },
+    ],
+    zoom: [
+      { label: "Zoom account ID", placeholder: "Account ID" },
+      { label: "Client ID", placeholder: "Server-to-server OAuth client ID" },
+      { label: "Client secret", placeholder: "Client secret", secret: true },
+      { label: "Webhook secret token", placeholder: "Webhook secret token", secret: true },
+    ],
+    linkedin: [
+      { label: "Company page URL", placeholder: "https://www.linkedin.com/company/patriotpay" },
+      { label: "LinkedIn organization ID", placeholder: "Organization ID" },
+      { label: "Access token", placeholder: "OAuth access token", secret: true },
+      { label: "Refresh token", placeholder: "OAuth refresh token", secret: true },
+    ],
+    granola: [
+      { label: "Workspace email", placeholder: "team@patriotpay.com" },
+      { label: "API key", placeholder: "Granola API key", secret: true },
+    ],
+    hubspot: [
+      { label: "HubSpot portal ID", placeholder: "Portal ID" },
+      { label: "Private app access token", placeholder: "Access token", secret: true },
+    ],
+    "salesforce-context": [
+      { label: "Salesforce instance URL", placeholder: "https://yourcompany.my.salesforce.com" },
+      { label: "Client ID", placeholder: "Connected app client ID" },
+      { label: "Client secret", placeholder: "Connected app client secret", secret: true },
+      { label: "Refresh token", placeholder: "OAuth refresh token", secret: true },
+    ],
+    gmail: [
+      { label: "Google Workspace domain", placeholder: "patriotpay.com" },
+      { label: "Admin email", placeholder: "admin@patriotpay.com" },
+      { label: "OAuth client ID", placeholder: "Paste OAuth client ID" },
+      { label: "OAuth client secret", placeholder: "Paste OAuth client secret", secret: true },
+    ],
+    outlook: [
+      { label: "Microsoft tenant ID", placeholder: "Tenant ID" },
+      { label: "Client ID", placeholder: "Azure app client ID" },
+      { label: "Client secret", placeholder: "Azure app client secret", secret: true },
+      { label: "Mailbox scope", placeholder: "sales@patriotpay.com or domain-wide" },
+    ],
+  };
+  const recommendedConnectors = contextConnectors.filter(connector => connector.tone !== "connected");
+  const activeConnector = selectedConnector || recommendedConnectors[0];
+  const feedItems = [
+    {
+      title: "You're invited: York IE Boston Tech Week Events",
+      source: "hubspot_activity",
+      system: "hubspot",
+      meta: "greg@york.ie - anna.turvoll@patriotpay.com",
+      age: "14d ago",
+      signals: 0,
+    },
+    {
+      title: "Innovius Capital // patriotpay",
+      source: "hubspot_activity",
+      system: "hubspot",
+      meta: "tom@york.ie - ethan@innoviuscapital.com; anna@patriotpay.com",
+      age: "15d ago",
+      signals: 1,
+    },
+    {
+      title: "AI won't fix your broken funnel (but this will)",
+      source: "hubspot_activity",
+      system: "hubspot",
+      meta: "bryan@york.ie - michael.farrand@patriotpay.com",
+      age: "20d ago",
+      signals: 0,
+    },
+    {
+      title: "patriotpay and York IE",
+      source: "meeting_transcript",
+      system: "granola",
+      meta: "mike@york.ie",
+      age: "29d ago",
+      signals: 6,
+    },
+  ];
+
+  return (
+    <section className="context-feed-page">
+      <div className="context-feed-action-bar">
+        <button>+ Add private note</button>
+      </div>
+
+      {showConnectorIntro ? (
+      <div className="context-connectors-panel">
+        <div className="context-connectors-head">
+          <div>
+            <span>Context sources</span>
+            <h3>Unlock richer signals with meeting, social, and CRM context</h3>
+            <p>
+              Fuel can generate better signals when it understands the conversations behind your metrics. Connect the systems
+              where customer asks, investor feedback, objections, and GTM activity already live.
+            </p>
+          </div>
+          <div className="context-connectors-actions">
+            <button className="secondary" onClick={() => setShowConnectorIntro(false)}>Set up later</button>
+            <button className="secondary" onClick={onOpenConnectors}>View all connectors</button>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          {recommendedConnectors.map(connector => (
+            <button
+              key={connector.name}
+              style={{
+                display: "flex", alignItems: "flex-start", gap: 10,
+                padding: "14px 13px",
+                background: "#172632",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 11, cursor: "pointer",
+                textAlign: "left", transition: "all 0.15s",
+                minHeight: 142,
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                background: connector.color + "22",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 800, color: connector.color,
+              }}>
+                {connector.icon}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#8FA99A", marginBottom: 6 }}>
+                  {connector.name}
+                </div>
+                <div style={{ fontSize: 12.5, color: "#8FA99A", lineHeight: 1.45, marginBottom: 10 }}>
+                  {connector.description}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  <span
+                    className={`included-badge-tooltip ${includedTooltip === connector.id ? "show" : ""}`}
+                    onMouseEnter={() => setIncludedTooltip(connector.id)}
+                    onMouseLeave={() => setIncludedTooltip(null)}
+                    style={{ fontSize: 11.5, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}
+                  >
+                    Included
+                    <span className="included-tooltip-bubble">Included for York IE customers</span>
+                  </span>
+                  <span style={{ fontSize: 11.5, color: "#8FA99A", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
+                    {connector.type}
+                  </span>
+                </div>
+              </div>
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label={`Configure ${connector.name}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setConnectorsOpen(true);
+                  setSelectedConnector(connector);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setConnectorsOpen(true);
+                    setSelectedConnector(connector);
+                  }
+                }}
+                style={{
+                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                background: "transparent",
+                border: "1px solid rgba(255,255,255,0.12)",
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "#3DD68C", fontSize: 13, fontWeight: 800,
+              }}>
+                +
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+      ) : null}
+
+      {connectorsOpen ? (
+        <>
+          <button
+            className="context-sidebar-scrim"
+            aria-label="Close connector setup"
+            onClick={() => setConnectorsOpen(false)}
+          />
+          <div className="context-connector-sidebar">
+            <div className="context-sidebar-head">
+              <div>
+                <span>{activeConnector?.type}</span>
+                <strong>Connect {activeConnector?.name}</strong>
+              </div>
+              <button onClick={() => setConnectorsOpen(false)}>×</button>
+            </div>
+            <div className="context-setup-form">
+              <div className="context-drawer-connector-head">
+                <div style={{ background: activeConnector?.color + "22", color: activeConnector?.color }}>
+                  {activeConnector?.icon}
+                </div>
+                <p>{activeConnector?.description}</p>
+              </div>
+              {(connectorFields[activeConnector?.id] || []).map(field => (
+                <label key={field.label}>
+                  <span>{field.label}</span>
+                  <input type={field.secret ? "password" : "text"} placeholder={field.placeholder} />
+                </label>
+              ))}
+              <div className="context-form-actions">
+                <button>Save connection</button>
+                <button className="secondary" onClick={() => setConnectorsOpen(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {!showConnectorIntro ? (
+        <>
+          <div className="context-feed-filters">
+            <button className="active">All <span>4</span></button>
+            <button>Private notes <span>4</span></button>
+          </div>
+
+          <div className="context-feed-list">
+            {feedItems.map(item => (
+              <div className="context-feed-row" key={item.title}>
+                <div className="context-feed-main">
+                  <strong>{item.title}</strong>
+                  <div className="context-feed-meta">
+                    <span className="context-feed-source">{item.source}</span>
+                    <span className={`context-feed-system ${item.system}`}>{item.system}</span>
+                    <span>{item.meta}</span>
+                    <span>{item.age}</span>
+                    {item.signals > 0 ? <em>+ {item.signals} signal{item.signals > 1 ? "s" : ""}</em> : null}
+                  </div>
+                </div>
+                <button className="context-feed-remove" aria-label={`Remove ${item.title}`}>x</button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+export default function PatriotPayJourney({ initialPage = "journey" }: { initialPage?: string }) {
+  const startsWithTour = initialPage === "guided-tour";
+  const startsWithTourAfterSignals = initialPage === "signals-loading-tour";
   const [openTracks, setOpenTracks] = useState(() => new Set());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
-  const [activePage, setActivePage] = useState("journey");
-  const [developmentIntegrations, setDevelopmentIntegrations] = useState(true);
+  const [activePage, setActivePage] = useState(startsWithTour ? "overview" : startsWithTourAfterSignals ? "signals-loading" : initialPage);
+  const [tourOpen, setTourOpen] = useState(startsWithTour);
+  const [tourStep, setTourStep] = useState(0);
+  const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
+  const [profileComplete, setProfileComplete] = useState(initialPage === "signals-loading" || startsWithTourAfterSignals);
+  const isProfileWizard = activePage === "profile-wizard";
+  const tourSteps = [
+    {
+      page: "overview",
+      target: "overview",
+      title: "Overview",
+      text: "This is the company home base. Use it to review the company snapshot, key details, funding history, related companies, and data sources Fuel has on file.",
+    },
+    {
+      page: "context-feed",
+      target: "context",
+      title: "Context Feed",
+      text: "The Context Feed tab shows the background Fuel can use to understand the company: notes, meetings, CRM activity, LinkedIn updates, and York IE project context.",
+    },
+    {
+      page: "signals",
+      target: "signals",
+      title: "Signals",
+      text: "The Signals tab is where Fuel surfaces important changes, risks, opportunities, and next-step prompts once the profile and context are ready.",
+    },
+    {
+      page: "initiatives",
+      target: "initiatives",
+      title: "Initiatives",
+      text: "The Initiatives tab turns insights into action. This is where recommended work, priorities, and growth projects can be managed.",
+    },
+    {
+      page: "overview",
+      target: "playbooks",
+      title: "Playbooks",
+      text: "The Playbooks button opens runbooks Fuel AI can execute against the company using signal context and benchmarks, producing artifacts like diligence, pricing reviews, audits, and planning frameworks.",
+    },
+    {
+      page: "overview",
+      target: "finish-profile",
+      title: "Finish profile",
+      text: "Before Fuel can generate detailed signals, complete the company profile and add the required context. You can still log a signal manually at any time.",
+    },
+  ];
 
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
@@ -2085,24 +3718,6 @@ export default function PatriotPayJourney() {
   }, []);
 
   const displayTracks = useMemo(() => tracks.map((track) => {
-    if (track.id === "rd" && !developmentIntegrations) {
-      return {
-        ...track,
-        health: "grey",
-        healthLabel: "Integration Needed",
-        fill: 0,
-        stat: { label: "Status", val: "Connect tools" },
-        team: [],
-        milestones: [],
-        emptyText: "Connect integrations to unlock Development progress",
-        chips: [
-          { label: "Launchpad available", color: "#3DD68C" },
-          { label: "Pulse available", color: "#2BB8A0" },
-        { label: "Analysis + playbooks", color: "#D4924A" },
-        ],
-      };
-    }
-
     if (track.id === "gtm" && !marketingIntegrations) {
       return {
         ...track,
@@ -2122,7 +3737,7 @@ export default function PatriotPayJourney() {
     }
 
     return track;
-  }), [developmentIntegrations, marketingIntegrations]);
+  }), [marketingIntegrations]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -2133,6 +3748,25 @@ export default function PatriotPayJourney() {
       window.clearTimeout(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (activePage !== "signals-loading") return;
+
+    const timer = window.setTimeout(() => {
+      if (startsWithTourAfterSignals) {
+        setTourStep(0);
+        setTourOpen(true);
+        setActivePage(tourSteps[0].page);
+        return;
+      }
+
+      setActivePage("signals");
+    }, 2200);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activePage]);
 
   useEffect(() => {
     function closeDropdown(event) {
@@ -2161,15 +3795,42 @@ export default function PatriotPayJourney() {
   }
 
   function openDetailPage(page) {
-    if (page === "development" && !developmentIntegrations) {
-      setActivePage("development-setup");
-      return;
-    }
     if (page === "marketing" && !marketingIntegrations) {
       setActivePage("marketing-setup");
       return;
     }
     setActivePage(page);
+  }
+
+  function setTourIndex(index) {
+    const nextIndex = Math.max(0, Math.min(index, tourSteps.length - 1));
+    setTourStep(nextIndex);
+    setActivePage(tourSteps[nextIndex].page);
+  }
+
+  function startTour() {
+    setTourOpen(true);
+    setTourIndex(0);
+  }
+
+  function closeTour() {
+    setTourOpen(false);
+    if (startsWithTour) {
+      setActivePage("overview");
+    }
+  }
+
+  function nextTourStep() {
+    const lastTourStep = profileComplete ? tourSteps.length - 2 : tourSteps.length - 1;
+    if (tourStep >= lastTourStep) {
+      closeTour();
+      return;
+    }
+    setTourIndex(tourStep + 1);
+  }
+
+  function previousTourStep() {
+    setTourIndex(tourStep - 1);
   }
 
 
@@ -2226,11 +3887,11 @@ export default function PatriotPayJourney() {
         </div>
         <div className="nav-section">
           <div className="nav-label">Recently viewed</div>
-          <div className="recent-item active" style={{ cursor: "pointer" }} onClick={() => setActivePage("journey")}>
+            <div className="recent-item active" style={{ cursor: "pointer" }} onClick={() => setActivePage("journey")}>
             <div className="recent-favicon" style={{ background: "#1E4D8C", color: "#fff" }}>
               P
             </div>
-            Patriot Pay
+            patriotpay
           </div>
           <div className="recent-item">
             <div className="recent-favicon" style={{ background: "#5B3A8C", color: "#fff" }}>
@@ -2289,13 +3950,13 @@ export default function PatriotPayJourney() {
           </div>
         </div>
 
-        <div className="company-header">
+        {!isProfileWizard ? <div className="company-header">
           <div className="company-card">
             <div className="company-logo">P</div>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "5px" }}>
-                <div className="company-name">Patriot Pay</div>
-                <span className="badge">York IE partner</span>
+                <div className="company-name">patriotpay</div>
+                <span className="badge">patriotpay.com</span>
               </div>
               <div className="company-meta">
                 <span>Engaged Feb 2024</span>
@@ -2306,27 +3967,30 @@ export default function PatriotPayJourney() {
               </div>
             </div>
             <div className="header-actions">
-              <button className="header-btn">Playbooks ▾</button>
+              <button className={`header-btn ${tourOpen && tourSteps[tourStep].target === "playbooks" ? "tour-highlight" : ""}`}>Playbooks ▾</button>
               <button className="header-btn primary">≡ Generate brief</button>
             </div>
           </div>
-        </div>
+        </div> : null}
 
-        <div className="tabs">
-          <div className="tab">Overview</div>
-          <div className="tab">Signals</div>
-          <div className="tab">Context Feed</div>
-          <div className="tab">
+        {!isProfileWizard ? <div className="tabs">
+          <div className={`tab ${activePage === "overview" ? "active" : ""}`} onClick={() => setActivePage("overview")}>Overview</div>
+          <div className={`tab ${activePage === "signals" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} onClick={() => setActivePage("signals")}>Signals</div>
+          <div className={`tab ${activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "context" ? "tour-highlight" : ""}`} onClick={() => setActivePage("context-feed")}>Context Feed</div>
+          <div
+            className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
+            onClick={() => setActivePage("initiatives")}
+          >
             Initiatives <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>2</span>
           </div>
           <div className="tab">
             Research <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>1</span>
           </div>
           <div className="tab">Data Room</div>
-          <div className="tab active">Your Journey</div>
-        </div>
+          <div className={`tab ${activePage === "journey" ? "active" : ""}`} onClick={() => setActivePage("journey")}>Current Updates</div>
+        </div> : null}
 
-        <div className="content">
+        <div className={`content ${isProfileWizard ? "profile-wizard-content" : ""}`}>
           {activePage === "development-setup" ? (
             <IntegrationSetupPage
               onBack={() => setActivePage("journey")}
@@ -2347,15 +4011,45 @@ export default function PatriotPayJourney() {
               }}
             />
           ) : activePage === "development" ? (
-            <DevelopmentDetailPage onBack={() => setActivePage("journey")} />
+            <DevelopmentDetailPage
+              onBack={() => setActivePage("journey")}
+            />
           ) : activePage === "marketing" ? (
             <MarketingDetailPage onBack={() => setActivePage("journey")} />
+          ) : activePage === "signals-loading" ? (
+            <SignalsLoadingPage />
+          ) : activePage === "signals" ? (
+            <SignalsPage
+              isProfileComplete={profileComplete}
+              onLinkConnectors={() => setActivePage("context-feed")}
+            />
+          ) : activePage === "profile-wizard" ? (
+            <FinishProfileWizard
+              onBack={() => setActivePage("signals")}
+              onSubmitBenchmark={() => {
+                setProfileComplete(true);
+                setActivePage("signals-loading");
+              }}
+            />
+          ) : activePage === "overview" ? (
+            <OverviewPage
+              activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
+              profileComplete={profileComplete}
+              onEditProfile={() => setActivePage("profile-wizard")}
+            />
+          ) : activePage === "context-feed" ? (
+            <ContextFeedPage
+              onOpenConnectors={() => setActivePage("connectors")}
+              onStartTour={startTour}
+            />
+          ) : activePage === "initiatives" ? (
+            <InitiativesPage />
           ) : (
             <>
               <div className="journey-header">
                 <div>
-                  <div className="journey-title">Your York Engagement</div>
-                  <div className="journey-sub">Health and milestones across active service tracks · hover bars to explore milestones</div>
+                  <div className="journey-title">Current Updates</div>
+                  <div className="journey-sub">Health and milestones across active service tracks · click milestones for details</div>
                 </div>
                 <div className="journey-stage-card">
                   <div className="journey-stage-mini">
@@ -2398,6 +4092,17 @@ export default function PatriotPayJourney() {
         </div>
         </>)}
       </div>
+      {tourOpen ? (
+        <GuidedTourOverlay
+          step={tourStep}
+          total={profileComplete ? tourSteps.length - 1 : tourSteps.length}
+          title={tourSteps[tourStep].title}
+          text={tourSteps[tourStep].text}
+          onNext={nextTourStep}
+          onPrevious={previousTourStep}
+          onSkip={closeTour}
+        />
+      ) : null}
     </div>
   );
 }

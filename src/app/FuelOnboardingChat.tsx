@@ -3,8 +3,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Step =
-  | "email" | "york-checking" | "company-name" | "team-size"
-  | "crunchbase-fetching" | "crunchbase-confirm" | "benchmark"
+  | "company-confirm" | "company-name"
+  | "profile-description" | "profile-more-details" | "business-model" | "domain-claim"
+  | "crunchbase-fetching" | "crunchbase-missing" | "crunchbase-url" | "crunchbase-confirm" | "benchmark"
   | "fuel-value" | "york-services" | "york-link"
   | "integrations-intro" | "integrations-select"
   | "platform-overview" | "done";
@@ -14,7 +15,9 @@ interface ChatMessage {
   role: "ai" | "user";
   text: string;
   chips?: { label: string; value: string; icon?: string }[];
-  cardType?: "crunchbase" | "benchmark" | "value-prop" | "york-services" | "why-integrate" | "york-cta" | "integration-select" | "complete";
+  cardType?: "crunchbase" | "profile-form" | "business-model" | "benchmark" | "value-prop" | "york-services" | "york-projects" | "why-integrate" | "york-cta" | "integration-select" | "complete";
+  cardMode?: "view" | "edit";
+  cardLabel?: string;
   disabled?: boolean;
 }
 
@@ -22,8 +25,10 @@ interface UserData {
   email: string;
   isYorkClient: boolean;
   companyName: string;
-  teamSize: string;
   crunchbaseData: CrunchbaseData | null;
+  businessModel: string;
+  profileNotes: string;
+  verifiedDomain: string;
   selectedIntegrations: string[];
 }
 
@@ -39,16 +44,63 @@ interface CrunchbaseData {
   website: string;
 }
 
+interface ProfileFormResult {
+  companyName: string;
+  description: string;
+  businessModel: string;
+  industry: string;
+  founded: string;
+  city: string;
+  region: string;
+  country: string;
+  website: string;
+  linkedin: string;
+  fundingRounds: FundingRound[];
+  notes: string;
+  domain: string;
+}
+
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const YORK_DOMAINS = ["patriotpay.com", "yorkiegrowth.io", "nexusai.io", "yorkportfolio.com"];
+const LOGGED_IN_EMAIL = "matt@patriotpay.com";
+const PERSONAL_EMAIL_DOMAINS = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"];
+const DOMAIN_COMPANY_OVERRIDES: Record<string, string> = {
+  patriotpay: "Patriot Pay",
+  yorkiegrowth: "York IE Growth",
+  nexusai: "Nexus AI",
+  yorkportfolio: "York Portfolio",
+};
 
 function checkIsYorkClient(email: string): boolean {
   const domain = email.split("@")[1]?.toLowerCase() ?? "";
   return YORK_DOMAINS.some(d => domain.includes(d.replace(".com", "").replace(".io", "")));
 }
 
-function mockCrunchbase(name: string): CrunchbaseData {
+function titleCaseCompany(value: string): string {
+  return value
+    .replace(/[-_.]+/g, " ")
+    .replace(/\b\w/g, char => char.toUpperCase())
+    .trim();
+}
+
+function inferCompanyNameFromEmail(email: string): string {
+  const domain = email.split("@")[1]?.toLowerCase() ?? "";
+  if (!domain || PERSONAL_EMAIL_DOMAINS.includes(domain)) return "";
+
+  const root = domain.split(".")[0] ?? "";
+  return DOMAIN_COMPANY_OVERRIDES[root] ?? titleCaseCompany(root);
+}
+
+function domainFromEmail(email: string): string {
+  return email.split("@")[1]?.toLowerCase() ?? "";
+}
+
+function mockCrunchbase(name: string): CrunchbaseData | null {
+  const normalized = name.trim().toLowerCase();
+  const knownCompanies = ["patriot pay", "york ie growth", "nexus ai", "york portfolio"];
+  if (!knownCompanies.includes(normalized)) return null;
+
   return {
     name,
     description: `${name} is a B2B SaaS company building modern payment infrastructure for growing SMBs and mid-market operators.`,
@@ -62,35 +114,76 @@ function mockCrunchbase(name: string): CrunchbaseData {
   };
 }
 
-const TEAM_SIZES = ["1–5", "6–15", "16–50", "51–200", "200+"];
+function starterFuelProfile(name: string): CrunchbaseData {
+  return {
+    name,
+    description: "",
+    stage: "Seed",
+    employees: "1–5",
+    founded: "",
+    location: "",
+    totalFunding: "",
+    category: "",
+    website: name.toLowerCase().replace(/\s+/g, "") + ".com",
+  };
+}
 
 const INTEGRATIONS = [
-  { id: "jira",       name: "Jira",             category: "Development", abbr: "JR", color: "#2684FF" },
-  { id: "linear",     name: "Linear",           category: "Development", abbr: "LN", color: "#5E6AD2" },
+  { id: "jira",       name: "Jira",             category: "Development", abbr: "JR", color: "#2684FF", premium: true, addOnPrice: 29 },
+  { id: "linear",     name: "Linear",           category: "Development", abbr: "LN", color: "#5E6AD2", premium: false, addOnPrice: 0 },
   { id: "launchpad",  name: "Launchpad",        category: "Development", abbr: "LP", color: "#3DD68C", york: true },
   { id: "pulse",      name: "Pulse",            category: "Development", abbr: "PL", color: "#3DD68C", york: true },
-  { id: "ga4",        name: "Google Analytics", category: "Marketing",   abbr: "GA", color: "#F9AB00" },
-  { id: "gads",       name: "Google Ads",       category: "Marketing",   abbr: "Gd", color: "#4285F4" },
-  { id: "semrush",    name: "Semrush",          category: "Marketing",   abbr: "SR", color: "#FF642D" },
-  { id: "linkedin",   name: "LinkedIn",         category: "Marketing",   abbr: "in", color: "#0A66C2" },
-  { id: "meta",       name: "Meta Ads",         category: "Marketing",   abbr: "Fb", color: "#1877F2" },
-  { id: "hubspot",    name: "HubSpot",          category: "RevOps",      abbr: "HS", color: "#FF7A59" },
-  { id: "salesforce", name: "Salesforce",       category: "RevOps",      abbr: "SF", color: "#00A1E0" },
-  { id: "quickbooks", name: "QuickBooks",       category: "FinOps",      abbr: "QB", color: "#2CA01C" },
-  { id: "stripe",     name: "Stripe",           category: "FinOps",      abbr: "St", color: "#635BFF" },
+  { id: "ga4",        name: "Google Analytics", category: "Marketing",   abbr: "GA", color: "#F9AB00", premium: false, addOnPrice: 0 },
+  { id: "gads",       name: "Google Ads",       category: "Marketing",   abbr: "Gd", color: "#4285F4", premium: true, addOnPrice: 59 },
+  { id: "semrush",    name: "Semrush",          category: "Marketing",   abbr: "SR", color: "#FF642D", premium: true, addOnPrice: 79 },
+  { id: "linkedin",   name: "LinkedIn",         category: "Marketing",   abbr: "in", color: "#0A66C2", premium: true, addOnPrice: 39 },
+  { id: "meta",       name: "Meta Ads",         category: "Marketing",   abbr: "Fb", color: "#1877F2", premium: true, addOnPrice: 39 },
+  { id: "hubspot",    name: "HubSpot",          category: "RevOps",      abbr: "HS", color: "#FF7A59", premium: false, addOnPrice: 0 },
+  { id: "salesforce", name: "Salesforce",       category: "RevOps",      abbr: "SF", color: "#00A1E0", premium: true, addOnPrice: 99 },
+  { id: "quickbooks", name: "QuickBooks",       category: "FinOps",      abbr: "QB", color: "#2CA01C", premium: true, addOnPrice: 49 },
+  { id: "stripe",     name: "Stripe",           category: "FinOps",      abbr: "St", color: "#635BFF", premium: false, addOnPrice: 0 },
+];
+
+const BUSINESS_MODEL_OPTIONS = [
+  {
+    id: "saas",
+    label: "SaaS / Software product",
+    desc: "Recurring software revenue with ARR, NRR, customer logos.",
+  },
+  {
+    id: "services",
+    label: "Services / Consultancy",
+    desc: "Hands-on services, agencies, consultancies, or revenue per engagement.",
+  },
+  {
+    id: "investment",
+    label: "Investment firm",
+    desc: "Fund or holding company with AUM, portfolio companies, and returns.",
+  },
+  {
+    id: "operating-investment",
+    label: "Operating + investment firm",
+    desc: "Both operating revenue and portfolio or investment activity.",
+  },
+  {
+    id: "other",
+    label: "Other",
+    desc: "Fuel will collect what matters for your model.",
+  },
 ];
 
 const PROGRESS_ITEMS = [
-  { id: "profile",      label: "Your company profile",       step: "crunchbase-confirm" },
+  { id: "profile",      label: "Your company profile",       step: "domain-claim" },
   { id: "benchmarks",   label: "Your growth benchmarks",     step: "benchmark" },
   { id: "tracks",       label: "Your Fuel journey tracks",   step: "fuel-value" },
-  { id: "integrations", label: "Your integrations",          step: "integrations-select" },
+  { id: "integrations", label: "Your York IE projects",      step: "york-link" },
   { id: "config",       label: "Your workspace config",      step: "done" },
 ];
 
 const STAGE_ORDER: Step[] = [
-  "email", "york-checking", "company-name", "team-size",
-  "crunchbase-fetching", "crunchbase-confirm", "benchmark",
+  "company-confirm", "company-name",
+  "profile-description", "business-model", "profile-more-details", "domain-claim",
+  "crunchbase-fetching", "crunchbase-missing", "crunchbase-url", "crunchbase-confirm", "benchmark",
   "fuel-value", "york-services", "york-link",
   "integrations-intro", "integrations-select",
   "platform-overview", "done",
@@ -134,6 +227,17 @@ function AIAvatar() {
   );
 }
 
+function UserAvatar({ initial }: { initial: string }) {
+  return (
+    <div style={{
+      width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+      background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 12, fontWeight: 800, color: "#0a1a12",
+    }}>{initial}</div>
+  );
+}
+
 interface FundingRound {
   id: string;
   type: string;
@@ -162,8 +266,18 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CrunchbaseCard({ data, onConfirm }: { data: CrunchbaseData; onConfirm: (v: string) => void }) {
-  const [mode, setMode] = React.useState<"view" | "edit">("view");
+function CrunchbaseCard({
+  data,
+  onConfirm,
+  initialMode = "view",
+  sourceLabel = "Crunchbase",
+}: {
+  data: CrunchbaseData;
+  onConfirm: (v: string) => void;
+  initialMode?: "view" | "edit";
+  sourceLabel?: string;
+}) {
+  const [mode, setMode] = React.useState<"view" | "edit">(initialMode);
   const [confirmed, setConfirmed] = React.useState(false);
   const [fields, setFields] = React.useState({
     name: data.name,
@@ -224,7 +338,7 @@ function CrunchbaseCard({ data, onConfirm }: { data: CrunchbaseData; onConfirm: 
             marginLeft: "auto", fontSize: 10, background: "rgba(61,214,140,0.1)",
             color: "#3DD68C", border: "1px solid rgba(61,214,140,0.2)",
             borderRadius: 4, padding: "2px 7px", fontWeight: 600,
-          }}>Crunchbase</div>
+          }}>{sourceLabel}</div>
         </div>
         <div style={{ padding: "14px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
           {displayFields.map(({ label, value, full }) => (
@@ -370,7 +484,7 @@ function CrunchbaseCard({ data, onConfirm }: { data: CrunchbaseData; onConfirm: 
             <div style={{
               textAlign: "center", padding: "16px",
               background: "#172632", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8,
-              fontSize: 12, color: "#3A4F5E",
+              fontSize: 12, color: "#6F8798",
             }}>No rounds added yet — click "Add round" to start</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, overflow: "hidden" }}>
@@ -382,7 +496,7 @@ function CrunchbaseCard({ data, onConfirm }: { data: CrunchbaseData; onConfirm: 
                 padding: "6px 10px",
               }}>
                 {["Round", "Amount", "Date", "Investors", ""].map(h => (
-                  <div key={h} style={{ fontSize: 9.5, fontWeight: 700, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.4px" }}>{h}</div>
+                  <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#6F8798", textTransform: "uppercase", letterSpacing: "0.4px" }}>{h}</div>
                 ))}
               </div>
               {/* Rows */}
@@ -456,6 +570,335 @@ function CrunchbaseCard({ data, onConfirm }: { data: CrunchbaseData; onConfirm: 
   );
 }
 
+function BusinessModelCard({ selected, onSelect }: { selected?: string; onSelect: (id: string) => void }) {
+  const [choice, setChoice] = React.useState(selected || "");
+  const [submitted, setSubmitted] = React.useState(false);
+
+  return (
+    <div style={{
+      background: "#1F3140",
+      border: "1px solid rgba(255,255,255,0.1)",
+      borderRadius: 12,
+      marginTop: 4,
+      padding: 14,
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: "#3DD68C", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+        Business model
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
+        {BUSINESS_MODEL_OPTIONS.map(option => {
+          const active = choice === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={submitted}
+              onClick={() => {
+                if (submitted) return;
+                setChoice(option.id);
+                setSubmitted(true);
+                onSelect(option.id);
+              }}
+              style={{
+                background: active ? "rgba(0,180,138,0.13)" : "#132130",
+                border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 9,
+                color: "inherit",
+                cursor: "pointer",
+                opacity: submitted && !active ? 0.55 : 1,
+                minHeight: 96,
+                padding: 12,
+                textAlign: "left",
+              }}
+            >
+              <strong style={{ color: active ? "#8FE8D2" : "#F2F5F2", display: "block", fontSize: 12.5, lineHeight: 1.25 }}>
+                {option.label}
+              </strong>
+              <span style={{ color: "#8FA99A", display: "block", fontSize: 11.5, lineHeight: 1.35, marginTop: 5 }}>
+                {option.desc}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ProfileFormCard({
+  data,
+  businessModel,
+  notes,
+  domain,
+  onSubmit,
+}: {
+  data: CrunchbaseData;
+  businessModel: string;
+  notes: string;
+  domain: string;
+  onSubmit: (result: ProfileFormResult) => void;
+}) {
+  const [companyName, setCompanyName] = React.useState(data.name);
+  const [description, setDescription] = React.useState(data.description);
+  const [selectedModel, setSelectedModel] = React.useState(
+    businessModel || "Operating + investment firm"
+  );
+  const [industry, setIndustry] = React.useState(data.category || "Investment Firm");
+  const [founded, setFounded] = React.useState(data.founded);
+  const [city, setCity] = React.useState(data.location.split(",")[0]?.trim() || "");
+  const [region, setRegion] = React.useState(data.location.split(",")[1]?.trim() || "");
+  const [country, setCountry] = React.useState(domain.endsWith(".ie") ? "Ireland" : "United States");
+  const [website, setWebsite] = React.useState(data.website.startsWith("http") ? data.website : `https://${data.website || domain}`);
+  const [linkedin, setLinkedin] = React.useState("");
+  const [rounds, setRounds] = React.useState<FundingRound[]>([
+    { id: uid(), type: "Seed", amount: data.totalFunding, date: "", investors: "" },
+  ]);
+  const [profileNotes, setProfileNotes] = React.useState(notes);
+  const [claimed, setClaimed] = React.useState(false);
+  const sourcePillStyle: React.CSSProperties = {
+    alignSelf: "flex-start",
+    background: "rgba(0,180,138,0.1)",
+    border: "1px solid rgba(0,180,138,0.16)",
+    borderRadius: 999,
+    color: "#8FE8D2",
+    display: "inline-flex",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    fontSize: 9.5,
+    fontWeight: 700,
+    marginTop: 6,
+    maxWidth: "100%",
+    padding: "2px 8px",
+  };
+  const requiredLabel = (label: string) => `${label} *`;
+  const compactInputStyle = { ...inputStyle(), padding: "8px 10px", fontSize: 12.5 };
+  const addRound = () => setRounds(current => [...current, { id: uid(), type: "Seed", amount: "", date: "", investors: "" }]);
+  const deleteRound = (id: string) => setRounds(current => current.filter(round => round.id !== id));
+  const updateRound = (id: string, key: keyof FundingRound, value: string) => {
+    setRounds(current => current.map(round => round.id === id ? { ...round, [key]: value } : round));
+  };
+
+  return (
+    <div style={{
+      background: "#1F3140",
+      border: "1px solid rgba(255,255,255,0.1)",
+      borderRadius: 12,
+      marginTop: 4,
+      padding: 16,
+    }}>
+      <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+        + Profile ready
+      </div>
+      <div style={{ color: "#F2F5F2", fontSize: 18, fontWeight: 800, lineHeight: 1.2, marginBottom: 6 }}>
+        Review your <span style={{ color: "#00B48A" }}>{companyName || "company"}</span> profile.
+      </div>
+      <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45, marginBottom: 14 }}>
+        Confirm what looks right and we'll set up your workspace.
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+        <label>
+          <FieldLabel>{requiredLabel("Company")}</FieldLabel>
+          <input required value={companyName} onChange={event => setCompanyName(event.target.value)} style={{ ...compactInputStyle, border: "1px solid rgba(61,214,140,0.35)" }} />
+        </label>
+
+        <label>
+          <FieldLabel>{requiredLabel("What they do")}</FieldLabel>
+          <textarea
+            required
+            value={description}
+            onChange={event => setDescription(event.target.value)}
+            rows={2}
+            style={{ ...compactInputStyle, resize: "vertical" }}
+          />
+        </label>
+
+        <div>
+          <FieldLabel>{requiredLabel("Business model")}</FieldLabel>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {BUSINESS_MODEL_OPTIONS.map(option => {
+              const active = selectedModel === option.label;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSelectedModel(option.label)}
+                  style={{
+                    background: active ? "rgba(0,180,138,0.13)" : "#0B1720",
+                    border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 9,
+                    color: "inherit",
+                    cursor: "pointer",
+                    minHeight: 76,
+                    padding: 10,
+                    textAlign: "left",
+                  }}
+                >
+                  <strong style={{ color: active ? "#8FE8D2" : "#F2F5F2", display: "block", fontSize: 11.5, lineHeight: 1.25 }}>
+                    {option.label}
+                  </strong>
+                  <span style={{ color: "#8FA99A", display: "block", fontSize: 10.5, lineHeight: 1.3, marginTop: 4 }}>
+                    {option.desc}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <label>
+                <FieldLabel>{requiredLabel("Industry")}</FieldLabel>
+                <input required value={industry} onChange={event => setIndustry(event.target.value)} style={compactInputStyle} />
+                <div style={sourcePillStyle}>• From homepage positioning</div>
+              </label>
+              <label>
+                <FieldLabel>{requiredLabel("Founded")}</FieldLabel>
+                <input required value={founded} onChange={event => setFounded(event.target.value)} style={compactInputStyle} />
+              </label>
+              <label>
+                <FieldLabel>{requiredLabel("City")}</FieldLabel>
+                <input required value={city} onChange={event => setCity(event.target.value)} style={compactInputStyle} />
+              </label>
+              <label>
+                <FieldLabel>{requiredLabel("State / region")}</FieldLabel>
+                <input required value={region} onChange={event => setRegion(event.target.value)} style={compactInputStyle} />
+              </label>
+              <label>
+                <FieldLabel>{requiredLabel("Country")}</FieldLabel>
+                <input required value={country} onChange={event => setCountry(event.target.value)} style={compactInputStyle} />
+              </label>
+              <label>
+                <FieldLabel>{requiredLabel("Website")}</FieldLabel>
+                <input required value={website} onChange={event => setWebsite(event.target.value)} style={compactInputStyle} />
+                <div style={sourcePillStyle}>• From domain extension</div>
+              </label>
+            </div>
+            <label>
+              <FieldLabel>{requiredLabel("LinkedIn")}</FieldLabel>
+              <input required value={linkedin} onChange={event => setLinkedin(event.target.value)} style={compactInputStyle} />
+            </label>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <FieldLabel>Funding rounds</FieldLabel>
+                <button onClick={addRound} style={{
+                  background: "rgba(61,214,140,0.08)",
+                  border: "1px solid rgba(61,214,140,0.2)",
+                  borderRadius: 6,
+                  color: "#3DD68C",
+                  cursor: "pointer",
+                  font: "inherit",
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  padding: "4px 9px",
+                }}>
+                  + Add round
+                </button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {rounds.map(round => (
+                  <div key={round.id} style={{
+                    alignItems: "center",
+                    background: "#172632",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 8,
+                    display: "grid",
+                    gap: 6,
+                    gridTemplateColumns: "96px 86px 128px 1fr 26px",
+                    padding: 7,
+                  }}>
+                    <select value={round.type} onChange={event => updateRound(round.id, "type", event.target.value)} style={{ ...compactInputStyle, padding: "6px 7px", fontSize: 11 }}>
+                      {ROUND_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                    <input value={round.amount} onChange={event => updateRound(round.id, "amount", event.target.value)} placeholder="$1.2M" style={{ ...compactInputStyle, padding: "6px 7px", fontSize: 11 }} />
+                    <input type="date" value={round.date} onChange={event => updateRound(round.id, "date", event.target.value)} placeholder="dd/mm/yyyy" style={{ ...compactInputStyle, padding: "6px 7px", fontSize: 11 }} />
+                    <input value={round.investors} onChange={event => updateRound(round.id, "investors", event.target.value)} placeholder="Investors" style={{ ...compactInputStyle, padding: "6px 7px", fontSize: 11 }} />
+                    <button onClick={() => deleteRound(round.id)} style={{
+                      alignItems: "center",
+                      background: "rgba(201,95,95,0.1)",
+                      border: "1px solid rgba(201,95,95,0.2)",
+                      borderRadius: 5,
+                      color: "#C95F5F",
+                      cursor: "pointer",
+                      display: "flex",
+                      fontSize: 13,
+                      height: 24,
+                      justifyContent: "center",
+                      lineHeight: 1,
+                      width: 24,
+                    }}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <label>
+              <FieldLabel>Additional context</FieldLabel>
+              <textarea
+                value={profileNotes}
+                onChange={event => setProfileNotes(event.target.value)}
+                rows={3}
+                placeholder="Customers, priorities, markets, or anything Fuel should remember."
+                style={{ ...compactInputStyle, resize: "vertical" }}
+              />
+            </label>
+          </div>
+
+        <div style={{
+          background: "rgba(0,180,138,0.08)",
+          border: "1px solid rgba(0,180,138,0.18)",
+          borderRadius: 8,
+          color: "#8FE8D2",
+          fontSize: 11.5,
+          lineHeight: 1.45,
+          padding: "10px 12px",
+        }}>
+          You'll claim <strong style={{ color: "#F2F5F2" }}>{domain}</strong> as your verified company domain.
+        </div>
+
+        {!claimed ? (
+          <button
+            type="button"
+            onClick={() => {
+              setClaimed(true);
+              onSubmit({
+                companyName,
+                description,
+                businessModel: selectedModel,
+                industry,
+                founded,
+                city,
+                region,
+                country,
+                website,
+                linkedin,
+                fundingRounds: rounds,
+                notes: profileNotes,
+                domain,
+              });
+            }}
+            style={{
+              alignSelf: "flex-start",
+              background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(16,206,161) 100%)",
+              border: "none",
+              borderRadius: 9,
+              color: "#0a1a12",
+              cursor: "pointer",
+              font: "inherit",
+              fontSize: 12.5,
+              fontWeight: 800,
+              padding: "10px 22px",
+            }}
+          >
+            Claim this company
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 interface BenchmarkMetric {
   label: string;
   desc: string;
@@ -483,7 +926,7 @@ function BenchmarkMetricCard({ m }: { m: BenchmarkMetric }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }}>
         {cols.map(c => (
           <div key={c.label}>
-            <div style={{ fontSize: 9.5, color: "#3A4F5E", fontWeight: 600, marginBottom: 3 }}>{c.label}</div>
+            <div style={{ fontSize: 11, color: "#6F8798", fontWeight: 600, marginBottom: 3 }}>{c.label}</div>
             <div style={{
               fontSize: 12.5, fontWeight: 700,
               color: c.highlight ? "#3DD68C" : "#8FA99A",
@@ -497,6 +940,22 @@ function BenchmarkMetricCard({ m }: { m: BenchmarkMetric }) {
 
 function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () => void }) {
   const [continued, setContinued] = React.useState(false);
+  const [mode, setMode] = React.useState<"form" | "loading" | "results">("form");
+  const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
+  const [selectedJourneyStage, setSelectedJourneyStage] = React.useState("Pre-Product");
+  const [benchmarkValues, setBenchmarkValues] = React.useState({
+    arr: "",
+    arrGrowth: "",
+    nrr: "",
+    logoRetention: "",
+    monthlyBurn: "",
+    cashOnHand: "",
+    grossMargin: "",
+    headcount: "",
+    payingCustomers: "",
+    notableCustomers: "",
+    currentChallenges: "",
+  });
   const metrics: BenchmarkMetric[] = [
     { label: "ARR",                  desc: "Annual recurring revenue (USD).",          p25: "$150K",  p50: "$500K",  p75: "$1.2M",  p90: "$2.5M" },
     { label: "Headcount (FTE)",      desc: "Total full-time employees.",               p25: "6",      p50: "12",     p75: "22",     p90: "40" },
@@ -513,69 +972,387 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
     { label: stage.split("/")[0].trim(), color: "#8B76D4" },
     { label: "US", color: "#556878" },
   ];
+  const benchmarkGroups = [
+    {
+      title: "Revenue + Retention",
+      fields: [
+        { key: "arr", label: "ARR (annualized)", placeholder: "500000", info: "Annual recurring revenue in dollars." },
+        { key: "arrGrowth", label: "ARR growth, YoY", placeholder: "200", info: "Year-over-year ARR growth percentage. Enter 200 for 200%." },
+        { key: "nrr", label: "Net revenue retention", placeholder: "108", info: "Revenue retained and expanded from existing customers. Enter as a percentage." },
+        { key: "logoRetention", label: "Logo retention (annual)", placeholder: "88", info: "Percent of customers retained over the last year." },
+      ],
+    },
+    {
+      title: "Capital Efficiency",
+      fields: [
+        { key: "monthlyBurn", label: "Monthly burn (net) *", placeholder: "80000", info: "Average net cash burn per month in dollars." },
+        { key: "cashOnHand", label: "Cash on hand *", placeholder: "1500000", info: "Current cash balance in dollars." },
+        { key: "grossMargin", label: "Gross margin *", placeholder: "72", info: "Gross margin percentage. Enter 72 for 72%." },
+      ],
+    },
+    {
+      title: "Team + Customers",
+      fields: [
+        { key: "headcount", label: "Headcount (FTEs) *", placeholder: "12", info: "Total full-time equivalent team members." },
+        { key: "payingCustomers", label: "Paying customers", placeholder: "40", info: "Current number of paying customer accounts or logos." },
+      ],
+    },
+    {
+      title: "Anything worth flagging?",
+      fields: [
+        { key: "notableCustomers", label: "Notable customers", placeholder: "Customer names or segments", type: "textarea", info: "Important customers, segments, logos, or customer concentration notes." },
+        { key: "currentChallenges", label: "Current challenges", placeholder: "What should Fuel watch?", type: "textarea", info: "Known risks, blockers, or operating challenges to include in signal generation." },
+      ],
+    },
+  ];
+  const journeyStages = [
+    { stage: "Stage 1", title: "Idea", detail: "Problem identified", done: true },
+    { stage: "Stage 2", title: "Pre-Product", detail: "Building MVP", active: true },
+    { stage: "Stage 3", title: "Pre-Revenue", detail: "MVP live · first users" },
+    { stage: "Stage 4", title: "Early Revenue", detail: "Paying customers" },
+    { stage: "Stage 5", title: "Product-Market Fit", detail: "Repeatable growth" },
+    { stage: "Stage 6", title: "Scaling", detail: "Rapid expansion" },
+    { stage: "Stage 7", title: "Market Leader", detail: "Category dominance" },
+  ];
+  const kpiRows = [
+    { group: "GTM", sub: "Revenue + retention", label: "ARR", p25: "$150K", p50: "$500K", p75: "$1.2M", p90: "$2.5M", start: 6, end: 48, marker: 20 },
+    { group: "GTM", sub: "Revenue + retention", label: "ARR growth, YoY", p25: "120%", p50: "200%", p75: "350%", p90: "600%", start: 20, end: 58, marker: 34 },
+    { group: "GTM", sub: "Revenue + retention", label: "Net revenue retention", p25: "95%", p50: "108%", p75: "125%", p90: "145%", start: 66, end: 84, marker: 75 },
+    { group: "GTM", sub: "Revenue + retention", label: "Logo retention", p25: "80%", p50: "88%", p75: "93%", p90: "97%", start: 82, end: 96, marker: 88 },
+    { group: "GTM", sub: "Revenue + retention", label: "Paying customers", p25: "10", p50: "40", p75: "150", p90: "500", start: 2, end: 30, marker: 8 },
+    { group: "GTM", sub: "Revenue + retention", label: "CAC payback", p25: "10.0 mo", p50: "16.0 mo", p75: "26.0 mo", p90: "42.0 mo", start: 24, end: 54, marker: 38 },
+    { group: "R&D", sub: "Engineering + product", label: "Headcount", p25: "6", p50: "12", p75: "22", p90: "40", start: 15, end: 55, marker: 30 },
+    { group: "G&A", sub: "Capital + efficiency", label: "Cash on hand", p25: "$500K", p50: "$1.5M", p75: "$3.0M", p90: "$6.0M", start: 22, end: 50, marker: 31 },
+    { group: "G&A", sub: "Capital + efficiency", label: "Monthly burn", p25: "$40K", p50: "$80K", p75: "$180K", p90: "$350K", start: 12, end: 52, marker: 29 },
+    { group: "G&A", sub: "Capital + efficiency", label: "Gross margin", p25: "55%", p50: "72%", p75: "82%", p90: "88%", start: 64, end: 92, marker: 73 },
+    { group: "G&A", sub: "Capital + efficiency", label: "Burn multiple", p25: "1.3x", p50: "2.1x", p75: "3.4x", p90: "5.5x", start: 24, end: 58, marker: 38 },
+  ];
+
+  function updateBenchmarkValue(key: string, value: string) {
+    setBenchmarkValues(current => ({ ...current, [key]: value }));
+  }
+
+  function saveBenchmarkValues() {
+    setMode("loading");
+    window.setTimeout(() => {
+      setMode("results");
+    }, 1400);
+  }
+
+  if (mode === "form") {
+    return (
+      <div style={{
+        background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)",
+        borderRadius: 12, overflow: "hidden", marginTop: 4,
+      }}>
+        <div style={{ padding: "13px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#F2F5F2" }}>Add your benchmark numbers</div>
+          <div style={{ fontSize: 12, color: "#8FA99A", marginTop: 4, lineHeight: 1.5 }}>
+            Share your current numbers and Fuel will identify your benchmark range, generate signals, recommend playbooks, and surface the initiatives that can help your startup grow.
+          </div>
+        </div>
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {benchmarkGroups.map(group => (
+            <div key={group.title} style={{
+              background: "#172632",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 10,
+              padding: 13,
+            }}>
+              <div style={{ color: "#556878", fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
+                {group.title}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {group.fields.map(input => (
+                  <label key={input.key} style={group.fields.length === 1 ? { gridColumn: "1 / -1" } : {}}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, position: "relative" }}>
+                      <FieldLabel>{input.label}</FieldLabel>
+                      <span
+                        onMouseEnter={() => setActiveTooltip(input.key)}
+                        onMouseLeave={() => setActiveTooltip(null)}
+                        onFocus={() => setActiveTooltip(input.key)}
+                        onBlur={() => setActiveTooltip(null)}
+                        tabIndex={0}
+                        style={{
+                          alignItems: "center",
+                          border: "1px solid rgba(255,255,255,0.16)",
+                          borderRadius: "50%",
+                          color: "#8FA99A",
+                          cursor: "help",
+                          display: "inline-flex",
+                          fontSize: 9,
+                          fontWeight: 800,
+                          height: 14,
+                          justifyContent: "center",
+                          lineHeight: 1,
+                          marginBottom: 4,
+                          width: 14,
+                        }}
+                      >
+                        i
+                      </span>
+                      {activeTooltip === input.key ? (
+                        <div style={{
+                          background: "#0B1720",
+                          border: "1px solid rgba(61,214,140,0.22)",
+                          borderRadius: 8,
+                          boxShadow: "0 12px 28px rgba(0,0,0,0.28)",
+                          color: "#D0DDD8",
+                          fontSize: 11,
+                          left: 0,
+                          lineHeight: 1.45,
+                          maxWidth: 260,
+                          padding: "8px 10px",
+                          position: "absolute",
+                          top: 20,
+                          width: "max-content",
+                          zIndex: 20,
+                        }}>
+                          {input.info}
+                        </div>
+                      ) : null}
+                    </div>
+                    {input.type === "textarea" ? (
+                      <textarea
+                        value={benchmarkValues[input.key as keyof typeof benchmarkValues]}
+                        onChange={event => updateBenchmarkValue(input.key, event.target.value)}
+                        placeholder={input.placeholder}
+                        rows={2}
+                        style={{ ...inputStyle(), padding: "8px 10px", fontSize: 12.5, resize: "vertical" }}
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        value={benchmarkValues[input.key as keyof typeof benchmarkValues]}
+                        onChange={event => updateBenchmarkValue(input.key, event.target.value)}
+                        placeholder={input.placeholder}
+                        style={{ ...inputStyle(), padding: "8px 10px", fontSize: 12.5 }}
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: "0 16px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={saveBenchmarkValues} style={{
+            background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
+            color: "#0a1a12", border: "none", borderRadius: 7,
+            padding: "9px 20px", fontSize: 12, fontWeight: 800, cursor: "pointer",
+          }}>
+            Save and identify benchmark →
+          </button>
+          <span style={{ fontSize: 12, color: "#6F8798" }}>You can leave unknown fields blank</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "loading") {
+    return (
+      <div style={{
+        background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)",
+        borderRadius: 12, marginTop: 4, padding: 20, textAlign: "center",
+      }}>
+        <div style={{ display: "inline-flex", gap: 4, marginBottom: 12 }}>
+          {[0, 1, 2].map(i => (
+            <span key={i} style={{
+              width: 7, height: 7, borderRadius: "50%", background: "#3DD68C",
+              animation: `fuelDot 1.2s ease-in-out ${i * 0.2}s infinite`,
+              display: "block",
+            }} />
+          ))}
+        </div>
+        <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800 }}>Identifying your benchmark</div>
+        <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.5, marginTop: 5 }}>
+          Fuel is matching your numbers to the closest cohort and percentile range.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
-      background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)",
-      borderRadius: 12, overflow: "hidden", marginTop: 4,
+      display: "flex", flexDirection: "column", gap: 14, marginTop: 4,
     }}>
-      {/* Header */}
       <div style={{
-        padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)",
-        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+        background: "linear-gradient(135deg, #172632 0%, #10202B 100%)",
+        border: "1px solid rgba(61,214,140,0.18)",
+        borderRadius: 12,
+        padding: 16,
       }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F2", marginRight: 4 }}>Your benchmark cohort</div>
-        {cohortPills.map(p => (
-          <span key={p.label} style={{
-            fontSize: 10, fontWeight: 700, padding: "2px 8px",
-            borderRadius: 4, background: p.color + "22", color: p.color,
-            border: `1px solid ${p.color}44`,
-          }}>{p.label}</span>
-        ))}
-        <span style={{ marginLeft: "auto", fontSize: 10, color: "#3A4F5E" }}>
-          Percentile distributions · Seed · FinTech
-        </span>
-      </div>
-
-      {/* Cohort description */}
-      <div style={{
-        padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)",
-        fontSize: 12, color: "#8FA99A", lineHeight: 1.7,
-      }}>
-        Your cohort is <strong style={{ color: "#D0DDD8" }}>B2B SaaS · {stage} · United States</strong> — early-revenue software companies selling to SMB and mid-market buyers, typically 12–36 months into their growth motion. Distributions are drawn from the York IE portfolio and aggregated market data. The spread from P25 to P90 reflects the gap that <strong style={{ color: "#D0DDD8" }}>operating discipline and signal clarity</strong> create over time.
-      </div>
-
-      {/* Percentile legend */}
-      <div style={{
-        padding: "7px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)",
-        display: "flex", gap: 16, alignItems: "center",
-      }}>
-        {["P25", "P50", "P75"].map(p => (
-          <span key={p} style={{ fontSize: 10, color: "#3A4F5E" }}>
-            <span style={{ color: "#8FA99A", fontWeight: 600 }}>{p}</span> percentile
+        <div style={{ alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
+              Your startup journey
+            </div>
+            <div style={{ color: "#F2F5F2", fontSize: 20, fontWeight: 800 }}>
+              Currently at <span style={{ color: "#00B48A" }}>{selectedJourneyStage}.</span>
+            </div>
+          </div>
+          <span style={{
+            background: "rgba(0,180,138,0.1)",
+            border: "1px solid rgba(0,180,138,0.2)",
+            borderRadius: 999,
+            color: "#8FE8D2",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 10.5,
+            fontWeight: 800,
+            padding: "4px 10px",
+            whiteSpace: "nowrap",
+          }}>
+            AI estimate · from public signal
           </span>
-        ))}
-        <span style={{ fontSize: 10, color: "#3A4F5E" }}>
-          <span style={{ color: "#3DD68C", fontWeight: 700 }}>P90</span> top performers
-        </span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 8 }}>
+          {journeyStages.map(item => {
+            const isSelected = item.title === selectedJourneyStage;
+            return (
+            <button
+              key={item.stage}
+              type="button"
+              onClick={() => setSelectedJourneyStage(item.title)}
+              style={{
+              background: isSelected ? "rgba(0,180,138,0.13)" : item.done ? "rgba(31,49,64,0.85)" : "#0B1720",
+              border: isSelected ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 9,
+              cursor: "pointer",
+              minHeight: 76,
+              padding: 10,
+              position: "relative",
+              textAlign: "left",
+              font: "inherit",
+            }}>
+              {isSelected ? <span style={{ color: "#00B48A", fontSize: 12, position: "absolute", right: 10, top: 8 }}>✓</span> : null}
+              <div style={{ color: "#6F8798", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{item.stage}</div>
+              <strong style={{ color: "#F2F5F2", display: "block", fontSize: 12, lineHeight: 1.25 }}>{item.title}</strong>
+              <p style={{ color: "#8FA99A", fontSize: 10.5, lineHeight: 1.3, margin: "4px 0 0" }}>{item.detail}</p>
+            </button>
+          )})}
+        </div>
+        <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.5, marginTop: 12 }}>
+          We inferred this from your public profile. Click another card if it doesn't match.
+        </div>
       </div>
 
-      {/* Metric grid */}
-      <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        {metrics.filter(m => !m.accent).map(m => (
-          <BenchmarkMetricCard key={m.label} m={m} />
-        ))}
+      <div style={{
+        background: "#1F3140",
+        border: "1px solid rgba(255,255,255,0.09)",
+        borderRadius: 12,
+        overflow: "hidden",
+      }}>
+        <div style={{ padding: "16px 18px 12px" }}>
+          <div style={{ alignItems: "center", display: "flex", gap: 10, justifyContent: "space-between" }}>
+            <div>
+              <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
+                KPI snapshot
+              </div>
+              <div style={{ color: "#F2F5F2", fontSize: 19, fontWeight: 800 }}>
+                How your cohort performs across R&D, GTM, and G&A.
+              </div>
+            </div>
+            <button
+              type="button"
+              title="Edit benchmark numbers"
+              aria-label="Edit benchmark numbers"
+              onClick={() => setMode("form")}
+              style={{
+                alignItems: "center",
+                background: "rgba(61,214,140,0.08)",
+                border: "1px solid rgba(61,214,140,0.22)",
+                borderRadius: 7,
+                color: "#3DD68C",
+                cursor: "pointer",
+                display: "inline-flex",
+                font: "inherit",
+                fontSize: 12,
+                fontWeight: 800,
+                height: 30,
+                justifyContent: "center",
+                width: 34,
+              }}
+            >
+              ✎
+            </button>
+          </div>
+          <div style={{
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 999,
+            color: "#8FA99A",
+            display: "inline-block",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 10.5,
+            fontWeight: 800,
+            marginTop: 14,
+            padding: "4px 9px",
+          }}>
+            Cohort · b2b saas · seed · US · n=147
+          </div>
+          <div style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.5, marginTop: 10 }}>
+            Cohort distribution shown below — your marker lands once you run a benchmark.
+          </div>
+        </div>
+        <div style={{ padding: "4px 20px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
+          {kpiRows.map((row, index) => {
+            const showGroup = index === 0 || kpiRows[index - 1].group !== row.group;
+            return (
+              <div key={`${row.group}-${row.label}`} style={{
+                alignItems: "center",
+                borderTop: showGroup && index > 0 ? "1px solid rgba(255,255,255,0.07)" : "none",
+                display: "grid",
+                gap: 16,
+                gridTemplateColumns: "104px minmax(0, 1fr)",
+                paddingTop: showGroup && index > 0 ? 16 : 0,
+              }}>
+                <div>
+                  {showGroup ? (
+                    <>
+                      <div style={{ color: "#00B48A", fontSize: 12, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>{row.group}</div>
+                      <div style={{ color: "#6F8798", fontSize: 10.5, lineHeight: 1.25, marginTop: 2 }}>{row.sub}</div>
+                    </>
+                  ) : null}
+                </div>
+                <div>
+                  <div style={{ display: "flex", gap: 14, justifyContent: "space-between", marginBottom: 8 }}>
+                    <span style={{ color: "#F2F5F2", fontSize: 12.5, fontWeight: 700 }}>{row.label}</span>
+                    <span style={{ color: "#8FA99A", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 10.5, lineHeight: 1.4, textAlign: "right" }}>
+                      p25 {row.p25} · p50 <strong style={{ color: "#F2F5F2" }}>{row.p50}</strong> · p75 {row.p75} · p90 {row.p90}
+                    </span>
+                  </div>
+                  <div style={{ background: "#07131C", borderRadius: 999, height: 9, overflow: "hidden", position: "relative" }}>
+                    <div style={{
+                      background: "linear-gradient(90deg, rgba(0,180,138,0.42), rgba(0,180,138,0.9))",
+                      height: "100%",
+                      left: `${row.start}%`,
+                      position: "absolute",
+                      width: `${Math.max(4, row.end - row.start)}%`,
+                    }} />
+                    <div style={{
+                      background: "#D0DDD8",
+                      height: 14,
+                      left: `${row.marker}%`,
+                      position: "absolute",
+                      top: -3,
+                      width: 1,
+                    }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* CTA */}
-      <div style={{ padding: "4px 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 2px 2px" }}>
         <div style={{
           background: "rgba(61,214,140,0.05)", border: "1px solid rgba(61,214,140,0.12)",
           borderRadius: 8, padding: "10px 12px",
           fontSize: 12, color: "#8FA99A", lineHeight: 1.6,
         }}>
-          💡 <strong style={{ color: "#F2F5F2" }}>The companies hitting P90 aren't exceptional by luck.</strong>{" "}
-          They act on signals faster, run tighter playbooks, and know their numbers cold — because they have a system. Fuel is that system.
+          <strong style={{ color: "#F2F5F2" }}>Your benchmark is now ready.</strong>{" "}
+          Fuel can use these signals to recommend playbooks and identify the highest-leverage initiatives for your next stage.
         </div>
         {!continued && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -584,8 +1361,8 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
               color: "#0a1a12", border: "none", borderRadius: 7,
               padding: "9px 20px", fontSize: 12, fontWeight: 800, cursor: "pointer",
               letterSpacing: "0.1px",
-            }}>Show me how Fuel gets me to P90 →</button>
-            <span style={{ fontSize: 10.5, color: "#3A4F5E" }}>York portfolio · Bright Data · synthetic cohort</span>
+            }}>Show me how Fuel helps →</button>
+            <span style={{ fontSize: 12, color: "#6F8798" }}>York portfolio · benchmark cohort · operating signals</span>
           </div>
         )}
       </div>
@@ -649,7 +1426,7 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
               <span style={{ fontSize: 12, fontWeight: 700, color: t.color }}>{t.label}</span>
             </div>
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 9.5, fontWeight: 700, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 5 }}>Fuel tracks</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6F8798", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 5 }}>Fuel tracks</div>
               {t.tracked.map(item => (
                 <div key={item} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 3 }}>
                   <span style={{ color: t.color, fontSize: 10, marginTop: 1, flexShrink: 0 }}>·</span>
@@ -724,6 +1501,94 @@ function ValuePropCard({ onContinue }: { onContinue: () => void }) {
   );
 }
 
+function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
+  const [continued, setContinued] = React.useState(false);
+  const projects = [
+    {
+      area: "Development",
+      title: "Patient billing workflow",
+      status: "Active",
+      summary: "Roadmap execution, Launchpad approvals, Pulse quality signals, and release readiness for the core billing workflow.",
+    },
+    {
+      area: "Marketing",
+      title: "GTM dashboard",
+      status: "Live",
+      summary: "Traffic, paid media, SEO, and campaign performance are available for demand and conversion signal generation.",
+    },
+    {
+      area: "RevOps",
+      title: "Pipeline operating rhythm",
+      status: "Monitoring",
+      summary: "CRM hygiene, lead-to-opportunity conversion, and forecast signals are being tracked for growth planning.",
+    },
+  ];
+
+  return (
+    <div style={{
+      background: "#1F3140",
+      border: "1px solid rgba(255,255,255,0.09)",
+      borderRadius: 12,
+      marginTop: 4,
+      overflow: "hidden",
+    }}>
+      <div style={{ padding: "13px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", marginBottom: 5, textTransform: "uppercase" }}>
+          York IE projects
+        </div>
+        <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800 }}>
+          Active work Fuel will use for signal generation
+        </div>
+        <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.55, marginTop: 5 }}>
+          Your York IE workspace is already connected, so Fuel can use these active projects, updates, and service context automatically. You can review detailed project updates anytime in Current Updates.
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: 8, padding: 14 }}>
+        {projects.map(project => (
+          <div key={project.title} style={{
+            background: "#172632",
+            border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 9,
+            padding: 12,
+          }}>
+            <div style={{ alignItems: "center", display: "flex", gap: 8, marginBottom: 5 }}>
+              <span style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>{project.area}</span>
+              <span style={{ background: "rgba(0,180,138,0.1)", border: "1px solid rgba(0,180,138,0.2)", borderRadius: 999, color: "#8FE8D2", fontSize: 10, fontWeight: 800, padding: "2px 7px" }}>
+                {project.status}
+              </span>
+            </div>
+            <strong style={{ color: "#F2F5F2", display: "block", fontSize: 13 }}>{project.title}</strong>
+            <p style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.5, margin: "5px 0 0" }}>{project.summary}</p>
+          </div>
+        ))}
+      </div>
+      {!continued ? (
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "12px 14px" }}>
+          <button
+            onClick={() => {
+              setContinued(true);
+              onContinue();
+            }}
+            style={{
+              background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
+              border: "none",
+              borderRadius: 7,
+              color: "#0a1a12",
+              cursor: "pointer",
+              font: "inherit",
+              fontSize: 12,
+              fontWeight: 800,
+              padding: "9px 18px",
+            }}
+          >
+            Use these projects for signals →
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
   const [dismissed, setDismissed] = React.useState(false);
   const reasons = [
@@ -767,7 +1632,7 @@ function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
 
       {/* Available integrations by track */}
       <div style={{ padding: "8px 16px 12px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>Available integrations</div>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: "#6F8798", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>Available integrations</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {categories.map(cat => (
             <div key={cat.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -818,7 +1683,7 @@ function IntegrationSelector({
     }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2" }}>Set up your integrations</div>
-        <div style={{ fontSize: 11.5, color: "#8FA99A", marginTop: 3 }}>Select the integrations you want active. You can add more anytime from the Fuel Store.</div>
+        <div style={{ fontSize: 11.5, color: "#8FA99A", marginTop: 3 }}>Select the integrations you want active. Premium connectors can be added to your Fuel subscription from the Connector Hub.</div>
       </div>
       {categories.map(cat => {
         const items = INTEGRATIONS.filter(i => i.category === cat);
@@ -846,6 +1711,12 @@ function IntegrationSelector({
                     {"york" in item && item.york && (
                       <span style={{ fontSize: 9, color: "#3DD68C", background: "rgba(61,214,140,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>York</span>
                     )}
+                    {!("york" in item && item.york) && item.premium && (
+                      <span style={{ fontSize: 9, color: "#D4924A", background: "rgba(212,146,74,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 800 }}>Premium · ${item.addOnPrice}/mo</span>
+                    )}
+                    {!("york" in item && item.york) && !item.premium && (
+                      <span style={{ fontSize: 9, color: "#3DD68C", background: "rgba(61,214,140,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 800 }}>Free</span>
+                    )}
                     {isSelected && <span style={{ fontSize: 12, color: "#3DD68C" }}>✓</span>}
                   </button>
                 );
@@ -863,7 +1734,7 @@ function IntegrationSelector({
           {selected.length > 0 ? `Connect ${selected.length} integration${selected.length > 1 ? "s" : ""}` : "Skip for now"}
         </button>
         {selected.length === 0 && (
-          <span style={{ fontSize: 11, color: "#3A4F5E" }}>You can add integrations anytime from the Fuel Store</span>
+          <span style={{ fontSize: 12, color: "#6F8798" }}>You can add premium connectors anytime from the Connector Hub</span>
         )}
       </div>
     </div>
@@ -873,13 +1744,15 @@ function IntegrationSelector({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function FuelOnboardingChat({ onComplete, onManual }: { onComplete: () => void; onManual: () => void }) {
+  const inferredCompanyName = inferCompanyNameFromEmail(LOGGED_IN_EMAIL);
+  const inferredDomain = domainFromEmail(LOGGED_IN_EMAIL);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [step, setStep] = useState<Step>("email");
+  const [step, setStep] = useState<Step>(inferredCompanyName ? "company-confirm" : "company-name");
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [userData, setUserData] = useState<UserData>({
-    email: "", isYorkClient: false, companyName: "",
-    teamSize: "", crunchbaseData: null, selectedIntegrations: [],
+    email: LOGGED_IN_EMAIL, isYorkClient: checkIsYorkClient(LOGGED_IN_EMAIL), companyName: inferredCompanyName,
+    crunchbaseData: null, businessModel: "", profileNotes: "", verifiedDomain: inferredDomain, selectedIntegrations: [],
   });
   const [completedProgress, setCompletedProgress] = useState<Set<string>>(new Set());
   const [pendingIntegrations, setPendingIntegrations] = useState<string[]>([]);
@@ -899,13 +1772,15 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
   const aiSay = useCallback((text: string, opts?: {
     chips?: ChatMessage["chips"];
     cardType?: ChatMessage["cardType"];
+    cardMode?: ChatMessage["cardMode"];
+    cardLabel?: ChatMessage["cardLabel"];
     delay?: number;
   }): Promise<void> => {
     return new Promise(resolve => {
       setIsTyping(true);
       setTimeout(() => {
         setIsTyping(false);
-        pushMessage({ role: "ai", text, chips: opts?.chips, cardType: opts?.cardType });
+        pushMessage({ role: "ai", text, chips: opts?.chips, cardType: opts?.cardType, cardMode: opts?.cardMode, cardLabel: opts?.cardLabel });
         resolve();
       }, opts?.delay ?? 900);
     });
@@ -920,78 +1795,236 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     if (greetedRef.current) return;
     greetedRef.current = true;
     const t = setTimeout(() => {
+      if (!inferredCompanyName) {
+        pushMessage({
+          role: "ai",
+          text: `👋 Hi! I'm Fuel AI, York IE's onboarding assistant.\n\nYou're signed in as **${LOGGED_IN_EMAIL}**. What company should I set up in Fuel?`,
+        });
+        setTimeout(() => inputRef.current?.focus(), 100);
+        return;
+      }
+
       pushMessage({
         role: "ai",
-        text: "👋 Hi! I'm Fuel AI, York IE's onboarding assistant.\n\nI'll help set up your Fuel workspace in just a few minutes — so you can see your company's full operating picture from day one.\n\nWhat's your work email address?",
+        text: `👋 Hi! I'm Fuel AI, York IE's onboarding assistant.\n\nYou're signed in as **${LOGGED_IN_EMAIL}**, so I found **${inferredCompanyName}** from your email domain.\n\nIs this the company you want to set up in Fuel?`,
+        chips: [
+          { label: `Yes, set up ${inferredCompanyName}`, value: "confirm-company" },
+        ],
       });
     }, 500);
     return () => clearTimeout(t);
-  }, []);
+  }, [inferredCompanyName, pushMessage]);
 
   // ── Step handlers ────────────────────────────────────────────────────────────
 
-  const handleEmailSubmit = useCallback(async (email: string) => {
+  const continueToBenchmarks = useCallback(async () => {
+    setCompletedProgress(prev => new Set([...prev, "profile"]));
+    await aiSay(
+      `Perfect. Your Fuel profile is ready.\n\nHere's the benchmark picture for **${userData.crunchbaseData?.stage ?? "Seed"} · B2B SaaS · US** — the cohort your business maps to.\n\nAcross the York IE portfolio and aggregated market data, there is a consistent pattern: the top quartile has better visibility into what's moving. Fuel turns that visibility into signals and action.`,
+      { delay: 900 }
+    );
+    await aiSay("", { delay: 600, cardType: "benchmark" });
+    setStep("benchmark");
+  }, [aiSay, userData.crunchbaseData?.stage]);
+
+  const askBusinessModel = useCallback(async () => {
+    await aiSay("Which business model best matches your company?", { delay: 500, cardType: "business-model" });
+    setStep("business-model");
+  }, [aiSay]);
+
+  const askDomainClaim = useCallback(async () => {
+    const domain = userData.verifiedDomain || inferredDomain;
+    await aiSay(`You'll claim **${domain}** as your verified company domain.`, {
+      delay: 600,
+      chips: [{ label: "Claim this company", value: "claim-domain" }],
+    });
+    setStep("domain-claim");
+  }, [aiSay, inferredDomain, userData.verifiedDomain]);
+
+  const startProfileQuestionnaire = useCallback(async (companyName: string) => {
     if (processingRef.current) return;
     processingRef.current = true;
-    pushMessage({ role: "user", text: email });
-    setStep("york-checking");
+    setUserData(prev => ({ ...prev, companyName }));
 
-    const isYork = checkIsYorkClient(email);
-    setUserData(prev => ({ ...prev, email, isYorkClient: isYork }));
+    await aiSay(`Great. I’ll piece together a quick Fuel profile for **${companyName}** from your website and account context.`, { delay: 500 });
+    setStep("profile-description");
+    setIsTyping(true);
 
-    await aiSay("Checking your account...", { delay: 500 });
+    await new Promise(r => setTimeout(r, 1200));
+    setIsTyping(false);
 
-    if (isYork) {
-      await aiSay(
-        "✓ Your company is already partnering with York IE — great! Let's connect your Fuel workspace and get your journey properly configured.\n\nWhat's your company name?",
-        { delay: 1100 }
-      );
-    } else {
-      await aiSay(
-        "Welcome to Fuel! Let's build your workspace from scratch — it takes less than 3 minutes, and you'll leave with a real operating picture of your business.\n\nWhat's your company name?",
-        { delay: 1200 }
-      );
-    }
-    setStep("company-name");
+    const cb = mockCrunchbase(companyName) ?? starterFuelProfile(companyName);
+    setUserData(prev => ({ ...prev, crunchbaseData: cb, verifiedDomain: cb.website || prev.verifiedDomain }));
+    await aiSay("", { delay: 500, cardType: "profile-form" });
+    setStep("domain-claim");
     processingRef.current = false;
+  }, [aiSay]);
+
+  const handleCompanyConfirm = useCallback(async (value: string) => {
+    if (processingRef.current) return;
+    disableLastChips();
+
+    if (value === "confirm-company") {
+      pushMessage({ role: "user", text: `Yes, set up ${userData.companyName}` });
+      await startProfileQuestionnaire(userData.companyName);
+      return;
+    }
+
+    pushMessage({ role: "user", text: "Use a different company name" });
+    await aiSay("No problem. What company name should I use?", { delay: 500 });
+    setStep("company-name");
     setTimeout(() => inputRef.current?.focus(), 100);
-  }, [aiSay, pushMessage]);
+  }, [aiSay, disableLastChips, pushMessage, startProfileQuestionnaire, userData.companyName]);
 
   const handleCompanyNameSubmit = useCallback(async (name: string) => {
     if (processingRef.current) return;
-    processingRef.current = true;
     pushMessage({ role: "user", text: name });
-    setUserData(prev => ({ ...prev, companyName: name }));
+    await startProfileQuestionnaire(name);
+  }, [pushMessage, startProfileQuestionnaire]);
 
-    await aiSay(`Nice to meet you, ${name}! How large is your team right now?`, {
-      delay: 700,
-      chips: TEAM_SIZES.map(s => ({ label: s, value: s })),
-    });
-    setStep("team-size");
-    processingRef.current = false;
-  }, [aiSay, pushMessage]);
-
-  const handleTeamSizeSelect = useCallback(async (size: string) => {
+  const handleProfileDescriptionChoice = useCallback(async (value: string) => {
     if (processingRef.current) return;
     processingRef.current = true;
     disableLastChips();
-    pushMessage({ role: "user", text: size });
-    setUserData(prev => ({ ...prev, teamSize: size }));
 
-    await aiSay("Perfect. Let me pull your company profile from Crunchbase...", { delay: 500 });
-    setStep("crunchbase-fetching");
-    setIsTyping(true);
+    if (value === "description-confirm") {
+      pushMessage({ role: "user", text: "Looks right" });
+      await askBusinessModel();
+      processingRef.current = false;
+      return;
+    }
 
-    await new Promise(r => setTimeout(r, 2000));
-    setIsTyping(false);
+    pushMessage({ role: "user", text: "Update description" });
+    await aiSay("Sure. What should Fuel use for the company description?", { delay: 500 });
+    setStep("profile-description");
+    setTimeout(() => inputRef.current?.focus(), 100);
+    processingRef.current = false;
+  }, [aiSay, askBusinessModel, disableLastChips, pushMessage]);
 
-    const cb = mockCrunchbase(userData.companyName);
+  const handleProfileDescriptionSubmit = useCallback(async (description: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    pushMessage({ role: "user", text: description });
+    setUserData(prev => ({
+      ...prev,
+      crunchbaseData: prev.crunchbaseData
+        ? { ...prev.crunchbaseData, description }
+        : { ...starterFuelProfile(prev.companyName), description },
+    }));
+    await askBusinessModel();
+    processingRef.current = false;
+  }, [askBusinessModel, pushMessage]);
+
+  const handleBusinessModelSelect = useCallback(async (id: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    const selected = BUSINESS_MODEL_OPTIONS.find(option => option.id === id) || BUSINESS_MODEL_OPTIONS[0];
+    pushMessage({ role: "user", text: selected.label });
+    setUserData(prev => ({ ...prev, businessModel: selected.label }));
+    await aiSay("Got it. Anything else Fuel should know before we claim the company profile?", {
+      delay: 650,
+      chips: [
+        { label: "Add more details", value: "add-profile-details" },
+        { label: "Continue", value: "skip-profile-details" },
+      ],
+    });
+    setStep("profile-more-details");
+    processingRef.current = false;
+  }, [aiSay, pushMessage]);
+
+  const handleMoreDetailsChoice = useCallback(async (value: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    disableLastChips();
+
+    if (value === "add-profile-details") {
+      pushMessage({ role: "user", text: "Add more details" });
+      await aiSay("Add any notes you want Fuel to remember about the company, customers, model, or priorities.", { delay: 500 });
+      setStep("profile-more-details");
+      setTimeout(() => inputRef.current?.focus(), 100);
+      processingRef.current = false;
+      return;
+    }
+
+    pushMessage({ role: "user", text: "Continue" });
+    await askDomainClaim();
+    processingRef.current = false;
+  }, [aiSay, askDomainClaim, disableLastChips, pushMessage]);
+
+  const handleMoreDetailsSubmit = useCallback(async (details: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    pushMessage({ role: "user", text: details });
+    setUserData(prev => ({ ...prev, profileNotes: details }));
+    await askDomainClaim();
+    processingRef.current = false;
+  }, [askDomainClaim, pushMessage]);
+
+  const handleDomainClaim = useCallback(async () => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    disableLastChips();
+    pushMessage({ role: "user", text: `Claim ${userData.verifiedDomain || inferredDomain}` });
+    await continueToBenchmarks();
+    processingRef.current = false;
+  }, [continueToBenchmarks, disableLastChips, inferredDomain, pushMessage, userData.verifiedDomain]);
+
+  const handleProfileFormSubmit = useCallback(async (result: ProfileFormResult) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setUserData(prev => ({
+      ...prev,
+      companyName: result.companyName,
+      businessModel: result.businessModel,
+      profileNotes: result.notes,
+      verifiedDomain: result.domain,
+      crunchbaseData: prev.crunchbaseData
+        ? {
+          ...prev.crunchbaseData,
+          name: result.companyName,
+          description: result.description,
+          category: result.industry,
+          founded: result.founded,
+          totalFunding: result.fundingRounds.map(round => round.amount).filter(Boolean).join(" + "),
+          location: [result.city, result.region, result.country].filter(Boolean).join(", "),
+          website: result.website || result.domain,
+        }
+        : {
+          ...starterFuelProfile(result.companyName),
+          description: result.description,
+          category: result.industry,
+          founded: result.founded,
+          totalFunding: result.fundingRounds.map(round => round.amount).filter(Boolean).join(" + "),
+          location: [result.city, result.region, result.country].filter(Boolean).join(", "),
+          website: result.website || result.domain,
+        },
+    }));
+    pushMessage({ role: "user", text: `Claim ${result.domain}` });
+    await continueToBenchmarks();
+    processingRef.current = false;
+  }, [continueToBenchmarks, pushMessage]);
+
+  const showManualFuelProfileForm = useCallback(async () => {
+    const starterProfile = starterFuelProfile(userData.companyName);
+    setUserData(prev => ({ ...prev, crunchbaseData: starterProfile }));
+    await aiSay(
+      "No problem. Fill in the company profile below and Fuel will use these details for onboarding.",
+      { delay: 500, cardType: "crunchbase", cardMode: "edit", cardLabel: "Fuel profile" }
+    );
+    setStep("crunchbase-confirm");
+  }, [aiSay, userData.companyName]);
+
+  const handleCrunchbaseUrlSubmit = useCallback(async (url: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    pushMessage({ role: "user", text: url });
+    await aiSay("Thanks — I found the profile from that URL. Does this look right?", { delay: 600 });
+    const cb = mockCrunchbase(userData.companyName) ?? starterFuelProfile(userData.companyName);
     setUserData(prev => ({ ...prev, crunchbaseData: cb }));
-
-    await aiSay("Found your profile. Does this look right?", { delay: 300, cardType: "crunchbase" });
+    await aiSay("", { delay: 300, cardType: "crunchbase" });
     setStep("crunchbase-confirm");
     processingRef.current = false;
-  }, [aiSay, disableLastChips, pushMessage, userData.companyName]);
+  }, [aiSay, pushMessage, userData.companyName]);
 
   const handleCrunchbaseConfirm = useCallback(async (val: string) => {
     if (processingRef.current) return;
@@ -1026,10 +2059,10 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     if (processingRef.current) return;
     processingRef.current = true;
     setCompletedProgress(prev => new Set([...prev, "benchmarks"]));
-
-    await aiSay("Here's exactly how Fuel helps you close the gap and reach the next stage.", {
-      delay: 700, cardType: "value-prop"
-    });
+    await aiSay(
+      "Now let me show you how Fuel helps turn those benchmark gaps into operating signals and action.",
+      { delay: 700, cardType: "value-prop" }
+    );
     setStep("fuel-value");
     processingRef.current = false;
   }, [aiSay]);
@@ -1039,27 +2072,13 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     processingRef.current = true;
     setCompletedProgress(prev => new Set([...prev, "tracks"]));
 
-    if (!userData.isYorkClient) {
-      await aiSay(
-        "Fuel tracks everything — but York IE moves the numbers. Here's how their team works across the same four tracks you just saw.",
-        { delay: 900, cardType: "york-services" }
-      );
-      setStep("york-services");
-    } else {
-      await aiSay(
-        "Since you're already with York IE, let's link your York platform so Fuel can pull in your project updates, resource data, and service context automatically.",
-        {
-          delay: 900,
-          chips: [
-            { label: "Link my York account", value: "link" },
-            { label: "Skip for now", value: "skip" },
-          ],
-        }
-      );
-      setStep("york-link");
-    }
+    await aiSay(
+      "Because you're already a York customer, your York IE workspace is connected automatically. Here are the active projects Fuel will use to generate your signals.",
+      { delay: 900, cardType: "york-projects" }
+    );
+    setStep("york-link");
     processingRef.current = false;
-  }, [aiSay, userData.isYorkClient]);
+  }, [aiSay]);
 
   const handleYorkServicesResponse = useCallback(async (val: "york-yes" | "york-skip") => {
     if (processingRef.current) return;
@@ -1096,15 +2115,14 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     processingRef.current = true;
     disableLastChips();
 
-    if (val === "link") {
-      pushMessage({ role: "user", text: "Link my York account" });
-      await aiSay("✓ York IE platform linked. Your project updates, resource allocation, and service context will now flow into your Fuel journey.", { delay: 900 });
-    } else {
-      pushMessage({ role: "user", text: "Skip for now" });
-      await aiSay("No problem — you can link your York account anytime from workspace settings.", { delay: 600 });
-    }
-    await aiSay("Let's finish setting up your integrations.", { delay: 800, cardType: "integration-select" });
-    setStep("integrations-select");
+    pushMessage({ role: "user", text: "Use these projects for signals" });
+    setCompletedProgress(prev => new Set([...prev, "integrations", "config"]));
+    await aiSay("✓ York IE project context is ready. Fuel will use these active workstreams, updates, and service history to generate a richer signal view.", { delay: 900 });
+    await aiSay("Based on your profile, benchmarks, and York IE project context, we’re generating signals for you now.", {
+      delay: 700,
+      chips: [{ label: "Start my journey →", value: "launch" }],
+    });
+    setStep("platform-overview");
     processingRef.current = false;
   }, [aiSay, disableLastChips, pushMessage]);
 
@@ -1121,7 +2139,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
       await aiSay(`✓ ${count} integration${count > 1 ? "s" : ""} queued for connection. Your data will start flowing into your journey tracks within minutes.`, { delay: 800 });
     } else {
       await aiSay(
-        "No integrations connected yet — that's fine. You can add them anytime from the **Fuel Store**. Tracks without integrations will use form-based input so signals and playbooks still work.",
+        "No integrations connected yet — that's fine. You can add premium connectors anytime from the **Connector Hub**. Tracks without integrations will use form-based input so signals and playbooks still work.",
         { delay: 900 }
       );
     }
@@ -1142,7 +2160,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
   const handleLaunch = useCallback(() => {
     disableLastChips();
-    pushMessage({ role: "user", text: "Launch my Fuel journey →" });
+    pushMessage({ role: "user", text: "Start my journey →" });
     setTimeout(onComplete, 600);
   }, [disableLastChips, onComplete, pushMessage]);
 
@@ -1153,24 +2171,36 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     if (!val || processingRef.current) return;
     setInputValue("");
 
-    if (step === "email") {
-      if (!val.includes("@")) return;
-      handleEmailSubmit(val);
-    } else if (step === "company-name") {
+    if (step === "company-name") {
       handleCompanyNameSubmit(val);
+    } else if (step === "profile-description") {
+      handleProfileDescriptionSubmit(val);
+    } else if (step === "profile-more-details") {
+      handleMoreDetailsSubmit(val);
+    } else if (step === "crunchbase-url") {
+      handleCrunchbaseUrlSubmit(val);
     }
-  }, [handleCompanyNameSubmit, handleEmailSubmit, inputValue, step]);
+  }, [handleCompanyNameSubmit, handleCrunchbaseUrlSubmit, handleMoreDetailsSubmit, handleProfileDescriptionSubmit, inputValue, step]);
 
   const handleChipClick = useCallback((value: string) => {
     if (processingRef.current) return;
-    if (step === "team-size") handleTeamSizeSelect(value);
+    if (step === "company-confirm") handleCompanyConfirm(value);
+    else if (step === "profile-description") handleProfileDescriptionChoice(value);
+    else if (step === "profile-more-details") handleMoreDetailsChoice(value);
+    else if (step === "domain-claim") handleDomainClaim();
+    else if (step === "crunchbase-url" && value === "no-crunchbase-account") {
+      disableLastChips();
+      pushMessage({ role: "user", text: "No Crunchbase account" });
+      showManualFuelProfileForm();
+    }
     else if (step === "crunchbase-confirm") handleCrunchbaseConfirm(value);
     else if (step === "york-services") handleYorkServicesResponse(value as "york-yes" | "york-skip");
     else if (step === "york-link") handleYorkLinkResponse(value);
     else if (step === "platform-overview") handleLaunch();
-  }, [handleCrunchbaseConfirm, handleLaunch, handleTeamSizeSelect, handleYorkLinkResponse, handleYorkServicesResponse, step]);
+  }, [disableLastChips, handleCompanyConfirm, handleCrunchbaseConfirm, handleDomainClaim, handleLaunch, handleMoreDetailsChoice, handleProfileDescriptionChoice, handleYorkLinkResponse, handleYorkServicesResponse, pushMessage, showManualFuelProfileForm, step]);
 
-  const inputActive = step === "email" || step === "company-name";
+  const inputActive = step === "company-name" || step === "profile-description" || step === "profile-more-details" || step === "crunchbase-url";
+  const userInitial = (userData.email || userData.companyName || "U").trim().charAt(0).toUpperCase();
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1185,7 +2215,11 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .fuel-msg { animation: fuelFadeUp 0.3s ease both; }
+        .fuel-msg {
+          animation: fuelFadeUp 0.3s ease both;
+          border: none;
+          border-image: none;
+        }
         .fuel-chip-btn:hover { opacity: 0.85; transform: translateY(-1px); }
         .fuel-send:hover { opacity: 0.85; }
         .fuel-manual:hover { color: #8FA99A !important; }
@@ -1221,7 +2255,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
               fontSize: 12, fontWeight: 900, color: "#0a1a12",
             }}>F</div>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F2" }}>Fuel</span>
-            <span style={{ fontSize: 11, color: "#3A4F5E", fontWeight: 500 }}>by York IE</span>
+            <span style={{ fontSize: 12, color: "#6F8798", fontWeight: 500 }}>by York IE</span>
             <span style={{
               fontSize: 9, fontWeight: 700, color: "#3DD68C",
               background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)",
@@ -1250,7 +2284,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
           }}>
             {/* Messages */}
             <div style={{ flex: 1, overflowY: "auto", padding: "24px 0" }}>
-              <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ maxWidth: 850, margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
                 {messages.map(msg => (
                   <div key={msg.id} className="fuel-msg" style={{
@@ -1259,6 +2293,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                     alignItems: "flex-start", gap: 10,
                   }}>
                     {msg.role === "ai" && <AIAvatar />}
+                    {msg.role === "user" && <UserAvatar initial={userInitial} />}
 
                     <div style={{ maxWidth: "85%", display: "flex", flexDirection: "column", gap: 6 }}>
                       {msg.text && (
@@ -1283,7 +2318,21 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                         <CrunchbaseCard
                           data={userData.crunchbaseData}
                           onConfirm={handleCrunchbaseConfirm}
+                          initialMode={msg.cardMode}
+                          sourceLabel={msg.cardLabel}
                         />
+                      )}
+                      {msg.cardType === "profile-form" && userData.crunchbaseData && (
+                        <ProfileFormCard
+                          data={userData.crunchbaseData}
+                          businessModel={userData.businessModel}
+                          notes={userData.profileNotes}
+                          domain={userData.verifiedDomain || inferredDomain}
+                          onSubmit={handleProfileFormSubmit}
+                        />
+                      )}
+                      {msg.cardType === "business-model" && (
+                        <BusinessModelCard selected={userData.businessModel} onSelect={handleBusinessModelSelect} />
                       )}
                       {msg.cardType === "benchmark" && (
                         <BenchmarkCard
@@ -1296,6 +2345,9 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                       )}
                       {msg.cardType === "york-services" && (
                         <YorkServicesCard onChoice={handleYorkServicesResponse} />
+                      )}
+                      {msg.cardType === "york-projects" && (
+                        <YorkProjectsCard onContinue={() => handleYorkLinkResponse("projects")} />
                       )}
                       {msg.cardType === "why-integrate" && (
                         <WhyIntegrateCard onContinue={() => {
@@ -1314,7 +2366,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                               <div style={{ fontSize: 24, marginBottom: 8 }}>🚀</div>
                               <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2", marginBottom: 6 }}>Your Fuel workspace is ready</div>
                               <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.65, marginBottom: 14 }}>
-                                York IE will be in touch shortly to match you with the right team.<br />Your journey dashboard is set up and waiting.
+                                York IE will be in touch shortly to match you with the right team.<br />Current Updates is set up and waiting.
                               </div>
                               {!launched && (
                                 <button onClick={() => { setLaunched(true); onComplete(); }} style={{
@@ -1391,8 +2443,10 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                 onKeyDown={e => e.key === "Enter" && handleSend()}
                 disabled={!inputActive}
                 placeholder={
-                  step === "email" ? "Enter your work email..."
-                  : step === "company-name" ? "Enter your company name..."
+                  step === "company-name" ? "Enter your company name..."
+                  : step === "profile-description" ? "Describe what your company does..."
+                  : step === "profile-more-details" ? "Add company details..."
+                  : step === "crunchbase-url" ? "Paste your Crunchbase profile URL..."
                   : "Use the options above to continue..."
                 }
                 style={{
@@ -1417,7 +2471,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "all 0.15s",
                   fontSize: 15,
-                  color: inputActive && inputValue.trim() ? "#0a1a12" : "#3A4F5E",
+                  color: inputActive && inputValue.trim() ? "#0a1a12" : "#6F8798",
                 }}
               >→</button>
             </div>
@@ -1449,11 +2503,11 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                       fontSize: 10,
                       transition: "all 0.3s",
                     }}>
-                      {done ? <span style={{ color: "#3DD68C" }}>✓</span> : <span style={{ color: "#3A4F5E" }}>○</span>}
+                      {done ? <span style={{ color: "#3DD68C" }}>✓</span> : <span style={{ color: "#6F8798" }}>○</span>}
                     </div>
                     <span style={{
                       fontSize: 12,
-                      color: done ? "#3DD68C" : current ? "#8FA99A" : "#3A4F5E",
+                      color: done ? "#3DD68C" : current ? "#8FA99A" : "#6F8798",
                       fontWeight: done ? 600 : 400,
                       transition: "color 0.3s",
                     }}>{item.label}</span>
@@ -1482,7 +2536,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                       background: stageReached && i === 0 ? "#3DD68C" : "rgba(255,255,255,0.1)",
                     }} />
                     <span style={{
-                      fontSize: 11, color: stageReached && i === 0 ? "#8FA99A" : "#3A4F5E",
+                      fontSize: 12, color: stageReached && i === 0 ? "#8FA99A" : "#6F8798",
                     }}>Stage {i + 1}: {stage}</span>
                   </div>
                 );
@@ -1495,9 +2549,9 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
               border: "1px solid rgba(61,214,140,0.12)",
               borderRadius: 10, padding: "12px 14px",
             }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#3DD68C", marginBottom: 4 }}>⚡ Fuel Store</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#3DD68C", marginBottom: 4 }}>⚡ Connector Hub</div>
               <div style={{ fontSize: 11, color: "#556878", lineHeight: 1.5 }}>
-                Add integrations and premium connectors anytime from the Fuel Store in your workspace.
+                Add integrations and premium connectors anytime from the Connector Hub in your workspace.
               </div>
             </div>
           </div>

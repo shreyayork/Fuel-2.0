@@ -20,6 +20,8 @@ interface Integration {
   method: ConnectionMethod;
   description: string;
   dataProvided: string[];
+  premium?: boolean;
+  addOnPrice?: number;
   oauthLabel?: string;
   apiFields?: ApiField[];
 }
@@ -27,7 +29,7 @@ interface Integration {
 const INTEGRATIONS: Integration[] = [
   {
     id: "jira", name: "Jira", category: "Development", abbr: "JR", color: "#2684FF",
-    method: "apikey",
+    method: "apikey", premium: true, addOnPrice: 29,
     description: "Pull your roadmap items, issue counts, active work, and release status directly into your Development track.",
     dataProvided: ["Roadmap items & epics", "Active / closed / future work", "Release notes & status", "Issue counts by type"],
     apiFields: [
@@ -38,7 +40,7 @@ const INTEGRATIONS: Integration[] = [
   },
   {
     id: "linear", name: "Linear", category: "Development", abbr: "LN", color: "#5E6AD2",
-    method: "oauth", oauthLabel: "Connect with Linear",
+    method: "oauth", premium: false, addOnPrice: 0, oauthLabel: "Connect with Linear",
     description: "Sync your Linear workspace to track project delivery health, active cycles, and issue velocity.",
     dataProvided: ["Active cycles & projects", "Issue velocity & throughput", "Team workload", "Roadmap milestones"],
   },
@@ -56,19 +58,19 @@ const INTEGRATIONS: Integration[] = [
   },
   {
     id: "ga4", name: "Google Analytics", category: "Marketing", abbr: "GA", color: "#F9AB00",
-    method: "oauth", oauthLabel: "Connect with Google",
+    method: "oauth", premium: false, addOnPrice: 0, oauthLabel: "Connect with Google",
     description: "Bring sessions, users, engagement rates, and funnel data into your Marketing track.",
     dataProvided: ["Sessions & users", "Engagement & bounce rates", "Conversion funnel", "Traffic sources"],
   },
   {
     id: "gads", name: "Google Ads", category: "Marketing", abbr: "Gd", color: "#4285F4",
-    method: "oauth", oauthLabel: "Connect with Google",
+    method: "oauth", premium: true, addOnPrice: 59, oauthLabel: "Connect with Google",
     description: "Pull spend, conversions, CPA, and campaign performance into your demand signals.",
     dataProvided: ["Campaign spend & ROAS", "Conversions & CPA", "Keyword performance", "Ad group health"],
   },
   {
     id: "semrush", name: "Semrush", category: "Marketing", abbr: "SR", color: "#FF642D",
-    method: "apikey",
+    method: "apikey", premium: true, addOnPrice: 79,
     description: "Track keyword movement, backlinks, domain authority, and SEO opportunities.",
     dataProvided: ["Keyword rankings", "Backlink profile", "Domain authority score", "SEO opportunities"],
     apiFields: [
@@ -77,37 +79,37 @@ const INTEGRATIONS: Integration[] = [
   },
   {
     id: "linkedin", name: "LinkedIn", category: "Marketing", abbr: "in", color: "#0A66C2",
-    method: "oauth", oauthLabel: "Connect with LinkedIn",
+    method: "oauth", premium: true, addOnPrice: 39, oauthLabel: "Connect with LinkedIn",
     description: "Connect organic and paid LinkedIn performance to your GTM demand signals.",
     dataProvided: ["Organic post engagement", "Follower growth", "Paid campaign metrics", "Lead gen form performance"],
   },
   {
     id: "meta", name: "Meta Ads", category: "Marketing", abbr: "Fb", color: "#1877F2",
-    method: "oauth", oauthLabel: "Connect with Meta",
+    method: "oauth", premium: true, addOnPrice: 39, oauthLabel: "Connect with Meta",
     description: "Bring Facebook and Instagram paid performance into your demand and acquisition view.",
     dataProvided: ["Ad spend & ROAS", "Reach & impressions", "Conversion events", "Audience performance"],
   },
   {
     id: "hubspot", name: "HubSpot", category: "RevOps", abbr: "HS", color: "#FF7A59",
-    method: "oauth", oauthLabel: "Connect with HubSpot",
+    method: "oauth", premium: false, addOnPrice: 0, oauthLabel: "Connect with HubSpot",
     description: "Sync contacts, companies, deals, pipeline stages, and activities for your RevOps track.",
     dataProvided: ["Pipeline stages & deal health", "Contact & company data", "Activity & task tracking", "Lead-to-opportunity conversion"],
   },
   {
     id: "salesforce", name: "Salesforce", category: "RevOps", abbr: "SF", color: "#00A1E0",
-    method: "oauth", oauthLabel: "Connect with Salesforce",
+    method: "oauth", premium: true, addOnPrice: 99, oauthLabel: "Connect with Salesforce",
     description: "Pull your CRM data, opportunity pipeline, and forecast signals into Fuel's RevOps view.",
     dataProvided: ["Opportunity pipeline", "Forecast signals", "CRM hygiene score", "Rep activity & stage movement"],
   },
   {
     id: "quickbooks", name: "QuickBooks", category: "FinOps", abbr: "QB", color: "#2CA01C",
-    method: "oauth", oauthLabel: "Connect with QuickBooks",
+    method: "oauth", premium: true, addOnPrice: 49, oauthLabel: "Connect with QuickBooks",
     description: "Bring financial data into your FinOps track — burn rate, cash position, and P&L actuals.",
     dataProvided: ["Cash position & burn rate", "P&L actuals vs. budget", "Monthly close status", "Vendor & payroll data"],
   },
   {
     id: "stripe", name: "Stripe", category: "FinOps", abbr: "St", color: "#635BFF",
-    method: "apikey",
+    method: "apikey", premium: false, addOnPrice: 0,
     description: "Pull revenue, MRR, churn, and payment health directly from your Stripe account.",
     dataProvided: ["MRR & ARR", "Churn & expansion revenue", "Payment health", "Customer billing status"],
     apiFields: [
@@ -150,6 +152,10 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
   const selectedIntegrations = INTEGRATIONS.filter(i => selectedIds.includes(i.id));
   const connectedCount = Object.values(statuses).filter(s => s === "connected").length;
   const selectedNonYork = selectedIntegrations.filter(i => i.method !== "york");
+  const selectedPremium = selectedIntegrations.filter(i => i.premium);
+  const selectedFree = selectedIntegrations.filter(i => i.method !== "york" && !i.premium);
+  const premiumMonthlyTotal = selectedPremium.reduce((sum, item) => sum + (item.addOnPrice ?? 0), 0);
+  const configuredPremiumCount = selectedPremium.filter(i => statuses[i.id] === "connected").length;
   const allDone = selectedNonYork.length > 0 && selectedNonYork.every(i => statuses[i.id] === "connected" || statuses[i.id] === "skipped");
 
   function toggleSelect(id: string) {
@@ -226,13 +232,13 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
             background: "rgba(212,146,74,0.1)", border: "1px solid rgba(212,146,74,0.2)",
             borderRadius: 4, padding: "1px 6px", letterSpacing: "0.3px",
           }}>INTEGRATIONS</span>
-          {embedded && view === "configure" && (
+          {embedded && view !== "select" && (
             <button onClick={() => setView("select")} style={{
               background: "none", border: "none", color: "#556878",
               fontSize: 12, cursor: "pointer", padding: "0 4px",
             }}>← Back to connectors</button>
           )}
-          {!embedded && view === "configure" && (
+          {!embedded && view !== "select" && (
             <button onClick={() => setView("select")} style={{
               background: "none", border: "none", color: "#556878",
               fontSize: 12, cursor: "pointer", padding: "0 4px",
@@ -243,6 +249,11 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
           <span style={{ fontSize: 12, color: "#556878" }}>
             <span style={{ color: "#3DD68C", fontWeight: 700 }}>{connectedCount}</span> of {INTEGRATIONS.length} connected
           </span>
+          {selectedPremium.length > 0 && (
+            <span style={{ fontSize: 12, color: "#D4924A", fontWeight: 700 }}>
+              ${premiumMonthlyTotal}/mo add-ons
+            </span>
+          )}
           {!embedded && (
             <button onClick={onComplete} style={{
               background: "none", border: "1px solid rgba(255,255,255,0.1)",
@@ -258,14 +269,15 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
         {/* ── SELECTION SCREEN ── */}
         {view === "select" && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <div style={{ flex: 1, overflowY: "auto", padding: "40px 48px 24px" }}>
-            <div style={{ maxWidth: 720 }}>
+            <div style={{ maxWidth: 850, margin: "0 auto" }}>
               <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 800, color: "#F2F5F2", margin: "0 0 8px" }}>
+                <h1 style={{ fontSize: 24, fontWeight: 800, color: "#F2F5F2", margin: "0 0 8px" }}>
                   Choose your integrations
                 </h1>
-                <p style={{ fontSize: 13, color: "#8FA99A", margin: 0, lineHeight: 1.6 }}>
-                  Select the tools you use. Fuel will pull signals from each one to power your tracks.
+                <p style={{ fontSize: 14, color: "#8FA99A", margin: 0, lineHeight: 1.6 }}>
+                  Select the tools you use. Premium connectors are summarized in the sidebar before setup.
                   York IE integrations are included automatically.
                 </p>
               </div>
@@ -276,48 +288,64 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                 return (
                   <div key={cat} style={{ marginBottom: 28 }}>
                     <div style={{
-                      fontSize: 10, fontWeight: 700, color: catColor,
+                      fontSize: 12, fontWeight: 700, color: catColor,
                       textTransform: "uppercase", letterSpacing: "0.6px",
                       marginBottom: 10,
                     }}>{cat}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
                       {items.map(item => {
                         const isYork = item.method === "york";
                         const isSel = selectedIds.includes(item.id);
+                        const isPremium = item.premium;
                         return (
                           <button
                             key={item.id}
                             onClick={() => toggleSelect(item.id)}
                             style={{
-                              display: "flex", alignItems: "center", gap: 10,
-                              padding: "11px 13px",
+                              display: "flex", alignItems: "flex-start", gap: 10,
+                              padding: "14px 13px",
                               background: isSel ? "rgba(61,214,140,0.06)" : "#172632",
                               border: isSel ? "1px solid rgba(61,214,140,0.25)" : "1px solid rgba(255,255,255,0.06)",
-                              borderRadius: 9, cursor: isYork ? "default" : "pointer",
+                              borderRadius: 11, cursor: isYork ? "default" : "pointer",
                               textAlign: "left", transition: "all 0.15s",
+                              minHeight: 142,
                             }}
                           >
                             <div style={{
-                              width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+                              width: 36, height: 36, borderRadius: 8, flexShrink: 0,
                               background: item.color + "22",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 9, fontWeight: 800, color: item.color,
+                              fontSize: 12, fontWeight: 800, color: item.color,
                             }}>{item.abbr}</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: isSel ? "#F2F5F2" : "#8FA99A", marginBottom: 2 }}>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: isSel ? "#F2F5F2" : "#8FA99A", marginBottom: 6 }}>
                                 {item.name}
                               </div>
-                              {isYork && (
-                                <span style={{ fontSize: 9.5, color: "#3DD68C", fontWeight: 600 }}>York IE · Auto-connected</span>
-                              )}
+                              <div style={{ fontSize: 12.5, color: "#8FA99A", lineHeight: 1.45, marginBottom: 10 }}>
+                                {item.description}
+                              </div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {isYork && (
+                                  <span style={{ fontSize: 11.5, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>York IE · Included</span>
+                                )}
+                                {isPremium ? (
+                                  <span style={{ fontSize: 11.5, color: "#D4924A", background: "rgba(212,146,74,0.1)", border: "1px solid rgba(212,146,74,0.22)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
+                                    Premium · ${item.addOnPrice}/mo
+                                  </span>
+                                ) : !isYork && (
+                                  <span style={{ fontSize: 11.5, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
+                                    Free
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div style={{
-                              width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
                               background: isSel ? "rgba(61,214,140,0.15)" : "transparent",
                               border: isSel ? "1px solid rgba(61,214,140,0.5)" : "1px solid rgba(255,255,255,0.12)",
                               display: "flex", alignItems: "center", justifyContent: "center",
                             }}>
-                              {isSel && <span style={{ fontSize: 9, color: "#3DD68C" }}>✓</span>}
+                              {isSel && <span style={{ fontSize: 12, color: "#3DD68C" }}>✓</span>}
                             </div>
                           </button>
                         );
@@ -330,11 +358,83 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
             </div>
           </div>
 
+          <div style={{
+            width: 280, flexShrink: 0, background: "#1F3140",
+            borderLeft: "1px solid rgba(255,255,255,0.07)",
+            padding: "20px 16px", overflowY: "auto",
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.55px", marginBottom: 12 }}>
+              Selection summary
+            </div>
+            <div style={{
+              background: "rgba(19,33,48,0.72)", border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 11, padding: "13px 14px", marginBottom: 16,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8FA99A", marginBottom: 8 }}>
+                <span>Selected</span>
+                <strong style={{ color: "#F2F5F2" }}>{selectedIds.length}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8FA99A", marginBottom: 8 }}>
+                <span>Free connectors</span>
+                <strong style={{ color: "#3DD68C" }}>{selectedFree.length}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8FA99A" }}>
+                <span>Premium add-ons</span>
+                <strong style={{ color: "#D4924A" }}>{selectedPremium.length}</strong>
+              </div>
+              <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "13px 0" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#F2F5F2" }}>Monthly add-on</span>
+                <span style={{ fontSize: 22, fontWeight: 900, color: "#F2F5F2" }}>
+                  ${premiumMonthlyTotal}<span style={{ fontSize: 11, color: "#556878", fontWeight: 600 }}>/mo</span>
+                </span>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.55px", marginBottom: 10 }}>
+              Premium connectors
+            </div>
+            {selectedPremium.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+                {selectedPremium.map(item => (
+                  <div key={item.id} style={{
+                    display: "flex", alignItems: "center", gap: 9,
+                    background: "#172632", border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 9, padding: "9px 10px",
+                  }}>
+                    <span style={{
+                      width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                      background: item.color + "22",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 800, color: item.color,
+                    }}>{item.abbr}</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#F2F5F2", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: "#D4924A" }}>${item.addOnPrice}/mo</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "#556878", lineHeight: 1.5, marginBottom: 18 }}>
+                No paid add-ons selected yet.
+              </div>
+            )}
+
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.55px", marginBottom: 10 }}>
+              Included
+            </div>
+            <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.55 }}>
+              York IE connectors and free connectors do not change the subscription total.
+            </div>
+          </div>
+          </div>
+
           {/* Fixed bottom bar */}
           <div style={{
             flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.07)",
             background: "#1F3140", padding: "16px 48px",
             display: "flex", alignItems: "center", gap: 16,
+            position: "sticky", bottom: 0, zIndex: 5,
+            boxShadow: "0 -18px 36px rgba(0,0,0,0.18)",
           }}>
             <button
               onClick={goToConfigure}
@@ -353,7 +453,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
               Configure selected ({selectedIds.filter(id => !YORK_IDS.includes(id)).length}) →
             </button>
             <span style={{ fontSize: 11, color: "#3A4F5E" }}>
-              {selectedIds.length} integrations selected · York IE integrations always included
+              {selectedIds.length} integrations selected · {selectedFree.length} free · {selectedPremium.length} premium · York IE included
             </span>
           </div>
           </div>
@@ -406,6 +506,14 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                               fontWeight: isActive ? 600 : 400,
                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}>{item.name}</span>
+                            {item.method !== "york" && (
+                              <span style={{
+                                flexShrink: 0, fontSize: 9, fontWeight: 800,
+                                color: item.premium ? "#D4924A" : "#3DD68C",
+                              }}>
+                                {item.premium ? `$${item.addOnPrice}` : "Free"}
+                              </span>
+                            )}
                             <span style={{ flexShrink: 0, fontSize: 11 }}>
                               {status === "connected"  && <span style={{ color: "#3DD68C" }}>✓</span>}
                               {status === "skipped"    && <span style={{ color: "#3A4F5E" }}>–</span>}
@@ -457,6 +565,16 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                       }}>{active.category}</span>
                       {active.method === "york" && (
                         <span style={{ fontSize: 9.5, fontWeight: 700, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 4, padding: "2px 7px" }}>York IE</span>
+                      )}
+                      {active.premium && (
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: "#D4924A", background: "rgba(212,146,74,0.1)", border: "1px solid rgba(212,146,74,0.22)", borderRadius: 4, padding: "2px 7px" }}>
+                          Premium · ${active.addOnPrice}/mo
+                        </span>
+                      )}
+                      {active.method !== "york" && !active.premium && (
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 4, padding: "2px 7px" }}>
+                          Free
+                        </span>
                       )}
                     </div>
                     <StatusPill status={statuses[active.id]} />
@@ -580,7 +698,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                       border: "1px solid rgba(255,255,255,0.07)", borderRadius: 6,
                       padding: "7px 14px", fontSize: 12, cursor: "pointer",
                     }}>Skip for now</button>
-                    <span style={{ fontSize: 11, color: "#3A4F5E" }}>Add this integration anytime from the Fuel Store</span>
+                    <span style={{ fontSize: 11, color: "#3A4F5E" }}>Add this premium connector anytime from the Connector Hub</span>
                   </div>
                 )}
 
@@ -614,7 +732,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
               borderLeft: "1px solid rgba(255,255,255,0.07)",
               padding: "20px 16px", overflowY: "auto",
             }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>Progress</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>Progress</div>
               <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 4, height: 4, marginBottom: 6 }}>
                 <div style={{
                   height: 4, borderRadius: 4,
@@ -623,9 +741,22 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                   transition: "width 0.4s ease",
                 }} />
               </div>
-              <div style={{ fontSize: 11, color: "#556878", marginBottom: 20 }}>
+              <div style={{ fontSize: 13, color: "#556878", marginBottom: 20 }}>
                 {selectedNonYork.filter(i => statuses[i.id] === "connected").length} of {selectedNonYork.length} configured
               </div>
+              {selectedPremium.length > 0 && (
+                <div style={{
+                  background: "rgba(212,146,74,0.08)", border: "1px solid rgba(212,146,74,0.18)",
+                  borderRadius: 9, padding: "10px 11px", marginBottom: 18,
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "#D4924A", textTransform: "uppercase", letterSpacing: "0.45px", marginBottom: 5 }}>
+                    Premium usage
+                  </div>
+                  <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.45 }}>
+                    <strong style={{ color: "#F2F5F2" }}>{configuredPremiumCount}</strong> connected · ${premiumMonthlyTotal}/mo approved
+                  </div>
+                </div>
+              )}
 
               {CATEGORIES.map(cat => {
                 const items = selectedIntegrations.filter(i => i.category === cat);
@@ -633,15 +764,15 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                 const catColor = items[0]?.color ?? "#3DD68C";
                 return (
                   <div key={cat} style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: catColor, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 6 }}>{cat}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: catColor, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>{cat}</div>
                     {items.map(item => {
                       const s = statuses[item.id];
                       return (
-                        <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0" }}>
-                          <span style={{ fontSize: 11, color: s === "connected" ? "#3DD68C" : s === "skipped" ? "#3A4F5E" : s === "connecting" ? "#D4924A" : "#3A4F5E" }}>
+                        <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                          <span style={{ fontSize: 13, color: s === "connected" ? "#3DD68C" : s === "skipped" ? "#3A4F5E" : s === "connecting" ? "#D4924A" : "#3A4F5E" }}>
                             {s === "connected" ? "✓" : s === "skipped" ? "–" : s === "connecting" ? "●" : "○"}
                           </span>
-                          <span style={{ fontSize: 11, color: s === "connected" ? "#8FA99A" : "#3A4F5E" }}>{item.name}</span>
+                          <span style={{ fontSize: 13, color: s === "connected" ? "#8FA99A" : "#3A4F5E" }}>{item.name}</span>
                         </div>
                       );
                     })}
