@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
 
@@ -1379,15 +1379,23 @@ function ManualDevelopmentSummary({ data, onBack, onEdit }) {
 function DevelopmentDetailPage({ onBack }) {
   const canStartDevelopment = developmentDetail.designApproved;
   const developmentTrack = tracks.find((track) => track.id === "rd");
+  type QualityWeek = {
+    week: string;
+    quality: number;
+    stability: number;
+    speed: number;
+    risk: string;
+    summary: string;
+  };
   const [activeRoadmapKey, setActiveRoadmapKey] = useState(developmentDetail.roadmap[0].key);
   const [activePulseDimension, setActivePulseDimension] = useState(developmentDetail.pulse.dimensions[0].label);
   const [activeDesignIndex, setActiveDesignIndex] = useState(0);
   const [openDesignNote, setOpenDesignNote] = useState(false);
-  const [openQualityWeek, setOpenQualityWeek] = useState(null);
+  const [openQualityWeek, setOpenQualityWeek] = useState<QualityWeek | null>(null);
   const [roadmapSearch, setRoadmapSearch] = useState("");
   const [roadmapStatusFilter, setRoadmapStatusFilter] = useState("active");
   const [activeDevTab, setActiveDevTab] = useState("overview");
-  const [openReleaseNoteKey, setOpenReleaseNoteKey] = useState(null);
+  const [openReleaseNoteKey, setOpenReleaseNoteKey] = useState<string | null>(null);
   const [releaseNoteOrigin, setReleaseNoteOrigin] = useState("origin-top");
   const [releaseNoteClosing, setReleaseNoteClosing] = useState(false);
   const [mvpTargetDate, setMvpTargetDate] = useState("2025-07-20");
@@ -2559,9 +2567,11 @@ function TrackRow({ track, index, isOpen, onToggle, onOpenDetail, barsAnimated, 
 
 function SignalsPage({
   isProfileComplete,
+  onFinishProfile,
   onLinkConnectors,
 }: {
   isProfileComplete: boolean;
+  onFinishProfile: () => void;
   onLinkConnectors: () => void;
 }) {
   const benchmarkRows = [
@@ -3363,11 +3373,24 @@ function SignalsLoadingPage() {
 }
 
 function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: () => void; onStartTour: () => void }) {
+  type ContextConnector = {
+    id: string;
+    name: string;
+    type: string;
+    category: string;
+    icon: string;
+    color: string;
+    status: string;
+    description: string;
+    sources: string[];
+    tone?: string;
+    includedLabel?: string;
+  };
   const [connectorsOpen, setConnectorsOpen] = useState(false);
   const [showConnectorIntro, setShowConnectorIntro] = useState(true);
-  const [selectedConnector, setSelectedConnector] = useState(null);
-  const [includedTooltip, setIncludedTooltip] = useState(null);
-  const contextConnectors = [
+  const [selectedConnector, setSelectedConnector] = useState<ContextConnector | null>(null);
+  const [includedTooltip, setIncludedTooltip] = useState<string | null>(null);
+  const contextConnectors: ContextConnector[] = [
     {
       id: "granola",
       name: "Granola",
@@ -3726,6 +3749,13 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
   const [profileComplete, setProfileComplete] = useState(initialPage === "signals-loading" || startsWithTourAfterSignals);
   const [showTourPrompt, setShowTourPrompt] = useState(false);
+  const [tourTaken, setTourTaken] = useState(() => {
+    try {
+      return window.localStorage.getItem("fuelWorkspaceTourTaken") === "true";
+    } catch {
+      return false;
+    }
+  });
   const isProfileWizard = activePage === "profile-wizard";
   const tourSteps = [
     {
@@ -3811,7 +3841,6 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
         setActivePage("signals");
         try {
           const snoozedUntil = Number(window.localStorage.getItem("fuelTourPromptSnoozedUntil") || 0);
-          const tourTaken = window.localStorage.getItem("fuelWorkspaceTourTaken") === "true";
           setShowTourPrompt(!tourTaken && Date.now() > snoozedUntil);
         } catch {
           setShowTourPrompt(true);
@@ -3870,6 +3899,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
 
   function startTour() {
     setShowTourPrompt(false);
+    setTourTaken(true);
     try {
       window.localStorage.setItem("fuelWorkspaceTourTaken", "true");
     } catch {
@@ -4042,7 +4072,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
               </div>
             </div>
             <div className="header-actions">
-              {profileComplete && !isProfileWizard ? (
+              {profileComplete && !isProfileWizard && !tourTaken ? (
                 <button className="header-btn" onClick={startTour}>Tour</button>
               ) : null}
               <button className={`header-btn ${tourOpen && tourSteps[tourStep].target === "playbooks" ? "tour-highlight" : ""}`}>Playbooks ▾</button>
@@ -4106,6 +4136,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
           ) : activePage === "signals" ? (
             <SignalsPage
               isProfileComplete={profileComplete}
+              onFinishProfile={() => setActivePage("profile-wizard")}
               onLinkConnectors={() => setActivePage("context-feed")}
             />
           ) : activePage === "profile-wizard" ? (
