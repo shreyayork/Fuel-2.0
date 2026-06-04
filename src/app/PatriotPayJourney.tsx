@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
 
+const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
 const tracks = [
   {
     id: "rd",
@@ -3751,7 +3753,8 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
   const [showTourPrompt, setShowTourPrompt] = useState(false);
   const [tourTaken, setTourTaken] = useState(() => {
     try {
-      return window.localStorage.getItem("fuelWorkspaceTourTaken") === "true";
+      const lastTakenAt = Number(window.localStorage.getItem("fuelWorkspaceTourTakenAt") || 0);
+      return lastTakenAt > 0 && Date.now() - lastTakenAt < TOUR_TAKEN_COOLDOWN_MS;
     } catch {
       return false;
     }
@@ -3839,12 +3842,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
     const timer = window.setTimeout(() => {
       if (startsWithTourAfterSignals) {
         setActivePage("signals");
-        try {
-          const snoozedUntil = Number(window.localStorage.getItem("fuelTourPromptSnoozedUntil") || 0);
-          setShowTourPrompt(!tourTaken && Date.now() > snoozedUntil);
-        } catch {
-          setShowTourPrompt(true);
-        }
+        setShowTourPrompt(true);
         return;
       }
 
@@ -3854,7 +3852,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
     return () => {
       window.clearTimeout(timer);
     };
-  }, [activePage]);
+  }, [activePage, startsWithTourAfterSignals]);
 
   useEffect(() => {
     function closeDropdown(event) {
@@ -3901,6 +3899,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
     setShowTourPrompt(false);
     setTourTaken(true);
     try {
+      window.localStorage.setItem("fuelWorkspaceTourTakenAt", String(Date.now()));
       window.localStorage.setItem("fuelWorkspaceTourTaken", "true");
     } catch {
       // Ignore storage failures in preview/demo environments.
@@ -4038,19 +4037,10 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
             <div className="search-box">
               <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
             </div>
-            <button
-              onClick={() => setActivePage("connectors")}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
-                borderRadius: 7, padding: "5px 12px", cursor: "pointer",
-                fontSize: 12, color: "var(--text-2)", fontFamily: "inherit",
-                transition: "all 0.15s",
-              }}
-            >
-              <span style={{ fontSize: 14, lineHeight: 1 }}>⟳</span> Connectors
-            </button>
             <button className="ask-ai-btn">✦ Ask Fuel AI</button>
+            {profileComplete && !isProfileWizard && !tourTaken ? (
+              <button className="header-btn" onClick={startTour}>Tour</button>
+            ) : null}
             <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Q4 '25 · Nov 8</span>
           </div>
         </div>
@@ -4072,9 +4062,6 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
               </div>
             </div>
             <div className="header-actions">
-              {profileComplete && !isProfileWizard && !tourTaken ? (
-                <button className="header-btn" onClick={startTour}>Tour</button>
-              ) : null}
               <button className={`header-btn ${tourOpen && tourSteps[tourStep].target === "playbooks" ? "tour-highlight" : ""}`}>Playbooks ▾</button>
               <button className="header-btn primary">≡ Generate brief</button>
             </div>

@@ -2216,6 +2216,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
           to   { opacity: 1; transform: translateY(0); }
         }
         .fuel-msg {
+          width: 100%;
           animation: fuelFadeUp 0.3s ease both;
           border: none;
           border-image: none;
@@ -2284,7 +2285,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
           }}>
             {/* Messages */}
             <div style={{ flex: 1, overflowY: "auto", padding: "24px 0" }}>
-              <div style={{ maxWidth: 850, margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ width: "100%", margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
                 {messages.map(msg => (
                   <div key={msg.id} className="fuel-msg" style={{
