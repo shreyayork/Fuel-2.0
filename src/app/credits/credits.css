@@ -1,0 +1,342 @@
+.credit-indicator-wrap {
+  padding: 0 14px 10px;
+  position: relative;
+}
+
+.credit-indicator-btn {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.credit-indicator-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(0, 180, 138, 0.22);
+}
+
+.credit-indicator-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  flex: 1;
+  height: 5px;
+  overflow: hidden;
+}
+
+.credit-indicator-fill {
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+  transition: width 0.45s ease, background 0.3s ease;
+}
+
+.credit-indicator-fill.teal { background: linear-gradient(90deg, #00B48A, #3DD68C); }
+.credit-indicator-fill.amber { background: linear-gradient(90deg, #D4924A, #ECD67F); }
+.credit-indicator-fill.red { background: linear-gradient(90deg, #C45C5C, #E07A7A); }
+
+.credit-plan-badge {
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+.credit-plan-badge.free {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #8FA99A;
+}
+
+.credit-plan-badge.pro {
+  background: rgba(0, 180, 138, 0.14);
+  border: 1px solid rgba(0, 180, 138, 0.28);
+  color: #8FE8D2;
+}
+
+.credit-popover {
+  background: #1A2B38;
+  border: 1px solid rgba(0, 180, 138, 0.24);
+  border-radius: 12px;
+  bottom: calc(100% + 8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  left: 14px;
+  padding: 14px;
+  position: absolute;
+  right: 14px;
+  z-index: 40;
+}
+
+.credit-popover h4 {
+  color: #F2F5F2;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 8px;
+}
+
+.credit-popover p {
+  color: #8FA99A;
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0 0 8px;
+}
+
+.credit-popover .credit-countdown {
+  color: #8FE8D2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  font-weight: 800;
+  margin: 8px 0 12px;
+}
+
+.credit-popover-stats {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 10px;
+}
+
+.credit-popover-stats div {
+  color: #B8C9C0;
+  display: flex;
+  font-size: 11.5px;
+  justify-content: space-between;
+}
+
+.credit-popover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.credit-btn-primary {
+  background: linear-gradient(135deg, #00B48A 0%, #ECD67F 100%);
+  border: none;
+  border-radius: 8px;
+  color: #0a1a12;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.credit-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #8FA99A;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 12px;
+}
+
+.credit-cost-list {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.credit-cost-row {
+  color: #6F8798;
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+}
+
+.credit-block-banner {
+  align-items: center;
+  background: rgba(196, 92, 92, 0.12);
+  border-bottom: 1px solid rgba(196, 92, 92, 0.28);
+  color: #E8B4B4;
+  display: flex;
+  font-size: 12px;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 20px;
+}
+
+.credit-block-banner button {
+  background: transparent;
+  border: 1px solid rgba(196, 92, 92, 0.35);
+  border-radius: 6px;
+  color: #F2CFCF;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.credit-upgrade-overlay {
+  align-items: center;
+  background: rgba(8, 16, 22, 0.78);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 2000;
+}
+
+.credit-upgrade-modal {
+  background: #1A2B38;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  max-height: 90vh;
+  max-width: 520px;
+  overflow: auto;
+  padding: 22px;
+  width: calc(100% - 32px);
+}
+
+.credit-upgrade-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.credit-upgrade-tabs button {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #8FA99A;
+  cursor: pointer;
+  flex: 1;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px;
+}
+
+.credit-upgrade-tabs button.active {
+  background: rgba(0, 180, 138, 0.12);
+  border-color: rgba(0, 180, 138, 0.35);
+  color: #8FE8D2;
+}
+
+.credit-topup-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.credit-topup-option {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 12px;
+  text-align: left;
+}
+
+.credit-topup-option.selected {
+  background: rgba(0, 180, 138, 0.1);
+  border-color: rgba(0, 180, 138, 0.35);
+}
+
+.credit-toast {
+  animation: creditToastIn 0.25s ease;
+  background: #1F3140;
+  border: 1px solid rgba(0, 180, 138, 0.28);
+  border-radius: 10px;
+  bottom: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  color: #D0DDD8;
+  font-size: 13px;
+  left: 50%;
+  max-width: 420px;
+  padding: 12px 16px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 2100;
+}
+
+.credit-design-preview {
+  background: #0d1820;
+  border: 2px dashed rgba(236, 214, 127, 0.45);
+  border-radius: 10px;
+  bottom: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 11px;
+  padding: 10px;
+  position: fixed;
+  right: 20px;
+  width: 220px;
+  z-index: 3000;
+}
+
+.credit-design-preview label {
+  color: #ECD67F;
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.credit-design-preview select {
+  background: #172632;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #D0DDD8;
+  font: inherit;
+  font-size: 11px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.credit-action-disabled {
+  cursor: not-allowed !important;
+  opacity: 0.42 !important;
+  pointer-events: auto !important;
+}
+
+.ask-ai-btn .credit-inline-badge,
+.sidebar-foot-name .credit-inline-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: #8FA99A;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-left: 6px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.profile-usage-breakdown-row strong {
+  color: #D0DDD8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.profile-usage-upgrade-link {
+  background: none;
+  border: none;
+  color: #3DD68C;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+@keyframes creditToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

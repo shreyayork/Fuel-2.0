@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
+import "./credits/credits.css";
+import {
+  CreditProvider,
+  CreditIndicator,
+  CreditBlockBanner,
+  CreditToastHost,
+  UpgradeModal,
+  DesignPreviewSwitcher,
+  useCredits,
+  useCreditsOptional,
+} from "./credits";
+import { totalRemaining, dailyRemaining, monthlyRemainingRatio } from "./credits/creditLogic";
+import type { CreditSnapshot } from "./credits/types";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -3569,6 +3582,8 @@ function DocumentUploadDropdown({
   scope?: "all" | "custom-only";
   documentSlots?: DataRoomDocumentSlot[];
 }) {
+  const credits = useCreditsOptional();
+  const creditBlocked = credits?.generationBlocked ?? false;
   const [open, setOpen] = React.useState(false);
   const [customLabel, setCustomLabel] = React.useState("");
   const [pendingType, setPendingType] = React.useState<{ typeId: string; typeLabel: string } | null>(null);
@@ -3635,9 +3650,15 @@ function DocumentUploadDropdown({
       <div className={`document-upload-wrap${isCustomOnly ? " document-upload-wrap-custom-only" : ""}`}>
         <button
           type="button"
-          className={`${isCustomOnly ? "data-room-add-custom-btn" : "signals-private-btn secondary"} document-upload-trigger${isProcessing ? " processing" : ""}`}
+          className={`${isCustomOnly ? "data-room-add-custom-btn" : "signals-private-btn secondary"} document-upload-trigger${isProcessing ? " processing" : ""}${creditBlocked ? " credit-action-disabled" : ""}`}
           disabled={isProcessing}
-          onClick={() => setOpen(current => !current)}
+          onClick={() => {
+            if (creditBlocked) {
+              credits?.setPopoverOpen(true);
+              return;
+            }
+            setOpen(current => !current);
+          }}
         >
           {renderTriggerLabel()}
         </button>
@@ -4233,6 +4254,7 @@ function SignalsPage({
   if (isProfileComplete) {
     return (
       <section className="signals-screenshot-page">
+        <CreditBlockBanner />
         <PrivateDataCompactStrip
           documentSlots={documentSlots}
           processingDocumentTypeId={processingDocumentTypeId}
@@ -4957,6 +4979,7 @@ function ContextFeedPage({
   onOpenConnectors: () => void;
   onIntelligenceGenerated?: (item: IntelligenceItem) => void;
 }) {
+  const { tryAction, generationBlocked, setPopoverOpen } = useCredits();
   type ContextConnector = {
     id: string;
     name: string;
@@ -5173,32 +5196,34 @@ function ContextFeedPage({
 
   const handleGenerateIntelligence = () => {
     if (!sourceTitle.trim()) return;
-    const sourceId = `src-manual-${Date.now()}`;
-    onIntelligenceGenerated?.({
-      id: `intel-manual-${Date.now()}`,
-      type: "strategic",
-      text: sourceTitle.trim(),
-      highlight: sourceDescription.trim() || "Manual source entry",
-      date: "2026-q2",
-      age: "Just now",
-      title: sourceDescription.trim() || sourceTitle.trim(),
-      confidence: "72%",
-      sources: [{
-        id: sourceId,
-        title: sourceTitle.trim(),
-        description: sourceDescription.trim() || "Manually added source context for intelligence generation.",
-        system: "manual",
-        sourceType: "private_note",
-        meta: "shreya.g@york.ie",
-        date: new Date().toLocaleDateString("en-US"),
-        snippet: sourceDescription.trim() || sourceTitle.trim(),
-        ref: `manual:note:${sourceId}`,
-      }],
+    tryAction("generateSource", () => {
+      const sourceId = `src-manual-${Date.now()}`;
+      onIntelligenceGenerated?.({
+        id: `intel-manual-${Date.now()}`,
+        type: "strategic",
+        text: sourceTitle.trim(),
+        highlight: sourceDescription.trim() || "Manual source entry",
+        date: "2026-q2",
+        age: "Just now",
+        title: sourceDescription.trim() || sourceTitle.trim(),
+        confidence: "72%",
+        sources: [{
+          id: sourceId,
+          title: sourceTitle.trim(),
+          description: sourceDescription.trim() || "Manually added source context for intelligence generation.",
+          system: "manual",
+          sourceType: "private_note",
+          meta: "shreya.g@york.ie",
+          date: new Date().toLocaleDateString("en-US"),
+          snippet: sourceDescription.trim() || sourceTitle.trim(),
+          ref: `manual:note:${sourceId}`,
+        }],
+      });
+      setSignalsGenerated(true);
+      setShowSourceForm(false);
+      setSourceTitle("");
+      setSourceDescription("");
     });
-    setSignalsGenerated(true);
-    setShowSourceForm(false);
-    setSourceTitle("");
-    setSourceDescription("");
   };
 
   return (
@@ -5216,9 +5241,15 @@ function ContextFeedPage({
                 <button type="button" className="ghost" onClick={cancelAddSource}>Cancel</button>
                 <button
                   type="button"
-                  className="primary"
+                  className={`primary${generationBlocked ? " credit-action-disabled" : ""}`}
                   disabled={!sourceTitle.trim() || signalsGenerated}
-                  onClick={handleGenerateIntelligence}
+                  onClick={() => {
+                    if (generationBlocked) {
+                      setPopoverOpen(true);
+                      return;
+                    }
+                    handleGenerateIntelligence();
+                  }}
                 >
                   {signalsGenerated ? "Generated" : "Generate intelligence"}
                 </button>
@@ -5323,62 +5354,25 @@ function ContextFeedPage({
   );
 }
 
-type PlanTier = "free" | "pro";
-
-type AiUsageSnapshot = {
-  plan: PlanTier;
-  usedRatio: number;
-  paused: boolean;
-  refillInMs: number | null;
-  periodResetsLabel: string;
-  breakdown: {
-    playbooks: number;
-    intelligence: number;
-    fuelAi: number;
-  };
-};
-
-function formatUsageWaitDuration(ms: number) {
-  const totalMinutes = Math.max(1, Math.ceil(ms / 60000));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours && minutes) return `${hours}h ${minutes}m`;
-  if (hours) return `${hours}h`;
-  return `${minutes}m`;
-}
-
-function getAiUsageStatus(usage: AiUsageSnapshot) {
-  if (usage.paused && usage.refillInMs) {
-    return `Paused · refills in ${formatUsageWaitDuration(usage.refillInMs)}`;
-  }
-  if (usage.usedRatio >= 0.95) return "Nearly at limit";
-  if (usage.usedRatio >= 0.7) return "Running low";
-  return "Plenty available";
-}
-
 function ProfileUsagePanel({
-  usage,
+  snapshot,
   userName,
   userEmail,
   onClose,
-  onAddUsage,
+  onUpgrade,
 }: {
-  usage: AiUsageSnapshot;
+  snapshot: CreditSnapshot;
   userName: string;
   userEmail: string;
   onClose: () => void;
-  onAddUsage: () => void;
+  onUpgrade: () => void;
 }) {
-  const usedPercent = Math.round(Math.min(1, Math.max(0, usage.usedRatio)) * 100);
-  const status = getAiUsageStatus(usage);
-  const breakdownRows = [
-    { key: "playbooks", label: "Playbooks", ratio: usage.breakdown.playbooks },
-    { key: "intelligence", label: "Intelligence", ratio: usage.breakdown.intelligence },
-    { key: "fuelAi", label: "Fuel AI", ratio: usage.breakdown.fuelAi },
-  ] as const;
+  const remaining = totalRemaining(snapshot);
+  const usedPercent = Math.round((1 - monthlyRemainingRatio(snapshot)) * 100);
+  const dailyLeft = dailyRemaining(snapshot);
 
   return (
-    <div className="profile-usage-panel" role="dialog" aria-label="Profile and AI usage">
+    <div className="profile-usage-panel" role="dialog" aria-label="Profile and credits">
       <div className="profile-usage-head">
         <div>
           <strong>{userName}</strong>
@@ -5386,46 +5380,124 @@ function ProfileUsagePanel({
         </div>
         <button type="button" className="profile-usage-close" aria-label="Close profile menu" onClick={onClose}>×</button>
       </div>
+      {snapshot.plan === "free" ? (
+        <button type="button" className="profile-usage-upgrade-link" onClick={onUpgrade}>
+          Upgrade to Pro →
+        </button>
+      ) : null}
       <div className="profile-usage-plan">
-        <span className={`profile-usage-plan-badge ${usage.plan}`}>{usage.plan === "pro" ? "Pro" : "Free"}</span>
-        <em>Resets {usage.periodResetsLabel}</em>
+        <span className={`profile-usage-plan-badge ${snapshot.plan}`}>{snapshot.plan === "pro" ? "Pro" : "Free"}</span>
+        <em>Resets {snapshot.monthlyResetLabel}</em>
       </div>
       <div className="profile-usage-section">
         <div className="profile-usage-section-head">
-          <span>AI usage this period</span>
-          <strong>{usedPercent}%</strong>
+          <span>Credits this month</span>
+          <strong>{remaining.toLocaleString()} left</strong>
         </div>
         <div className="profile-usage-meter" aria-hidden="true">
           <span
-            className={`profile-usage-meter-fill${usage.paused ? " paused" : usedPercent >= 85 ? " low" : ""}`}
-            style={{ width: `${usedPercent}%` }}
+            className={`profile-usage-meter-fill${remaining <= snapshot.monthlyLimit * 0.1 ? " low" : ""}`}
+            style={{ width: `${Math.max(4, Math.round(monthlyRemainingRatio(snapshot) * 100))}%` }}
           />
         </div>
-        <p className={`profile-usage-status${usage.paused ? " paused" : usedPercent >= 85 ? " low" : ""}`}>{status}</p>
+        <p className="profile-usage-status">{dailyLeft} daily credits left today · {usedPercent}% used</p>
       </div>
       <div className="profile-usage-breakdown">
-        <span className="profile-usage-breakdown-label">Where it went</span>
-        {breakdownRows.map(row => (
-          <div className="profile-usage-breakdown-row" key={row.key}>
-            <span>{row.label}</span>
-            <div className="profile-usage-breakdown-track">
-              <span style={{ width: `${Math.round(row.ratio * 100)}%` }} />
-            </div>
-          </div>
-        ))}
+        <span className="profile-usage-breakdown-label">This month</span>
+        <div className="profile-usage-breakdown-row"><span>Signals</span><strong>{snapshot.stats.signals}</strong></div>
+        <div className="profile-usage-breakdown-row"><span>Docs</span><strong>{snapshot.stats.docs}</strong></div>
+        <div className="profile-usage-breakdown-row"><span>AI messages</span><strong>{snapshot.stats.messages}</strong></div>
       </div>
-      {usage.paused || usedPercent >= 70 ? (
-        <div className="profile-usage-actions">
-          <button type="button" className="profile-usage-add-btn" onClick={onAddUsage}>
-            Add usage
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }
 
+function AskFuelAiButton() {
+  const { snapshot, tryAction, generationBlocked, setPopoverOpen } = useCredits();
+  const remaining = totalRemaining(snapshot);
+  const dailyLeft = dailyRemaining(snapshot);
+  const isFree = snapshot.plan === "free";
+
+  return (
+    <button
+      className={`ask-ai-btn${generationBlocked ? " credit-action-disabled" : ""}`}
+      title={`${remaining} credits · ${dailyLeft} daily left`}
+      onClick={() => {
+        if (generationBlocked) {
+          setPopoverOpen(true);
+          return;
+        }
+        tryAction("aiChat", () => undefined);
+      }}
+    >
+      ✦ Ask Fuel AI
+      {isFree ? <span className="credit-inline-badge">Free</span> : null}
+    </button>
+  );
+}
+
+function SidebarProfileFooter({
+  profileMenuOpen,
+  setProfileMenuOpen,
+  profileMenuRef,
+}: {
+  profileMenuOpen: boolean;
+  setProfileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  profileMenuRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const { snapshot, openUpgrade } = useCredits();
+
+  return (
+    <>
+      <CreditIndicator />
+      <div className="sidebar-foot-wrap" ref={profileMenuRef}>
+        {profileMenuOpen ? (
+          <ProfileUsagePanel
+            snapshot={snapshot}
+            userName="Shreya Gokani"
+            userEmail="shreya.g@york.ie"
+            onClose={() => setProfileMenuOpen(false)}
+            onUpgrade={() => {
+              setProfileMenuOpen(false);
+              openUpgrade("pro");
+            }}
+          />
+        ) : null}
+        <button
+          type="button"
+          className={`sidebar-foot${profileMenuOpen ? " open" : ""}`}
+          aria-expanded={profileMenuOpen}
+          aria-label="Open profile and usage"
+          onClick={() => setProfileMenuOpen(current => !current)}
+        >
+          <div className="sidebar-foot-avatar">SG</div>
+          <div className="sidebar-foot-copy">
+            <div className="sidebar-foot-name">
+              Shreya Gokani
+              {snapshot.plan === "free" ? <span className="credit-inline-badge">Free</span> : (
+                <span className="credit-plan-badge pro" style={{ marginLeft: 6, fontSize: 9, padding: "2px 6px" }}>Pro</span>
+              )}
+            </div>
+            <div className="sidebar-foot-email">shreya.g@york.ie</div>
+          </div>
+        </button>
+      </div>
+    </>
+  );
+}
+
 export default function PatriotPayJourney({ initialPage = "journey" }: { initialPage?: string }) {
+  return (
+    <CreditProvider>
+      <PatriotPayJourneyInner initialPage={initialPage} />
+      <UpgradeModal />
+      <CreditToastHost />
+      <DesignPreviewSwitcher />
+    </CreditProvider>
+  );
+}
+
+function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: string }) {
   const startsWithTour = initialPage === "guided-tour";
   const startsWithTourAfterSignals = initialPage === "signals-loading-tour";
   const [openTracks, setOpenTracks] = useState(() => new Set());
@@ -5446,32 +5518,27 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const [aiUsage, setAiUsage] = useState<AiUsageSnapshot>({
-    plan: "pro",
-    usedRatio: 0.62,
-    paused: false,
-    refillInMs: null,
-    periodResetsLabel: "Apr 1",
-    breakdown: { playbooks: 0.42, intelligence: 0.35, fuelAi: 0.23 },
-  });
+  const { tryAction } = useCredits();
   const handleDocumentUpload = (typeId: string, typeLabel: string, file: File, source: string) => {
-    setProcessingDocumentTypeId(typeId);
-    window.setTimeout(() => {
-      const generatedItems = createDocumentIntelligence(typeId, typeLabel, file.name);
-      const generatedIds = generatedItems.map(item => item.id);
-      setIntelligenceItems(previous => [...generatedItems, ...previous]);
-      setBenchmarkBlinkIds(generatedIds);
-      window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
-      setDocumentSlots(previous => upsertDocumentSlot(previous, {
-        typeId,
-        typeLabel,
-        file,
-        source,
-        intelligenceIds: generatedIds,
-        intelligenceCount: generatedItems.length,
-      }));
-      setProcessingDocumentTypeId(null);
-    }, 1400);
+    tryAction("docUpload", () => {
+      setProcessingDocumentTypeId(typeId);
+      window.setTimeout(() => {
+        const generatedItems = createDocumentIntelligence(typeId, typeLabel, file.name);
+        const generatedIds = generatedItems.map(item => item.id);
+        setIntelligenceItems(previous => [...generatedItems, ...previous]);
+        setBenchmarkBlinkIds(generatedIds);
+        window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
+        setDocumentSlots(previous => upsertDocumentSlot(previous, {
+          typeId,
+          typeLabel,
+          file,
+          source,
+          intelligenceIds: generatedIds,
+          intelligenceCount: generatedItems.length,
+        }));
+        setProcessingDocumentTypeId(null);
+      }, 1400);
+    });
   };
   const applyBenchmarkSubmission = (values: BenchmarkFormValues) => {
     const { items, submission } = createBenchmarkIntelligence(values);
@@ -5716,16 +5783,6 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
     };
   }, [profileMenuOpen]);
 
-  const handleAddAiUsage = () => {
-    setAiUsage(current => ({
-      ...current,
-      paused: false,
-      refillInMs: null,
-      usedRatio: Math.max(0, current.usedRatio - 0.35),
-    }));
-    setProfileMenuOpen(false);
-  };
-
   return (
     <div className="app">
       <aside className="sidebar">
@@ -5841,30 +5898,11 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
             Winrate
           </div>
         </div>
-        <div className="sidebar-foot-wrap" ref={profileMenuRef}>
-          {profileMenuOpen ? (
-            <ProfileUsagePanel
-              usage={aiUsage}
-              userName="Shreya Gokani"
-              userEmail="shreya.g@york.ie"
-              onClose={() => setProfileMenuOpen(false)}
-              onAddUsage={handleAddAiUsage}
-            />
-          ) : null}
-          <button
-            type="button"
-            className={`sidebar-foot${profileMenuOpen ? " open" : ""}`}
-            aria-expanded={profileMenuOpen}
-            aria-label="Open profile and usage"
-            onClick={() => setProfileMenuOpen(current => !current)}
-          >
-            <div className="sidebar-foot-avatar">SG</div>
-            <div className="sidebar-foot-copy">
-              <div className="sidebar-foot-name">Shreya Gokani</div>
-              <div className="sidebar-foot-email">shreya.g@york.ie</div>
-            </div>
-          </button>
-        </div>
+        <SidebarProfileFooter
+          profileMenuOpen={profileMenuOpen}
+          setProfileMenuOpen={setProfileMenuOpen}
+          profileMenuRef={profileMenuRef}
+        />
       </aside>
 
       <div className="main">
@@ -5879,7 +5917,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
             <div className="search-box">
               <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
             </div>
-            <button className="ask-ai-btn">✦ Ask Fuel AI</button>
+            <AskFuelAiButton />
             {!isProfileWizard && !tourTaken ? (
               <button className="header-btn" onClick={startTour}>Tour</button>
             ) : null}

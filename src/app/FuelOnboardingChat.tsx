@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 
 type Step =
   | "company-confirm" | "company-name"
-  | "profile-description" | "profile-more-details" | "business-model" | "domain-claim"
+  | "profile-description" | "profile-more-details" | "business-model" | "profile-intro" | "domain-claim"
   | "crunchbase-fetching" | "crunchbase-missing" | "crunchbase-url" | "crunchbase-confirm" | "benchmark"
   | "fuel-value" | "york-services" | "york-link"
   | "integrations-intro" | "integrations-select"
@@ -15,7 +15,7 @@ interface ChatMessage {
   role: "ai" | "user";
   text: string;
   chips?: { label: string; value: string; icon?: string }[];
-  cardType?: "crunchbase" | "profile-form" | "business-model" | "benchmark" | "value-prop" | "york-services" | "york-projects" | "why-integrate" | "york-cta" | "integration-select" | "plan-compare" | "complete";
+  cardType?: "crunchbase" | "profile-form" | "business-model" | "benchmark" | "value-prop" | "york-services" | "york-projects" | "why-integrate" | "york-cta" | "integration-select" | "complete";
   cardMode?: "view" | "edit";
   cardLabel?: string;
   disabled?: boolean;
@@ -23,6 +23,7 @@ interface ChatMessage {
   fuelHelpContent?: FuelHelpContent;
   valuePropItems?: ValuePropItem[];
   suggestedPlaybooks?: SuggestedPlaybook[];
+  profileFormVisible?: boolean;
 }
 
 type FuelHelpSection = { label: string; items: string[] };
@@ -197,7 +198,7 @@ const PROGRESS_ITEMS = [
 
 const STAGE_ORDER: Step[] = [
   "company-confirm", "company-name",
-  "profile-description", "business-model", "profile-more-details", "domain-claim",
+  "profile-description", "business-model", "profile-more-details", "profile-intro", "domain-claim",
   "crunchbase-fetching", "crunchbase-missing", "crunchbase-url", "crunchbase-confirm", "benchmark",
   "fuel-value", "york-services", "york-link",
   "integrations-intro", "integrations-select",
@@ -210,6 +211,18 @@ function stepIndex(s: Step) {
 
 let _seq = 0;
 const uid = () => `${Date.now()}-${++_seq}-${Math.random().toString(36).slice(2)}`;
+
+function scrollChatToElement(el: HTMLElement | null, offset = 24) {
+  if (!el) return;
+  requestAnimationFrame(() => {
+    const chatScroll = el.closest("[data-fuel-chat-scroll]") as HTMLElement | null;
+    if (!chatScroll) return;
+    const elRect = el.getBoundingClientRect();
+    const scrollRect = chatScroll.getBoundingClientRect();
+    const top = chatScroll.scrollTop + (elRect.top - scrollRect.top) - offset;
+    chatScroll.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  });
+}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -707,7 +720,7 @@ function ProfileFormCard({
         Review your <span style={{ color: "#00B48A" }}>{companyName || "company"}</span> profile.
       </div>
       <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45, marginBottom: 14 }}>
-        Confirm what looks right and we'll set up your workspace.
+        The more accurate this is, the tighter your peer cohort. Garbage in, garbage out.
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
@@ -930,6 +943,7 @@ type BenchmarkWizardField = {
   key: keyof BenchmarkValues;
   label: string;
   prompt: string;
+  promptHint?: string;
   placeholder: string;
   unit: "usd" | "percent" | "count";
   p25: number;
@@ -986,7 +1000,7 @@ function inferCohortFromProfile(profile: CrunchbaseData | null, businessModel = 
 }
 
 const BENCHMARK_WIZARD_FIELDS: BenchmarkWizardField[] = [
-  { key: "arr", label: "ARR", prompt: "Let's start with the headline number — what's your ARR?", placeholder: "500000", unit: "usd", p25: 150000, p50: 500000, p75: 1200000, p90: 2500000, bandStart: 6, bandEnd: 48 },
+  { key: "arr", label: "ARR", prompt: "ARR — what are you at?", promptHint: "(We'll add more metrics after. One at a time.)", placeholder: "500000", unit: "usd", p25: 150000, p50: 500000, p75: 1200000, p90: 2500000, bandStart: 6, bandEnd: 48 },
   { key: "arrGrowth", label: "ARR growth (YoY)", prompt: "How fast is ARR growing year over year?", placeholder: "120", unit: "percent", p25: 120, p50: 200, p75: 350, p90: 600, bandStart: 20, bandEnd: 58 },
   { key: "nrr", label: "Net revenue retention", prompt: "What does net revenue retention look like?", placeholder: "108", unit: "percent", p25: 95, p50: 108, p75: 125, p90: 145, bandStart: 66, bandEnd: 84 },
   { key: "logoRetention", label: "Logo retention", prompt: "What share of customers stayed over the last year?", placeholder: "88", unit: "percent", p25: 80, p50: 88, p75: 93, p90: 97, bandStart: 82, bandEnd: 96 },
@@ -1326,6 +1340,123 @@ function suggestPlaybooksForStage(journeyStage: string): SuggestedPlaybook[] {
   return STAGE_PLAYBOOKS[journeyStage] ?? STAGE_PLAYBOOKS["Pre-Product"];
 }
 
+const STAGE_JOURNEY_MESSAGES: Record<string, string> = {
+  Idea: "You're at **Stage 1: Idea** — problem identified, solution taking shape. Most companies at this stage are still figuring out who they're building for. Fuel helps you validate before you build.",
+  "Pre-Product": "You're at **Stage 2: Pre-Product** — building MVP, pre-revenue. Based on your profile, not a guess.",
+  "Pre-Revenue": "You're at **Stage 3: Pre-Revenue** — product is live, first users are in. The question now isn't whether it works. It's whether people will pay for it.",
+  "Early Revenue": "You're at **Stage 4: Early Revenue** — customers are paying, signal is real. This is where most companies stall. Fuel tracks the metrics that tell you if you're building momentum or just activity.",
+  "Product-Market Fit": "You're at **Stage 5: Product-Market Fit** — retention is holding, growth is repeatable. You've found something that works. Now it's about not breaking it while you scale.",
+  Scaling: "You're at **Stage 6: Scaling** — rapid expansion, efficiency under pressure. Growth is the easy part to measure. Fuel watches the harder stuff — margin, burn, and retention as you add headcount.",
+  "Market Leader": "You're at **Stage 7: Market Leader** — category dominance, defending the position. The benchmark shifts at this stage. Your peers aren't startups anymore. Fuel recalibrates your cohort accordingly.",
+};
+
+function getStageJourneyMessage(stage: string): string {
+  return STAGE_JOURNEY_MESSAGES[stage] ?? STAGE_JOURNEY_MESSAGES["Pre-Product"];
+}
+
+type ScoredBenchmarkMetric = {
+  field: BenchmarkWizardField;
+  value: number;
+  tier: ReturnType<typeof getBenchmarkTier>;
+};
+
+function getScoredBenchmarkMetrics(snapshot: BenchmarkSnapshot): ScoredBenchmarkMetric[] {
+  const scored: ScoredBenchmarkMetric[] = [];
+  for (const field of BENCHMARK_WIZARD_FIELDS) {
+    const value = parseBenchmarkNumber(snapshot.values[field.key]);
+    if (value == null) continue;
+    scored.push({
+      field,
+      value,
+      tier: getBenchmarkTier(value, field),
+    });
+  }
+  return scored;
+}
+
+type KpiSnapshotMoment = {
+  headline: string;
+  strength: string;
+  gaps: string;
+};
+
+function momentMetricLabel(field: BenchmarkWizardField): string {
+  const labels: Partial<Record<keyof BenchmarkValues, string>> = {
+    arr: "ARR",
+    arrGrowth: "ARR growth",
+    nrr: "NRR",
+    logoRetention: "logo retention",
+    grossMargin: "gross margin",
+    monthlyBurn: "monthly burn",
+    cashOnHand: "cash on hand",
+    headcount: "headcount",
+    payingCustomers: "paying customers",
+  };
+  return labels[field.key] ?? field.label;
+}
+
+function buildKpiSnapshotMoment(companyName: string, scored: ScoredBenchmarkMetric[]): KpiSnapshotMoment {
+  const company = companyName || "your company";
+  const headline = `Here's where **${company}** actually sits.`;
+
+  if (!scored.length) {
+    return {
+      headline,
+      strength: "Lock in your numbers above and Fuel will map you against real peers — not generic averages.",
+      gaps: "Start with ARR. The rest of the picture builds from there.",
+    };
+  }
+
+  const margin = metricRef(scored, "grossMargin");
+  const burn = metricRef(scored, "monthlyBurn");
+  const cash = metricRef(scored, "cashOnHand");
+  const arr = metricRef(scored, "arr");
+  const growth = metricRef(scored, "arrGrowth");
+  const nrr = metricRef(scored, "nrr");
+  const strong = scored.filter(entry => isStrongTier(entry.tier));
+  const weak = scored.filter(entry => isWeakTier(entry.tier));
+
+  let strength: string;
+  if (margin && burn && isStrongTier(margin.tier) && isStrongTier(burn.tier)) {
+    strength = "Strong margins, controlled burn — you're running leaner than most peers at your stage. That's not common. It means your growth decisions can be proactive, not defensive.";
+  } else if (burn && cash && isStrongTier(burn.tier) && isStrongTier(cash.tier)) {
+    strength = "You're spending carefully and sitting on solid cash reserves — both above P50 for your cohort. That runway gives you room to invest when you find what's working.";
+  } else if (arr && growth && nrr && isStrongTier(arr.tier) && isStrongTier(growth.tier) && isStrongTier(nrr.tier)) {
+    strength = "Revenue, growth, and retention all look strong compared to peers. You're in a rare spot at this stage — the focus shifts to doing it efficiently.";
+  } else if (growth && nrr && isStrongTier(growth.tier) && isWeakTier(nrr.tier)) {
+    strength = "Growth is outpacing retention — you're acquiring faster than you're keeping. Worth fixing expansion before pouring more into acquisition.";
+  } else if (arr && growth && isWeakTier(arr.tier) && isStrongTier(growth.tier)) {
+    strength = "Revenue is still early, but growth momentum is real — above P50 for your cohort. The question is whether it converts into durable ARR.";
+  } else if (strong.length >= 2) {
+    const names = strong.slice(0, 2).map(entry => momentMetricLabel(entry.field));
+    strength = `You're ahead on **${names[0]}** and **${names[1]}** — both above P50 for your cohort. Worth protecting while you close the gaps.`;
+  } else if (strong.length === 1) {
+    strength = `**${momentMetricLabel(strong[0].field)}** is a bright spot — above P50 for your cohort. Build from what's working.`;
+  } else {
+    strength = "You're in the thick of it with peers at your stage — no single metric stands out yet. The table below shows exactly where you land on the curve.";
+  }
+
+  let gaps: string;
+  if (weak.length >= 2) {
+    const names = weak.slice(0, 2).map(entry => momentMetricLabel(entry.field));
+    gaps = `The gaps worth paying attention to: **${names[0]}** and **${names[1]}** — both below P50 for your cohort. That's where Fuel focuses next.`;
+  } else if (weak.length === 1) {
+    gaps = `The main gap: **${momentMetricLabel(weak[0].field)}** — below P50 for your cohort. That's where Fuel focuses next.`;
+  } else if (weak.length === 0 && strong.length >= Math.ceil(scored.length / 2)) {
+    gaps = "No major gaps versus peers right now. Fuel will keep watching margin, burn, and retention as you scale.";
+  } else {
+    const watch = scored
+      .filter(entry => entry.tier === "mid" || isWeakTier(entry.tier))
+      .slice(0, 2)
+      .map(entry => momentMetricLabel(entry.field));
+    gaps = watch.length >= 2
+      ? `Worth watching: **${watch[0]}** and **${watch[1]}** — around or below median. Small moves there could shift your position fast.`
+      : "Nothing alarming versus peers — Fuel will flag drift before it becomes a pattern.";
+  }
+
+  return { headline, strength, gaps };
+}
+
 function isWeakTier(tier: ReturnType<typeof getBenchmarkTier>) {
   return tier === "lower" || tier === "bottom";
 }
@@ -1434,24 +1565,7 @@ function buildCompositeBenchmarkInsight(snapshot: BenchmarkSnapshot, scored: {
 }
 
 function analyzeBenchmarkSnapshot(snapshot: BenchmarkSnapshot): BenchmarkAnalysis {
-  type ScoredMetric = {
-    field: BenchmarkWizardField;
-    value: number;
-    tier: ReturnType<typeof getBenchmarkTier>;
-    insight: ReturnType<typeof getBenchmarkInsight>;
-  };
-
-  const scored: ScoredMetric[] = [];
-  for (const field of BENCHMARK_WIZARD_FIELDS) {
-    const value = parseBenchmarkNumber(snapshot.values[field.key]);
-    if (value == null) continue;
-    scored.push({
-      field,
-      value,
-      tier: getBenchmarkTier(value, field),
-      insight: getBenchmarkInsight(field, value),
-    });
-  }
+  const scored = getScoredBenchmarkMetrics(snapshot);
 
   const strongCount = scored.filter(entry => isStrongTier(entry.tier)).length;
   const weakCount = scored.filter(entry => isWeakTier(entry.tier)).length;
@@ -1497,19 +1611,16 @@ function buildFuelWorkspacePreviewContent(ctx: {
 
 function buildFuelHelpContent(
   stage: "benchmark-kickoff" | "business-model" | "tracks" | "integrations",
-  ctx: { companyName?: string; businessModel?: string; companyStage?: string },
+  ctx: { companyName?: string; businessModel?: string; companyStage?: string; cohortRegion?: string },
 ): FuelHelpContent {
   switch (stage) {
     case "benchmark-kickoff":
       return {
-        label: "What's next",
-        headline: `See where ${ctx.companyName || "you"} really sits.`,
-        summary: `You're benchmarked against **${ctx.companyStage || "your stage"}** peers — not generic industry averages.`,
+        headline: "Now for the good part.",
+        summary: `You're benchmarked against **${ctx.companyStage || "your stage"}** companies in the **${ctx.cohortRegion || "US"}**.`,
         items: [
-          "Add one metric at a time — your dot lands on the curve live.",
-          "The gaps you uncover here become the intelligence and playbooks Fuel builds for you.",
+          "Add your headline number and watch where you land. No vanity metrics, no generic averages. Just your dot on the curve.",
         ],
-        teaser: "Start with your headline number below ↓",
       };
     case "business-model":
       return {
@@ -1542,6 +1653,46 @@ function renderBoldText(text: string) {
     i % 2 === 0
       ? <span key={i}>{part}</span>
       : <strong key={i} style={{ color: "#F2F5F2", fontWeight: 700 }}>{part}</strong>,
+  );
+}
+
+function KpiSnapshotMoment({ moment, embedded = false }: { moment: KpiSnapshotMoment; embedded?: boolean }) {
+  if (embedded) {
+    return (
+      <>
+        <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 700, lineHeight: 1.45, marginBottom: 8 }}>
+          {renderBoldText(moment.headline)}
+        </div>
+        <p style={{ color: "#B8C9C0", fontSize: 13, lineHeight: 1.6, margin: "0 0 8px" }}>
+          {renderBoldText(moment.strength)}
+        </p>
+        <p style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.55, margin: 0 }}>
+          {renderBoldText(moment.gaps)}
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, rgba(0,180,138,0.12) 0%, rgba(236,214,127,0.05) 100%)",
+      border: "1px solid rgba(0,180,138,0.32)",
+      borderRadius: 12,
+      padding: "16px 18px",
+    }}>
+      <div style={{ color: "#3DD68C", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.12em", marginBottom: 10, textTransform: "uppercase" }}>
+        Fuel
+      </div>
+      <div style={{ color: "#F2F5F2", fontSize: 17, fontWeight: 800, lineHeight: 1.35, marginBottom: 10 }}>
+        {renderBoldText(moment.headline)}
+      </div>
+      <div style={{ color: "#D0DDD8", fontSize: 13, lineHeight: 1.6, marginBottom: 8 }}>
+        {renderBoldText(moment.strength)}
+      </div>
+      <div style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.55 }}>
+        {renderBoldText(moment.gaps)}
+      </div>
+    </div>
   );
 }
 
@@ -1659,300 +1810,6 @@ function FuelHelpBubble({
           {content.teaser}
         </div>
       ) : null}
-    </div>
-  );
-}
-
-const PLAN_FREE_COVERAGE = [
-  { text: "Full benchmark & peer overlay", included: true },
-  { text: "5 intelligence signals", included: true },
-  { text: "Standard data room uploads", included: true },
-  { text: "2 playbook runs per month", included: true },
-  { text: "Fuel AI with fair usage limits", included: true, ai: true },
-  { text: "Custom document types", included: false },
-  { text: "Unlimited ongoing intelligence", included: false },
-  { text: "Add AI usage on demand", included: false, ai: true },
-] as const;
-
-const PLAN_PRO_COVERAGE = [
-  { text: "Everything in Free" },
-  { text: "Unlimited intelligence signals" },
-  { text: "Custom data room documents" },
-  { text: "Playbooks that keep running" },
-  { text: "More Fuel AI every month", ai: true },
-  { text: "Add usage anytime when you're in flow", ai: true },
-] as const;
-
-function PlanCoverageList({
-  items,
-  variant,
-}: {
-  items: readonly { text: string; included?: boolean; ai?: boolean }[];
-  variant: "free" | "pro";
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-      {items.map(item => {
-        const included = variant === "pro" ? true : Boolean(item.included);
-        const isAi = Boolean(item.ai);
-        return (
-          <div
-            key={item.text}
-            style={{
-              alignItems: "flex-start",
-              background: isAi ? "rgba(0,180,138,0.08)" : "transparent",
-              border: isAi ? "1px solid rgba(0,180,138,0.18)" : "1px solid transparent",
-              borderRadius: isAi ? 8 : 0,
-              color: included ? (isAi ? "#D0DDD8" : "#D0DDD8") : "#556878",
-              display: "flex",
-              fontSize: 11.5,
-              gap: 8,
-              lineHeight: 1.45,
-              padding: isAi ? "8px 9px" : "0 2px",
-            }}
-          >
-            <span style={{ color: included ? "#00B48A" : "#3A4F5E", flexShrink: 0, fontWeight: 800 }}>{included ? "✓" : "—"}</span>
-            <span style={{ flex: 1 }}>
-              {isAi ? (
-                <>
-                  <span style={{
-                    background: "rgba(0,180,138,0.14)",
-                    borderRadius: 999,
-                    color: "#8FE8D2",
-                    display: "inline-block",
-                    fontFamily: "JetBrains Mono, ui-monospace, monospace",
-                    fontSize: 8.5,
-                    fontWeight: 800,
-                    letterSpacing: "0.06em",
-                    marginBottom: 4,
-                    padding: "2px 6px",
-                    textTransform: "uppercase",
-                  }}>
-                    AI usage
-                  </span>
-                  <span style={{ color: isAi && included ? "#F2F5F2" : undefined, display: "block", fontWeight: isAi && included ? 600 : undefined }}>
-                    {item.text}
-                  </span>
-                </>
-              ) : (
-                item.text
-              )}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function PlanCompareCard({
-  companyName,
-  selectedPlan = null,
-  onSelectPro,
-  onSelectFree,
-}: {
-  companyName?: string;
-  selectedPlan?: "free" | "pro" | null;
-  onSelectPro: () => void;
-  onSelectFree: () => void;
-}) {
-  const [billingCycle, setBillingCycle] = React.useState<"monthly" | "annual">("annual");
-  const disabled = Boolean(selectedPlan);
-  const company = companyName || "your company";
-
-  if (selectedPlan === "pro" || selectedPlan === "free") {
-    return (
-      <div style={{
-        background: "rgba(11,23,32,0.72)",
-        border: "1px solid rgba(0,180,138,0.2)",
-        borderRadius: 10,
-        color: "#8FA99A",
-        fontSize: 12,
-        marginTop: 4,
-        padding: "12px 14px",
-      }}>
-        {selectedPlan === "pro" ? "Pro selected — Fuel runs ongoing for your workspace." : "Free selected — explore Fuel with a full benchmark pass."}
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 4, width: "100%" }}>
-      <div style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.55, textAlign: "center" }}>
-        Pick how <strong style={{ color: "#F2F5F2" }}>{company}</strong> runs on Fuel — both include your benchmark.
-      </div>
-
-      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.08fr)" }}>
-        <div style={{
-          background: "rgba(11,23,32,0.72)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          padding: "16px 14px 14px",
-        }}>
-          <div>
-            <div style={{ color: "#8FA99A", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>Free</div>
-            <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 800, lineHeight: 1.3, marginTop: 4 }}>Explore what Fuel finds</div>
-            <div style={{ alignItems: "baseline", display: "flex", gap: 4, marginTop: 8 }}>
-              <strong style={{ color: "#F2F5F2", fontSize: 26, fontWeight: 800 }}>$0</strong>
-            </div>
-          </div>
-          <div>
-            <div style={{ color: "#556878", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>What&apos;s included</div>
-            <PlanCoverageList items={[...PLAN_FREE_COVERAGE]} variant="free" />
-          </div>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={onSelectFree}
-            style={{
-              background: "transparent",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 8,
-              color: "#8FA99A",
-              cursor: disabled ? "default" : "pointer",
-              font: "inherit",
-              fontSize: 12,
-              fontWeight: 700,
-              marginTop: "auto",
-              padding: "10px 12px",
-            }}
-          >
-            Continue on Free
-          </button>
-        </div>
-
-        <div style={{
-          background: "linear-gradient(160deg, rgba(0,180,138,0.12) 0%, rgba(236,214,127,0.06) 100%)",
-          border: "1px solid rgba(0,180,138,0.32)",
-          borderRadius: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          padding: "16px 14px 14px",
-          position: "relative",
-        }}>
-          <div style={{
-            background: "linear-gradient(135deg, #00B48A, #ECD67F)",
-            borderRadius: 999,
-            color: "#0a1a12",
-            fontSize: 9,
-            fontWeight: 900,
-            letterSpacing: "0.08em",
-            padding: "3px 8px",
-            position: "absolute",
-            right: 12,
-            textTransform: "uppercase",
-            top: 12,
-          }}>
-            Recommended
-          </div>
-          <div>
-            <div style={{ color: "#8FE8D2", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>Pro</div>
-            <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 800, lineHeight: 1.3, marginTop: 4 }}>Run Fuel every quarter</div>
-          </div>
-
-          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-            <button
-              type="button"
-              onClick={() => setBillingCycle("monthly")}
-              style={{
-                background: billingCycle === "monthly" ? "rgba(61,214,140,0.14)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${billingCycle === "monthly" ? "rgba(61,214,140,0.38)" : "rgba(255,255,255,0.08)"}`,
-                borderRadius: 8,
-                color: billingCycle === "monthly" ? "#F2F5F2" : "#8FA99A",
-                cursor: "pointer",
-                font: "inherit",
-                padding: "10px 10px",
-                textAlign: "left",
-              }}
-            >
-              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4, opacity: 0.85, textTransform: "uppercase" }}>Monthly</div>
-              <div style={{ alignItems: "baseline", display: "flex", gap: 3 }}>
-                <strong style={{ fontSize: 22, fontWeight: 800 }}>$30</strong>
-                <span style={{ fontSize: 12 }}>/ mo</span>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBillingCycle("annual")}
-              style={{
-                background: billingCycle === "annual" ? "rgba(61,214,140,0.18)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${billingCycle === "annual" ? "rgba(61,214,140,0.45)" : "rgba(255,255,255,0.08)"}`,
-                borderRadius: 8,
-                color: billingCycle === "annual" ? "#F2F5F2" : "#8FA99A",
-                cursor: "pointer",
-                font: "inherit",
-                padding: "10px 10px",
-                position: "relative",
-                textAlign: "left",
-              }}
-            >
-              <div style={{
-                background: "linear-gradient(135deg, #00B48A, #ECD67F)",
-                borderRadius: 999,
-                color: "#0a1a12",
-                fontSize: 8,
-                fontWeight: 900,
-                left: 8,
-                letterSpacing: "0.05em",
-                padding: "2px 6px",
-                position: "absolute",
-                textTransform: "uppercase",
-                top: -8,
-              }}>
-                2 mo free
-              </div>
-              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4, opacity: 0.85, textTransform: "uppercase" }}>Annual</div>
-              <div style={{ alignItems: "baseline", display: "flex", gap: 3 }}>
-                <strong style={{ fontSize: 22, fontWeight: 800 }}>$300</strong>
-                <span style={{ fontSize: 12 }}>/ yr</span>
-              </div>
-              <div style={{ color: "#8FE8D2", fontSize: 10.5, fontWeight: 700, marginTop: 3 }}>$25 / mo</div>
-            </button>
-          </div>
-
-          <div style={{
-            background: "rgba(0,180,138,0.1)",
-            border: "1px solid rgba(0,180,138,0.22)",
-            borderRadius: 8,
-            color: "#D0DDD8",
-            fontSize: 11.5,
-            lineHeight: 1.45,
-            padding: "10px 11px",
-          }}>
-            <strong style={{ color: "#8FE8D2", display: "block", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", marginBottom: 4, textTransform: "uppercase" }}>AI usage on Pro</strong>
-            Included every month. When you&apos;re in flow, add more — no hard stop, no surprise lockout.
-          </div>
-
-          <div>
-            <div style={{ color: "#8FE8D2", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>What&apos;s included</div>
-            <PlanCoverageList items={[...PLAN_PRO_COVERAGE]} variant="pro" />
-          </div>
-
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={onSelectPro}
-            style={{
-              background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
-              border: "none",
-              borderRadius: 8,
-              color: "#0a1a12",
-              cursor: disabled ? "default" : "pointer",
-              font: "inherit",
-              fontSize: 12,
-              fontWeight: 800,
-              marginTop: "auto",
-              padding: "10px 12px",
-            }}
-          >
-            Start Pro · {billingCycle === "annual" ? "$300/yr" : "$30/mo"} →
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -2088,10 +1945,12 @@ function BenchmarkCard({
   onSnapshotChange,
   profile = null,
   businessModel = "",
+  companyName = "",
 }: {
   onSnapshotChange?: (snapshot: BenchmarkSnapshot, options?: { initial?: boolean }) => void;
   profile?: CrunchbaseData | null;
   businessModel?: string;
+  companyName?: string;
 }) {
   const inferredCohort = React.useMemo(
     () => inferCohortFromProfile(profile, businessModel),
@@ -2154,6 +2013,8 @@ function BenchmarkCard({
   const allComplete = completedCount >= BENCHMARK_WIZARD_FIELDS.length;
   const activeInputRef = React.useRef<HTMLInputElement>(null);
   const wizardEndRef = React.useRef<HTMLDivElement>(null);
+  const journeyResultsRef = React.useRef<HTMLDivElement>(null);
+  const resultsScrolledRef = React.useRef(false);
 
   const scrollWizardIntoView = React.useCallback(() => {
     requestAnimationFrame(() => {
@@ -2162,6 +2023,20 @@ function BenchmarkCard({
       chatScroll?.scrollTo({ top: chatScroll.scrollHeight, behavior: "smooth" });
     });
   }, []);
+
+  React.useEffect(() => {
+    if (mode !== "results") {
+      resultsScrolledRef.current = false;
+      return;
+    }
+    if (resultsScrolledRef.current) return;
+    resultsScrolledRef.current = true;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollChatToElement(journeyResultsRef.current);
+      });
+    });
+  }, [mode]);
 
   React.useEffect(() => {
     if (mode !== "entry" || allComplete) return;
@@ -2179,6 +2054,16 @@ function BenchmarkCard({
     { stage: "Stage 6", title: "Scaling", detail: "Rapid expansion" },
     { stage: "Stage 7", title: "Market Leader", detail: "Category dominance" },
   ];
+
+  const kpiMoment = React.useMemo(() => {
+    const scored = getScoredBenchmarkMetrics({
+      values: benchmarkValues,
+      cohort,
+      cohortLabel,
+      journeyStage: selectedJourneyStage,
+    });
+    return buildKpiSnapshotMoment(companyName || profile?.name || "", scored);
+  }, [benchmarkValues, cohort, cohortLabel, companyName, profile?.name, selectedJourneyStage]);
 
   const resultRows = BENCHMARK_WIZARD_FIELDS.map(field => {
     const value = parseBenchmarkNumber(benchmarkValues[field.key]);
@@ -2337,9 +2222,14 @@ function BenchmarkCard({
               marginTop: completedCount > 0 ? 4 : 0,
               padding: 12,
             }}>
-              <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: 10 }}>
+              <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: activeField.promptHint ? 6 : 10 }}>
                 {activeField.prompt}
               </div>
+              {activeField.promptHint ? (
+                <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>
+                  {activeField.promptHint}
+                </div>
+              ) : null}
               <input
                 ref={activeInputRef}
                 key={activeField.key}
@@ -2371,28 +2261,35 @@ function BenchmarkCard({
                 value={activeValue}
                 animate={pulseKey === activeField.key}
               />
-              <div style={{ alignItems: "center", display: "flex", gap: 10, marginTop: 10 }}>
-                <button
-                  type="button"
-                  disabled={activeValue == null}
-                  onClick={confirmActiveField}
-                  style={{
-                    background: activeValue != null ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.06)",
-                    border: "none",
-                    borderRadius: 8,
-                    color: activeValue != null ? "#0a1a12" : "#6F8798",
-                    cursor: activeValue != null ? "pointer" : "not-allowed",
-                    font: "inherit",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    padding: "10px 18px",
-                  }}
-                >
-                  {completedCount >= BENCHMARK_WIZARD_FIELDS.length - 1 ? "See my full benchmark →" : "Lock in & next →"}
-                </button>
-                <span style={{ color: "#6F8798", fontSize: 11.5 }}>
-                  {completedCount + 1} of {BENCHMARK_WIZARD_FIELDS.length}
-                </span>
+              <div style={{ marginTop: 10 }}>
+                <div style={{ alignItems: "center", display: "flex", gap: 10 }}>
+                  <button
+                    type="button"
+                    disabled={activeValue == null}
+                    onClick={confirmActiveField}
+                    style={{
+                      background: activeValue != null ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.06)",
+                      border: "none",
+                      borderRadius: 8,
+                      color: activeValue != null ? "#0a1a12" : "#6F8798",
+                      cursor: activeValue != null ? "pointer" : "not-allowed",
+                      font: "inherit",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      padding: "10px 18px",
+                    }}
+                  >
+                    {completedCount >= BENCHMARK_WIZARD_FIELDS.length - 1 ? "See my full benchmark →" : "Lock in & next →"}
+                  </button>
+                  <span style={{ color: "#6F8798", fontSize: 11.5 }}>
+                    {completedCount + 1} of {BENCHMARK_WIZARD_FIELDS.length}
+                  </span>
+                </div>
+                {completedCount < BENCHMARK_WIZARD_FIELDS.length - 1 ? (
+                  <div style={{ color: "#8FA99A", fontSize: 11.5, lineHeight: 1.45, marginTop: 8 }}>
+                    {BENCHMARK_WIZARD_FIELDS.length - completedCount - 1} more metrics to go. Takes ~3 minutes.
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -2427,7 +2324,9 @@ function BenchmarkCard({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4, width: "100%" }}>
-      <div style={{
+      <div
+        ref={journeyResultsRef}
+        style={{
         background: "linear-gradient(135deg, #172632 0%, #10202B 100%)",
         border: "1px solid rgba(61,214,140,0.18)",
         borderRadius: 12,
@@ -2438,8 +2337,8 @@ function BenchmarkCard({
             <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
               Your startup journey
             </div>
-            <div style={{ color: "#F2F5F2", fontSize: 20, fontWeight: 800 }}>
-              Currently at <span style={{ color: "#00B48A" }}>{selectedJourneyStage}.</span>
+            <div style={{ color: "#D0DDD8", fontSize: 14, fontWeight: 500, lineHeight: 1.6, maxWidth: 560 }}>
+              {renderBoldText(getStageJourneyMessage(selectedJourneyStage))}
             </div>
           </div>
           <span style={{
@@ -2492,15 +2391,10 @@ function BenchmarkCard({
         borderRadius: 12,
         overflow: "hidden",
       }}>
-        <div style={{ padding: "16px 18px 12px" }}>
-          <div style={{ alignItems: "center", display: "flex", gap: 10, justifyContent: "space-between" }}>
-            <div>
-              <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
-                KPI snapshot
-              </div>
-              <div style={{ color: "#F2F5F2", fontSize: 19, fontWeight: 800 }}>
-                Your numbers on the {cohortLabel} curve.
-              </div>
+        <div style={{ padding: "18px 20px 0" }}>
+          <div style={{ alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+              KPI snapshot
             </div>
             <button
               type="button"
@@ -2518,55 +2412,58 @@ function BenchmarkCard({
                 color: "#3DD68C",
                 cursor: "pointer",
                 display: "inline-flex",
+                flexShrink: 0,
                 font: "inherit",
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 800,
-                height: 30,
+                height: 28,
                 justifyContent: "center",
-                width: 34,
+                width: 32,
               }}
             >
               ✎
             </button>
           </div>
+          <KpiSnapshotMoment moment={kpiMoment} embedded />
           <div style={{
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 999,
-            color: "#8FA99A",
-            display: "inline-block",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-            fontSize: 10.5,
-            fontWeight: 800,
-            marginTop: 14,
-            padding: "4px 9px",
+            alignItems: "center",
+            borderTop: "1px solid rgba(255,255,255,0.07)",
+            color: "#6F8798",
+            display: "flex",
+            fontSize: 11,
+            fontWeight: 600,
+            justifyContent: "space-between",
+            letterSpacing: "0.02em",
+            marginTop: 16,
+            padding: "10px 0 14px",
           }}>
-            Cohort · {cohortLabel.toLowerCase()} · n=147
+            <span>{cohortLabel}</span>
+            <span style={{ color: "#556878", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 10.5 }}>n=147</span>
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18, padding: "4px 20px 20px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "0 20px 20px" }}>
           {resultRows.map((row, index) => {
             const showGroup = index === 0 || resultRows[index - 1].group !== row.group;
             return (
               <div key={row.label} style={{
-                alignItems: "center",
-                borderTop: showGroup && index > 0 ? "1px solid rgba(255,255,255,0.07)" : "none",
+                alignItems: "start",
+                borderTop: showGroup && index > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
                 display: "grid",
-                gap: 16,
-                gridTemplateColumns: "104px minmax(0, 1fr)",
-                paddingTop: showGroup && index > 0 ? 16 : 0,
+                gap: 12,
+                gridTemplateColumns: "92px minmax(0, 1fr)",
+                paddingTop: showGroup && index > 0 ? 14 : 0,
               }}>
-                <div>
+                <div style={{ paddingTop: showGroup ? 2 : 0 }}>
                   {showGroup ? (
                     <>
-                      <div style={{ color: "#00B48A", fontSize: 12, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>{row.group}</div>
-                      <div style={{ color: "#6F8798", fontSize: 10.5, lineHeight: 1.25, marginTop: 2 }}>{row.sub}</div>
+                      <div style={{ color: "#00B48A", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>{row.group}</div>
+                      <div style={{ color: "#556878", fontSize: 10, lineHeight: 1.3, marginTop: 2 }}>{row.sub}</div>
                     </>
                   ) : null}
                 </div>
                 <div>
-                  <div style={{ alignItems: "center", display: "flex", gap: 14, justifyContent: "space-between", marginBottom: 8 }}>
-                    <span style={{ color: "#F2F5F2", fontSize: 12.5, fontWeight: 700 }}>{row.label}</span>
+                  <div style={{ alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ color: "#F2F5F2", fontSize: 12, fontWeight: 700 }}>{row.label}</span>
                     <BenchmarkPercentileInline field={row.field} />
                   </div>
                   <BenchmarkCohortTrack compact field={row.field} marker={row.marker} />
@@ -2965,33 +2862,57 @@ function IntegrationSelector({
 export default function FuelOnboardingChat({ onComplete, onManual }: { onComplete: () => void; onManual: () => void }) {
   const inferredCompanyName = inferCompanyNameFromEmail(LOGGED_IN_EMAIL);
   const inferredDomain = domainFromEmail(LOGGED_IN_EMAIL);
+  const inferredProfile = inferredCompanyName
+    ? (mockCrunchbase(inferredCompanyName) ?? starterFuelProfile(inferredCompanyName))
+    : null;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [step, setStep] = useState<Step>(inferredCompanyName ? "company-confirm" : "company-name");
+  const [step, setStep] = useState<Step>(inferredCompanyName ? "profile-intro" : "company-name");
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [userData, setUserData] = useState<UserData>({
-    email: LOGGED_IN_EMAIL, isYorkClient: checkIsYorkClient(LOGGED_IN_EMAIL), companyName: inferredCompanyName,
-    crunchbaseData: null, businessModel: "", profileNotes: "", verifiedDomain: inferredDomain, selectedIntegrations: [],
+    email: LOGGED_IN_EMAIL,
+    isYorkClient: checkIsYorkClient(LOGGED_IN_EMAIL),
+    companyName: inferredCompanyName,
+    crunchbaseData: inferredProfile,
+    businessModel: "",
+    profileNotes: "",
+    verifiedDomain: inferredDomain,
+    selectedIntegrations: [],
   });
   const [completedProgress, setCompletedProgress] = useState<Set<string>>(new Set());
   const [pendingIntegrations, setPendingIntegrations] = useState<string[]>([]);
   const [benchmarkContinued, setBenchmarkContinued] = useState(false);
   const [journeyStarted, setJourneyStarted] = useState(false);
-  const [planSelected, setPlanSelected] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<"free" | "pro" | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
   const greetedRef = useRef(false);
   const benchmarkSnapshotMsgIdRef = useRef<string | null>(null);
   const benchmarkWorkspaceMsgIdRef = useRef<string | null>(null);
-  const benchmarkPlanMsgIdRef = useRef<string | null>(null);
   const benchmarkClosingMsgIdRef = useRef<string | null>(null);
   const benchmarkJourneyStageRef = useRef("");
+  const prevMessageCountRef = useRef(0);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+    if (messages.length <= prevMessageCountRef.current) {
+      prevMessageCountRef.current = messages.length;
+      return;
+    }
+    prevMessageCountRef.current = messages.length;
+    const targetMsg = messages[messages.length - 1];
+
+    // Benchmark results scroll is handled inside BenchmarkCard — don't jump to the fuel-help follow-up.
+    if (targetMsg.id === benchmarkSnapshotMsgIdRef.current) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const chatScroll = document.querySelector("[data-fuel-chat-scroll]") as HTMLElement | null;
+      const el = chatScroll?.querySelector(`[data-message-id="${targetMsg.id}"]`) as HTMLElement | null;
+      if (!el || !chatScroll) return;
+
+      scrollChatToElement(el);
+    });
+  }, [messages]);
 
   const pushMessage = useCallback((msg: Omit<ChatMessage, "id"> & { id?: string }) => {
     setMessages(prev => [...prev, { ...msg, id: msg.id ?? uid() }]);
@@ -3088,11 +3009,10 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
       pushMessage({
         role: "ai",
-        text: `👋 Hi! I'm Fuel AI, York IE's onboarding assistant.\n\nYou're signed in as **${LOGGED_IN_EMAIL}**, so I found **${inferredCompanyName}** from your email domain.\n\nA quick profile helps Fuel match you to the right peer cohort and generate relevant intelligence from day one.\n\nSet up **${inferredCompanyName}**?`,
-        chips: [
-          { label: `Yes, set up ${inferredCompanyName}`, value: "confirm-company" },
-        ],
+        text: `👋 Found you.\n\nYou're signed in as **${LOGGED_IN_EMAIL}** — so I pulled **${inferredCompanyName}** from your domain.\n\nBefore I can show you anything useful, I need 60 seconds of your time. Confirm what I found, fill in what I missed, and I'll build you a benchmark profile against real peers — not generic industry averages.`,
+        chips: [{ label: "Review your profile →", value: "show-profile-form" }],
       });
+      setStep("profile-intro");
     }, 500);
     return () => clearTimeout(t);
   }, [inferredCompanyName, pushMessage]);
@@ -3101,13 +3021,15 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
   const continueToBenchmarks = useCallback(async () => {
     setCompletedProgress(prev => new Set([...prev, "profile"]));
+    const cohort = inferCohortFromProfile(userData.crunchbaseData, userData.businessModel);
     pushFuelHelp(buildFuelHelpContent("benchmark-kickoff", {
       companyName: userData.companyName,
-      companyStage: userData.crunchbaseData?.stage,
+      companyStage: userData.crunchbaseData?.stage || cohort.stage,
+      cohortRegion: cohort.region,
     }));
     await aiSay("", { delay: 600, cardType: "benchmark" });
     setStep("benchmark");
-  }, [aiSay, pushFuelHelp, userData.companyName, userData.crunchbaseData?.stage]);
+  }, [aiSay, pushFuelHelp, userData.businessModel, userData.companyName, userData.crunchbaseData]);
 
   const askBusinessModel = useCallback(async () => {
     await aiSay("Which business model best matches your company?", { delay: 500, cardType: "business-model" });
@@ -3126,19 +3048,22 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
   const startProfileQuestionnaire = useCallback(async (companyName: string) => {
     if (processingRef.current) return;
     processingRef.current = true;
-    setUserData(prev => ({ ...prev, companyName }));
-
-    await aiSay(`Great. I'll piece together a quick Fuel profile for **${companyName}** from your website and account context — then you can confirm or fill in anything Fuel couldn't infer.`, { delay: 500 });
-    setStep("profile-description");
-    setIsTyping(true);
-
-    await new Promise(r => setTimeout(r, 1200));
-    setIsTyping(false);
-
     const cb = mockCrunchbase(companyName) ?? starterFuelProfile(companyName);
-    setUserData(prev => ({ ...prev, crunchbaseData: cb, verifiedDomain: cb.website || prev.verifiedDomain }));
-    await aiSay("", { delay: 500, cardType: "profile-form" });
-    setStep("domain-claim");
+    setUserData(prev => ({
+      ...prev,
+      companyName,
+      crunchbaseData: cb,
+      verifiedDomain: domainFromEmail(prev.email) || cb.website.replace(/^https?:\/\//, ""),
+    }));
+
+    await aiSay(
+      `Got it. I'll pull what I can on **${companyName}** and build your benchmark profile against real peers — not generic industry averages.`,
+      {
+        delay: 500,
+        chips: [{ label: "Review your profile →", value: "show-profile-form" }],
+      },
+    );
+    setStep("profile-intro");
     processingRef.current = false;
   }, [aiSay]);
 
@@ -3242,6 +3167,25 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     await askDomainClaim();
     processingRef.current = false;
   }, [askDomainClaim, pushMessage]);
+
+  const handleShowProfileForm = useCallback(() => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setMessages(prev => {
+      const next = [...prev];
+      for (let i = next.length - 1; i >= 0; i -= 1) {
+        if (next[i].role === "ai" && next[i].chips?.length) {
+          next[i] = { ...next[i], disabled: true, chips: undefined };
+          break;
+        }
+      }
+      next.push({ role: "user", text: "Review my profile", id: uid() });
+      next.push({ role: "ai", text: "", id: uid(), profileFormVisible: true });
+      return next;
+    });
+    setStep("domain-claim");
+    processingRef.current = false;
+  }, []);
 
   const handleDomainClaim = useCallback(async () => {
     if (processingRef.current) return;
@@ -3353,64 +3297,22 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     await new Promise(resolve => window.setTimeout(resolve, 700));
     setIsTyping(false);
 
-    await aiSay(
-      "One last step — pick how you want to run Fuel.\n\nBoth plans keep your **benchmark**. Pro is for teams that want intelligence, playbooks, and AI running ongoing.",
-      { delay: 0 },
-    );
-
-    const planId = uid();
-    benchmarkPlanMsgIdRef.current = planId;
-    pushMessage({
-      role: "ai",
-      id: planId,
-      text: "",
-      cardType: "plan-compare",
-    });
-
-    setStep("platform-overview");
-    processingRef.current = false;
-  }, [aiSay, pushMessage, userData.companyName]);
-
-  const handlePlanSelect = useCallback(async (plan: "free" | "pro") => {
-    if (processingRef.current || planSelected) return;
-    processingRef.current = true;
-    setPlanSelected(true);
-    setSelectedPlan(plan);
-
-    if (plan === "pro") {
-      pushMessage({ role: "user", text: "Start Pro →" });
-      setIsTyping(true);
-      await new Promise(resolve => window.setTimeout(resolve, 700));
-      setIsTyping(false);
-      await aiSay(
-        "Great choice. Pro unlocks the full loop — custom docs, unlimited signals, and playbooks that keep pace with **" + (userData.companyName || "your company") + "** every quarter.",
-        { delay: 0 },
-      );
-    } else {
-      pushMessage({ role: "user", text: "Continue on Free" });
-      setIsTyping(true);
-      await new Promise(resolve => window.setTimeout(resolve, 700));
-      setIsTyping(false);
-      await aiSay(
-        "Sounds good — you keep the full benchmark and a real taste of intelligence. Upgrade to Pro anytime from your profile.",
-        { delay: 0 },
-      );
-    }
-
     const closingId = uid();
     benchmarkClosingMsgIdRef.current = closingId;
     pushMessage({
       role: "ai",
       id: closingId,
-      text: plan === "pro"
-        ? "Launch when you're ready — Fuel will set up your Pro workspace and walk you through the tour."
-        : "Launch when you're ready — Fuel will generate your first intelligence pass and walk you through the workspace.",
+      text: userData.companyName
+        ? `That's your foundation. Launch when you're ready — Fuel will open **${userData.companyName}**'s workspace and generate your first intelligence pass.\n\nWant more later? Plans and usage live in your profile — no pressure now.`
+        : "That's your foundation. Launch when you're ready — Fuel will open your workspace and generate your first intelligence pass.\n\nWant more later? Plans and usage live in your profile — no pressure now.",
     });
+
+    setStep("platform-overview");
     processingRef.current = false;
-  }, [aiSay, planSelected, pushMessage]);
+  }, [pushMessage, userData.companyName]);
 
   const handleStartJourney = useCallback(async () => {
-    if (processingRef.current || !planSelected) return;
+    if (processingRef.current || journeyStarted) return;
     processingRef.current = true;
     setJourneyStarted(true);
     pushMessage({ role: "user", text: "Start my journey →" });
@@ -3433,7 +3335,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     setStep("done");
     window.setTimeout(onComplete, 700);
     processingRef.current = false;
-  }, [onComplete, planSelected, pushMessage, userData.companyName]);
+  }, [journeyStarted, onComplete, pushMessage, userData.companyName]);
 
   const handleValuePropContinue = useCallback(async () => {
     await handleBenchmarkContinue();
@@ -3547,6 +3449,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     if (step === "company-confirm") handleCompanyConfirm(value);
     else if (step === "profile-description") handleProfileDescriptionChoice(value);
     else if (step === "profile-more-details") handleMoreDetailsChoice(value);
+    else if (step === "profile-intro" && value === "show-profile-form") handleShowProfileForm();
     else if (step === "domain-claim") handleDomainClaim();
     else if (step === "crunchbase-url" && value === "no-crunchbase-account") {
       disableLastChips();
@@ -3557,7 +3460,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     else if (step === "york-services") handleYorkServicesResponse(value as "york-yes" | "york-skip");
     else if (step === "york-link") handleYorkLinkResponse(value);
     else if (step === "platform-overview") handleLaunch();
-  }, [disableLastChips, handleCompanyConfirm, handleCrunchbaseConfirm, handleDomainClaim, handleLaunch, handleMoreDetailsChoice, handleProfileDescriptionChoice, handleYorkLinkResponse, handleYorkServicesResponse, pushMessage, showManualFuelProfileForm, step]);
+  }, [disableLastChips, handleCompanyConfirm, handleCrunchbaseConfirm, handleDomainClaim, handleLaunch, handleMoreDetailsChoice, handleProfileDescriptionChoice, handleShowProfileForm, handleYorkLinkResponse, handleYorkServicesResponse, pushMessage, showManualFuelProfileForm, step]);
 
   const inputActive = step === "company-name" || step === "profile-description" || step === "profile-more-details" || step === "crunchbase-url";
   const userInitial = (userData.email || userData.companyName || "U").trim().charAt(0).toUpperCase();
@@ -3652,7 +3555,11 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
               <div style={{ width: "100%", margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
                 {messages.map(msg => (
-                  <div key={msg.id} className="fuel-msg" style={{
+                  <div
+                    key={msg.id}
+                    data-message-id={msg.id}
+                    className="fuel-msg"
+                    style={{
                     display: "flex",
                     flexDirection: msg.role === "user" ? "row-reverse" : "row",
                     alignItems: "flex-start", gap: 10,
@@ -3661,8 +3568,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                     {msg.role === "user" && <UserAvatar initial={userInitial} />}
 
                     <div style={{
-                      maxWidth: msg.cardType === "benchmark" ? "min(680px, 96%)" : msg.cardType === "plan-compare" ? "min(720px, 96%)" : "85%",
-                      width: msg.cardType === "benchmark" || msg.cardType === "plan-compare" ? "100%" : undefined,
+                      maxWidth: msg.cardType === "benchmark" ? "min(680px, 96%)" : "85%",
+                      width: msg.cardType === "benchmark" ? "100%" : undefined,
                       display: "flex",
                       flexDirection: "column",
                       gap: 6,
@@ -3730,7 +3637,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                           )}
                         </div>
                       )}
-                      {msg.id === benchmarkClosingMsgIdRef.current && !journeyStarted && planSelected ? (
+                      {msg.id === benchmarkClosingMsgIdRef.current && !journeyStarted ? (
                         <div style={{ display: "flex", marginTop: 4 }}>
                           <button
                             type="button"
@@ -3754,15 +3661,6 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                       ) : null}
 
                       {/* Cards */}
-                      {msg.cardType === "plan-compare" ? (
-                        <PlanCompareCard
-                          companyName={userData.companyName}
-                          selectedPlan={planSelected ? selectedPlan : null}
-                          onSelectPro={() => handlePlanSelect("pro")}
-                          onSelectFree={() => handlePlanSelect("free")}
-                        />
-                      ) : null}
-
                       {msg.cardType === "crunchbase" && userData.crunchbaseData && (
                         <CrunchbaseCard
                           data={userData.crunchbaseData}
@@ -3771,7 +3669,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                           sourceLabel={msg.cardLabel}
                         />
                       )}
-                      {msg.cardType === "profile-form" && userData.crunchbaseData && (
+                      {msg.profileFormVisible && userData.crunchbaseData && (
                         <ProfileFormCard
                           data={userData.crunchbaseData}
                           businessModel={userData.businessModel}
@@ -3788,6 +3686,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                           onSnapshotChange={handleBenchmarkSnapshotChange}
                           profile={userData.crunchbaseData}
                           businessModel={userData.businessModel}
+                          companyName={userData.companyName}
                         />
                       )}
                       {msg.cardType === "value-prop" && (
@@ -3876,7 +3775,6 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                   </div>
                 )}
 
-                <div ref={messagesEndRef} />
               </div>
             </div>
 
