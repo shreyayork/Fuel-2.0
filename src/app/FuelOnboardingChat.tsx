@@ -15,11 +15,26 @@ interface ChatMessage {
   role: "ai" | "user";
   text: string;
   chips?: { label: string; value: string; icon?: string }[];
-  cardType?: "crunchbase" | "profile-form" | "business-model" | "benchmark" | "value-prop" | "york-services" | "york-projects" | "why-integrate" | "york-cta" | "integration-select" | "complete";
+  cardType?: "crunchbase" | "profile-form" | "business-model" | "benchmark" | "value-prop" | "york-services" | "york-projects" | "why-integrate" | "york-cta" | "integration-select" | "plan-compare" | "complete";
   cardMode?: "view" | "edit";
   cardLabel?: string;
   disabled?: boolean;
+  fuelHelp?: boolean;
+  fuelHelpContent?: FuelHelpContent;
+  valuePropItems?: ValuePropItem[];
+  suggestedPlaybooks?: SuggestedPlaybook[];
 }
+
+type FuelHelpSection = { label: string; items: string[] };
+
+type FuelHelpContent = {
+  label?: string;
+  headline: string;
+  summary?: string;
+  items?: string[];
+  sections?: FuelHelpSection[];
+  teaser?: string;
+};
 
 interface UserData {
   email: string;
@@ -176,7 +191,7 @@ const PROGRESS_ITEMS = [
   { id: "profile",      label: "Your company profile",       step: "domain-claim" },
   { id: "benchmarks",   label: "Your growth benchmarks",     step: "benchmark" },
   { id: "tracks",       label: "Your Fuel journey tracks",   step: "fuel-value" },
-  { id: "integrations", label: "Your York IE projects",      step: "york-link" },
+  { id: "integrations", label: "Intelligence generation",    step: "platform-overview" },
   { id: "config",       label: "Your workspace config",      step: "done" },
 ];
 
@@ -854,7 +869,7 @@ function ProfileFormCard({
           lineHeight: 1.45,
           padding: "10px 12px",
         }}>
-          You'll claim <strong style={{ color: "#F2F5F2" }}>{domain}</strong> as your verified company domain.
+          We'll link <strong style={{ color: "#F2F5F2" }}>{domain}</strong> to your Fuel profile. Teammates can create their own profiles for the same company.
         </div>
 
         {!claimed ? (
@@ -891,7 +906,7 @@ function ProfileFormCard({
               padding: "10px 22px",
             }}
           >
-            Claim this company
+            Create my profile
           </button>
         ) : null}
       </div>
@@ -899,51 +914,1196 @@ function ProfileFormCard({
   );
 }
 
-interface BenchmarkMetric {
+type BenchmarkValues = {
+  arr: string;
+  arrGrowth: string;
+  nrr: string;
+  logoRetention: string;
+  monthlyBurn: string;
+  cashOnHand: string;
+  grossMargin: string;
+  headcount: string;
+  payingCustomers: string;
+};
+
+type BenchmarkWizardField = {
+  key: keyof BenchmarkValues;
   label: string;
-  desc: string;
-  p25: string;
-  p50: string;
-  p75: string;
-  p90: string;
-  accent?: boolean;
+  prompt: string;
+  placeholder: string;
+  unit: "usd" | "percent" | "count";
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  bandStart: number;
+  bandEnd: number;
+  lowerIsBetter?: boolean;
+};
+
+const COHORT_MODELS = ["B2B SaaS", "Dev Tools", "Healthcare SaaS", "Fintech"];
+const COHORT_STAGES = ["Pre-seed", "Seed", "Series A", "Series B", "Growth"];
+const COHORT_REGIONS = ["US", "Europe", "Global"];
+
+type CohortSelection = { model: string; stage: string; region: string };
+
+function inferCohortFromProfile(profile: CrunchbaseData | null, businessModel = ""): CohortSelection {
+  const fallback: CohortSelection = { model: "B2B SaaS", stage: "Seed", region: "US" };
+  if (!profile) return fallback;
+
+  const category = profile.category.toLowerCase();
+  const modelText = businessModel.toLowerCase();
+  let model = "B2B SaaS";
+  if (modelText.includes("dev") || category.includes("dev tool")) model = "Dev Tools";
+  else if (modelText.includes("health") || category.includes("health")) model = "Healthcare SaaS";
+  else if (
+    modelText.includes("fintech")
+    || category.includes("fintech")
+    || category.includes("payment")
+    || category.includes("financ")
+  ) model = "Fintech";
+
+  const stageText = profile.stage.toLowerCase();
+  let stage = "Seed";
+  if (stageText.includes("pre-seed")) stage = "Pre-seed";
+  else if (stageText.includes("series b")) stage = "Series B";
+  else if (stageText.includes("series a")) stage = "Series A";
+  else if (stageText.includes("growth")) stage = "Growth";
+  else if (stageText.includes("seed")) stage = "Seed";
+
+  const location = profile.location.toLowerCase();
+  let region = "US";
+  if (
+    location.includes("europe")
+    || location.includes("uk")
+    || location.includes("ireland")
+    || location.includes("germany")
+    || location.includes("france")
+  ) region = "Europe";
+  else if (location.includes("global") || location.includes("apac") || location.includes("singapore")) region = "Global";
+
+  return { model, stage, region };
 }
 
-function BenchmarkMetricCard({ m }: { m: BenchmarkMetric }) {
-  const cols = [
-    { label: "P25", value: m.p25 },
-    { label: "P50", value: m.p50 },
-    { label: "P75", value: m.p75 },
-    { label: "P90", value: m.p90, highlight: true },
-  ];
+const BENCHMARK_WIZARD_FIELDS: BenchmarkWizardField[] = [
+  { key: "arr", label: "ARR", prompt: "Let's start with the headline number — what's your ARR?", placeholder: "500000", unit: "usd", p25: 150000, p50: 500000, p75: 1200000, p90: 2500000, bandStart: 6, bandEnd: 48 },
+  { key: "arrGrowth", label: "ARR growth (YoY)", prompt: "How fast is ARR growing year over year?", placeholder: "120", unit: "percent", p25: 120, p50: 200, p75: 350, p90: 600, bandStart: 20, bandEnd: 58 },
+  { key: "nrr", label: "Net revenue retention", prompt: "What does net revenue retention look like?", placeholder: "108", unit: "percent", p25: 95, p50: 108, p75: 125, p90: 145, bandStart: 66, bandEnd: 84 },
+  { key: "logoRetention", label: "Logo retention", prompt: "What share of customers stayed over the last year?", placeholder: "88", unit: "percent", p25: 80, p50: 88, p75: 93, p90: 97, bandStart: 82, bandEnd: 96 },
+  { key: "grossMargin", label: "Gross margin", prompt: "What's your blended gross margin?", placeholder: "72", unit: "percent", p25: 55, p50: 72, p75: 82, p90: 88, bandStart: 64, bandEnd: 92 },
+  { key: "monthlyBurn", label: "Monthly net burn", prompt: "Roughly how much net cash are you burning each month?", placeholder: "80000", unit: "usd", p25: 40000, p50: 80000, p75: 180000, p90: 350000, bandStart: 12, bandEnd: 52, lowerIsBetter: true },
+  { key: "cashOnHand", label: "Cash on hand", prompt: "How much runway fuel is in the bank today?", placeholder: "1500000", unit: "usd", p25: 500000, p50: 1500000, p75: 3000000, p90: 6000000, bandStart: 22, bandEnd: 50 },
+  { key: "headcount", label: "Headcount (FTE)", prompt: "How many full-time people are on the team?", placeholder: "12", unit: "count", p25: 6, p50: 12, p75: 22, p90: 40, bandStart: 15, bandEnd: 55 },
+  { key: "payingCustomers", label: "Paying customers", prompt: "Last one — how many paying customers do you have?", placeholder: "40", unit: "count", p25: 10, p50: 40, p75: 150, p90: 500, bandStart: 2, bandEnd: 30 },
+];
+
+const BENCHMARK_PERCENTILES = [
+  { key: "p25" as const, label: "P25", title: "25th percentile — 25% of peers are at or below" },
+  { key: "p50" as const, label: "P50", title: "Median — half the cohort is above, half below" },
+  { key: "p75" as const, label: "P75", title: "75th percentile — top quartile" },
+  { key: "p90" as const, label: "P90", title: "90th percentile — top 10%" },
+];
+
+function getBenchmarkPercentileValue(field: BenchmarkWizardField, key: typeof BENCHMARK_PERCENTILES[number]["key"]) {
+  return formatBenchmarkDisplay(field[key], field.unit);
+}
+
+function BenchmarkPercentileHint() {
+  return (
+    <p style={{ color: "#6F8798", fontSize: 11, lineHeight: 1.4, margin: "8px 0 0" }}>
+      P25–P90 = where peers rank · green band = cohort · dot = you
+    </p>
+  );
+}
+
+function BenchmarkPercentileScale({
+  field,
+  compact = false,
+  highlightMedian = true,
+}: {
+  field: BenchmarkWizardField;
+  compact?: boolean;
+  highlightMedian?: boolean;
+}) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: compact ? 4 : 6 }}>
+      {BENCHMARK_PERCENTILES.map(bucket => {
+        const isMedian = bucket.key === "p50";
+        return (
+          <div key={bucket.key} title={bucket.title}>
+            <div style={{ color: isMedian && highlightMedian ? "#8FE8D2" : "#6F8798", fontSize: compact ? 9 : 10, fontWeight: 800 }}>
+              {bucket.label}
+            </div>
+            <div style={{
+              color: isMedian && highlightMedian ? "#F2F5F2" : "#8FA99A",
+              fontSize: compact ? 10.5 : 11.5,
+              fontWeight: 700,
+              marginTop: compact ? 2 : 3,
+            }}>
+              {getBenchmarkPercentileValue(field, bucket.key)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BenchmarkPercentileInline({ field }: { field: BenchmarkWizardField }) {
+  return (
+    <span
+      style={{ color: "#8FA99A", fontSize: 10, lineHeight: 1.4 }}
+      title="P25–P90 show where peers rank. P50 is the cohort median."
+    >
+      {BENCHMARK_PERCENTILES.map((bucket, index) => {
+        const isMedian = bucket.key === "p50";
+        return (
+          <span key={bucket.key} title={bucket.title}>
+            {bucket.label}{" "}
+            {isMedian ? (
+              <strong style={{ color: "#F2F5F2", fontWeight: 700 }}>{getBenchmarkPercentileValue(field, bucket.key)}</strong>
+            ) : getBenchmarkPercentileValue(field, bucket.key)}
+            {index < BENCHMARK_PERCENTILES.length - 1 ? " · " : null}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function parseBenchmarkNumber(raw: string): number | null {
+  const cleaned = raw.replace(/[$,%x,\s]/gi, "");
+  if (!cleaned) return null;
+  const value = Number(cleaned);
+  return Number.isFinite(value) ? value : null;
+}
+
+function formatBenchmarkDisplay(value: number, unit: BenchmarkWizardField["unit"]) {
+  if (unit === "usd") {
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+    if (value >= 1_000) return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+    return `$${value}`;
+  }
+  if (unit === "percent") return `${value}%`;
+  return String(value);
+}
+
+function interpolateTrackPosition(
+  value: number,
+  valueLo: number,
+  valueHi: number,
+  posLo: number,
+  posHi: number,
+  useLog: boolean,
+): number {
+  if (valueLo === valueHi) return (posLo + posHi) / 2;
+  let t: number;
+  if (useLog && valueLo > 0 && valueHi > 0) {
+    const logLo = Math.log10(Math.max(valueLo, 1));
+    const logHi = Math.log10(Math.max(valueHi, 1));
+    const logV = Math.log10(Math.max(value, 1));
+    t = (logV - logLo) / Math.max(logHi - logLo, 0.001);
+  } else {
+    t = (value - valueLo) / Math.max(valueHi - valueLo, 0.001);
+  }
+  return posLo + Math.min(1, Math.max(0, t)) * (posHi - posLo);
+}
+
+function valueToMarkerPercent(value: number, field: BenchmarkWizardField) {
+  const { p25, p50, p75, p90, bandStart, bandEnd, lowerIsBetter } = field;
+  const useLog = field.unit === "usd" || field.unit === "count";
+  const leftEdge = 2;
+  const rightEdge = 98;
+  const cohortSpan = bandEnd - bandStart;
+  const p50Pos = bandStart + cohortSpan / 3;
+  const p75Pos = bandStart + (2 * cohortSpan) / 3;
+  const floor = useLog ? Math.max(1, p25 * 0.02) : Math.max(0, p25 * 0.35);
+  const ceiling = useLog ? p90 * 2.5 : p90 * 1.2;
+
+  if (lowerIsBetter) {
+    if (value <= p25) return interpolateTrackPosition(value, floor, p25, leftEdge, bandStart, useLog);
+    if (value <= p50) return interpolateTrackPosition(value, p25, p50, bandStart, p50Pos, useLog);
+    if (value <= p75) return interpolateTrackPosition(value, p50, p75, p50Pos, p75Pos, useLog);
+    if (value <= p90) return interpolateTrackPosition(value, p75, p90, p75Pos, bandEnd, useLog);
+    return interpolateTrackPosition(value, p90, ceiling, bandEnd, rightEdge, useLog);
+  }
+
+  if (value <= p25) return interpolateTrackPosition(value, floor, p25, leftEdge, bandStart, useLog);
+  if (value <= p50) return interpolateTrackPosition(value, p25, p50, bandStart, p50Pos, useLog);
+  if (value <= p75) return interpolateTrackPosition(value, p50, p75, p50Pos, p75Pos, useLog);
+  if (value <= p90) return interpolateTrackPosition(value, p75, p90, p75Pos, bandEnd, useLog);
+  return interpolateTrackPosition(value, p90, ceiling, bandEnd, rightEdge, useLog);
+}
+
+function BenchmarkCohortTrack({
+  field,
+  marker,
+  animate = false,
+  compact = false,
+}: {
+  field: BenchmarkWizardField;
+  marker: number | null;
+  animate?: boolean;
+  compact?: boolean;
+}) {
+  const barHeight = compact ? 8 : 12;
+  const outsideCohort = marker != null && (marker < field.bandStart || marker > field.bandEnd);
+
   return (
     <div style={{
-      background: "#172632", border: "1px solid rgba(255,255,255,0.06)",
-      borderRadius: 8, padding: "11px 13px",
+      background: "#07131C",
+      borderRadius: 999,
+      height: barHeight,
+      marginBottom: compact ? 6 : 10,
+      overflow: "visible",
+      position: "relative",
     }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#D0DDD8", marginBottom: 2 }}>{m.label}</div>
-      <div style={{ fontSize: 10.5, color: "#556878", marginBottom: 10, lineHeight: 1.3 }}>{m.desc}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }}>
-        {cols.map(c => (
-          <div key={c.label}>
-            <div style={{ fontSize: 11, color: "#6F8798", fontWeight: 600, marginBottom: 3 }}>{c.label}</div>
-            <div style={{
-              fontSize: 12.5, fontWeight: 700,
-              color: c.highlight ? "#3DD68C" : "#8FA99A",
-            }}>{c.value}</div>
+      <div
+        title="P25–P90 — where most of your peer cohort falls"
+        style={{
+          background: "linear-gradient(90deg, rgba(0,180,138,0.25), rgba(0,180,138,0.85))",
+          borderRadius: 999,
+          height: "100%",
+          left: `${field.bandStart}%`,
+          position: "absolute",
+          width: `${Math.max(4, field.bandEnd - field.bandStart)}%`,
+        }}
+      />
+      {marker != null ? (
+        <>
+          <div style={{
+            background: outsideCohort ? "#F2F5F2" : "#00B48A",
+            borderRadius: "50%",
+            boxShadow: animate
+              ? "0 0 0 6px rgba(0,180,138,0.25), 0 0 18px rgba(0,180,138,0.55)"
+              : outsideCohort
+                ? "0 0 10px rgba(242,245,242,0.35)"
+                : "0 0 12px rgba(0,180,138,0.45)",
+            height: compact ? 12 : 16,
+            left: `calc(${marker}% - ${compact ? 6 : 8}px)`,
+            position: "absolute",
+            top: compact ? -2 : -2,
+            transition: "left 0.55s cubic-bezier(0.34, 1.2, 0.64, 1), box-shadow 0.35s ease",
+            width: compact ? 12 : 16,
+          }} />
+          <div style={{
+            background: "#D0DDD8",
+            height: compact ? 14 : 18,
+            left: `${marker}%`,
+            position: "absolute",
+            top: compact ? -3 : -3,
+            transition: "left 0.55s cubic-bezier(0.34, 1.2, 0.64, 1)",
+            width: 2,
+          }} />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function getBenchmarkTier(value: number, field: BenchmarkWizardField) {
+  const { p25, p50, p75, p90, lowerIsBetter } = field;
+  if (lowerIsBetter) {
+    if (value <= p25) return "top";
+    if (value <= p50) return "upper";
+    if (value <= p75) return "mid";
+    if (value <= p90) return "lower";
+    return "bottom";
+  }
+  if (value >= p90) return "top";
+  if (value >= p75) return "upper";
+  if (value >= p50) return "mid";
+  if (value >= p25) return "lower";
+  return "bottom";
+}
+
+function getBenchmarkInsight(field: BenchmarkWizardField, value: number) {
+  const tier = getBenchmarkTier(value, field);
+  const tierLabel = {
+    top: "Top quartile",
+    upper: "Above median",
+    mid: "Around median",
+    lower: "Below median",
+    bottom: "Bottom quartile",
+  }[tier];
+  const hooks: Partial<Record<keyof BenchmarkValues, Record<string, { headline: string; detail: string }>>> = {
+    arr: {
+      top: { headline: "You're playing with the leaders.", detail: "Strong revenue base — let's see if growth and retention match the scale." },
+      upper: { headline: "Solid traction.", detail: "You're ahead of most peers at this stage. Next: is the engine accelerating?" },
+      mid: { headline: "Right in the pack.", detail: "Typical for your cohort — small moves in growth or retention can shift the story fast." },
+      lower: { headline: "Room to climb.", detail: "Many breakout companies looked like this before they found repeatability." },
+      bottom: { headline: "Early innings — and that's the point.", detail: "Fuel tracks movement quarter over quarter so you see progress, not just a snapshot." },
+    },
+    arrGrowth: {
+      top: { headline: "Hypergrowth territory.", detail: "Retention and efficiency usually decide whether this holds — let's check those next." },
+      upper: { headline: "Growth is working.", detail: "You're outpacing most peers. The question is whether it's efficient." },
+      mid: { headline: "Steady climb.", detail: "Consistent growth here often beats volatile spikes — let's see the rest of the picture." },
+      lower: { headline: "Growth is the lever.", detail: "This is where playbooks and initiatives matter most — Fuel will surface the highest-impact moves." },
+      bottom: { headline: "Flat or early.", detail: "Not uncommon pre-PMF — the next fields show whether the foundation is building." },
+    },
+    nrr: {
+      top: { headline: "Customers are expanding.", detail: "Best-in-class retention — protect this as you scale GTM." },
+      upper: { headline: "Healthy expansion motion.", detail: "You're keeping and growing accounts better than most." },
+      mid: { headline: "Holding steady.", detail: "A point of NRR improvement often unlocks disproportionate valuation lift." },
+      lower: { headline: "Leakage to watch.", detail: "Fuel flags retention drag early so you can act before it compounds." },
+      bottom: { headline: "Retention is the story.", detail: "Fixing this usually beats adding new logos — we'll map the gap to playbooks." },
+    },
+    monthlyBurn: {
+      top: { headline: "Capital-efficient.", detail: "You're burning less than most peers — runway is a strategic asset here." },
+      upper: { headline: "Disciplined spend.", detail: "Efficient burn at this stage leaves room to invest when growth clicks." },
+      mid: { headline: "Typical burn profile.", detail: "The ratio of burn to growth matters more than the absolute number." },
+      lower: { headline: "Burn is elevated.", detail: "Not fatal — but runway math gets important. Cash on hand is up next." },
+      bottom: { headline: "Heavy burn zone.", detail: "Visibility here is everything — let's see runway and margin next." },
+    },
+  };
+  const fieldHook = hooks[field.key]?.[tier];
+  return {
+    tierLabel,
+    headline: fieldHook?.headline ?? `${tierLabel} vs your cohort`,
+    detail: fieldHook?.detail ?? `You're at ${formatBenchmarkDisplay(value, field.unit)} — Fuel will track how this moves each quarter.`,
+  };
+}
+
+type BenchmarkSnapshot = {
+  values: BenchmarkValues;
+  cohort: CohortSelection;
+  cohortLabel: string;
+  journeyStage: string;
+};
+
+type ValuePropItem = { icon: string; title: string; desc: string };
+
+type SuggestedPlaybook = {
+  title: string;
+  prompt: string;
+  track: "Development" | "Marketing" | "RevOps" | "FinOps";
+};
+
+type BenchmarkAnalysis = {
+  fuelHelpContent: FuelHelpContent;
+  suggestedPlaybooks: SuggestedPlaybook[];
+};
+
+const STAGE_PLAYBOOKS: Record<string, SuggestedPlaybook[]> = {
+  Idea: [
+    { track: "Development", title: "Technical Architecture Readiness Review", prompt: "Validate integration points and build sequencing before the next milestone." },
+    { track: "Marketing", title: "ICP Validation Sprint", prompt: "Test your ideal customer profile against real outreach signals." },
+    { track: "RevOps", title: "CRM Hygiene Review", prompt: "Confirm lifecycle stages and required fields before reporting." },
+  ],
+  "Pre-Product": [
+    { track: "Development", title: "Workflow Friction Review", prompt: "Identify where users slow down before the next design sprint." },
+    { track: "Development", title: "Beta Feedback Prioritization", prompt: "Turn early usage patterns into the next release plan." },
+    { track: "Marketing", title: "Website Conversion Review", prompt: "Review page intent, conversion paths, and analytics coverage." },
+  ],
+  "Pre-Revenue": [
+    { track: "Development", title: "Beta Feedback Prioritization", prompt: "Turn early usage patterns into the next release plan." },
+    { track: "Marketing", title: "ICP Validation Sprint", prompt: "Test the ICP against real outreach and conversion signals." },
+    { track: "RevOps", title: "Pipeline Operating Rhythm", prompt: "Use stage movement and conversion gaps to guide weekly review." },
+  ],
+  "Early Revenue": [
+    { track: "Marketing", title: "Repeatable GTM Motion", prompt: "Use customer patterns to shape the next scalable acquisition channel." },
+    { track: "RevOps", title: "Pipeline Operating Rhythm", prompt: "Use stage movement and conversion gaps to guide weekly review." },
+    { track: "Development", title: "Launch Signal Review", prompt: "Use adoption and support signals to define the next product iteration." },
+  ],
+  "Product-Market Fit": [
+    { track: "Marketing", title: "Outbound Performance Review", prompt: "Compare messaging, personas, and reply quality before scaling volume." },
+    { track: "RevOps", title: "Attribution Completion Plan", prompt: "Connect spend, source, and deal data before increasing GTM investment." },
+    { track: "FinOps", title: "Runway & Burn Review", prompt: "Review burn ratio against growth to plan the next capital chapter." },
+  ],
+  Scaling: [
+    { track: "Development", title: "Scale Readiness Check", prompt: "Review performance, observability, and backup confidence before expansion." },
+    { track: "Marketing", title: "Repeatable GTM Motion", prompt: "Use customer patterns to shape the next scalable acquisition channel." },
+    { track: "RevOps", title: "Pipeline Operating Rhythm", prompt: "Use stage movement and conversion gaps to guide weekly review." },
+  ],
+  "Market Leader": [
+    { track: "Development", title: "Release Readiness Playbook", prompt: "Use quality signals to decide what is ready to ship next." },
+    { track: "Marketing", title: "Outbound Performance Review", prompt: "Compare messaging, personas, and reply quality before scaling volume." },
+    { track: "FinOps", title: "Board Readiness Review", prompt: "Prepare runway, forecast, and efficiency metrics for stakeholders." },
+  ],
+};
+
+function suggestPlaybooksForStage(journeyStage: string): SuggestedPlaybook[] {
+  return STAGE_PLAYBOOKS[journeyStage] ?? STAGE_PLAYBOOKS["Pre-Product"];
+}
+
+function isWeakTier(tier: ReturnType<typeof getBenchmarkTier>) {
+  return tier === "lower" || tier === "bottom";
+}
+
+function isStrongTier(tier: ReturnType<typeof getBenchmarkTier>) {
+  return tier === "top" || tier === "upper";
+}
+
+function metricRef(scored: { field: BenchmarkWizardField; value: number; tier: ReturnType<typeof getBenchmarkTier> }[], key: keyof BenchmarkValues) {
+  return scored.find(entry => entry.field.key === key);
+}
+
+function peerPlain(tier: ReturnType<typeof getBenchmarkTier>): string {
+  return {
+    top: "among the best",
+    upper: "above most peers",
+    mid: "around typical",
+    lower: "below most peers",
+    bottom: "well below peers",
+  }[tier];
+}
+
+function fmtShort(entry: { field: BenchmarkWizardField; value: number }) {
+  return `**${entry.field.label}** (${formatBenchmarkDisplay(entry.value, entry.field.unit)})`;
+}
+
+function buildCompositeBenchmarkInsight(snapshot: BenchmarkSnapshot, scored: {
+  field: BenchmarkWizardField;
+  value: number;
+  tier: ReturnType<typeof getBenchmarkTier>;
+}[]): string {
+  if (!scored.length) {
+    return `Fill in your numbers above and Fuel will show how you compare to other **${snapshot.journeyStage}** companies.`;
+  }
+
+  const arr = metricRef(scored, "arr");
+  const growth = metricRef(scored, "arrGrowth");
+  const nrr = metricRef(scored, "nrr");
+  const burn = metricRef(scored, "monthlyBurn");
+  const cash = metricRef(scored, "cashOnHand");
+  const margin = metricRef(scored, "grossMargin");
+  const customers = metricRef(scored, "payingCustomers");
+
+  const weakCount = scored.filter(entry => isWeakTier(entry.tier)).length;
+  const strongCount = scored.filter(entry => isStrongTier(entry.tier)).length;
+  const runwayMonths = burn && cash && burn.value > 0 ? Math.round(cash.value / burn.value) : null;
+
+  if (growth && nrr && isStrongTier(growth.tier) && isWeakTier(nrr.tier)) {
+    return `You're growing faster than you retain — ${fmtShort(growth)} is ${peerPlain(growth.tier)} while ${fmtShort(nrr)} is ${peerPlain(nrr.tier)}. Before spending more to acquire, it's worth fixing why customers don't stay or expand.`;
+  }
+
+  if (arr && growth && isWeakTier(arr.tier) && isStrongTier(growth.tier)) {
+    return `Revenue is still small (${formatBenchmarkDisplay(arr.value, arr.field.unit)} ARR, ${peerPlain(arr.tier)}), but growth (${formatBenchmarkDisplay(growth.value, growth.field.unit)}) is ${peerPlain(growth.tier)}. Momentum is there — the question is whether it converts into durable revenue.`;
+  }
+
+  if (arr && growth && isWeakTier(arr.tier) && isWeakTier(growth.tier)) {
+    return `Revenue (${formatBenchmarkDisplay(arr.value, arr.field.unit)}) and growth (${formatBenchmarkDisplay(growth.value, growth.field.unit)}) are both lower than most **${snapshot.journeyStage}** peers. That usually means finding one sales or GTM approach that works consistently — before trying to scale it.`;
+  }
+
+  if (nrr && arr && isStrongTier(nrr.tier) && isWeakTier(arr.tier)) {
+    return `Customers who stay tend to expand — ${fmtShort(nrr)} is ${peerPlain(nrr.tier)} even though ${fmtShort(arr)} is ${peerPlain(arr.tier)}. The product seems to resonate; the next step is usually selling more effectively, not rebuilding the product.`;
+  }
+
+  if (burn && cash && isWeakTier(burn.tier) && isWeakTier(cash.tier)) {
+    const runwayNote = runwayMonths != null ? ` At current burn, that's roughly **${runwayMonths} months** of runway.` : "";
+    return `Burn is high and cash is low compared to peers.${runwayNote} Worth keeping an eye on efficiency before pushing harder on growth.`;
+  }
+
+  if (burn && cash && isStrongTier(burn.tier) && isStrongTier(cash.tier)) {
+    return `You're spending carefully and have solid cash reserves — both ${peerPlain(burn.tier)} for peers. That gives you room to invest when you find what's working.`;
+  }
+
+  if (arr && growth && nrr && isStrongTier(arr.tier) && isStrongTier(growth.tier) && isStrongTier(nrr.tier)) {
+    return `Revenue, growth, and retention all look strong compared to peers. You're in a good spot — the focus shifts to doing it efficiently (margin, burn, team size per dollar of revenue).`;
+  }
+
+  if (margin && burn && isStrongTier(margin.tier) && isStrongTier(burn.tier)) {
+    return `Strong margins and controlled burn — you're running leaner than most peers. That means growth decisions can be proactive, not defensive.`;
+  }
+
+  if (customers && arr && isStrongTier(customers.tier) && isWeakTier(arr.tier)) {
+    return `You have solid customer count (${formatBenchmarkDisplay(customers.value, customers.field.unit)}) but lower revenue (${formatBenchmarkDisplay(arr.value, arr.field.unit)}). The gap is often pricing or deal size — not lack of demand.`;
+  }
+
+  if (strongCount >= 3 && weakCount >= 2) {
+    const strength = scored.filter(entry => isStrongTier(entry.tier)).slice(0, 2).map(e => e.field.label.toLowerCase()).join(" and ");
+    const gap = scored.filter(entry => isWeakTier(entry.tier)).slice(0, 2).map(e => e.field.label.toLowerCase()).join(" and ");
+    return `A mixed picture — ahead on **${strength}**, behind on **${gap}**. Fuel will focus playbooks on the gaps without losing sight of what's already working.`;
+  }
+
+  if (strongCount >= Math.ceil(scored.length / 2)) {
+    const leaders = scored.filter(entry => isStrongTier(entry.tier)).slice(0, 2).map(e => e.field.label.toLowerCase()).join(" and ");
+    return `You're ahead of most peers on the numbers that matter — especially **${leaders}**. Keep compounding what's working.`;
+  }
+
+  if (weakCount >= Math.ceil(scored.length / 2)) {
+    const gaps = scored.filter(entry => isWeakTier(entry.tier)).slice(0, 2).map(e => e.field.label.toLowerCase()).join(" and ");
+    return `Several metrics sit below peers — **${gaps}** stand out most. The playbooks below target the fixes that usually move the needle first at **${snapshot.journeyStage}**.`;
+  }
+
+  const closest = [...scored].sort((a, b) => {
+    const dist = (tier: ReturnType<typeof getBenchmarkTier>) => ({ top: 2, upper: 1, mid: 0, lower: 1, bottom: 2 }[tier]);
+    return dist(a.tier) - dist(b.tier);
+  })[0];
+  return `You're close to typical for peers overall — **${closest.field.label.toLowerCase()}** is the nearest to the middle. Small improvements in growth or retention could shift your position quickly.`;
+}
+
+function analyzeBenchmarkSnapshot(snapshot: BenchmarkSnapshot): BenchmarkAnalysis {
+  type ScoredMetric = {
+    field: BenchmarkWizardField;
+    value: number;
+    tier: ReturnType<typeof getBenchmarkTier>;
+    insight: ReturnType<typeof getBenchmarkInsight>;
+  };
+
+  const scored: ScoredMetric[] = [];
+  for (const field of BENCHMARK_WIZARD_FIELDS) {
+    const value = parseBenchmarkNumber(snapshot.values[field.key]);
+    if (value == null) continue;
+    scored.push({
+      field,
+      value,
+      tier: getBenchmarkTier(value, field),
+      insight: getBenchmarkInsight(field, value),
+    });
+  }
+
+  const strongCount = scored.filter(entry => isStrongTier(entry.tier)).length;
+  const weakCount = scored.filter(entry => isWeakTier(entry.tier)).length;
+  const headlineSuffix = scored.length
+    ? weakCount > strongCount
+      ? "room to grow"
+      : strongCount > weakCount
+        ? "ahead of peers"
+        : "on track"
+    : "in progress";
+
+  return {
+    fuelHelpContent: {
+      label: "What's next",
+      headline: `${snapshot.journeyStage} · ${snapshot.cohortLabel} · ${headlineSuffix}`,
+      summary: buildCompositeBenchmarkInsight(snapshot, scored),
+    },
+    suggestedPlaybooks: suggestPlaybooksForStage(snapshot.journeyStage).slice(0, 2),
+  };
+}
+
+function buildFuelWorkspacePreviewContent(ctx: {
+  companyName?: string;
+  journeyStage?: string;
+}): FuelHelpContent {
+  const company = ctx.companyName || "Your company";
+  const stage = ctx.journeyStage || "your stage";
+
+  return {
+    label: "What's in Fuel",
+    headline: `${company} · ${stage}`,
+    summary: "Your workspace is ready with:",
+    items: [
+      "**Data room** — upload pitch decks, investment notes, and documents; they become your sources",
+      "**Pitch deck review** — get structured feedback and intelligence from decks in your data room",
+      "**Intelligence** — signals and insights from your benchmark and data room sources",
+      "**Research** — market and competitive context Fuel layers on your numbers",
+      "**Fuel AI** — ask questions across your profile, benchmark, sources, and gaps",
+      "**Playbooks** — AI runbooks using your numbers (see suggestions above)",
+    ],
+  };
+}
+
+function buildFuelHelpContent(
+  stage: "benchmark-kickoff" | "business-model" | "tracks" | "integrations",
+  ctx: { companyName?: string; businessModel?: string; companyStage?: string },
+): FuelHelpContent {
+  switch (stage) {
+    case "benchmark-kickoff":
+      return {
+        label: "What's next",
+        headline: `See where ${ctx.companyName || "you"} really sits.`,
+        summary: `You're benchmarked against **${ctx.companyStage || "your stage"}** peers — not generic industry averages.`,
+        items: [
+          "Add one metric at a time — your dot lands on the curve live.",
+          "The gaps you uncover here become the intelligence and playbooks Fuel builds for you.",
+        ],
+        teaser: "Start with your headline number below ↓",
+      };
+    case "business-model":
+      return {
+        headline: "Business model locked in",
+        items: [
+          `For **${ctx.businessModel || "your"}** companies, Fuel tracks the GTM, product, and finance signals that predict compounding or stalling.`,
+        ],
+      };
+    case "tracks":
+      return {
+        headline: "Your four growth tracks",
+        items: [
+          "Fuel maps intelligence to Development, Marketing, RevOps, and FinOps — tied to the gaps in your benchmark.",
+        ],
+      };
+    case "integrations":
+      return {
+        headline: "Connect your stack",
+        items: [
+          "Integrations feed Fuel the live data that turns benchmark gaps into actionable intelligence.",
+        ],
+      };
+    default:
+      return { headline: "How Fuel helps", items: ["Fuel turns your operating data into intelligence and action."] };
+  }
+}
+
+function renderBoldText(text: string) {
+  return text.split("**").map((part, i) =>
+    i % 2 === 0
+      ? <span key={i}>{part}</span>
+      : <strong key={i} style={{ color: "#F2F5F2", fontWeight: 700 }}>{part}</strong>,
+  );
+}
+
+function FuelHelpBubble({
+  content,
+  playbooks,
+}: {
+  content: FuelHelpContent;
+  playbooks?: SuggestedPlaybook[];
+}) {
+  const trackColors: Record<SuggestedPlaybook["track"], string> = {
+    Development: "#3DD68C",
+    Marketing: "#2BB8A0",
+    RevOps: "#D4924A",
+    FinOps: "#8B76D4",
+  };
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, rgba(0,180,138,0.1) 0%, rgba(236,214,127,0.04) 100%)",
+      border: "1px solid rgba(0,180,138,0.28)",
+      borderRadius: "4px 12px 12px 12px",
+      padding: "14px 16px",
+    }}>
+      <div style={{ color: "#3DD68C", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.12em", marginBottom: 8, textTransform: "uppercase" }}>
+        {content.label ?? "How Fuel helps"}
+      </div>
+      <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 800, lineHeight: 1.35, marginBottom: content.summary || content.items?.length || content.sections?.length || playbooks?.length ? 8 : 0 }}>
+        {content.headline}
+      </div>
+      {content.summary ? (
+        <div style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.5, marginBottom: 10 }}>{renderBoldText(content.summary)}</div>
+      ) : null}
+      {content.items?.map(item => (
+        <div key={item} style={{ color: "#D0DDD8", fontSize: 12.5, lineHeight: 1.55, marginBottom: 5, paddingLeft: 12, position: "relative" }}>
+          <span style={{ color: "#00B48A", left: 0, position: "absolute" }}>·</span>
+          {renderBoldText(item)}
+        </div>
+      ))}
+      {content.sections?.map(section => (
+        <div key={section.label} style={{ marginTop: content.items?.length ? 10 : 0 }}>
+          <div style={{ color: "#8FE8D2", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4, textTransform: "uppercase" }}>
+            {section.label}
           </div>
-        ))}
+          {section.items.map(item => (
+            <div key={item} style={{ color: "#D0DDD8", fontSize: 12, lineHeight: 1.45, marginBottom: 3, paddingLeft: 12, position: "relative" }}>
+              <span style={{ color: "#00B48A", left: 0, position: "absolute" }}>·</span>
+              {renderBoldText(item)}
+            </div>
+          ))}
+        </div>
+      ))}
+      {playbooks?.length ? (
+        <div style={{ borderTop: "1px solid rgba(0,180,138,0.14)", marginTop: 12, paddingTop: 12 }}>
+          <div style={{ color: "#8FE8D2", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>
+            Try these first
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {playbooks.map((playbook, index) => (
+              <div key={playbook.title} style={{
+                background: "rgba(11,23,32,0.55)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 8,
+                display: "flex",
+                gap: 10,
+                padding: 10,
+              }}>
+                <div style={{
+                  alignItems: "center",
+                  background: `${trackColors[playbook.track]}22`,
+                  borderRadius: 6,
+                  color: trackColors[playbook.track],
+                  display: "flex",
+                  flexShrink: 0,
+                  fontSize: 10,
+                  fontWeight: 900,
+                  height: 24,
+                  justifyContent: "center",
+                  width: 24,
+                }}>
+                  {index + 1}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 3 }}>
+                    <strong style={{ color: "#F2F5F2", fontSize: 12 }}>{playbook.title}</strong>
+                    <span style={{
+                      background: `${trackColors[playbook.track]}18`,
+                      border: `1px solid ${trackColors[playbook.track]}33`,
+                      borderRadius: 999,
+                      color: trackColors[playbook.track],
+                      fontSize: 9,
+                      fontWeight: 800,
+                      padding: "1px 6px",
+                    }}>
+                      {playbook.track}
+                    </span>
+                  </div>
+                  <p style={{ color: "#8FA99A", fontSize: 11.5, lineHeight: 1.45, margin: 0 }}>{playbook.prompt}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {content.teaser ? (
+        <div style={{
+          borderTop: "1px solid rgba(0,180,138,0.14)",
+          color: "#8FE8D2",
+          fontSize: 11.5,
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          marginTop: 10,
+          paddingTop: 10,
+        }}>
+          {content.teaser}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const PLAN_FREE_COVERAGE = [
+  { text: "Full benchmark & peer overlay", included: true },
+  { text: "5 intelligence signals", included: true },
+  { text: "Standard data room uploads", included: true },
+  { text: "2 playbook runs per month", included: true },
+  { text: "Fuel AI with fair usage limits", included: true, ai: true },
+  { text: "Custom document types", included: false },
+  { text: "Unlimited ongoing intelligence", included: false },
+  { text: "Add AI usage on demand", included: false, ai: true },
+] as const;
+
+const PLAN_PRO_COVERAGE = [
+  { text: "Everything in Free" },
+  { text: "Unlimited intelligence signals" },
+  { text: "Custom data room documents" },
+  { text: "Playbooks that keep running" },
+  { text: "More Fuel AI every month", ai: true },
+  { text: "Add usage anytime when you're in flow", ai: true },
+] as const;
+
+function PlanCoverageList({
+  items,
+  variant,
+}: {
+  items: readonly { text: string; included?: boolean; ai?: boolean }[];
+  variant: "free" | "pro";
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+      {items.map(item => {
+        const included = variant === "pro" ? true : Boolean(item.included);
+        const isAi = Boolean(item.ai);
+        return (
+          <div
+            key={item.text}
+            style={{
+              alignItems: "flex-start",
+              background: isAi ? "rgba(0,180,138,0.08)" : "transparent",
+              border: isAi ? "1px solid rgba(0,180,138,0.18)" : "1px solid transparent",
+              borderRadius: isAi ? 8 : 0,
+              color: included ? (isAi ? "#D0DDD8" : "#D0DDD8") : "#556878",
+              display: "flex",
+              fontSize: 11.5,
+              gap: 8,
+              lineHeight: 1.45,
+              padding: isAi ? "8px 9px" : "0 2px",
+            }}
+          >
+            <span style={{ color: included ? "#00B48A" : "#3A4F5E", flexShrink: 0, fontWeight: 800 }}>{included ? "✓" : "—"}</span>
+            <span style={{ flex: 1 }}>
+              {isAi ? (
+                <>
+                  <span style={{
+                    background: "rgba(0,180,138,0.14)",
+                    borderRadius: 999,
+                    color: "#8FE8D2",
+                    display: "inline-block",
+                    fontFamily: "JetBrains Mono, ui-monospace, monospace",
+                    fontSize: 8.5,
+                    fontWeight: 800,
+                    letterSpacing: "0.06em",
+                    marginBottom: 4,
+                    padding: "2px 6px",
+                    textTransform: "uppercase",
+                  }}>
+                    AI usage
+                  </span>
+                  <span style={{ color: isAi && included ? "#F2F5F2" : undefined, display: "block", fontWeight: isAi && included ? 600 : undefined }}>
+                    {item.text}
+                  </span>
+                </>
+              ) : (
+                item.text
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlanCompareCard({
+  companyName,
+  selectedPlan = null,
+  onSelectPro,
+  onSelectFree,
+}: {
+  companyName?: string;
+  selectedPlan?: "free" | "pro" | null;
+  onSelectPro: () => void;
+  onSelectFree: () => void;
+}) {
+  const [billingCycle, setBillingCycle] = React.useState<"monthly" | "annual">("annual");
+  const disabled = Boolean(selectedPlan);
+  const company = companyName || "your company";
+
+  if (selectedPlan === "pro" || selectedPlan === "free") {
+    return (
+      <div style={{
+        background: "rgba(11,23,32,0.72)",
+        border: "1px solid rgba(0,180,138,0.2)",
+        borderRadius: 10,
+        color: "#8FA99A",
+        fontSize: 12,
+        marginTop: 4,
+        padding: "12px 14px",
+      }}>
+        {selectedPlan === "pro" ? "Pro selected — Fuel runs ongoing for your workspace." : "Free selected — explore Fuel with a full benchmark pass."}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 4, width: "100%" }}>
+      <div style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.55, textAlign: "center" }}>
+        Pick how <strong style={{ color: "#F2F5F2" }}>{company}</strong> runs on Fuel — both include your benchmark.
+      </div>
+
+      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.08fr)" }}>
+        <div style={{
+          background: "rgba(11,23,32,0.72)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          padding: "16px 14px 14px",
+        }}>
+          <div>
+            <div style={{ color: "#8FA99A", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>Free</div>
+            <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 800, lineHeight: 1.3, marginTop: 4 }}>Explore what Fuel finds</div>
+            <div style={{ alignItems: "baseline", display: "flex", gap: 4, marginTop: 8 }}>
+              <strong style={{ color: "#F2F5F2", fontSize: 26, fontWeight: 800 }}>$0</strong>
+            </div>
+          </div>
+          <div>
+            <div style={{ color: "#556878", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>What&apos;s included</div>
+            <PlanCoverageList items={[...PLAN_FREE_COVERAGE]} variant="free" />
+          </div>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onSelectFree}
+            style={{
+              background: "transparent",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 8,
+              color: "#8FA99A",
+              cursor: disabled ? "default" : "pointer",
+              font: "inherit",
+              fontSize: 12,
+              fontWeight: 700,
+              marginTop: "auto",
+              padding: "10px 12px",
+            }}
+          >
+            Continue on Free
+          </button>
+        </div>
+
+        <div style={{
+          background: "linear-gradient(160deg, rgba(0,180,138,0.12) 0%, rgba(236,214,127,0.06) 100%)",
+          border: "1px solid rgba(0,180,138,0.32)",
+          borderRadius: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          padding: "16px 14px 14px",
+          position: "relative",
+        }}>
+          <div style={{
+            background: "linear-gradient(135deg, #00B48A, #ECD67F)",
+            borderRadius: 999,
+            color: "#0a1a12",
+            fontSize: 9,
+            fontWeight: 900,
+            letterSpacing: "0.08em",
+            padding: "3px 8px",
+            position: "absolute",
+            right: 12,
+            textTransform: "uppercase",
+            top: 12,
+          }}>
+            Recommended
+          </div>
+          <div>
+            <div style={{ color: "#8FE8D2", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>Pro</div>
+            <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 800, lineHeight: 1.3, marginTop: 4 }}>Run Fuel every quarter</div>
+          </div>
+
+          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
+            <button
+              type="button"
+              onClick={() => setBillingCycle("monthly")}
+              style={{
+                background: billingCycle === "monthly" ? "rgba(61,214,140,0.14)" : "rgba(255,255,255,0.03)",
+                border: `1px solid ${billingCycle === "monthly" ? "rgba(61,214,140,0.38)" : "rgba(255,255,255,0.08)"}`,
+                borderRadius: 8,
+                color: billingCycle === "monthly" ? "#F2F5F2" : "#8FA99A",
+                cursor: "pointer",
+                font: "inherit",
+                padding: "10px 10px",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4, opacity: 0.85, textTransform: "uppercase" }}>Monthly</div>
+              <div style={{ alignItems: "baseline", display: "flex", gap: 3 }}>
+                <strong style={{ fontSize: 22, fontWeight: 800 }}>$30</strong>
+                <span style={{ fontSize: 12 }}>/ mo</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingCycle("annual")}
+              style={{
+                background: billingCycle === "annual" ? "rgba(61,214,140,0.18)" : "rgba(255,255,255,0.03)",
+                border: `1px solid ${billingCycle === "annual" ? "rgba(61,214,140,0.45)" : "rgba(255,255,255,0.08)"}`,
+                borderRadius: 8,
+                color: billingCycle === "annual" ? "#F2F5F2" : "#8FA99A",
+                cursor: "pointer",
+                font: "inherit",
+                padding: "10px 10px",
+                position: "relative",
+                textAlign: "left",
+              }}
+            >
+              <div style={{
+                background: "linear-gradient(135deg, #00B48A, #ECD67F)",
+                borderRadius: 999,
+                color: "#0a1a12",
+                fontSize: 8,
+                fontWeight: 900,
+                left: 8,
+                letterSpacing: "0.05em",
+                padding: "2px 6px",
+                position: "absolute",
+                textTransform: "uppercase",
+                top: -8,
+              }}>
+                2 mo free
+              </div>
+              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4, opacity: 0.85, textTransform: "uppercase" }}>Annual</div>
+              <div style={{ alignItems: "baseline", display: "flex", gap: 3 }}>
+                <strong style={{ fontSize: 22, fontWeight: 800 }}>$300</strong>
+                <span style={{ fontSize: 12 }}>/ yr</span>
+              </div>
+              <div style={{ color: "#8FE8D2", fontSize: 10.5, fontWeight: 700, marginTop: 3 }}>$25 / mo</div>
+            </button>
+          </div>
+
+          <div style={{
+            background: "rgba(0,180,138,0.1)",
+            border: "1px solid rgba(0,180,138,0.22)",
+            borderRadius: 8,
+            color: "#D0DDD8",
+            fontSize: 11.5,
+            lineHeight: 1.45,
+            padding: "10px 11px",
+          }}>
+            <strong style={{ color: "#8FE8D2", display: "block", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", marginBottom: 4, textTransform: "uppercase" }}>AI usage on Pro</strong>
+            Included every month. When you&apos;re in flow, add more — no hard stop, no surprise lockout.
+          </div>
+
+          <div>
+            <div style={{ color: "#8FE8D2", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>What&apos;s included</div>
+            <PlanCoverageList items={[...PLAN_PRO_COVERAGE]} variant="pro" />
+          </div>
+
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onSelectPro}
+            style={{
+              background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
+              border: "none",
+              borderRadius: 8,
+              color: "#0a1a12",
+              cursor: disabled ? "default" : "pointer",
+              font: "inherit",
+              fontSize: 12,
+              fontWeight: 800,
+              marginTop: "auto",
+              padding: "10px 12px",
+            }}
+          >
+            Start Pro · {billingCycle === "annual" ? "$300/yr" : "$30/mo"} →
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () => void }) {
-  const [continued, setContinued] = React.useState(false);
-  const [mode, setMode] = React.useState<"form" | "loading" | "results">("form");
-  const [activeTooltip, setActiveTooltip] = React.useState<string | null>(null);
+function BenchmarkInsightCallout({
+  insight,
+  animate = false,
+  compact = false,
+}: {
+  insight: ReturnType<typeof getBenchmarkInsight>;
+  animate?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div style={{
+      animation: animate ? "benchmarkInsightIn 0.45s ease" : undefined,
+      background: "rgba(0,180,138,0.08)",
+      border: "1px solid rgba(0,180,138,0.16)",
+      borderRadius: compact ? 8 : 10,
+      marginTop: compact ? 8 : 0,
+      padding: compact ? "8px 10px" : "10px 12px",
+    }}>
+      <strong style={{ color: "#F2F5F2", display: "block", fontSize: compact ? 11.5 : 12.5, marginBottom: compact ? 2 : 4 }}>
+        {insight.headline}
+      </strong>
+      <span style={{ color: "#8FA99A", fontSize: compact ? 10.5 : 11.5, lineHeight: 1.45 }}>{insight.detail}</span>
+    </div>
+  );
+}
+
+function LiveBenchmarkBar({
+  field,
+  value,
+  animate,
+  compact = false,
+}: {
+  field: BenchmarkWizardField;
+  value: number | null;
+  animate: boolean;
+  compact?: boolean;
+}) {
+  const marker = value != null ? valueToMarkerPercent(value, field) : null;
+  const insight = value != null ? getBenchmarkInsight(field, value) : null;
+
+  return (
+    <div style={{
+      background: compact ? "rgba(11,23,32,0.55)" : "linear-gradient(180deg, rgba(11,23,32,0.95) 0%, rgba(15,30,40,0.85) 100%)",
+      border: "1px solid rgba(0,180,138,0.18)",
+      borderRadius: compact ? 10 : 12,
+      padding: compact ? 12 : 16,
+    }}>
+      {!compact ? (
+        <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ color: "#8FA99A", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            {field.label} · cohort distribution
+          </span>
+          {insight ? (
+            <span style={{
+              background: "rgba(0,180,138,0.12)",
+              border: "1px solid rgba(0,180,138,0.28)",
+              borderRadius: 999,
+              color: "#8FE8D2",
+              fontSize: 10,
+              fontWeight: 800,
+              padding: "3px 9px",
+            }}>
+              {insight.tierLabel}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      <BenchmarkCohortTrack animate={animate} compact={compact} field={field} marker={marker} />
+      <div style={{ marginBottom: insight && !compact ? 12 : 0, marginTop: compact ? 0 : 2 }}>
+        <BenchmarkPercentileScale compact={compact} field={field} />
+      </div>
+      {insight ? (
+        <BenchmarkInsightCallout animate={animate} compact={compact} insight={insight} />
+      ) : !compact ? (
+        <div style={{ color: "#6F8798", fontSize: 11.5, lineHeight: 1.45 }}>
+          Enter a number — your marker lands on the curve instantly.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LockedBenchmarkRow({
+  field,
+  value,
+  onEdit,
+  editButtonStyle,
+}: {
+  field: BenchmarkWizardField;
+  value: number;
+  onEdit: () => void;
+  editButtonStyle: React.CSSProperties;
+}) {
+  const insight = getBenchmarkInsight(field, value);
+  const marker = valueToMarkerPercent(value, field);
+  return (
+    <div style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", padding: "8px 0" }}>
+      <div style={{ alignItems: "center", display: "flex", gap: 8, marginBottom: 6 }}>
+        <span style={{ color: "#F2F5F2", flex: 1, fontSize: 12, fontWeight: 700, minWidth: 0 }}>{field.label}</span>
+        <strong style={{ color: "#00B48A", fontSize: 14, fontWeight: 800, whiteSpace: "nowrap" }}>
+          {formatBenchmarkDisplay(value, field.unit)}
+        </strong>
+        <span style={{
+          background: "rgba(0,180,138,0.1)",
+          border: "1px solid rgba(0,180,138,0.2)",
+          borderRadius: 999,
+          color: "#8FE8D2",
+          fontSize: 9.5,
+          fontWeight: 800,
+          padding: "2px 7px",
+          whiteSpace: "nowrap",
+        }}>
+          {insight.tierLabel}
+        </span>
+        <button type="button" aria-label={`Edit ${field.label}`} onClick={onEdit} style={{ ...editButtonStyle, height: 24, width: 24, fontSize: 11 }}>
+          ✎
+        </button>
+      </div>
+      <BenchmarkCohortTrack compact field={field} marker={marker} />
+      <div style={{ marginBottom: 6 }}>
+        <BenchmarkPercentileInline field={field} />
+      </div>
+      <BenchmarkInsightCallout compact insight={insight} />
+    </div>
+  );
+}
+
+function BenchmarkCard({
+  onSnapshotChange,
+  profile = null,
+  businessModel = "",
+}: {
+  onSnapshotChange?: (snapshot: BenchmarkSnapshot, options?: { initial?: boolean }) => void;
+  profile?: CrunchbaseData | null;
+  businessModel?: string;
+}) {
+  const inferredCohort = React.useMemo(
+    () => inferCohortFromProfile(profile, businessModel),
+    [profile, businessModel],
+  );
+  const [mode, setMode] = React.useState<"entry" | "loading" | "results">("entry");
+  const [completedCount, setCompletedCount] = React.useState(0);
+  const [pulseKey, setPulseKey] = React.useState<string | null>(null);
+  const [cohortEditing, setCohortEditing] = React.useState(false);
   const [selectedJourneyStage, setSelectedJourneyStage] = React.useState("Pre-Product");
-  const [benchmarkValues, setBenchmarkValues] = React.useState({
+  const [cohort, setCohort] = React.useState<CohortSelection>(inferredCohort);
+  const [benchmarkValues, setBenchmarkValues] = React.useState<BenchmarkValues>({
     arr: "",
     arrGrowth: "",
     nrr: "",
@@ -953,58 +2113,63 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
     grossMargin: "",
     headcount: "",
     payingCustomers: "",
-    notableCustomers: "",
-    currentChallenges: "",
   });
-  const metrics: BenchmarkMetric[] = [
-    { label: "ARR",                  desc: "Annual recurring revenue (USD).",          p25: "$150K",  p50: "$500K",  p75: "$1.2M",  p90: "$2.5M" },
-    { label: "Headcount (FTE)",      desc: "Total full-time employees.",               p25: "6",      p50: "12",     p75: "22",     p90: "40" },
-    { label: "ARR growth (YoY)",     desc: "Year-over-year ARR growth rate.",          p25: "120%",   p50: "200%",   p75: "350%",   p90: "600%" },
-    { label: "CAC payback",          desc: "Months to recover customer acquisition cost.", p25: "10mo", p50: "16mo", p75: "26mo",   p90: "42mo" },
-    { label: "Gross margin",         desc: "Revenue minus COGS, as % of revenue.",    p25: "55%",    p50: "72%",    p75: "82%",    p90: "88%" },
-    { label: "Net revenue retention",desc: "NRR from existing customers 12-mo prior.", p25: "95%",   p50: "108%",   p75: "125%",   p90: "145%" },
-    { label: "Monthly burn",         desc: "Net cash burn per month. Compare within stage.", p25: "$40K", p50: "$80K", p75: "$160K", p90: "$300K" },
-    { label: "Rule of 40",           desc: "ARR growth % + FCF margin %. 40%+ is healthy.", p25: "N/A", p50: "N/A",  p75: "N/A",   p90: "N/A", accent: true },
-  ];
 
-  const cohortPills = [
-    { label: "B2B SaaS", color: "#2BB8A0" },
-    { label: stage.split("/")[0].trim(), color: "#8B76D4" },
-    { label: "US", color: "#556878" },
-  ];
-  const benchmarkGroups = [
-    {
-      title: "Revenue + Retention",
-      fields: [
-        { key: "arr", label: "ARR (annualized)", placeholder: "500000", info: "Annual recurring revenue in dollars." },
-        { key: "arrGrowth", label: "ARR growth, YoY", placeholder: "200", info: "Year-over-year ARR growth percentage. Enter 200 for 200%." },
-        { key: "nrr", label: "Net revenue retention", placeholder: "108", info: "Revenue retained and expanded from existing customers. Enter as a percentage." },
-        { key: "logoRetention", label: "Logo retention (annual)", placeholder: "88", info: "Percent of customers retained over the last year." },
-      ],
-    },
-    {
-      title: "Capital Efficiency",
-      fields: [
-        { key: "monthlyBurn", label: "Monthly burn (net) *", placeholder: "80000", info: "Average net cash burn per month in dollars." },
-        { key: "cashOnHand", label: "Cash on hand *", placeholder: "1500000", info: "Current cash balance in dollars." },
-        { key: "grossMargin", label: "Gross margin *", placeholder: "72", info: "Gross margin percentage. Enter 72 for 72%." },
-      ],
-    },
-    {
-      title: "Team + Customers",
-      fields: [
-        { key: "headcount", label: "Headcount (FTEs) *", placeholder: "12", info: "Total full-time equivalent team members." },
-        { key: "payingCustomers", label: "Paying customers", placeholder: "40", info: "Current number of paying customer accounts or logos." },
-      ],
-    },
-    {
-      title: "Anything worth flagging?",
-      fields: [
-        { key: "notableCustomers", label: "Notable customers", placeholder: "Customer names or segments", type: "textarea", info: "Important customers, segments, logos, or customer concentration notes." },
-        { key: "currentChallenges", label: "Current challenges", placeholder: "What should Fuel watch?", type: "textarea", info: "Known risks, blockers, or operating challenges to include in signal generation." },
-      ],
-    },
-  ];
+  React.useEffect(() => {
+    setCohort(inferredCohort);
+  }, [inferredCohort]);
+
+  const cohortLabel = `${cohort.model} · ${cohort.stage} · ${cohort.region}`;
+
+  const buildSnapshot = React.useCallback((): BenchmarkSnapshot => ({
+    values: benchmarkValues,
+    cohort,
+    cohortLabel,
+    journeyStage: selectedJourneyStage,
+  }), [benchmarkValues, cohort, cohortLabel, selectedJourneyStage]);
+
+  const snapshotSyncedRef = React.useRef(false);
+  const prevStageRef = React.useRef(selectedJourneyStage);
+  React.useEffect(() => {
+    if (mode !== "results") {
+      snapshotSyncedRef.current = false;
+      return;
+    }
+    const snapshot = buildSnapshot();
+    if (!snapshotSyncedRef.current) {
+      snapshotSyncedRef.current = true;
+      prevStageRef.current = selectedJourneyStage;
+      onSnapshotChange?.(snapshot, { initial: true });
+      return;
+    }
+    if (prevStageRef.current !== selectedJourneyStage) {
+      prevStageRef.current = selectedJourneyStage;
+      onSnapshotChange?.(snapshot);
+    }
+  }, [buildSnapshot, mode, onSnapshotChange, selectedJourneyStage]);
+
+  const activeField = BENCHMARK_WIZARD_FIELDS[completedCount];
+  const activeRaw = activeField ? benchmarkValues[activeField.key] : "";
+  const activeValue = activeField ? parseBenchmarkNumber(activeRaw) : null;
+  const allComplete = completedCount >= BENCHMARK_WIZARD_FIELDS.length;
+  const activeInputRef = React.useRef<HTMLInputElement>(null);
+  const wizardEndRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollWizardIntoView = React.useCallback(() => {
+    requestAnimationFrame(() => {
+      wizardEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      const chatScroll = wizardEndRef.current?.closest("[data-fuel-chat-scroll]") as HTMLElement | null;
+      chatScroll?.scrollTo({ top: chatScroll.scrollHeight, behavior: "smooth" });
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (mode !== "entry" || allComplete) return;
+    scrollWizardIntoView();
+    const timer = window.setTimeout(() => activeInputRef.current?.focus(), 60);
+    return () => window.clearTimeout(timer);
+  }, [allComplete, completedCount, mode, scrollWizardIntoView]);
+
   const journeyStages = [
     { stage: "Stage 1", title: "Idea", detail: "Problem identified", done: true },
     { stage: "Stage 2", title: "Pre-Product", detail: "Building MVP", active: true },
@@ -1014,138 +2179,226 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
     { stage: "Stage 6", title: "Scaling", detail: "Rapid expansion" },
     { stage: "Stage 7", title: "Market Leader", detail: "Category dominance" },
   ];
-  const kpiRows = [
-    { group: "GTM", sub: "Revenue + retention", label: "ARR", p25: "$150K", p50: "$500K", p75: "$1.2M", p90: "$2.5M", start: 6, end: 48, marker: 20 },
-    { group: "GTM", sub: "Revenue + retention", label: "ARR growth, YoY", p25: "120%", p50: "200%", p75: "350%", p90: "600%", start: 20, end: 58, marker: 34 },
-    { group: "GTM", sub: "Revenue + retention", label: "Net revenue retention", p25: "95%", p50: "108%", p75: "125%", p90: "145%", start: 66, end: 84, marker: 75 },
-    { group: "GTM", sub: "Revenue + retention", label: "Logo retention", p25: "80%", p50: "88%", p75: "93%", p90: "97%", start: 82, end: 96, marker: 88 },
-    { group: "GTM", sub: "Revenue + retention", label: "Paying customers", p25: "10", p50: "40", p75: "150", p90: "500", start: 2, end: 30, marker: 8 },
-    { group: "GTM", sub: "Revenue + retention", label: "CAC payback", p25: "10.0 mo", p50: "16.0 mo", p75: "26.0 mo", p90: "42.0 mo", start: 24, end: 54, marker: 38 },
-    { group: "R&D", sub: "Engineering + product", label: "Headcount", p25: "6", p50: "12", p75: "22", p90: "40", start: 15, end: 55, marker: 30 },
-    { group: "G&A", sub: "Capital + efficiency", label: "Cash on hand", p25: "$500K", p50: "$1.5M", p75: "$3.0M", p90: "$6.0M", start: 22, end: 50, marker: 31 },
-    { group: "G&A", sub: "Capital + efficiency", label: "Monthly burn", p25: "$40K", p50: "$80K", p75: "$180K", p90: "$350K", start: 12, end: 52, marker: 29 },
-    { group: "G&A", sub: "Capital + efficiency", label: "Gross margin", p25: "55%", p50: "72%", p75: "82%", p90: "88%", start: 64, end: 92, marker: 73 },
-    { group: "G&A", sub: "Capital + efficiency", label: "Burn multiple", p25: "1.3x", p50: "2.1x", p75: "3.4x", p90: "5.5x", start: 24, end: 58, marker: 38 },
-  ];
 
-  function updateBenchmarkValue(key: string, value: string) {
+  const resultRows = BENCHMARK_WIZARD_FIELDS.map(field => {
+    const value = parseBenchmarkNumber(benchmarkValues[field.key]);
+    return {
+      field,
+      group: ["arr", "arrGrowth", "nrr", "logoRetention", "payingCustomers"].includes(field.key) ? "GTM" : field.key === "headcount" ? "R&D" : "G&A",
+      sub: field.key === "headcount" ? "Engineering + product" : ["arr", "arrGrowth", "nrr", "logoRetention", "payingCustomers"].includes(field.key) ? "Revenue + retention" : "Capital + efficiency",
+      label: field.label,
+      start: field.bandStart,
+      end: field.bandEnd,
+      marker: value != null ? valueToMarkerPercent(value, field) : null,
+      filled: value != null,
+    };
+  });
+
+  function updateFieldValue(key: keyof BenchmarkValues, value: string) {
     setBenchmarkValues(current => ({ ...current, [key]: value }));
+    setPulseKey(key);
+    window.setTimeout(() => setPulseKey(null), 650);
   }
 
-  function saveBenchmarkValues() {
-    setMode("loading");
-    window.setTimeout(() => {
-      setMode("results");
-    }, 1400);
+  function confirmActiveField() {
+    if (!activeField || activeValue == null) return;
+    const nextCount = completedCount + 1;
+    setCompletedCount(nextCount);
+    setPulseKey(null);
+    if (nextCount >= BENCHMARK_WIZARD_FIELDS.length) {
+      setMode("loading");
+      window.setTimeout(() => setMode("results"), 1400);
+    }
   }
 
-  if (mode === "form") {
-    return (
-      <div style={{
-        background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)",
-        borderRadius: 12, overflow: "hidden", marginTop: 4,
-      }}>
-        <div style={{ padding: "13px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#F2F5F2" }}>Add your benchmark numbers</div>
-          <div style={{ fontSize: 12, color: "#8FA99A", marginTop: 4, lineHeight: 1.5 }}>
-            Share your current numbers and Fuel will identify your benchmark range, generate signals, recommend playbooks, and surface the initiatives that can help your startup grow.
-          </div>
-        </div>
-        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          {benchmarkGroups.map(group => (
-            <div key={group.title} style={{
-              background: "#172632",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 10,
-              padding: 13,
-            }}>
-              <div style={{ color: "#556878", fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
-                {group.title}
+  function editField(index: number) {
+    setCompletedCount(index);
+    setPulseKey(null);
+  }
+
+  const cardShell = (children: React.ReactNode) => (
+    <div style={{
+      background: "#1F3140",
+      border: "1px solid rgba(255,255,255,0.09)",
+      borderRadius: 12,
+      marginTop: 4,
+      overflow: "hidden",
+      width: "100%",
+    }}>
+      {children}
+    </div>
+  );
+
+  const editButtonStyle: React.CSSProperties = {
+    alignItems: "center",
+    background: "rgba(61,214,140,0.08)",
+    border: "1px solid rgba(61,214,140,0.22)",
+    borderRadius: 6,
+    color: "#3DD68C",
+    cursor: "pointer",
+    display: "inline-flex",
+    flexShrink: 0,
+    font: "inherit",
+    fontSize: 12,
+    fontWeight: 800,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  };
+
+  if (mode === "entry") {
+    return cardShell(
+      <>
+        <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "12px 16px" }}>
+          <div style={{ alignItems: "center", display: "flex", gap: 10, justifyContent: "space-between" }}>
+            <div>
+              <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
+                Your peer cohort
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {group.fields.map(input => (
-                  <label key={input.key} style={group.fields.length === 1 ? { gridColumn: "1 / -1" } : {}}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, position: "relative" }}>
-                      <FieldLabel>{input.label}</FieldLabel>
-                      <span
-                        onMouseEnter={() => setActiveTooltip(input.key)}
-                        onMouseLeave={() => setActiveTooltip(null)}
-                        onFocus={() => setActiveTooltip(input.key)}
-                        onBlur={() => setActiveTooltip(null)}
-                        tabIndex={0}
-                        style={{
-                          alignItems: "center",
-                          border: "1px solid rgba(255,255,255,0.16)",
-                          borderRadius: "50%",
-                          color: "#8FA99A",
-                          cursor: "help",
-                          display: "inline-flex",
-                          fontSize: 9,
-                          fontWeight: 800,
-                          height: 14,
-                          justifyContent: "center",
-                          lineHeight: 1,
-                          marginBottom: 4,
-                          width: 14,
-                        }}
-                      >
-                        i
-                      </span>
-                      {activeTooltip === input.key ? (
-                        <div style={{
-                          background: "#0B1720",
-                          border: "1px solid rgba(61,214,140,0.22)",
-                          borderRadius: 8,
-                          boxShadow: "0 12px 28px rgba(0,0,0,0.28)",
-                          color: "#D0DDD8",
-                          fontSize: 11,
-                          left: 0,
-                          lineHeight: 1.45,
-                          maxWidth: 260,
-                          padding: "8px 10px",
-                          position: "absolute",
-                          top: 20,
-                          width: "max-content",
-                          zIndex: 20,
-                        }}>
-                          {input.info}
-                        </div>
-                      ) : null}
-                    </div>
-                    {input.type === "textarea" ? (
-                      <textarea
-                        value={benchmarkValues[input.key as keyof typeof benchmarkValues]}
-                        onChange={event => updateBenchmarkValue(input.key, event.target.value)}
-                        placeholder={input.placeholder}
-                        rows={2}
-                        style={{ ...inputStyle(), padding: "8px 10px", fontSize: 12.5, resize: "vertical" }}
-                      />
-                    ) : (
-                      <input
-                        type="number"
-                        value={benchmarkValues[input.key as keyof typeof benchmarkValues]}
-                        onChange={event => updateBenchmarkValue(input.key, event.target.value)}
-                        placeholder={input.placeholder}
-                        style={{ ...inputStyle(), padding: "8px 10px", fontSize: 12.5 }}
-                      />
-                    )}
-                  </label>
-                ))}
+              <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35 }}>
+                {cohortLabel}
+              </div>
+              <div style={{ color: "#6F8798", fontSize: 11.5, lineHeight: 1.45, marginTop: 4 }}>
+                Suggested from your profile — adjust if needed.
               </div>
             </div>
-          ))}
+            <button type="button" onClick={() => setCohortEditing(current => !current)} style={{ ...editButtonStyle, width: "auto", padding: "0 10px", fontSize: 11 }}>
+              {cohortEditing ? "Done" : "Change"}
+            </button>
+          </div>
+          {cohortEditing ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
+              {[
+                { key: "model" as const, label: "Business model", options: COHORT_MODELS },
+                { key: "stage" as const, label: "Stage", options: COHORT_STAGES },
+                { key: "region" as const, label: "Region", options: COHORT_REGIONS },
+              ].map(section => (
+                <div key={section.key}>
+                  <div style={{ color: "#6F8798", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>
+                    {section.label}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {section.options.map(option => {
+                      const active = cohort[section.key] === option;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setCohort(current => ({ ...current, [section.key]: option }))}
+                          style={{
+                            background: active ? "rgba(0,180,138,0.14)" : "#0B1720",
+                            border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.08)",
+                            borderRadius: 999,
+                            color: active ? "#8FE8D2" : "#D0DDD8",
+                            cursor: "pointer",
+                            font: "inherit",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "5px 10px",
+                          }}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {!cohortEditing ? <BenchmarkPercentileHint /> : null}
         </div>
-        <div style={{ padding: "0 16px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={saveBenchmarkValues} style={{
-            background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
-            color: "#0a1a12", border: "none", borderRadius: 7,
-            padding: "9px 20px", fontSize: 12, fontWeight: 800, cursor: "pointer",
-          }}>
-            Save and identify benchmark →
-          </button>
-          <span style={{ fontSize: 12, color: "#6F8798" }}>You can leave unknown fields blank</span>
+
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          padding: "12px 16px 16px",
+        }}>
+          {BENCHMARK_WIZARD_FIELDS.slice(0, completedCount).map((field, index) => {
+            const value = parseBenchmarkNumber(benchmarkValues[field.key]);
+            if (value == null) return null;
+            return (
+              <LockedBenchmarkRow
+                key={field.key}
+                editButtonStyle={editButtonStyle}
+                field={field}
+                onEdit={() => editField(index)}
+                value={value}
+              />
+            );
+          })}
+
+          {!allComplete && activeField ? (
+            <div style={{
+              background: "rgba(0,180,138,0.06)",
+              border: "1px solid rgba(0,180,138,0.22)",
+              borderRadius: 10,
+              marginTop: completedCount > 0 ? 4 : 0,
+              padding: 12,
+            }}>
+              <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: 10 }}>
+                {activeField.prompt}
+              </div>
+              <input
+                ref={activeInputRef}
+                key={activeField.key}
+                autoFocus
+                value={activeRaw}
+                onChange={(event) => updateFieldValue(activeField.key, event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && activeValue != null) confirmActiveField();
+                }}
+                placeholder={activeField.placeholder}
+                style={{
+                  background: "#0B1720",
+                  border: "1px solid rgba(0,180,138,0.35)",
+                  borderRadius: 10,
+                  boxShadow: activeValue != null ? "0 0 0 1px rgba(0,180,138,0.12)" : "none",
+                  color: "#F2F5F2",
+                  font: "inherit",
+                  fontSize: 18,
+                  fontWeight: 800,
+                  marginBottom: 10,
+                  outline: "none",
+                  padding: "10px 12px",
+                  width: "100%",
+                }}
+              />
+              <LiveBenchmarkBar
+                compact
+                field={activeField}
+                value={activeValue}
+                animate={pulseKey === activeField.key}
+              />
+              <div style={{ alignItems: "center", display: "flex", gap: 10, marginTop: 10 }}>
+                <button
+                  type="button"
+                  disabled={activeValue == null}
+                  onClick={confirmActiveField}
+                  style={{
+                    background: activeValue != null ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.06)",
+                    border: "none",
+                    borderRadius: 8,
+                    color: activeValue != null ? "#0a1a12" : "#6F8798",
+                    cursor: activeValue != null ? "pointer" : "not-allowed",
+                    font: "inherit",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    padding: "10px 18px",
+                  }}
+                >
+                  {completedCount >= BENCHMARK_WIZARD_FIELDS.length - 1 ? "See my full benchmark →" : "Lock in & next →"}
+                </button>
+                <span style={{ color: "#6F8798", fontSize: 11.5 }}>
+                  {completedCount + 1} of {BENCHMARK_WIZARD_FIELDS.length}
+                </span>
+              </div>
+            </div>
+          ) : null}
+          <div ref={wizardEndRef} />
         </div>
-      </div>
+      </>,
     );
   }
 
@@ -1153,7 +2406,7 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
     return (
       <div style={{
         background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)",
-        borderRadius: 12, marginTop: 4, padding: 20, textAlign: "center",
+        borderRadius: 12, marginTop: 4, padding: 20, textAlign: "center", width: "100%",
       }}>
         <div style={{ display: "inline-flex", gap: 4, marginBottom: 12 }}>
           {[0, 1, 2].map(i => (
@@ -1164,18 +2417,16 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
             }} />
           ))}
         </div>
-        <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800 }}>Identifying your benchmark</div>
+        <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800 }}>Building your benchmark</div>
         <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.5, marginTop: 5 }}>
-          Fuel is matching your numbers to the closest cohort and percentile range.
+          Plotting {cohortLabel} and locking in your intelligence.
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", gap: 14, marginTop: 4,
-    }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4, width: "100%" }}>
       <div style={{
         background: "linear-gradient(135deg, #172632 0%, #10202B 100%)",
         border: "1px solid rgba(61,214,140,0.18)",
@@ -1202,37 +2453,36 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
             padding: "4px 10px",
             whiteSpace: "nowrap",
           }}>
-            AI estimate · from public signal
+            AI estimate · from profile
           </span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 8 }}>
           {journeyStages.map(item => {
             const isSelected = item.title === selectedJourneyStage;
             return (
-            <button
-              key={item.stage}
-              type="button"
-              onClick={() => setSelectedJourneyStage(item.title)}
-              style={{
-              background: isSelected ? "rgba(0,180,138,0.13)" : item.done ? "rgba(31,49,64,0.85)" : "#0B1720",
-              border: isSelected ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 9,
-              cursor: "pointer",
-              minHeight: 76,
-              padding: 10,
-              position: "relative",
-              textAlign: "left",
-              font: "inherit",
-            }}>
-              {isSelected ? <span style={{ color: "#00B48A", fontSize: 12, position: "absolute", right: 10, top: 8 }}>✓</span> : null}
-              <div style={{ color: "#6F8798", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{item.stage}</div>
-              <strong style={{ color: "#F2F5F2", display: "block", fontSize: 12, lineHeight: 1.25 }}>{item.title}</strong>
-              <p style={{ color: "#8FA99A", fontSize: 10.5, lineHeight: 1.3, margin: "4px 0 0" }}>{item.detail}</p>
-            </button>
-          )})}
-        </div>
-        <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.5, marginTop: 12 }}>
-          We inferred this from your public profile. Click another card if it doesn't match.
+              <button
+                key={item.stage}
+                type="button"
+                onClick={() => setSelectedJourneyStage(item.title)}
+                style={{
+                  background: isSelected ? "rgba(0,180,138,0.13)" : item.done ? "rgba(31,49,64,0.85)" : "#0B1720",
+                  border: isSelected ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 9,
+                  cursor: "pointer",
+                  font: "inherit",
+                  minHeight: 76,
+                  padding: 10,
+                  position: "relative",
+                  textAlign: "left",
+                }}
+              >
+                {isSelected ? <span style={{ color: "#00B48A", fontSize: 12, position: "absolute", right: 10, top: 8 }}>✓</span> : null}
+                <div style={{ color: "#6F8798", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>{item.stage}</div>
+                <strong style={{ color: "#F2F5F2", display: "block", fontSize: 12, lineHeight: 1.25 }}>{item.title}</strong>
+                <p style={{ color: "#8FA99A", fontSize: 10.5, lineHeight: 1.3, margin: "4px 0 0" }}>{item.detail}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1249,14 +2499,17 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
                 KPI snapshot
               </div>
               <div style={{ color: "#F2F5F2", fontSize: 19, fontWeight: 800 }}>
-                How your cohort performs across R&D, GTM, and G&A.
+                Your numbers on the {cohortLabel} curve.
               </div>
             </div>
             <button
               type="button"
               title="Edit benchmark numbers"
               aria-label="Edit benchmark numbers"
-              onClick={() => setMode("form")}
+              onClick={() => {
+                setMode("entry");
+                setCompletedCount(BENCHMARK_WIZARD_FIELDS.length);
+              }}
               style={{
                 alignItems: "center",
                 background: "rgba(61,214,140,0.08)",
@@ -1288,17 +2541,14 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
             marginTop: 14,
             padding: "4px 9px",
           }}>
-            Cohort · b2b saas · seed · US · n=147
-          </div>
-          <div style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.5, marginTop: 10 }}>
-            Cohort distribution shown below — your marker lands once you run a benchmark.
+            Cohort · {cohortLabel.toLowerCase()} · n=147
           </div>
         </div>
-        <div style={{ padding: "4px 20px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
-          {kpiRows.map((row, index) => {
-            const showGroup = index === 0 || kpiRows[index - 1].group !== row.group;
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, padding: "4px 20px 20px" }}>
+          {resultRows.map((row, index) => {
+            const showGroup = index === 0 || resultRows[index - 1].group !== row.group;
             return (
-              <div key={`${row.group}-${row.label}`} style={{
+              <div key={row.label} style={{
                 alignItems: "center",
                 borderTop: showGroup && index > 0 ? "1px solid rgba(255,255,255,0.07)" : "none",
                 display: "grid",
@@ -1315,56 +2565,16 @@ function BenchmarkCard({ stage, onContinue }: { stage: string; onContinue: () =>
                   ) : null}
                 </div>
                 <div>
-                  <div style={{ display: "flex", gap: 14, justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ alignItems: "center", display: "flex", gap: 14, justifyContent: "space-between", marginBottom: 8 }}>
                     <span style={{ color: "#F2F5F2", fontSize: 12.5, fontWeight: 700 }}>{row.label}</span>
-                    <span style={{ color: "#8FA99A", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 10.5, lineHeight: 1.4, textAlign: "right" }}>
-                      p25 {row.p25} · p50 <strong style={{ color: "#F2F5F2" }}>{row.p50}</strong> · p75 {row.p75} · p90 {row.p90}
-                    </span>
+                    <BenchmarkPercentileInline field={row.field} />
                   </div>
-                  <div style={{ background: "#07131C", borderRadius: 999, height: 9, overflow: "hidden", position: "relative" }}>
-                    <div style={{
-                      background: "linear-gradient(90deg, rgba(0,180,138,0.42), rgba(0,180,138,0.9))",
-                      height: "100%",
-                      left: `${row.start}%`,
-                      position: "absolute",
-                      width: `${Math.max(4, row.end - row.start)}%`,
-                    }} />
-                    <div style={{
-                      background: "#D0DDD8",
-                      height: 14,
-                      left: `${row.marker}%`,
-                      position: "absolute",
-                      top: -3,
-                      width: 1,
-                    }} />
-                  </div>
+                  <BenchmarkCohortTrack compact field={row.field} marker={row.marker} />
                 </div>
               </div>
             );
           })}
         </div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 2px 2px" }}>
-        <div style={{
-          background: "rgba(61,214,140,0.05)", border: "1px solid rgba(61,214,140,0.12)",
-          borderRadius: 8, padding: "10px 12px",
-          fontSize: 12, color: "#8FA99A", lineHeight: 1.6,
-        }}>
-          <strong style={{ color: "#F2F5F2" }}>Your benchmark is now ready.</strong>{" "}
-          Fuel can use these signals to recommend playbooks and identify the highest-leverage initiatives for your next stage.
-        </div>
-        {!continued && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => { setContinued(true); onContinue(); }} style={{
-              background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
-              color: "#0a1a12", border: "none", borderRadius: 7,
-              padding: "9px 20px", fontSize: 12, fontWeight: 800, cursor: "pointer",
-              letterSpacing: "0.1px",
-            }}>Show me how Fuel helps →</button>
-            <span style={{ fontSize: 12, color: "#6F8798" }}>York portfolio · benchmark cohort · operating signals</span>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1460,22 +2670,31 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
   );
 }
 
-function ValuePropCard({ onContinue }: { onContinue: () => void }) {
+function ValuePropCard({
+  onContinue,
+  items,
+  headline = "How Fuel accelerates your journey",
+}: {
+  onContinue: () => void;
+  items?: ValuePropItem[];
+  headline?: string;
+}) {
   const [clicked, setClicked] = React.useState(false);
-  const props = [
-    { icon: "⚡", title: "Real-time Signals",        desc: "Surface what's moving across product, GTM, revenue, and finance — pulled from your integrations, market data, and a live context feed of articles, podcasts, and funding events streaming in from Fuel Data." },
+  const defaultProps: ValuePropItem[] = [
+    { icon: "⚡", title: "Real-time Intelligence", desc: "Surface what's moving across product, GTM, revenue, and finance — pulled from your integrations, market data, and a live context feed." },
     { icon: "📋", title: "Playbooks & Initiatives", desc: "Curated operating plays mapped to your stage. Know exactly what to do next — and track every initiative in one place." },
-    { icon: "🔭", title: "Competitive Intelligence", desc: "Track competitors, identify whitespace, and stay ahead using Fuel's market data and signal layer." },
-    { icon: "🤖", title: "Fuel AI",                  desc: "Research any company, dig into your startup infrastructure, generate summaries, and surface opportunities — all powered by Fuel AI built directly into your operating workflow." },
+    { icon: "🔭", title: "Competitive Intelligence", desc: "Track competitors, identify whitespace, and stay ahead using Fuel's market data and intelligence layer." },
+    { icon: "🤖", title: "Fuel AI", desc: "Research any company, dig into your startup infrastructure, and surface opportunities — built into your operating workflow." },
     { icon: "📊", title: "One Operating Command Center", desc: "Dev · Marketing · RevOps · FinOps — all in a single, unified view." },
   ];
+  const props = items?.length ? items : defaultProps;
   return (
     <div style={{
       background: "#1F3140", border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: 12, overflow: "hidden", marginTop: 4,
     }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2" }}>How Fuel accelerates your journey</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2" }}>{headline}</div>
       </div>
       <div style={{ padding: "10px 16px 4px", display: "flex", flexDirection: "column", gap: 8 }}>
         {props.map(p => (
@@ -1514,7 +2733,7 @@ function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
       area: "Marketing",
       title: "GTM dashboard",
       status: "Live",
-      summary: "Traffic, paid media, SEO, and campaign performance are available for demand and conversion signal generation.",
+      summary: "Traffic, paid media, SEO, and campaign performance are available for demand and conversion intelligence generation.",
     },
     {
       area: "RevOps",
@@ -1537,10 +2756,10 @@ function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
           York IE projects
         </div>
         <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800 }}>
-          Active work Fuel will use for signal generation
+          Active work Fuel will use for intelligence generation
         </div>
         <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.55, marginTop: 5 }}>
-          Your York IE workspace is already connected, so Fuel can use these active projects, updates, and service context automatically. You can review detailed project updates anytime in Current Updates.
+          Your York IE workspace is already connected, so Fuel can use these active projects, updates, and service context automatically. You can review detailed project updates anytime in Scorecard.
         </div>
       </div>
       <div style={{ display: "grid", gap: 8, padding: 14 }}>
@@ -1581,7 +2800,7 @@ function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
               padding: "9px 18px",
             }}
           >
-            Use these projects for signals →
+            Use these projects for intelligence →
           </button>
         </div>
       ) : null}
@@ -1592,7 +2811,7 @@ function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
 function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
   const [dismissed, setDismissed] = React.useState(false);
   const reasons = [
-    { icon: "📡", title: "Signals need a source",        desc: "Without integrations, Fuel has no inputs — you're watching an empty dashboard." },
+    { icon: "📡", title: "Intelligence needs a source",        desc: "Without integrations, Fuel has no inputs — you're watching an empty dashboard." },
     { icon: "🎯", title: "Playbooks need context",       desc: "Fuel maps initiatives to what's actually moving in your data, not assumptions." },
     { icon: "⏱️", title: "Every week of lag compounds",  desc: "Most teams discover problems 4–6 weeks late. Integrations close that gap to hours." },
     { icon: "🏆", title: "P90 companies are instrumented", desc: "Better instincts don't explain the benchmark gap — better data does." },
@@ -1756,17 +2975,26 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
   });
   const [completedProgress, setCompletedProgress] = useState<Set<string>>(new Set());
   const [pendingIntegrations, setPendingIntegrations] = useState<string[]>([]);
+  const [benchmarkContinued, setBenchmarkContinued] = useState(false);
+  const [journeyStarted, setJourneyStarted] = useState(false);
+  const [planSelected, setPlanSelected] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "pro" | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
   const greetedRef = useRef(false);
+  const benchmarkSnapshotMsgIdRef = useRef<string | null>(null);
+  const benchmarkWorkspaceMsgIdRef = useRef<string | null>(null);
+  const benchmarkPlanMsgIdRef = useRef<string | null>(null);
+  const benchmarkClosingMsgIdRef = useRef<string | null>(null);
+  const benchmarkJourneyStageRef = useRef("");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const pushMessage = useCallback((msg: Omit<ChatMessage, "id">) => {
-    setMessages(prev => [...prev, { ...msg, id: uid() }]);
+  const pushMessage = useCallback((msg: Omit<ChatMessage, "id"> & { id?: string }) => {
+    setMessages(prev => [...prev, { ...msg, id: msg.id ?? uid() }]);
   }, []);
 
   const aiSay = useCallback((text: string, opts?: {
@@ -1774,16 +3002,70 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     cardType?: ChatMessage["cardType"];
     cardMode?: ChatMessage["cardMode"];
     cardLabel?: ChatMessage["cardLabel"];
+    fuelHelp?: boolean;
+    valuePropItems?: ValuePropItem[];
+    suggestedPlaybooks?: SuggestedPlaybook[];
     delay?: number;
   }): Promise<void> => {
     return new Promise(resolve => {
       setIsTyping(true);
       setTimeout(() => {
         setIsTyping(false);
-        pushMessage({ role: "ai", text, chips: opts?.chips, cardType: opts?.cardType, cardMode: opts?.cardMode, cardLabel: opts?.cardLabel });
+        pushMessage({
+          role: "ai",
+          text,
+          chips: opts?.chips,
+          cardType: opts?.cardType,
+          cardMode: opts?.cardMode,
+          cardLabel: opts?.cardLabel,
+          fuelHelp: opts?.fuelHelp,
+          valuePropItems: opts?.valuePropItems,
+          suggestedPlaybooks: opts?.suggestedPlaybooks,
+        });
         resolve();
       }, opts?.delay ?? 900);
     });
+  }, [pushMessage]);
+
+  const pushFuelHelp = useCallback((content: FuelHelpContent) => {
+    pushMessage({ role: "ai", text: "", fuelHelp: true, fuelHelpContent: content });
+  }, [pushMessage]);
+
+  const handleBenchmarkSnapshotChange = useCallback((snapshot: BenchmarkSnapshot, options?: { initial?: boolean }) => {
+    benchmarkJourneyStageRef.current = snapshot.journeyStage;
+    const analysis = analyzeBenchmarkSnapshot(snapshot);
+
+    if (benchmarkSnapshotMsgIdRef.current) {
+      setMessages(prev => prev.map(m =>
+        m.id === benchmarkSnapshotMsgIdRef.current
+          ? { ...m, fuelHelpContent: analysis.fuelHelpContent, suggestedPlaybooks: analysis.suggestedPlaybooks }
+          : m,
+      ));
+      return;
+    }
+
+    const postSnapshot = () => {
+      const id = uid();
+      benchmarkSnapshotMsgIdRef.current = id;
+      pushMessage({
+        role: "ai",
+        id,
+        text: "",
+        fuelHelp: true,
+        fuelHelpContent: analysis.fuelHelpContent,
+        suggestedPlaybooks: analysis.suggestedPlaybooks,
+      });
+    };
+
+    if (options?.initial) {
+      setIsTyping(true);
+      window.setTimeout(() => {
+        setIsTyping(false);
+        postSnapshot();
+      }, 900);
+    } else {
+      postSnapshot();
+    }
   }, [pushMessage]);
 
   const disableLastChips = useCallback(() => {
@@ -1806,7 +3088,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
       pushMessage({
         role: "ai",
-        text: `👋 Hi! I'm Fuel AI, York IE's onboarding assistant.\n\nYou're signed in as **${LOGGED_IN_EMAIL}**, so I found **${inferredCompanyName}** from your email domain.\n\nIs this the company you want to set up in Fuel?`,
+        text: `👋 Hi! I'm Fuel AI, York IE's onboarding assistant.\n\nYou're signed in as **${LOGGED_IN_EMAIL}**, so I found **${inferredCompanyName}** from your email domain.\n\nA quick profile helps Fuel match you to the right peer cohort and generate relevant intelligence from day one.\n\nSet up **${inferredCompanyName}**?`,
         chips: [
           { label: `Yes, set up ${inferredCompanyName}`, value: "confirm-company" },
         ],
@@ -1819,13 +3101,13 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
   const continueToBenchmarks = useCallback(async () => {
     setCompletedProgress(prev => new Set([...prev, "profile"]));
-    await aiSay(
-      `Perfect. Your Fuel profile is ready.\n\nHere's the benchmark picture for **${userData.crunchbaseData?.stage ?? "Seed"} · B2B SaaS · US** — the cohort your business maps to.\n\nAcross the York IE portfolio and aggregated market data, there is a consistent pattern: the top quartile has better visibility into what's moving. Fuel turns that visibility into signals and action.`,
-      { delay: 900 }
-    );
+    pushFuelHelp(buildFuelHelpContent("benchmark-kickoff", {
+      companyName: userData.companyName,
+      companyStage: userData.crunchbaseData?.stage,
+    }));
     await aiSay("", { delay: 600, cardType: "benchmark" });
     setStep("benchmark");
-  }, [aiSay, userData.crunchbaseData?.stage]);
+  }, [aiSay, pushFuelHelp, userData.companyName, userData.crunchbaseData?.stage]);
 
   const askBusinessModel = useCallback(async () => {
     await aiSay("Which business model best matches your company?", { delay: 500, cardType: "business-model" });
@@ -1834,9 +3116,9 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
   const askDomainClaim = useCallback(async () => {
     const domain = userData.verifiedDomain || inferredDomain;
-    await aiSay(`You'll claim **${domain}** as your verified company domain.`, {
+    await aiSay(`We'll link **${domain}** to your Fuel profile. Others at your company can set up their own profiles to run signals independently.`, {
       delay: 600,
-      chips: [{ label: "Claim this company", value: "claim-domain" }],
+      chips: [{ label: "Create my profile", value: "claim-domain" }],
     });
     setStep("domain-claim");
   }, [aiSay, inferredDomain, userData.verifiedDomain]);
@@ -1846,7 +3128,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     processingRef.current = true;
     setUserData(prev => ({ ...prev, companyName }));
 
-    await aiSay(`Great. I’ll piece together a quick Fuel profile for **${companyName}** from your website and account context.`, { delay: 500 });
+    await aiSay(`Great. I'll piece together a quick Fuel profile for **${companyName}** from your website and account context — then you can confirm or fill in anything Fuel couldn't infer.`, { delay: 500 });
     setStep("profile-description");
     setIsTyping(true);
 
@@ -1921,7 +3203,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     const selected = BUSINESS_MODEL_OPTIONS.find(option => option.id === id) || BUSINESS_MODEL_OPTIONS[0];
     pushMessage({ role: "user", text: selected.label });
     setUserData(prev => ({ ...prev, businessModel: selected.label }));
-    await aiSay("Got it. Anything else Fuel should know before we claim the company profile?", {
+    pushFuelHelp(buildFuelHelpContent("business-model", { businessModel: selected.label }));
+    await aiSay("Got it. Anything else Fuel should know before we set up your company profile?", {
       delay: 650,
       chips: [
         { label: "Add more details", value: "add-profile-details" },
@@ -1930,7 +3213,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     });
     setStep("profile-more-details");
     processingRef.current = false;
-  }, [aiSay, pushMessage]);
+  }, [aiSay, pushFuelHelp, pushMessage]);
 
   const handleMoreDetailsChoice = useCallback(async (value: string) => {
     if (processingRef.current) return;
@@ -1964,7 +3247,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     if (processingRef.current) return;
     processingRef.current = true;
     disableLastChips();
-    pushMessage({ role: "user", text: `Claim ${userData.verifiedDomain || inferredDomain}` });
+    pushMessage({ role: "user", text: `Create profile for ${userData.verifiedDomain || inferredDomain}` });
     await continueToBenchmarks();
     processingRef.current = false;
   }, [continueToBenchmarks, disableLastChips, inferredDomain, pushMessage, userData.verifiedDomain]);
@@ -1999,7 +3282,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
           website: result.website || result.domain,
         },
     }));
-    pushMessage({ role: "user", text: `Claim ${result.domain}` });
+    pushMessage({ role: "user", text: `Create profile for ${result.domain}` });
     await continueToBenchmarks();
     processingRef.current = false;
   }, [continueToBenchmarks, pushMessage]);
@@ -2033,52 +3316,128 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
     if (val === "confirm") {
       pushMessage({ role: "user", text: "Yes, looks good" });
-      setCompletedProgress(prev => new Set([...prev, "profile"]));
-
-      await aiSay(
-        `Perfect. Here's the benchmark picture for **${userData.crunchbaseData?.stage ?? "Seed"} · B2B SaaS · US** — the cohort your business maps to.\n\nAcross the York IE portfolio and aggregated market data, there's a consistent pattern: most teams are burning more than they realize, growing slower than they think, and leaving retention leverage on the table. The top quartile isn't smarter — they just have **better visibility into what's moving**.\n\nThe P90 column isn't a ceiling — it's where operating clarity takes you. See where the range sits today, and what Fuel makes possible.`,
-        { delay: 900 }
-      );
-      await aiSay("", { delay: 600, cardType: "benchmark" });
-      setStep("benchmark");
+      await continueToBenchmarks();
     } else {
       pushMessage({ role: "user", text: "I need to update a few details" });
-      await aiSay(
-        `No problem — we'll work with what we have. Here's the benchmark picture for companies at your stage.\n\nAcross York IE's portfolio and B2B SaaS data, the gap between median and top-quartile performance comes down to one thing: **operating clarity**. The P90 companies aren't raising more — they're seeing more. That's exactly what Fuel is built to give you.`,
-        { delay: 900 }
-      );
-      await aiSay("", { delay: 400, cardType: "benchmark" }
-      );
-      setStep("benchmark");
-      setCompletedProgress(prev => new Set([...prev, "profile"]));
+      await continueToBenchmarks();
     }
     processingRef.current = false;
-  }, [aiSay, disableLastChips, pushMessage]);
+  }, [continueToBenchmarks, disableLastChips, pushMessage]);
 
   const handleBenchmarkContinue = useCallback(async () => {
     if (processingRef.current) return;
     processingRef.current = true;
-    setCompletedProgress(prev => new Set([...prev, "benchmarks"]));
+    setBenchmarkContinued(true);
+    setCompletedProgress(prev => new Set([...prev, "benchmarks", "tracks"]));
+
+    setIsTyping(true);
+    await new Promise(resolve => window.setTimeout(resolve, 700));
+    setIsTyping(false);
+
+    const workspaceId = uid();
+    benchmarkWorkspaceMsgIdRef.current = workspaceId;
+    pushMessage({
+      role: "ai",
+      id: workspaceId,
+      text: "",
+      fuelHelp: true,
+      fuelHelpContent: buildFuelWorkspacePreviewContent({
+        companyName: userData.companyName,
+        journeyStage: benchmarkJourneyStageRef.current || undefined,
+      }),
+    });
+
+    await new Promise(resolve => window.setTimeout(resolve, 500));
+
+    setIsTyping(true);
+    await new Promise(resolve => window.setTimeout(resolve, 700));
+    setIsTyping(false);
+
     await aiSay(
-      "Now let me show you how Fuel helps turn those benchmark gaps into operating signals and action.",
-      { delay: 700, cardType: "value-prop" }
+      "One last step — pick how you want to run Fuel.\n\nBoth plans keep your **benchmark**. Pro is for teams that want intelligence, playbooks, and AI running ongoing.",
+      { delay: 0 },
     );
-    setStep("fuel-value");
+
+    const planId = uid();
+    benchmarkPlanMsgIdRef.current = planId;
+    pushMessage({
+      role: "ai",
+      id: planId,
+      text: "",
+      cardType: "plan-compare",
+    });
+
+    setStep("platform-overview");
     processingRef.current = false;
-  }, [aiSay]);
+  }, [aiSay, pushMessage, userData.companyName]);
+
+  const handlePlanSelect = useCallback(async (plan: "free" | "pro") => {
+    if (processingRef.current || planSelected) return;
+    processingRef.current = true;
+    setPlanSelected(true);
+    setSelectedPlan(plan);
+
+    if (plan === "pro") {
+      pushMessage({ role: "user", text: "Start Pro →" });
+      setIsTyping(true);
+      await new Promise(resolve => window.setTimeout(resolve, 700));
+      setIsTyping(false);
+      await aiSay(
+        "Great choice. Pro unlocks the full loop — custom docs, unlimited signals, and playbooks that keep pace with **" + (userData.companyName || "your company") + "** every quarter.",
+        { delay: 0 },
+      );
+    } else {
+      pushMessage({ role: "user", text: "Continue on Free" });
+      setIsTyping(true);
+      await new Promise(resolve => window.setTimeout(resolve, 700));
+      setIsTyping(false);
+      await aiSay(
+        "Sounds good — you keep the full benchmark and a real taste of intelligence. Upgrade to Pro anytime from your profile.",
+        { delay: 0 },
+      );
+    }
+
+    const closingId = uid();
+    benchmarkClosingMsgIdRef.current = closingId;
+    pushMessage({
+      role: "ai",
+      id: closingId,
+      text: plan === "pro"
+        ? "Launch when you're ready — Fuel will set up your Pro workspace and walk you through the tour."
+        : "Launch when you're ready — Fuel will generate your first intelligence pass and walk you through the workspace.",
+    });
+    processingRef.current = false;
+  }, [aiSay, planSelected, pushMessage]);
+
+  const handleStartJourney = useCallback(async () => {
+    if (processingRef.current || !planSelected) return;
+    processingRef.current = true;
+    setJourneyStarted(true);
+    pushMessage({ role: "user", text: "Start my journey →" });
+
+    setIsTyping(true);
+    await new Promise(resolve => window.setTimeout(resolve, 1200));
+    setIsTyping(false);
+
+    setMessages(prev => prev.map(m =>
+      m.id === benchmarkClosingMsgIdRef.current
+        ? {
+            ...m,
+            text: userData.companyName
+              ? `✓ Intelligence generated for **${userData.companyName}** — opening your workspace now.`
+              : "✓ Intelligence generated — opening your workspace now.",
+          }
+        : m,
+    ));
+    setCompletedProgress(prev => new Set([...prev, "integrations", "config"]));
+    setStep("done");
+    window.setTimeout(onComplete, 700);
+    processingRef.current = false;
+  }, [onComplete, planSelected, pushMessage, userData.companyName]);
 
   const handleValuePropContinue = useCallback(async () => {
-    if (processingRef.current) return;
-    processingRef.current = true;
-    setCompletedProgress(prev => new Set([...prev, "tracks"]));
-
-    await aiSay(
-      "Because you're already a York customer, your York IE workspace is connected automatically. Here are the active projects Fuel will use to generate your signals.",
-      { delay: 900, cardType: "york-projects" }
-    );
-    setStep("york-link");
-    processingRef.current = false;
-  }, [aiSay]);
+    await handleBenchmarkContinue();
+  }, [handleBenchmarkContinue]);
 
   const handleYorkServicesResponse = useCallback(async (val: "york-yes" | "york-skip") => {
     if (processingRef.current) return;
@@ -2115,16 +3474,17 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     processingRef.current = true;
     disableLastChips();
 
-    pushMessage({ role: "user", text: "Use these projects for signals" });
+    pushMessage({ role: "user", text: "Use these projects for intelligence" });
     setCompletedProgress(prev => new Set([...prev, "integrations", "config"]));
-    await aiSay("✓ York IE project context is ready. Fuel will use these active workstreams, updates, and service history to generate a richer signal view.", { delay: 900 });
-    await aiSay("Based on your profile, benchmarks, and York IE project context, we’re generating signals for you now.", {
+    pushFuelHelp(buildFuelHelpContent("integrations", {}));
+    await aiSay("✓ York IE project context is ready. Fuel will use these active workstreams, updates, and service history to generate a richer intelligence view.", { delay: 900 });
+    await aiSay("Based on your profile, benchmarks, and York IE project context, we’re generating intelligence for you now.", {
       delay: 700,
       chips: [{ label: "Start my journey →", value: "launch" }],
     });
     setStep("platform-overview");
     processingRef.current = false;
-  }, [aiSay, disableLastChips, pushMessage]);
+  }, [aiSay, disableLastChips, pushFuelHelp, pushMessage]);
 
   const handleIntegrationsDone = useCallback(async () => {
     if (processingRef.current) return;
@@ -2139,13 +3499,13 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
       await aiSay(`✓ ${count} integration${count > 1 ? "s" : ""} queued for connection. Your data will start flowing into your journey tracks within minutes.`, { delay: 800 });
     } else {
       await aiSay(
-        "No integrations connected yet — that's fine. You can add premium connectors anytime from the **Connector Hub**. Tracks without integrations will use form-based input so signals and playbooks still work.",
+        "No integrations connected yet — that's fine. You can add premium connectors anytime from the **Connector Hub**. Tracks without integrations will use form-based input so intelligence and playbooks still work.",
         { delay: 900 }
       );
     }
 
     await aiSay(
-      `🎉 Your Fuel workspace is ready, ${userData.companyName}!\n\nYou now have a unified operating command center covering:\n\n· **Development** — roadmap, code quality, release health\n· **Marketing** — traffic, campaigns, SEO, demand signals\n· **RevOps** — pipeline, CRM health, revenue motion\n· **FinOps** — runway, burn, forecast, board readiness\n\nFuel AI will surface signals, flag risks, and keep your playbooks current — so you always know exactly where you are and what to do next.`,
+      `🎉 Your Fuel workspace is ready, ${userData.companyName}!\n\nYou now have a unified operating command center covering:\n\n· **Development** — roadmap, code quality, release health\n· **Marketing** — traffic, campaigns, SEO, demand intelligence\n· **RevOps** — pipeline, CRM health, revenue motion\n· **FinOps** — runway, burn, forecast, board readiness\n\nFuel AI will surface intelligence, flag risks, and keep your playbooks current — so you always know exactly where you are and what to do next.`,
       { delay: 1200 }
     );
 
@@ -2213,6 +3573,10 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
         }
         @keyframes fuelFadeUp {
           from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes benchmarkInsightIn {
+          from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         .fuel-msg {
@@ -2284,7 +3648,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
             minWidth: 0, background: "#132130",
           }}>
             {/* Messages */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "24px 0" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "24px 0" }} data-fuel-chat-scroll>
               <div style={{ width: "100%", margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
                 {messages.map(msg => (
@@ -2296,8 +3660,61 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                     {msg.role === "ai" && <AIAvatar />}
                     {msg.role === "user" && <UserAvatar initial={userInitial} />}
 
-                    <div style={{ maxWidth: "85%", display: "flex", flexDirection: "column", gap: 6 }}>
-                      {msg.text && (
+                    <div style={{
+                      maxWidth: msg.cardType === "benchmark" ? "min(680px, 96%)" : msg.cardType === "plan-compare" ? "min(720px, 96%)" : "85%",
+                      width: msg.cardType === "benchmark" || msg.cardType === "plan-compare" ? "100%" : undefined,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}>
+                      {(msg.fuelHelpContent || (msg.text && msg.fuelHelp)) && (
+                        msg.fuelHelpContent ? (
+                          <>
+                            <FuelHelpBubble
+                              content={msg.fuelHelpContent}
+                              playbooks={msg.suggestedPlaybooks}
+                            />
+                            {msg.id === benchmarkSnapshotMsgIdRef.current && !benchmarkContinued ? (
+                              <div style={{ display: "flex", marginTop: 4 }}>
+                                <button
+                                  type="button"
+                                  onClick={handleBenchmarkContinue}
+                                  style={{
+                                    background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
+                                    border: "none",
+                                    borderRadius: 7,
+                                    color: "#0a1a12",
+                                    cursor: "pointer",
+                                    font: "inherit",
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    letterSpacing: "0.1px",
+                                    padding: "9px 20px",
+                                  }}
+                                >
+                                  See how Fuel helps →
+                                </button>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <div style={{
+                            background: "rgba(0,180,138,0.06)",
+                            border: "1px solid rgba(0,180,138,0.18)",
+                            borderRadius: msg.role === "ai" ? "4px 12px 12px 12px" : "12px 4px 12px 12px",
+                            padding: "11px 14px",
+                            fontSize: 13, color: "#D0DDD8", lineHeight: 1.65,
+                            whiteSpace: "pre-line",
+                          }}>
+                            {msg.text.split("**").map((part, i) =>
+                              i % 2 === 0
+                                ? <span key={i}>{part}</span>
+                                : <strong key={i} style={{ color: "#F2F5F2", fontWeight: 700 }}>{part}</strong>
+                            )}
+                          </div>
+                        )
+                      )}
+                      {msg.text && !msg.fuelHelp && (
                         <div style={{
                           background: msg.role === "ai" ? "#172632" : "#1F3140",
                           border: "1px solid rgba(255,255,255,0.07)",
@@ -2313,8 +3730,39 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                           )}
                         </div>
                       )}
+                      {msg.id === benchmarkClosingMsgIdRef.current && !journeyStarted && planSelected ? (
+                        <div style={{ display: "flex", marginTop: 4 }}>
+                          <button
+                            type="button"
+                            onClick={handleStartJourney}
+                            style={{
+                              background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
+                              border: "none",
+                              borderRadius: 7,
+                              color: "#0a1a12",
+                              cursor: "pointer",
+                              font: "inherit",
+                              fontSize: 12,
+                              fontWeight: 800,
+                              letterSpacing: "0.1px",
+                              padding: "9px 20px",
+                            }}
+                          >
+                            Start my journey →
+                          </button>
+                        </div>
+                      ) : null}
 
                       {/* Cards */}
+                      {msg.cardType === "plan-compare" ? (
+                        <PlanCompareCard
+                          companyName={userData.companyName}
+                          selectedPlan={planSelected ? selectedPlan : null}
+                          onSelectPro={() => handlePlanSelect("pro")}
+                          onSelectFree={() => handlePlanSelect("free")}
+                        />
+                      ) : null}
+
                       {msg.cardType === "crunchbase" && userData.crunchbaseData && (
                         <CrunchbaseCard
                           data={userData.crunchbaseData}
@@ -2337,18 +3785,19 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                       )}
                       {msg.cardType === "benchmark" && (
                         <BenchmarkCard
-                          stage={userData.crunchbaseData?.stage ?? "Seed"}
-                          onContinue={handleBenchmarkContinue}
+                          onSnapshotChange={handleBenchmarkSnapshotChange}
+                          profile={userData.crunchbaseData}
+                          businessModel={userData.businessModel}
                         />
                       )}
                       {msg.cardType === "value-prop" && (
-                        <ValuePropCard onContinue={handleValuePropContinue} />
+                        <ValuePropCard
+                          items={msg.valuePropItems}
+                          onContinue={handleValuePropContinue}
+                        />
                       )}
                       {msg.cardType === "york-services" && (
                         <YorkServicesCard onChoice={handleYorkServicesResponse} />
-                      )}
-                      {msg.cardType === "york-projects" && (
-                        <YorkProjectsCard onContinue={() => handleYorkLinkResponse("projects")} />
                       )}
                       {msg.cardType === "why-integrate" && (
                         <WhyIntegrateCard onContinue={() => {
@@ -2367,7 +3816,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                               <div style={{ fontSize: 24, marginBottom: 8 }}>🚀</div>
                               <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2", marginBottom: 6 }}>Your Fuel workspace is ready</div>
                               <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.65, marginBottom: 14 }}>
-                                York IE will be in touch shortly to match you with the right team.<br />Current Updates is set up and waiting.
+                                York IE will be in touch shortly to match you with the right team.<br />Scorecard is set up and waiting.
                               </div>
                               {!launched && (
                                 <button onClick={() => { setLaunched(true); onComplete(); }} style={{

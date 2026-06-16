@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
 
@@ -629,7 +629,7 @@ const developmentDetail = {
     insight: "Pulse is flagging stability and speed as the two areas to watch before your next release.",
   },
   sdlc: [
-    { label: "Research", source: "Fuel signals", status: "Done", tone: "done", note: "Problem and buyer workflow validated." },
+    { label: "Research", source: "Fuel intelligence", status: "Done", tone: "done", note: "Problem and buyer workflow validated." },
     { label: "Design", source: "Launchpad", status: "Approved", tone: "done", note: "Client approved the operator thread design." },
     { label: "Development", source: "Jira", status: "Active", tone: "active", note: "Build can proceed because design is approved." },
     { label: "Quality", source: "Pulse", status: "Monitoring", tone: "active", note: "Quality is healthy, stability needs attention." },
@@ -1386,11 +1386,11 @@ function DevelopmentDetailPage({ onBack }) {
     quality: number;
     stability: number;
     speed: number;
+    aiLeverage: number;
     risk: string;
     summary: string;
   };
   const [activeRoadmapKey, setActiveRoadmapKey] = useState(developmentDetail.roadmap[0].key);
-  const [activePulseDimension, setActivePulseDimension] = useState(developmentDetail.pulse.dimensions[0].label);
   const [activeDesignIndex, setActiveDesignIndex] = useState(0);
   const [openDesignNote, setOpenDesignNote] = useState(false);
   const [openQualityWeek, setOpenQualityWeek] = useState<QualityWeek | null>(null);
@@ -1404,11 +1404,6 @@ function DevelopmentDetailPage({ onBack }) {
   const [targetReleaseDate, setTargetReleaseDate] = useState("2025-08-05");
   const activeRoadmap = developmentDetail.roadmap.find((item) => item.key === activeRoadmapKey) || developmentDetail.roadmap[0];
   const activeSignal = roadmapSignals[activeRoadmap.key] || roadmapSignals[developmentDetail.roadmap[0].key];
-  const pulse = activeSignal.pulse || developmentDetail.pulse;
-  const activePulse = pulse.dimensions.find((dimension) => dimension.label === activePulseDimension) || pulse.dimensions[0];
-  const activePulseDetails = developmentDetail.pulse.dimensions.find((dimension) => dimension.label === activePulse.label);
-  const activePulseNote = activePulse.clientNote || activePulseDetails?.clientNote || "Pulse is showing a shareable summary for this work item.";
-  const activePulseHighlights = activePulse.highlights || activePulseDetails?.highlights || [];
   const activeDesigns = activeSignal.designs || [];
   const activeDesign = activeDesigns[activeDesignIndex] || activeDesigns[0];
   const openReleaseSignal = openReleaseNoteKey ? roadmapSignals[openReleaseNoteKey] : null;
@@ -1436,38 +1431,87 @@ function DevelopmentDetailPage({ onBack }) {
   const roadmapVersions = ["1.0.6", "1.0.5", "1.0.4"];
   const qualityWeeksByRoadmap = {
     "PP-128": [
-      { week: "Nov 4-8", quality: 86, stability: 62, speed: 54, risk: "Medium", summary: "Review quality is healthy. Stability still has one non-critical flaky handoff test, but no blocker is present for staging." },
-      { week: "Oct 28-Nov 1", quality: 82, stability: 58, speed: 49, risk: "Medium", summary: "The team resolved core handoff review comments and kept build scope contained around exception flows." },
-      { week: "Oct 21-25", quality: 78, stability: 55, speed: 46, risk: "Medium", summary: "Early implementation carried more review churn while the handoff model was being finalized." },
-      { week: "Oct 14-18", quality: 74, stability: 60, speed: 42, risk: "Low-med", summary: "Architecture was stable, but implementation velocity was intentionally slower while design approval completed." },
-      { week: "Oct 7-11", quality: 70, stability: 57, speed: 38, risk: "Medium", summary: "Initial engineering discovery surfaced edge cases around assignment ownership and billing queue states." },
+      { week: "Nov 4-8", quality: 86, stability: 62, speed: 54, aiLeverage: 64, risk: "Medium", summary: "Review quality is healthy. Stability still has one non-critical flaky handoff test, but no blocker is present for staging." },
+      { week: "Oct 28-Nov 1", quality: 82, stability: 58, speed: 49, aiLeverage: 60, risk: "Medium", summary: "The team resolved core handoff review comments and kept build scope contained around exception flows." },
+      { week: "Oct 21-25", quality: 78, stability: 55, speed: 46, aiLeverage: 56, risk: "Medium", summary: "Early implementation carried more review churn while the handoff model was being finalized." },
+      { week: "Oct 14-18", quality: 74, stability: 60, speed: 42, aiLeverage: 52, risk: "Low-med", summary: "Architecture was stable, but implementation velocity was intentionally slower while design approval completed." },
+      { week: "Oct 7-11", quality: 70, stability: 57, speed: 38, aiLeverage: 48, risk: "Medium", summary: "Initial engineering discovery surfaced edge cases around assignment ownership and billing queue states." },
     ],
     "PP-141": [
-      { week: "Nov 4-8", quality: 91, stability: 58, speed: 44, risk: "Low-med", summary: "QA quality is strong and critical paths are passing. Two flaky edge-case tests remain under review." },
-      { week: "Oct 28-Nov 1", quality: 88, stability: 54, speed: 47, risk: "Medium", summary: "Regression coverage improved after billing state updates were clarified in Launchpad." },
-      { week: "Oct 21-25", quality: 84, stability: 52, speed: 43, risk: "Medium", summary: "Manual review queue changes introduced some test instability, now isolated to non-critical flows." },
-      { week: "Oct 14-18", quality: 80, stability: 57, speed: 40, risk: "Medium", summary: "QA scope expanded to include failed claim recovery, slowing throughput temporarily." },
-      { week: "Oct 7-11", quality: 76, stability: 61, speed: 39, risk: "Low-med", summary: "Baseline test suite was set up with no critical quality issues identified." },
+      { week: "Nov 4-8", quality: 91, stability: 58, speed: 44, aiLeverage: 61, risk: "Low-med", summary: "QA quality is strong and critical paths are passing. Two flaky edge-case tests remain under review." },
+      { week: "Oct 28-Nov 1", quality: 88, stability: 54, speed: 47, aiLeverage: 58, risk: "Medium", summary: "Regression coverage improved after billing state updates were clarified in Launchpad." },
+      { week: "Oct 21-25", quality: 84, stability: 52, speed: 43, aiLeverage: 54, risk: "Medium", summary: "Manual review queue changes introduced some test instability, now isolated to non-critical flows." },
+      { week: "Oct 14-18", quality: 80, stability: 57, speed: 40, aiLeverage: 50, risk: "Medium", summary: "QA scope expanded to include failed claim recovery, slowing throughput temporarily." },
+      { week: "Oct 7-11", quality: 76, stability: 61, speed: 39, aiLeverage: 46, risk: "Low-med", summary: "Baseline test suite was set up with no critical quality issues identified." },
     ],
     "PP-149": [
-      { week: "Nov 4-8", quality: 74, stability: 70, speed: 18, risk: "Not started", summary: "Design is ready, but code quality is not yet meaningful because engineering has not started." },
-      { week: "Oct 28-Nov 1", quality: 70, stability: 68, speed: 16, risk: "Queued", summary: "Spec readiness improved after mobile intake flow approval, while implementation stayed queued." },
-      { week: "Oct 21-25", quality: 66, stability: 64, speed: 15, risk: "Queued", summary: "Engineering reviewed feasibility but deferred build work behind active regression priorities." },
-      { week: "Oct 14-18", quality: 62, stability: 61, speed: 12, risk: "Queued", summary: "Early technical notes show low known risk, pending sprint allocation." },
-      { week: "Oct 7-11", quality: 58, stability: 58, speed: 10, risk: "Queued", summary: "Mobile intake remained in discovery, with no production code changes yet." },
+      { week: "Nov 4-8", quality: 74, stability: 70, speed: 18, aiLeverage: 42, risk: "Not started", summary: "Design is ready, but code quality is not yet meaningful because engineering has not started." },
+      { week: "Oct 28-Nov 1", quality: 70, stability: 68, speed: 16, aiLeverage: 38, risk: "Queued", summary: "Spec readiness improved after mobile intake flow approval, while implementation stayed queued." },
+      { week: "Oct 21-25", quality: 66, stability: 64, speed: 15, aiLeverage: 34, risk: "Queued", summary: "Engineering reviewed feasibility but deferred build work behind active regression priorities." },
+      { week: "Oct 14-18", quality: 62, stability: 61, speed: 12, aiLeverage: 30, risk: "Queued", summary: "Early technical notes show low known risk, pending sprint allocation." },
+      { week: "Oct 7-11", quality: 58, stability: 58, speed: 10, aiLeverage: 28, risk: "Queued", summary: "Mobile intake remained in discovery, with no production code changes yet." },
     ],
     "PP-118": [
-      { week: "Oct 21-25", quality: 92, stability: 88, speed: 76, risk: "Closed", summary: "Migration closed cleanly with no customer-facing downtime and no rollback events." },
-      { week: "Oct 14-18", quality: 88, stability: 82, speed: 68, risk: "Low", summary: "Release checks were completed before the cutover window." },
-      { week: "Oct 7-11", quality: 84, stability: 78, speed: 62, risk: "Low-med", summary: "Dry-run validation reduced the main migration risks before release." },
+      { week: "Oct 21-25", quality: 92, stability: 88, speed: 76, aiLeverage: 54, risk: "Closed", summary: "Migration closed cleanly with no customer-facing downtime and no rollback events." },
+      { week: "Oct 14-18", quality: 88, stability: 82, speed: 68, aiLeverage: 50, risk: "Low", summary: "Release checks were completed before the cutover window." },
+      { week: "Oct 7-11", quality: 84, stability: 78, speed: 62, aiLeverage: 46, risk: "Low-med", summary: "Dry-run validation reduced the main migration risks before release." },
     ],
     "PP-160": [
-      { week: "Nov 4-8", quality: 38, stability: 34, speed: 8, risk: "Future", summary: "Analytics dashboard is parked for future planning; requirements are still being shaped." },
-      { week: "Oct 28-Nov 1", quality: 34, stability: 30, speed: 8, risk: "Future", summary: "No engineering sprint capacity is assigned yet." },
+      { week: "Nov 4-8", quality: 38, stability: 34, speed: 8, aiLeverage: 28, risk: "Future", summary: "Analytics dashboard is parked for future planning; requirements are still being shaped." },
+      { week: "Oct 28-Nov 1", quality: 34, stability: 30, speed: 8, aiLeverage: 24, risk: "Future", summary: "No engineering sprint capacity is assigned yet." },
     ],
   };
   const qualityWeeks = qualityWeeksByRoadmap[activeRoadmap.key] || qualityWeeksByRoadmap["PP-128"];
   const selectedQualityWeek = openQualityWeek || qualityWeeks[0];
+  const selectedQualityWeekIndex = qualityWeeks.findIndex((week) => week.week === selectedQualityWeek.week);
+  const previousQualityWeek = qualityWeeks[selectedQualityWeekIndex + 1] || selectedQualityWeek;
+  const qualityChartWeeks = [...qualityWeeks].reverse();
+  const qualityChartMetrics = [
+    { key: "quality", label: "Quality" },
+    { key: "stability", label: "Stability" },
+    { key: "aiLeverage", label: "AI Leverage" },
+    { key: "speed", label: "Speed" },
+  ];
+  const qualityChartPoints = (metric: keyof Pick<QualityWeek, "quality" | "stability" | "speed" | "aiLeverage">) => {
+    const count = Math.max(qualityChartWeeks.length - 1, 1);
+    return qualityChartWeeks
+      .map((week, index) => {
+        const x = 56 + (index * 640) / count;
+        const y = 204 - week[metric] * 1.6;
+        return `${x},${y}`;
+      })
+      .join(" ");
+  };
+  const qualityParameterDetails = [
+    {
+      key: "quality",
+      label: "Quality",
+      score: selectedQualityWeek.quality,
+      previousScore: previousQualityWeek.quality,
+      text: "The quality score reflects review confidence, QA readiness, and whether implementation notes are clear enough to support release decisions. Recent checks show quality is healthy, with review comments and regression notes moving toward shareable release reporting.",
+    },
+    {
+      key: "stability",
+      label: "Stability",
+      score: selectedQualityWeek.stability,
+      previousScore: previousQualityWeek.stability,
+      text: "The stability score tracks flaky paths, incident risk, rollback exposure, and whether known issues are contained. Stability remains the main watch area when intermittent failures or non-critical edge cases need to be isolated before release.",
+    },
+    {
+      key: "speed",
+      label: "Speed",
+      score: selectedQualityWeek.speed,
+      previousScore: previousQualityWeek.speed,
+      text: "The speed score measures delivery momentum, review throughput, and how quickly work is moving from approved design into engineering and QA. Lower speed usually means scope is intentionally queued or slowed by release-readiness checks.",
+    },
+    {
+      key: "ai",
+      label: "AI Leverage",
+      score: selectedQualityWeek.aiLeverage,
+      previousScore: previousQualityWeek.aiLeverage,
+      text: "The AI Leverage score captures how effectively the team is using AI to summarize QA notes, reuse prompts, generate release-ready updates, and turn execution context into useful operating signals.",
+    },
+  ];
   const overviewUpdates = [
     { source: "Launchpad", title: "Operator Thread workflow approved", date: "Nov 8", detail: "Client approved the core workflow; only small copy polish remains." },
     { source: "Pulse", title: "Quality remains healthy", date: "Nov 8", detail: "Review confidence is strong, with stability as the main watch area." },
@@ -1507,12 +1551,6 @@ function DevelopmentDetailPage({ onBack }) {
     setActiveDesignIndex(0);
     setOpenDesignNote(false);
     setOpenQualityWeek(null);
-    setActivePulseDimension((current) => {
-      const nextPulse = roadmapSignals[itemKey]?.pulse;
-      return nextPulse?.dimensions.some((dimension) => dimension.label === current)
-        ? current
-        : nextPulse?.dimensions[0]?.label || developmentDetail.pulse.dimensions[0].label;
-    });
   }
 
   return (
@@ -1569,7 +1607,7 @@ function DevelopmentDetailPage({ onBack }) {
             <div className="maturity-road">
               {valueStages.map((stage, index) => (
                 <div className={`maturity-step ${index < 2 ? "done" : index === 2 ? "current" : ""}`} key={stage}>
-                  <span>{index + 1}</span>
+                  <span data-step={index + 1}>{index + 1}</span>
                   <strong>{stage}</strong>
                 </div>
               ))}
@@ -1903,38 +1941,68 @@ function DevelopmentDetailPage({ onBack }) {
           </div>
           <div className={`quality-workspace ${openQualityWeek ? "with-sidebar" : ""}`}>
             <div className="quality-main-area">
-              <div className="quality-ai-summary">
-                <div>
-                  <span>AI summary · {activeRoadmap.title}</span>
-                  <p>{pulse.insight}</p>
+              <div className="quality-global-chart">
+                <div className="quality-band-legend">
+                  <span className="green">Green (65-100)</span>
+                  <span className="yellow">Yellow (40-64)</span>
+                  <span className="red">Red (0-39)</span>
+                  <div className="quality-chart-toggle">
+                    <button className="active">Chart</button>
+                    <button>Table</button>
+                  </div>
                 </div>
-                <strong>{Math.round(pulse.dimensions.reduce((sum, dimension) => sum + dimension.score, 0) / pulse.dimensions.length)}</strong>
-              </div>
-              <div className="pulse-dimensions">
-                {pulse.dimensions.map((dimension) => (
-                  <button
-                    className={`pulse-dimension ${dimension.tone} ${activePulseDimension === dimension.label ? "active" : ""}`}
-                    key={dimension.label}
-                    onClick={() => setActivePulseDimension(dimension.label)}
-                  >
-                    <div className="pulse-dimension-top">
-                      <span>{dimension.label}</span>
-                      <strong>{dimension.score}</strong>
-                    </div>
-                    <div className="pulse-meter">
-                      <span style={{ width: `${Math.max(dimension.score, 6)}%` }}></span>
-                    </div>
-                    <div className="pulse-metric">
-                      <span>{dimension.metric}</span>
-                      <strong>{dimension.value}</strong>
-                    </div>
-                  </button>
-                ))}
+                <div className="quality-global-chart-head">
+                  <div>
+                    <span>Execution Health trend</span>
+                    <strong>All listed weeks · all parameters</strong>
+                  </div>
+                  <p>Compare Quality, Stability, AI Leverage, and Speed across the weekly tiles below.</p>
+                </div>
+                <svg viewBox="0 0 760 250" role="img" aria-label="Execution Health trend across all listed weeks">
+                  <rect className="quality-band green" x="56" y="44" width="640" height="56" />
+                  <rect className="quality-band yellow" x="56" y="100" width="640" height="40" />
+                  <rect className="quality-band red" x="56" y="140" width="640" height="64" />
+                  {[100, 75, 50, 25, 0].map((tick) => (
+                    <g key={tick}>
+                      <text className="quality-axis-label" x="48" y={208 - tick * 1.6}>{tick}</text>
+                      <line className="quality-grid-line" x1="56" y1={204 - tick * 1.6} x2="696" y2={204 - tick * 1.6} />
+                    </g>
+                  ))}
+                  <text className="quality-band-label green" x="708" y="61">Green</text>
+                  <text className="quality-band-label yellow" x="708" y="125">Yellow</text>
+                  <text className="quality-band-label red" x="708" y="164">Red</text>
+                  {qualityChartMetrics.map((metric) => (
+                    <polyline
+                      key={metric.key}
+                      className={`trend-line ${metric.key === "aiLeverage" ? "ai" : metric.key}`}
+                      points={qualityChartPoints(metric.key as keyof Pick<QualityWeek, "quality" | "stability" | "speed" | "aiLeverage">)}
+                    />
+                  ))}
+                  {qualityChartWeeks.map((week, index) => {
+                    const count = Math.max(qualityChartWeeks.length - 1, 1);
+                    const x = 56 + (index * 640) / count;
+                    return (
+                      <g key={week.week}>
+                        <line className="quality-week-line" x1={x} y1="44" x2={x} y2="204" />
+                        <circle className="quality" cx={x} cy={204 - week.quality * 1.6} r="5" />
+                        <circle className="stability" cx={x} cy={204 - week.stability * 1.6} r="5" />
+                        <circle className="ai" cx={x} cy={204 - week.aiLeverage * 1.6} r="5" />
+                        <circle className="speed" cx={x} cy={204 - week.speed * 1.6} r="5" />
+                        <text className="quality-week-label" x={x} y="232">{week.week}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+                <div className="quality-chart-legend">
+                  {qualityChartMetrics.map((metric) => (
+                    <span className={metric.key === "aiLeverage" ? "ai" : metric.key} key={metric.key}>{metric.label}</span>
+                  ))}
+                </div>
               </div>
               <div className="quality-week-card-list">
-                {qualityWeeks.map((week) => (
+                {qualityWeeks.map((week, index) => (
                   <button
-                    className={`quality-week-card release-plan-card ${openQualityWeek?.week === week.week ? "active" : ""}`}
+                    className={`quality-week-card release-plan-card ${index === 0 ? "featured" : ""} ${openQualityWeek?.week === week.week ? "active" : ""}`}
                     key={week.week}
                     onClick={() => setOpenQualityWeek(week)}
                   >
@@ -1948,6 +2016,7 @@ function DevelopmentDetailPage({ onBack }) {
                     <div className="release-card-actions">
                       <span className="action-chip healthy"><strong>{week.quality}</strong> Quality</span>
                       <span className={week.stability < 60 ? "action-chip watch" : "action-chip healthy"}><strong>{week.stability}</strong> Stability</span>
+                      <span className={week.aiLeverage < 45 ? "action-chip watch" : "action-chip healthy"}><strong>{week.aiLeverage}</strong> AI Leverage</span>
                       <span className={week.speed < 35 ? "action-chip risk" : "action-chip watch"}><strong>{week.speed}</strong> Speed</span>
                     </div>
                   </button>
@@ -1960,60 +2029,26 @@ function DevelopmentDetailPage({ onBack }) {
                 <span>{activeRoadmap.key} · {selectedQualityWeek.week}</span>
                 <h3>Weekly quality summary</h3>
                 <p>{selectedQualityWeek.summary}</p>
-                <div className="quality-sidebar-grid">
-                  <div>
-                    <span>Quality</span>
-                    <strong>{selectedQualityWeek.quality}</strong>
-                  </div>
-                  <div>
-                    <span>Stability</span>
-                    <strong>{selectedQualityWeek.stability}</strong>
-                  </div>
-                  <div>
-                    <span>Speed</span>
-                    <strong>{selectedQualityWeek.speed}</strong>
-                  </div>
-                  <div>
-                    <span>Risk</span>
-                    <strong>{selectedQualityWeek.risk}</strong>
-                  </div>
-                </div>
-                <div className="quality-sidebar-chart">
-                  <span>Week trend</span>
-                  <svg viewBox="0 0 260 120" role="img" aria-label="Weekly Pulse trend">
-                    <polyline className="trend-line quality" points={`10,${110 - selectedQualityWeek.quality} 90,${100 - selectedQualityWeek.quality + 8} 170,${112 - selectedQualityWeek.stability} 250,${110 - selectedQualityWeek.speed}`} />
-                    <polyline className="trend-line stability" points={`10,${110 - selectedQualityWeek.stability} 90,${106 - selectedQualityWeek.stability} 170,${110 - selectedQualityWeek.stability + 5} 250,${108 - selectedQualityWeek.stability}`} />
-                    <polyline className="trend-line speed" points={`10,${110 - selectedQualityWeek.speed} 90,${112 - selectedQualityWeek.speed} 170,${106 - selectedQualityWeek.speed} 250,${110 - selectedQualityWeek.speed + 4}`} />
-                    <circle cx="10" cy={110 - selectedQualityWeek.quality} r="3" />
-                    <circle cx="90" cy={100 - selectedQualityWeek.quality + 8} r="3" />
-                    <circle cx="170" cy={112 - selectedQualityWeek.stability} r="3" />
-                    <circle cx="250" cy={110 - selectedQualityWeek.speed} r="3" />
-                  </svg>
-                  <div className="quality-chart-legend">
-                    <span>Quality</span>
-                    <span>Stability</span>
-                    <span>Speed</span>
-                  </div>
-                </div>
-                <div className="quality-diagnosis-block">
-                  <span>AI diagnosis</span>
-                  <p>
-                    {selectedQualityWeek.quality >= 85
-                      ? "Quality is strong enough for shareable reporting."
-                      : "Quality is acceptable, but the team should keep review notes visible before release."}
-                    {" "}
-                    {selectedQualityWeek.stability < 60
-                      ? "Stability is the main watch area for this week."
-                      : "Stability is not showing major release blockers."}
-                  </p>
-                </div>
-                <div className="quality-diagnosis-block">
-                  <span>Recommended next step</span>
-                  <p>
-                    {selectedQualityWeek.risk === "Not started" || selectedQualityWeek.risk === "Queued"
-                      ? "Keep this item queued until active engineering capacity opens."
-                      : "Keep QA notes concise and shareable, then confirm release readiness with the York engineering owner."}
-                  </p>
+                <div className="quality-parameter-detail-grid">
+                  {qualityParameterDetails.map((detail) => {
+                    const delta = detail.score - detail.previousScore;
+                    return (
+                      <div className="quality-parameter-detail" key={detail.key}>
+                        <div className="quality-parameter-detail-head">
+                          <span className={detail.key}>{detail.label}</span>
+                          <strong>
+                            {detail.score}
+                            {delta !== 0 ? (
+                              <em className={delta > 0 ? "up" : "down"}>
+                                {delta > 0 ? "↗" : "↘"} {Math.abs(delta)}
+                              </em>
+                            ) : null}
+                          </strong>
+                        </div>
+                        <p>{detail.text}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </aside>
             ) : null}
@@ -2202,7 +2237,7 @@ function JourneyEmptyState({ onConnectIntegrations }) {
         <>
           <section className="journey-empty-hero">
             <div>
-              <span>Current Updates start here</span>
+              <span>Scorecard starts here</span>
               <h2>York IE helps turn startup activity into an operating system for durable growth.</h2>
               <p>Start with services and playbooks from York IE, or connect your own systems so Fuel can summarize signals across your business.</p>
               <div className="journey-empty-actions">
@@ -2567,15 +2602,1436 @@ function TrackRow({ track, index, isOpen, onToggle, onOpenDetail, barsAnimated, 
   );
 }
 
+type IntelligenceSource = {
+  id: string;
+  title: string;
+  description: string;
+  system: string;
+  sourceType: string;
+  meta: string;
+  date: string;
+  snippet?: string;
+  ref?: string;
+};
+
+type IntelligenceItem = {
+  id: string;
+  type: string;
+  text: string;
+  highlight: string;
+  date: string;
+  age: string;
+  title: string;
+  confidence?: string;
+  sources: IntelligenceSource[];
+};
+
+const DATA_ROOM_DOCUMENT_TYPES = [
+  { id: "pitch_deck", label: "Pitch deck" },
+  { id: "investor_notes", label: "Investor notes" },
+  { id: "investment_memo", label: "Investment memo" },
+  { id: "board_deck", label: "Board deck" },
+  { id: "financial_model", label: "Financial model" },
+  { id: "cap_table", label: "Cap table" },
+  { id: "product_roadmap", label: "Product roadmap" },
+  { id: "customer_contract", label: "Customer contract" },
+  { id: "due_diligence", label: "Due diligence pack" },
+  { id: "custom", label: "Custom document" },
+] as const;
+
+type DataRoomDocumentTypeId = typeof DATA_ROOM_DOCUMENT_TYPES[number]["id"];
+
+type DataRoomFileRecord = {
+  id: string;
+  name: string;
+  typeId: string;
+  typeLabel: string;
+  format: string;
+  uploadedAt: string;
+  uploadedAtMs: number;
+  source: string;
+  intelligenceCount: number;
+  intelligenceIds: string[];
+  downloadUrl?: string;
+};
+
+type DataRoomDocumentSlot = {
+  typeId: string;
+  typeLabel: string;
+  current: DataRoomFileRecord | null;
+  history: DataRoomFileRecord[];
+};
+
+/** @deprecated Use DataRoomFileRecord — kept for benchmark row compatibility */
+type DataRoomFile = {
+  id: string;
+  name: string;
+  type: "pitch_deck" | "benchmark";
+  format: string;
+  uploadedAt: string;
+  source: string;
+  intelligenceCount: number;
+  intelligenceIds: string[];
+};
+
+function slugifyDocumentLabel(label: string) {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "document";
+}
+
+function createInitialDocumentSlots(): DataRoomDocumentSlot[] {
+  return DATA_ROOM_DOCUMENT_TYPES
+    .filter(type => type.id !== "custom")
+    .map(type => ({
+      typeId: type.id,
+      typeLabel: type.label,
+      current: null,
+      history: [],
+    }));
+}
+
+function getDocumentTypeLabel(typeId: string, fallback?: string) {
+  const predefined = DATA_ROOM_DOCUMENT_TYPES.find(type => type.id === typeId);
+  if (predefined) return predefined.label;
+  if (typeId.startsWith("custom:")) return fallback || typeId.slice(7).replace(/-/g, " ");
+  return fallback || typeId;
+}
+
+function getDisplayDocumentSlots(slots: DataRoomDocumentSlot[]) {
+  const predefined = DATA_ROOM_DOCUMENT_TYPES
+    .filter(type => type.id !== "custom")
+    .map(type => slots.find(slot => slot.typeId === type.id) || {
+      typeId: type.id,
+      typeLabel: type.label,
+      current: null,
+      history: [],
+    });
+  const custom = slots.filter(slot => slot.typeId.startsWith("custom:"));
+  return [...predefined, ...custom];
+}
+
+function countActiveDocuments(slots: DataRoomDocumentSlot[]) {
+  return getDisplayDocumentSlots(slots).filter(slot => slot.current).length;
+}
+
+function upsertDocumentSlot(
+  slots: DataRoomDocumentSlot[],
+  params: {
+    typeId: string;
+    typeLabel: string;
+    file: File;
+    source: string;
+    intelligenceIds: string[];
+    intelligenceCount: number;
+  },
+): DataRoomDocumentSlot[] {
+  const record: DataRoomFileRecord = {
+    id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: params.file.name,
+    typeId: params.typeId,
+    typeLabel: params.typeLabel,
+    format: getFileFormat(params.file.name),
+    uploadedAt: new Date().toLocaleString("en-US"),
+    uploadedAtMs: Date.now(),
+    source: params.source,
+    intelligenceCount: params.intelligenceCount,
+    intelligenceIds: params.intelligenceIds,
+    downloadUrl: URL.createObjectURL(params.file),
+  };
+
+  const slotIndex = slots.findIndex(slot => slot.typeId === params.typeId);
+  if (slotIndex >= 0) {
+    const slot = slots[slotIndex];
+    if (slot.current?.downloadUrl) URL.revokeObjectURL(slot.current.downloadUrl);
+    const updated: DataRoomDocumentSlot = {
+      ...slot,
+      typeLabel: params.typeLabel,
+      current: record,
+      history: slot.current ? [slot.current, ...slot.history] : slot.history,
+    };
+    return slots.map((entry, index) => (index === slotIndex ? updated : entry));
+  }
+
+  return [...slots, { typeId: params.typeId, typeLabel: params.typeLabel, current: record, history: [] }];
+}
+
+function getFileFormat(fileName: string) {
+  const extension = fileName.split(".").pop()?.toLowerCase() || "file";
+  if (extension === "pdf") return "PDF";
+  if (extension === "ppt" || extension === "pptx") return "PowerPoint";
+  if (extension === "doc" || extension === "docx") return "Word";
+  if (extension === "xls" || extension === "xlsx") return "Excel";
+  if (extension === "csv") return "CSV";
+  if (extension === "txt" || extension === "md") return "Text";
+  return extension.toUpperCase();
+}
+
+function createDocumentIntelligence(typeId: string, typeLabel: string, fileName: string): IntelligenceItem[] {
+  const uploadedAt = new Date().toLocaleDateString("en-US");
+  const docSource: IntelligenceSource = {
+    id: `src-doc-${Date.now()}`,
+    title: fileName,
+    description: `${typeLabel} stored in the private data room and parsed for intelligence generation.`,
+    system: typeId,
+    sourceType: typeId,
+    meta: "Private · Data Room",
+    date: uploadedAt,
+    snippet: `Parsed from ${typeLabel.toLowerCase()} — fundraising, GTM, product, and operating signals extracted for Fuel intelligence.`,
+    ref: `private:${typeId}:${fileName}`,
+  };
+
+  const templates: Record<string, { type: string; text: string; highlight: string; title: string }[]> = {
+    pitch_deck: [
+      { type: "fundraising", text: "Active Seed raise", highlight: "$4.2M raised · $1.5M extension target", title: "Deck positions the company for a Seed extension with enterprise pipeline momentum." },
+      { type: "gtm", text: "Enterprise GTM focus", highlight: "Workshop-led onboarding · 3 enterprise pilots", title: "Sales motion emphasizes customer discovery workshops before standardized rollout." },
+      { type: "product", text: "Platform roadmap", highlight: "Customer portal and AI reporting on H2 roadmap", title: "Product slides highlight portal standardization to reduce bespoke implementations." },
+    ],
+    investor_notes: [
+      { type: "fundraising", text: "Investor feedback", highlight: "Strong product narrative · clarify CAC payback", title: "Notes highlight investor interest with questions on GTM efficiency and retention proof." },
+      { type: "strategic", text: "Positioning gap", highlight: "Differentiate vs legacy billing incumbents", title: "Investors want sharper category framing before the next raise conversation." },
+    ],
+    investment_memo: [
+      { type: "fundraising", text: "Memo thesis", highlight: "Large TAM · underpenetrated mid-market", title: "Memo frames the opportunity as workflow consolidation in a fragmented buyer segment." },
+      { type: "finance", text: "Unit economics", highlight: "Payback improving · expansion potential", title: "Financial narrative ties retention expansion to margin improvement over 18 months." },
+    ],
+    board_deck: [
+      { type: "strategic", text: "Board priorities", highlight: "Hit $1M ARR · reduce implementation time", title: "Board deck centers on revenue milestone and delivery efficiency for the next two quarters." },
+      { type: "team", text: "Org plan", highlight: "2 GTM hires · 1 senior engineer", title: "Hiring plan weighted toward repeatable enterprise sales and platform stability." },
+    ],
+    financial_model: [
+      { type: "finance", text: "Forecast update", highlight: "Base case 2.1x ARR growth · 18mo runway", title: "Model assumes steady enterprise expansion with controlled burn through year end." },
+      { type: "efficiency", text: "Burn profile", highlight: "Burn multiple improving in H2", title: "Efficiency metrics suggest GTM spend converts better after onboarding changes." },
+    ],
+    cap_table: [
+      { type: "fundraising", text: "Ownership snapshot", highlight: "Founders 62% · Seed investors 28%", title: "Cap table supports a clean extension round without heavy dilution pressure." },
+    ],
+    product_roadmap: [
+      { type: "product", text: "Roadmap focus", highlight: "Portal v2 · AI reporting · billing automation", title: "Roadmap prioritizes self-serve workflows that reduce services-heavy implementations." },
+    ],
+    customer_contract: [
+      { type: "gtm", text: "Contract pattern", highlight: "Multi-year enterprise · expansion clause", title: "Contract structure supports land-and-expand with built-in upsell triggers." },
+    ],
+    due_diligence: [
+      { type: "strategic", text: "Diligence themes", highlight: "Security review · revenue quality · churn", title: "Diligence pack focuses on enterprise readiness and retention durability." },
+    ],
+  };
+
+  const baseKey = typeId.startsWith("custom:") ? "custom" : typeId;
+  const rows = templates[baseKey] || templates.pitch_deck;
+
+  return rows.map((row, index) => ({
+    id: `intel-doc-${typeId}-${Date.now() + index}`,
+    type: row.type,
+    text: row.text,
+    highlight: row.highlight,
+    date: "2026-q2",
+    age: "Just now",
+    title: row.title,
+    confidence: `${84 - index * 2}%`,
+    sources: [docSource],
+  }));
+}
+
+type IntelligenceFocus = {
+  ids: string[];
+  label: string;
+};
+
+type BenchmarkFormValues = {
+  headcount: string;
+  paidCustomers: string;
+  arr: string;
+  arrGrowth: string;
+  nrr: string;
+  logoRetention: string;
+  grossMargin: string;
+  cacPayback: string;
+  burnMultiple: string;
+  ruleOf40: string;
+  cashOnHand: string;
+  monthlyBurn: string;
+  openToIntros: boolean;
+  notableCustomers: string;
+  notableHires: string;
+  otherUpdates: string;
+  biggestChallenges: string;
+};
+
+type BenchmarkSubmission = {
+  period: string;
+  submittedAt: string;
+  submittedAtMs: number;
+  summary: { arr: string; nrr: string; burnMultiple: string };
+  rows: { metric: string; value: string; bot25: string; median: string; top25: string }[];
+  intelligenceIds: string[];
+  formValues: BenchmarkFormValues;
+};
+
+const BENCHMARK_PERIOD = "2026-Q2";
+
+const BENCHMARK_TIMELINE_FILTERS = ["All", "efficiency", "finance", "fundraising", "growth", "retention", "team"] as const;
+
+const WIZARD_DEFAULT_BENCHMARK: BenchmarkFormValues = {
+  headcount: "100",
+  paidCustomers: "9990",
+  arr: "1000",
+  arrGrowth: "10",
+  nrr: "10",
+  logoRetention: "10",
+  grossMargin: "100",
+  cacPayback: "100",
+  burnMultiple: "200",
+  ruleOf40: "20",
+  cashOnHand: "200",
+  monthlyBurn: "200",
+  openToIntros: false,
+  notableCustomers: "",
+  notableHires: "",
+  otherUpdates: "",
+  biggestChallenges: "",
+};
+
+const EMPTY_BENCHMARK_FORM: BenchmarkFormValues = {
+  headcount: "",
+  paidCustomers: "",
+  arr: "",
+  arrGrowth: "",
+  nrr: "",
+  logoRetention: "",
+  grossMargin: "",
+  cacPayback: "",
+  burnMultiple: "",
+  ruleOf40: "",
+  cashOnHand: "",
+  monthlyBurn: "",
+  openToIntros: false,
+  notableCustomers: "",
+  notableHires: "",
+  otherUpdates: "",
+  biggestChallenges: "",
+};
+
+const BENCHMARK_COHORT_ROWS = [
+  { key: "arr", metric: "ARR", bot25: "$150K", median: "$500K", top25: "$1.2M" },
+  { key: "arrGrowth", metric: "ARR growth (YoY)", bot25: "120%", median: "200%", top25: "350%" },
+  { key: "nrr", metric: "NRR", bot25: "95%", median: "108%", top25: "125%" },
+  { key: "logoRetention", metric: "Logo retention", bot25: "80%", median: "88%", top25: "93%" },
+  { key: "grossMargin", metric: "Gross margin", bot25: "55%", median: "72%", top25: "82%" },
+  { key: "cacPayback", metric: "CAC payback", bot25: "10mo", median: "16mo", top25: "26mo" },
+  { key: "burnMultiple", metric: "Burn multiple", bot25: "1.3", median: "2.1", top25: "3.4" },
+  { key: "ruleOf40", metric: "Rule of 40", bot25: "—", median: "—", top25: "—" },
+  { key: "cashOnHand", metric: "Cash on hand", bot25: "$500K", median: "$1.5M", top25: "$3.0M" },
+  { key: "monthlyBurn", metric: "Monthly burn", bot25: "$40K", median: "$80K", top25: "$180K" },
+  { key: "paidCustomers", metric: "Paid customers", bot25: "10", median: "40", top25: "150" },
+  { key: "headcount", metric: "FTE headcount", bot25: "6", median: "12", top25: "22" },
+] as const;
+
+const BENCHMARK_FIELD_COHORT: Record<string, { bot25: string; median: string; top25: string; top10: string }> = {
+  headcount: { bot25: "6", median: "11", top25: "22", top10: "45" },
+  paidCustomers: { bot25: "10", median: "48", top25: "150", top10: "500" },
+  arr: { bot25: "$250K", median: "$500K", top25: "$1.2M", top10: "$2.5M" },
+  arrGrowth: { bot25: "120%", median: "180%", top25: "350%", top10: "450%" },
+  nrr: { bot25: "95%", median: "105%", top25: "125%", top10: "145%" },
+  logoRetention: { bot25: "75%", median: "85%", top25: "93%", top10: "97%" },
+  grossMargin: { bot25: "55%", median: "72%", top25: "82%", top10: "88%" },
+  cacPayback: { bot25: "30.0m", median: "16.0m", top25: "10.0m", top10: "6.0m" },
+  burnMultiple: { bot25: "3.50x", median: "2.10x", top25: "1.40x", top10: "0.50x" },
+  ruleOf40: { bot25: "—", median: "—", top25: "—", top10: "—" },
+  cashOnHand: { bot25: "$500K", median: "$1.3M", top25: "$3.0M", top10: "$6.0M" },
+  monthlyBurn: { bot25: "$50K", median: "$100K", top25: "$200K", top10: "$350K" },
+};
+
+function formatRelativeAge(timestampMs: number) {
+  const minutes = Math.max(0, Math.floor((Date.now() - timestampMs) / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}M AGO`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}H AGO`;
+  const days = Math.floor(hours / 24);
+  return `${days}D AGO`;
+}
+
+function formatBenchmarkValue(key: string, raw: string) {
+  const value = raw.trim();
+  if (!value) return "—";
+  if (["arr", "cashOnHand", "monthlyBurn"].includes(key)) {
+    if (value.startsWith("$")) return value;
+    const num = Number(value.replace(/,/g, ""));
+    if (Number.isNaN(num)) return value;
+    if (num >= 1000) return `$${(num / 1000).toFixed(num % 1000 === 0 ? 0 : 1)}K`;
+    return `$${value}`;
+  }
+  if (["arrGrowth", "nrr", "logoRetention", "grossMargin", "ruleOf40"].includes(key)) {
+    return value.endsWith("%") ? value : `${value}%`;
+  }
+  if (key === "cacPayback") return value.endsWith("mo") ? value : `${value}mo`;
+  if (key === "burnMultiple") return value.endsWith("x") ? value : `${value}x`;
+  return value;
+}
+
+function createBenchmarkIntelligence(values: BenchmarkFormValues, period = BENCHMARK_PERIOD) {
+  const submittedAtMs = Date.now();
+  const benchmarkSource: IntelligenceSource = {
+    id: `src-benchmark-${period.toLowerCase()}`,
+    title: `Private benchmark · ${period}`,
+    description: "Quarterly private benchmark submission used to overlay Patriot Pay on the cohort distribution.",
+    system: "benchmark",
+    sourceType: "private_benchmark",
+    meta: "Private · Quarterly submission",
+    date: new Date(submittedAtMs).toLocaleDateString("en-US"),
+    snippet: "Logged through Update this period and stamped to the quarter for tracking changes over time.",
+    ref: `private:benchmark:${period.toLowerCase()}`,
+  };
+
+  const specs: { key: keyof BenchmarkFormValues; type: string; label: string; format?: (v: string) => string; always?: boolean }[] = [
+    { key: "openToIntros", type: "fundraising", label: "Open to investor intros", format: (v) => (v === "true" ? "Yes" : "No"), always: true },
+    { key: "arr", type: "growth", label: "ARR", format: (v) => formatBenchmarkValue("arr", v) },
+    { key: "logoRetention", type: "retention", label: "Logo retention", format: (v) => formatBenchmarkValue("logoRetention", v) },
+    { key: "grossMargin", type: "efficiency", label: "Gross margin (blended)", format: (v) => formatBenchmarkValue("grossMargin", v) },
+    { key: "cashOnHand", type: "finance", label: "Cash on hand", format: (v) => formatBenchmarkValue("cashOnHand", v) },
+    { key: "monthlyBurn", type: "finance", label: "Monthly net burn", format: (v) => formatBenchmarkValue("monthlyBurn", v) },
+    { key: "headcount", type: "team", label: "FTE headcount", format: (v) => v.trim() },
+    { key: "arrGrowth", type: "growth", label: "ARR growth (YoY)", format: (v) => formatBenchmarkValue("arrGrowth", v) },
+    { key: "cacPayback", type: "efficiency", label: "CAC payback", format: (v) => formatBenchmarkValue("cacPayback", v) },
+    { key: "burnMultiple", type: "efficiency", label: "Burn multiple", format: (v) => formatBenchmarkValue("burnMultiple", v) },
+    { key: "ruleOf40", type: "efficiency", label: "Rule of 40", format: (v) => formatBenchmarkValue("ruleOf40", v) },
+    { key: "nrr", type: "retention", label: "Net revenue retention", format: (v) => formatBenchmarkValue("nrr", v) },
+    { key: "paidCustomers", type: "growth", label: "Paid customers", format: (v) => v.trim() },
+  ];
+
+  const items: IntelligenceItem[] = specs
+    .filter(spec => spec.always || String(values[spec.key]).trim())
+    .map(spec => {
+      const raw = spec.key === "openToIntros" ? String(values.openToIntros) : String(values[spec.key]);
+      const formatted = spec.format!(raw);
+      return {
+        id: `intel-bench-${spec.key}`,
+        type: spec.type,
+        text: spec.label,
+        highlight: formatted,
+        date: period.toLowerCase(),
+        age: formatRelativeAge(submittedAtMs),
+        title: `${spec.label}: ${formatted}`,
+        confidence: "Submitted",
+        sources: [benchmarkSource],
+      };
+    });
+
+  const rows = BENCHMARK_COHORT_ROWS.map(row => ({
+    metric: row.metric,
+    value: formatBenchmarkValue(row.key, String(values[row.key as keyof BenchmarkFormValues] || "")),
+    bot25: row.bot25,
+    median: row.median,
+    top25: row.top25,
+  }));
+
+  const submission: BenchmarkSubmission = {
+    period,
+    submittedAt: formatRelativeAge(submittedAtMs),
+    submittedAtMs,
+    summary: {
+      arr: formatBenchmarkValue("arr", values.arr),
+      nrr: formatBenchmarkValue("nrr", values.nrr),
+      burnMultiple: formatBenchmarkValue("burnMultiple", values.burnMultiple),
+    },
+    rows,
+    intelligenceIds: items.map(item => item.id),
+    formValues: values,
+  };
+
+  return { items, submission };
+}
+
+function BenchmarkMetricField({
+  label,
+  cohortKey,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  cohortKey: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const cohort = BENCHMARK_FIELD_COHORT[cohortKey];
+  return (
+    <label className="log-private-metric">
+      <span>{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+      {cohort ? (
+        <div className="log-private-metric-cohort">
+          <div className="signals-bar"><b /><i /></div>
+          <div className="signals-benchmark-scale">
+            <span>Bot 25% ({cohort.bot25})</span>
+            <span>Median ({cohort.median})</span>
+            <span>Top 25% ({cohort.top25})</span>
+            <span>Top 10% ({cohort.top10})</span>
+          </div>
+        </div>
+      ) : (
+        <em className="log-private-no-cohort">no cohort data</em>
+      )}
+    </label>
+  );
+}
+
+function LogPrivateDataPage({
+  onBack,
+  onSubmit,
+  initialValues = EMPTY_BENCHMARK_FORM,
+}: {
+  onBack: () => void;
+  onSubmit: (values: BenchmarkFormValues) => void;
+  initialValues?: BenchmarkFormValues;
+}) {
+  const [values, setValues] = useState(initialValues);
+  const update = (key: keyof BenchmarkFormValues, next: string | boolean) => {
+    setValues(previous => ({ ...previous, [key]: next }));
+  };
+
+  return (
+    <section className="log-private-data-page">
+      <button type="button" className="profile-wizard-back" onClick={onBack}>← Back</button>
+      <div className="log-private-data-head">
+        <div>
+          <span>Private benchmark</span>
+          <h2>Log private data · 2026-Q2</h2>
+        </div>
+        <label className="signals-cohort-select">
+          cohort
+          <select defaultValue="b2b_saas:seed:us">
+            <option value="b2b_saas:seed:us">b2b_saas · seed · us</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="log-private-sections">
+        <section className="log-private-section">
+          <h3>Scale</h3>
+          <div className="log-private-grid">
+            <BenchmarkMetricField label="Headcount (FTE)" cohortKey="headcount" value={values.headcount} onChange={(v) => update("headcount", v)} placeholder="100" />
+            <BenchmarkMetricField label="Paid customers" cohortKey="paidCustomers" value={values.paidCustomers} onChange={(v) => update("paidCustomers", v)} placeholder="9990" />
+            <BenchmarkMetricField label="ARR USD" cohortKey="arr" value={values.arr} onChange={(v) => update("arr", v)} placeholder="1200" />
+          </div>
+        </section>
+
+        <section className="log-private-section">
+          <h3>Growth</h3>
+          <BenchmarkMetricField label="ARR growth YoY %" cohortKey="arrGrowth" value={values.arrGrowth} onChange={(v) => update("arrGrowth", v)} placeholder="10" />
+        </section>
+
+        <section className="log-private-section">
+          <h3>Retention</h3>
+          <div className="log-private-grid two">
+            <BenchmarkMetricField label="Net revenue retention %" cohortKey="nrr" value={values.nrr} onChange={(v) => update("nrr", v)} placeholder="10" />
+            <BenchmarkMetricField label="Logo retention %" cohortKey="logoRetention" value={values.logoRetention} onChange={(v) => update("logoRetention", v)} placeholder="10" />
+          </div>
+        </section>
+
+        <section className="log-private-section">
+          <h3>Efficiency</h3>
+          <div className="log-private-grid two">
+            <BenchmarkMetricField label="Gross margin %" cohortKey="grossMargin" value={values.grossMargin} onChange={(v) => update("grossMargin", v)} placeholder="100" />
+            <BenchmarkMetricField label="CAC payback months" cohortKey="cacPayback" value={values.cacPayback} onChange={(v) => update("cacPayback", v)} placeholder="100" />
+            <BenchmarkMetricField label="Burn multiple" cohortKey="burnMultiple" value={values.burnMultiple} onChange={(v) => update("burnMultiple", v)} placeholder="200" />
+            <BenchmarkMetricField label="Rule of 40 %" cohortKey="ruleOf40" value={values.ruleOf40} onChange={(v) => update("ruleOf40", v)} placeholder="20" />
+          </div>
+        </section>
+
+        <section className="log-private-section">
+          <h3>Capital</h3>
+          <div className="log-private-grid two">
+            <BenchmarkMetricField label="Cash on hand USD" cohortKey="cashOnHand" value={values.cashOnHand} onChange={(v) => update("cashOnHand", v)} placeholder="200" />
+            <BenchmarkMetricField label="Monthly burn USD" cohortKey="monthlyBurn" value={values.monthlyBurn} onChange={(v) => update("monthlyBurn", v)} placeholder="200" />
+          </div>
+        </section>
+
+        <section className="log-private-section">
+          <h3>Narrative</h3>
+          <div className="log-private-narrative">
+            <label><span>Notable customer wins</span><textarea value={values.notableCustomers} onChange={(e) => update("notableCustomers", e.target.value)} rows={2} /></label>
+            <label><span>Notable hires</span><textarea value={values.notableHires} onChange={(e) => update("notableHires", e.target.value)} rows={2} /></label>
+            <label><span>Other updates worth surfacing</span><textarea value={values.otherUpdates} onChange={(e) => update("otherUpdates", e.target.value)} rows={2} /></label>
+            <label><span>Biggest challenges</span><textarea value={values.biggestChallenges} onChange={(e) => update("biggestChallenges", e.target.value)} rows={2} /></label>
+          </div>
+        </section>
+      </div>
+
+      <div className="log-private-footer">
+        <label className="log-private-intros">
+          <input type="checkbox" checked={values.openToIntros} onChange={(e) => update("openToIntros", e.target.checked)} />
+          Open to investor intros this quarter
+        </label>
+        <div className="log-private-footer-actions">
+          <button type="button" className="wizard-link">Save draft</button>
+          <button type="button" className="wizard-primary" onClick={() => onSubmit(values)}>Submit for 2026-Q2</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatBenchmarkSummaryValue(key: string, raw: string) {
+  const formatted = formatBenchmarkValue(key, raw);
+  if (key === "burnMultiple") return formatted.replace(/x$/i, "");
+  return formatted;
+}
+
+function formatBenchmarkTableValue(metric: string, value: string) {
+  if (metric === "Burn multiple") return value.replace(/x$/i, "");
+  return value;
+}
+
+function QuarterlySubmissionPanel({
+  submission,
+  onEdit,
+}: {
+  submission: BenchmarkSubmission;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="quarterly-submission-panel">
+      <div className="quarterly-submission-head">
+        <div className="quarterly-submission-title-row">
+          <strong>Quarterly submission · {submission.period}</strong>
+          <span className="quarterly-submission-summary">
+            ARR: <b>{submission.summary.arr}</b>
+            {" · "}
+            NRR: <b>{submission.summary.nrr}</b>
+            {" · "}
+            Burn multiple: <b>{formatBenchmarkSummaryValue("burnMultiple", submission.formValues.burnMultiple)}</b>
+          </span>
+        </div>
+        <em>Submitted · {submission.submittedAt}</em>
+      </div>
+      <div className="quarterly-submission-table">
+        <div className="quarterly-submission-row head">
+          <span>Metric</span>
+          <span>Value</span>
+          <span>Bot 25%</span>
+          <span>Median</span>
+          <span>Top 25%</span>
+        </div>
+        {submission.rows.map(row => (
+          <div className="quarterly-submission-row" key={row.metric}>
+            <span className="quarterly-submission-metric">{row.metric}</span>
+            <strong>{formatBenchmarkTableValue(row.metric, row.value)}</strong>
+            <span>{row.bot25}</span>
+            <span>{row.median}</span>
+            <span>{row.top25}</span>
+          </div>
+        ))}
+      </div>
+      <div className="quarterly-submission-foot">
+        <span>cohort · b2b_saas:seed:us</span>
+        <button type="button" onClick={onEdit}>Edit</button>
+      </div>
+    </div>
+  );
+}
+
+const INITIAL_INTELLIGENCE_ITEMS: IntelligenceItem[] = [
+  {
+    id: "inv-intros",
+    type: "fundraising",
+    text: "Investor intros wanted",
+    highlight: "Innovius Capital",
+    date: "2026-q2",
+    age: "15d ago",
+    title: "I'm pleased to introduce you to Ethan from Innovius Capital. He'd love to learn more about patriotpay and your capital strategy.",
+    confidence: "85%",
+    sources: [{
+      id: "src-innovius",
+      title: "Innovius Capital // patriotpay",
+      description: "Email thread between York IE and Innovius Capital introducing Ethan for a capital strategy conversation.",
+      system: "hubspot",
+      sourceType: "hubspot_activity",
+      meta: "tom@york.ie",
+      date: "12/05/2026",
+      snippet: "I'm pleased to introduce you to Ethan from Innovius Capital. He'd love to learn more about patriotpay and your capital strategy.",
+      ref: "hubspot:email:109494280866",
+    }],
+  },
+  {
+    id: "gtm-challenges",
+    type: "gtm",
+    text: "Channel / GTM challenges",
+    highlight: "Stuck creating bespoke solutions for each customer; only 20% overlap between customer data models.",
+    date: "2026-q1",
+    age: "1mo ago",
+    title: "Major bottleneck: stuck creating bespoke solutions for each customer. Currently only 20% overlap between customer data models.",
+    confidence: "78%",
+    sources: [
+      {
+        id: "src-meeting-york",
+        title: "patriotpay and York IE",
+        description: "Weekly check-in covering customer onboarding bottlenecks and fragmented data models across accounts.",
+        system: "granola",
+        sourceType: "meeting_transcript",
+        meta: "mike@york.ie",
+        date: "11/08/2025",
+        snippet: "Major bottleneck: stuck creating bespoke solutions for each customer. Currently only 20% overlap between customer data models.",
+        ref: "granola:meeting:882441",
+      },
+      {
+        id: "src-funnel-email",
+        title: "AI won't fix your broken funnel (but this will)",
+        description: "Follow-up email discussing custom implementations and per-customer data schema rebuilds.",
+        system: "hubspot",
+        sourceType: "hubspot_activity",
+        meta: "bryan@york.ie - michael.farrand@patriotpay.com",
+        date: "11/22/2025",
+        snippet: "Each customer wants a slightly different data schema — we're rebuilding integrations per deal.",
+        ref: "hubspot:email:109388220441",
+      },
+    ],
+  },
+  {
+    id: "team-headcount",
+    type: "team",
+    text: "FTE headcount",
+    highlight: "2",
+    date: "2026-q1",
+    confidence: "50%",
+    age: "1mo ago",
+    title: "Anna and Aditya joined.",
+    sources: [],
+  },
+  {
+    id: "strategic-opportunities",
+    type: "strategic",
+    text: "Key opportunities",
+    highlight: "Build standardized platform with customer portal, AI model outputs, reporting, and troubleshooting widgets.",
+    date: "2026-q1",
+    age: "1mo ago",
+    title: "Planned platform features: customer login portal, AI model outputs, reporting, and troubleshooting widgets.",
+    sources: [{
+      id: "src-york-meeting",
+      title: "patriotpay and York IE",
+      description: "Roadmap discussion covering platform standardization and planned customer-facing portal features.",
+      system: "granola",
+      sourceType: "meeting_transcript",
+      meta: "mike@york.ie",
+      date: "11/08/2025",
+      snippet: "Planned platform features: customer login portal, AI model outputs, reporting, and troubleshooting widgets.",
+      ref: "granola:meeting:882441",
+    }],
+  },
+  {
+    id: "gtm-motion",
+    type: "gtm",
+    text: "Primary GTM motion",
+    highlight: "Sales-led with heavy customer discovery and workshop-based onboarding.",
+    date: "2026-q1",
+    age: "1mo ago",
+    title: "Customer discovery phase takes months. Workshop-heavy process to build trust.",
+    sources: [],
+  },
+  {
+    id: "product-breadth",
+    type: "product",
+    text: "Product portfolio breadth",
+    highlight: "1",
+    date: "2026-q1",
+    confidence: "60%",
+    age: "1mo ago",
+    title: "Current state: no customer portal exists. Customers receive data via Excel, Snowflake, or original format.",
+    sources: [],
+  },
+  {
+    id: "strategic-risks",
+    type: "strategic",
+    text: "Key risks",
+    highlight: "Data inconsistency across geographies; gappy datasets require estimates.",
+    date: "2026-q1",
+    age: "1mo ago",
+    title: "Data challenges across regions. Gappy, inconsistent datasets require estimates.",
+    sources: [{
+      id: "src-data-risk",
+      title: "patriotpay and York IE",
+      description: "Operations review noting regional data gaps and estimation requirements across geographies.",
+      system: "granola",
+      sourceType: "meeting_transcript",
+      meta: "mike@york.ie",
+      date: "10/29/2025",
+      snippet: "Data challenges across regions. Gappy, inconsistent datasets require estimates.",
+      ref: "granola:meeting:881902",
+    }],
+  },
+];
+
+function IntelligenceProvenanceSidebar({
+  item,
+  onClose,
+}: {
+  item: IntelligenceItem;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <button className="context-sidebar-scrim" aria-label="Close intelligence provenance" onClick={onClose} />
+      <aside className="intelligence-provenance-sidebar">
+        <div className="provenance-head">
+          <strong>Intelligence provenance</strong>
+          <button type="button" onClick={onClose}>Close · Esc</button>
+        </div>
+        <div className="provenance-body">
+          <span className="provenance-type">{item.type}</span>
+          <h2>{item.text}</h2>
+          <p className="provenance-highlight">{item.highlight}</p>
+          <div className="provenance-meta-line">
+            <time>{item.date}</time>
+            {item.confidence ? <span>confidence {item.confidence}</span> : null}
+          </div>
+
+          <div className="provenance-snippet-section">
+            <span>Supporting snippet</span>
+            <blockquote>{item.title}</blockquote>
+          </div>
+
+          {item.sources.length > 0 ? (
+            <div className="provenance-sources">
+              <span className="provenance-sources-label">
+                {item.sources.length} source{item.sources.length > 1 ? "s" : ""}
+              </span>
+              {item.sources.map((source, index) => (
+                <div className="provenance-source-block" key={source.id}>
+                  <div className="provenance-source-head">
+                    <span>
+                      Source{item.sources.length > 1 ? ` ${index + 1}` : ""} · {source.system}
+                    </span>
+                    <span>{source.meta}</span>
+                  </div>
+                  <div className="provenance-source-title-row">
+                    <strong>{source.title}</strong>
+                    <time>{source.date}</time>
+                  </div>
+                  <p className="provenance-source-desc">{source.description}</p>
+                  {source.ref ? <code>{source.sourceType} · {source.ref}</code> : null}
+                  {source.snippet ? (
+                    <blockquote className="provenance-source-snippet">{source.snippet}</blockquote>
+                  ) : null}
+                  <div className="provenance-source-actions">
+                    <button type="button">Show content</button>
+                    <button type="button">Open in Private tab →</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="provenance-no-sources">
+              <span>No linked sources</span>
+              <p>This intelligence was inferred from profile and benchmark context only.</p>
+            </div>
+          )}
+
+          <div className="provenance-extraction">
+            <span>Extraction</span>
+            <dl>
+              <div><dt>model</dt><dd>us.anthropic.claude-haiku-4-5-20251001-v1:0</dd></div>
+              <div><dt>tokens</dt><dd>6453 in · 152 out</dd></div>
+              <div><dt>when</dt><dd>12/05/2026, 19:46:23</dd></div>
+              <div><dt>run id</dt><dd>arun_8dbc9b8d-65b7-4796-ae8d-fa7ba9e8a321</dd></div>
+            </dl>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function DocumentHistorySidebar({
+  slot,
+  onClose,
+}: {
+  slot: DataRoomDocumentSlot;
+  onClose: () => void;
+}) {
+  const versions = slot.current ? [slot.current, ...slot.history] : slot.history;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <button className="context-sidebar-scrim" aria-label="Close document history" onClick={onClose} />
+      <aside className="document-history-sidebar">
+        <div className="provenance-head">
+          <div>
+            <span className="document-history-sidebar-label">Document history</span>
+            <strong>{slot.typeLabel}</strong>
+          </div>
+          <button type="button" onClick={onClose}>Close · Esc</button>
+        </div>
+        <div className="document-history-sidebar-body">
+          {versions.length ? (
+            versions.map((version, index) => (
+              <div className="document-history-sidebar-item" key={version.id}>
+                <div className="document-history-sidebar-item-head">
+                  <span>{index === 0 ? "Latest" : "Archived"}</span>
+                  <time>{version.uploadedAt}</time>
+                </div>
+                <strong>{version.name}</strong>
+                <div className="document-history-sidebar-meta">
+                  <span>{version.format}</span>
+                  <span>{version.source}</span>
+                </div>
+                {version.intelligenceCount > 0 ? (
+                  <p>{version.intelligenceCount} intelligence item{version.intelligenceCount === 1 ? "" : "s"} generated</p>
+                ) : null}
+                {version.downloadUrl ? (
+                  <a className="document-history-download" href={version.downloadUrl} download={version.name}>
+                    Download
+                  </a>
+                ) : null}
+              </div>
+            ))
+          ) : (
+            <div className="document-history-sidebar-empty">
+              <strong>No uploads yet</strong>
+              <p>Previous versions will appear here when you replace this document type.</p>
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function DocumentHistoryButton({
+  slot,
+  onOpen,
+}: {
+  slot: DataRoomDocumentSlot;
+  onOpen: (slot: DataRoomDocumentSlot) => void;
+}) {
+  const versions = slot.current ? [slot.current, ...slot.history] : slot.history;
+  if (!versions.length) return null;
+
+  return (
+    <button
+      type="button"
+      className="document-history-btn"
+      aria-label={`View history for ${slot.typeLabel}`}
+      title="Document history"
+      onClick={() => onOpen(slot)}
+    >
+      ⧗
+    </button>
+  );
+}
+
+function DocumentRowActions({
+  slot,
+  processingTypeId = null,
+  onUpload,
+  onOpenHistory,
+}: {
+  slot: DataRoomDocumentSlot;
+  processingTypeId?: string | null;
+  onUpload: (typeId: string, typeLabel: string, file: File) => void;
+  onOpenHistory: (slot: DataRoomDocumentSlot) => void;
+}) {
+  return (
+    <div className="data-room-actions-cell">
+      <DocumentRowUploadButton
+        slot={slot}
+        processingTypeId={processingTypeId}
+        onUpload={onUpload}
+      />
+      <DocumentHistoryButton slot={slot} onOpen={onOpenHistory} />
+    </div>
+  );
+}
+
+function DocumentUploadDropdown({
+  processingTypeId = null,
+  onUpload,
+  scope = "all",
+  documentSlots,
+}: {
+  processingTypeId?: string | null;
+  onUpload: (typeId: string, typeLabel: string, file: File) => void;
+  scope?: "all" | "custom-only";
+  documentSlots?: DataRoomDocumentSlot[];
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [customLabel, setCustomLabel] = React.useState("");
+  const [pendingType, setPendingType] = React.useState<{ typeId: string; typeLabel: string } | null>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const isProcessing = Boolean(processingTypeId);
+  const isCustomOnly = scope === "custom-only";
+  const activeCount = documentSlots ? countActiveDocuments(documentSlots) : 0;
+  const customSlots = documentSlots?.filter(slot => slot.typeId.startsWith("custom:") && slot.current) ?? [];
+
+  const getSlotForType = (typeId: string) => documentSlots?.find(slot => slot.typeId === typeId);
+
+  const beginUpload = (typeId: string, typeLabel: string) => {
+    if (typeId === "custom" && !customLabel.trim()) return;
+    const resolvedTypeId = typeId === "custom" ? `custom:${slugifyDocumentLabel(customLabel.trim())}` : typeId;
+    const resolvedLabel = typeId === "custom" ? customLabel.trim() : typeLabel;
+    setPendingType({ typeId: resolvedTypeId, typeLabel: resolvedLabel });
+    setOpen(false);
+    window.setTimeout(() => inputRef.current?.click(), 0);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !pendingType) return;
+    onUpload(pendingType.typeId, pendingType.typeLabel, file);
+    setPendingType(null);
+    setCustomLabel("");
+    event.target.value = "";
+  };
+
+  const renderTriggerLabel = () => {
+    if (isProcessing) return "Processing document…";
+    if (isCustomOnly) return "Add custom document ▾";
+    if (activeCount > 0) return `Upload document · ${activeCount} ▾`;
+    return "Upload document ▾";
+  };
+
+  const renderOption = (typeId: string, label: string) => {
+    const slot = getSlotForType(typeId);
+    const hasFile = Boolean(slot?.current);
+
+    return (
+      <button
+        type="button"
+        key={typeId}
+        className={`document-upload-option${hasFile ? " is-uploaded" : ""}`}
+        onClick={() => beginUpload(typeId, label)}
+      >
+        <span>{label}</span>
+        {hasFile ? <span className="document-upload-option-status">on file</span> : null}
+      </button>
+    );
+  };
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        hidden
+        accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.csv,.txt,.md"
+        disabled={isProcessing}
+        onChange={handleFileChange}
+      />
+      <div className={`document-upload-wrap${isCustomOnly ? " document-upload-wrap-custom-only" : ""}`}>
+        <button
+          type="button"
+          className={`${isCustomOnly ? "data-room-add-custom-btn" : "signals-private-btn secondary"} document-upload-trigger${isProcessing ? " processing" : ""}`}
+          disabled={isProcessing}
+          onClick={() => setOpen(current => !current)}
+        >
+          {renderTriggerLabel()}
+        </button>
+        {open ? (
+          <div className="document-upload-menu">
+            {isCustomOnly ? (
+              <div className="document-upload-custom">
+                <span>
+                  Custom document
+                  {customSlots.length ? <em className="document-upload-section-count">{customSlots.length} on file</em> : null}
+                </span>
+                <input
+                  type="text"
+                  value={customLabel}
+                  placeholder="Document type name"
+                  onChange={(event) => setCustomLabel(event.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={!customLabel.trim()}
+                  onClick={() => beginUpload("custom", customLabel.trim())}
+                >
+                  Choose file
+                </button>
+              </div>
+            ) : (
+              <>
+                {DATA_ROOM_DOCUMENT_TYPES.filter(type => type.id !== "custom").map(type => renderOption(type.id, type.label))}
+                {customSlots.map(slot => renderOption(slot.typeId, slot.typeLabel))}
+                <div className="document-upload-custom">
+                  <span>
+                    Custom document
+                    {customSlots.length ? <em className="document-upload-section-count">{customSlots.length} on file</em> : null}
+                  </span>
+                  <input
+                    type="text"
+                    value={customLabel}
+                    placeholder="Document type name"
+                    onChange={(event) => setCustomLabel(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    disabled={!customLabel.trim()}
+                    onClick={() => beginUpload("custom", customLabel.trim())}
+                  >
+                    Choose file
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function DocumentRowUploadButton({
+  slot,
+  processingTypeId = null,
+  onUpload,
+}: {
+  slot: DataRoomDocumentSlot;
+  processingTypeId?: string | null;
+  onUpload: (typeId: string, typeLabel: string, file: File) => void;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const isProcessing = processingTypeId === slot.typeId;
+  const isBusy = Boolean(processingTypeId);
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        hidden
+        accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.csv,.txt,.md"
+        disabled={isBusy}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          onUpload(slot.typeId, slot.typeLabel, file);
+          event.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        className={`data-room-upload-btn${isProcessing ? " processing" : ""}`}
+        aria-label={slot.current ? `Replace ${slot.typeLabel}` : `Upload ${slot.typeLabel}`}
+        title={slot.current ? `Replace ${slot.typeLabel}` : `Upload ${slot.typeLabel}`}
+        disabled={isBusy}
+        onClick={() => inputRef.current?.click()}
+      >
+        {isProcessing ? "…" : "↑"}
+      </button>
+    </>
+  );
+}
+
+function PrivateDataCompactStrip({
+  documentSlots,
+  processingDocumentTypeId = null,
+  onUploadDocument,
+  onUpdatePeriod,
+}: {
+  documentSlots: DataRoomDocumentSlot[];
+  processingDocumentTypeId?: string | null;
+  onUploadDocument: (typeId: string, typeLabel: string, file: File) => void;
+  onUpdatePeriod: () => void;
+}) {
+  return (
+    <div className="signals-private-strip">
+      <div className="signals-private-strip-main">
+        <div className="signals-private-strip-meta">
+          <span className="signals-private-strip-label">Private data · 2026-Q2</span>
+          <span className="signals-private-strip-badge">submitted</span>
+        </div>
+        <label className="signals-cohort-select signals-private-strip-cohort">
+          cohort
+          <select defaultValue="b2b_saas:seed:us">
+            <option value="b2b_saas:growth:us">B2B Saas · Growth · US · n=94</option>
+            <option value="b2b_saas:seed:us">B2B Saas · Seed · US · n=147</option>
+            <option value="b2b_saas:series_a:us">B2B Saas · Series A · US · n=203</option>
+            <option value="dev_tools:series_a:us">Dev Tools · Series A · US · n=41</option>
+          </select>
+        </label>
+      </div>
+      <div className="signals-private-strip-actions">
+        <DocumentUploadDropdown
+          documentSlots={documentSlots}
+          processingTypeId={processingDocumentTypeId}
+          onUpload={onUploadDocument}
+        />
+        <button type="button" className="signals-private-btn primary" onClick={onUpdatePeriod}>
+          Update this period
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DataRoomPage({
+  documentSlots,
+  processingDocumentTypeId = null,
+  onUploadDocument,
+  onViewIntelligence,
+  onOpenDocumentHistory,
+}: {
+  documentSlots: DataRoomDocumentSlot[];
+  processingDocumentTypeId?: string | null;
+  onUploadDocument: (typeId: string, typeLabel: string, file: File) => void;
+  onViewIntelligence: (record: DataRoomFileRecord) => void;
+  onOpenDocumentHistory: (slot: DataRoomDocumentSlot) => void;
+}) {
+  const displaySlots = getDisplayDocumentSlots(documentSlots);
+  const activeCount = countActiveDocuments(documentSlots);
+
+  return (
+    <section className="data-room-page">
+      <div className="data-room-head">
+        <div>
+          <span>Private documents</span>
+          <h2>Data Room</h2>
+          <p>
+            Pitch decks, investor notes, financial models, and other private files Fuel uses to generate intelligence.
+            One latest file per type — add custom types from the dropdown when you need more.
+          </p>
+        </div>
+        <div className="data-room-head-actions">
+          <DocumentUploadDropdown
+            documentSlots={documentSlots}
+            processingTypeId={processingDocumentTypeId}
+            onUpload={onUploadDocument}
+            scope="custom-only"
+          />
+          <em>{activeCount} active · {displaySlots.length} types</em>
+        </div>
+      </div>
+      <div className="data-room-list">
+        <div className="data-room-row data-room-row-head">
+          <span>Type</span>
+          <span>Latest file</span>
+          <span>Format</span>
+          <span>Uploaded</span>
+          <span>Intelligence</span>
+          <span>Actions</span>
+        </div>
+        {displaySlots.map(slot => (
+          <div className={`data-room-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`} key={slot.typeId}>
+            <strong>{slot.typeLabel}</strong>
+            <span className="data-room-latest">{slot.current?.name || "—"}</span>
+            <span>{slot.current?.format || "—"}</span>
+            <span>{slot.current?.uploadedAt || "—"}</span>
+            <span className="data-room-intelligence">
+              {slot.current && slot.current.intelligenceCount > 0 ? (
+                <button
+                  type="button"
+                  className="data-room-intelligence-link"
+                  onClick={() => onViewIntelligence(slot.current!)}
+                >
+                  {slot.current.intelligenceCount} generated →
+                </button>
+              ) : "—"}
+            </span>
+            <DocumentRowActions
+              slot={slot}
+              processingTypeId={processingDocumentTypeId}
+              onUpload={onUploadDocument}
+              onOpenHistory={onOpenDocumentHistory}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function SignalsPage({
   isProfileComplete,
-  onFinishProfile,
+  onLogBenchmarkData,
+  onUpdatePeriod,
   onLinkConnectors,
+  documentSlots,
+  processingDocumentTypeId = null,
+  onUploadDocument,
+  onOpenDataRoom,
+  intelligenceItems,
+  setIntelligenceItems,
+  intelligenceFocus = null,
+  onClearIntelligenceFocus,
+  benchmarkSubmission = null,
+  onEditBenchmark,
+  benchmarkBlinkIds = [],
 }: {
   isProfileComplete: boolean;
-  onFinishProfile: () => void;
+  onLogBenchmarkData: () => void;
+  onUpdatePeriod: () => void;
   onLinkConnectors: () => void;
+  documentSlots: DataRoomDocumentSlot[];
+  processingDocumentTypeId?: string | null;
+  onUploadDocument: (typeId: string, typeLabel: string, file: File) => void;
+  onOpenDataRoom: () => void;
+  intelligenceItems: IntelligenceItem[];
+  setIntelligenceItems: React.Dispatch<React.SetStateAction<IntelligenceItem[]>>;
+  intelligenceFocus?: IntelligenceFocus | null;
+  onClearIntelligenceFocus?: () => void;
+  benchmarkSubmission?: BenchmarkSubmission | null;
+  onEditBenchmark?: () => void;
+  benchmarkBlinkIds?: string[];
 }) {
+  const timelinePanelRef = useRef<HTMLDivElement>(null);
+  const [selectedIntelligenceId, setSelectedIntelligenceId] = useState<string | null>(null);
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logSignalType, setLogSignalType] = useState("");
+  const [logPeriod, setLogPeriod] = useState("2026-q2");
+  const [logValue, setLogValue] = useState("");
+  const [logNote, setLogNote] = useState("");
+  const [documentNotice, setDocumentNotice] = useState<string | null>(null);
+  const [blinkingIntelligenceIds, setBlinkingIntelligenceIds] = useState<string[]>([]);
+  const [activeTimelineFilter, setActiveTimelineFilter] = useState("All");
+  const intelligenceFocusActive = Boolean(intelligenceFocus?.ids.length);
+  const timelineFilters = isProfileComplete
+    ? BENCHMARK_TIMELINE_FILTERS
+    : (["All", "fundraising", "gtm", "product", "strategic", "team"] as const);
+  const visibleIntelligenceItems = useMemo(
+    () => {
+      const scoped = intelligenceFocusActive
+        ? intelligenceItems.filter(item => intelligenceFocus!.ids.includes(item.id))
+        : intelligenceItems;
+      if (activeTimelineFilter === "All") return scoped;
+      return scoped.filter(item => item.type === activeTimelineFilter);
+    },
+    [activeTimelineFilter, intelligenceFocus, intelligenceFocusActive, intelligenceItems],
+  );
+  const benchmarkIntelligenceItems = useMemo(
+    () => visibleIntelligenceItems.filter(item => item.id.startsWith("intel-bench-")),
+    [visibleIntelligenceItems],
+  );
+  const otherIntelligenceItems = useMemo(
+    () => visibleIntelligenceItems.filter(item => !item.id.startsWith("intel-bench-")),
+    [visibleIntelligenceItems],
+  );
+  const showQuarterlySubmission = Boolean(
+    isProfileComplete
+    && benchmarkSubmission
+    && !intelligenceFocusActive
+    && benchmarkIntelligenceItems.length > 0,
+  );
+  const selectedIntelligence = intelligenceItems.find(item => item.id === selectedIntelligenceId) || null;
+
+  useEffect(() => {
+    if (!intelligenceFocus?.ids.length) return;
+    setBlinkingIntelligenceIds(intelligenceFocus.ids);
+    const blinkTimer = window.setTimeout(() => setBlinkingIntelligenceIds([]), 900);
+    const scrollTimer = window.setTimeout(() => {
+      timelinePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => {
+      window.clearTimeout(blinkTimer);
+      window.clearTimeout(scrollTimer);
+    };
+  }, [intelligenceFocus]);
+
+  useEffect(() => {
+    if (!benchmarkBlinkIds.length) return;
+    setBlinkingIntelligenceIds(benchmarkBlinkIds);
+    const blinkTimer = window.setTimeout(() => setBlinkingIntelligenceIds([]), 900);
+    const scrollTimer = window.setTimeout(() => {
+      timelinePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => {
+      window.clearTimeout(blinkTimer);
+      window.clearTimeout(scrollTimer);
+    };
+  }, [benchmarkBlinkIds]);
+  const logSignalOptions = [
+    "Fundraising",
+    "GTM",
+    "Product",
+    "Strategic",
+    "Team",
+    "Finance",
+    "Growth",
+    "Retention",
+    "Efficiency",
+  ];
+
+  const handleRemoveIntelligence = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (id.startsWith("intel-bench-")) return;
+    setIntelligenceItems(previous => previous.filter(item => item.id !== id));
+    if (selectedIntelligenceId === id) setSelectedIntelligenceId(null);
+  };
+
+  const handleIntelligenceGenerated = (item: IntelligenceItem) => {
+    setIntelligenceItems(previous => [item, ...previous]);
+    setSelectedIntelligenceId(item.id);
+  };
+
+  const resetLogForm = () => {
+    setLogSignalType("");
+    setLogPeriod("2026-q2");
+    setLogValue("");
+    setLogNote("");
+  };
+
+  const handleLogIntelligence = () => {
+    if (!logSignalType || !logValue.trim()) return;
+    const type = logSignalType.toLowerCase();
+    handleIntelligenceGenerated({
+      id: `intel-log-${Date.now()}`,
+      type,
+      text: logSignalType,
+      highlight: logValue.trim(),
+      date: logPeriod,
+      age: "Just now",
+      title: logNote.trim() || logValue.trim(),
+      confidence: "Manual",
+      sources: [],
+    });
+    resetLogForm();
+    setShowLogForm(false);
+  };
+
+  const handleDocumentUpload = (typeId: string, typeLabel: string, file: File) => {
+    setDocumentNotice(`${typeLabel} uploaded · parsing and generating intelligence…`);
+    onUploadDocument(typeId, typeLabel, file);
+  };
+
+  const prevProcessingRef = useRef<string | null>(processingDocumentTypeId);
+  useEffect(() => {
+    if (prevProcessingRef.current && !processingDocumentTypeId && documentNotice?.includes("parsing")) {
+      const activeCount = countActiveDocuments(documentSlots);
+      setDocumentNotice(
+        activeCount > 0
+          ? `Document confirmed · intelligence generated. View all ${activeCount} file${activeCount === 1 ? "" : "s"} in Data Room →`
+          : null,
+      );
+    }
+    prevProcessingRef.current = processingDocumentTypeId;
+  }, [documentNotice, documentSlots, processingDocumentTypeId]);
+
+  const documentNoticeBanner = documentNotice ? (
+    <div className="pitch-deck-confirm-banner">
+      <span>{documentNotice}</span>
+      <div className="pitch-deck-confirm-actions">
+        {documentNotice.includes("Data Room") ? (
+          <button type="button" onClick={onOpenDataRoom}>Open Data Room</button>
+        ) : null}
+        <button type="button" aria-label="Dismiss" onClick={() => setDocumentNotice(null)}>×</button>
+      </div>
+    </div>
+  ) : null;
+
   const benchmarkRows = [
     { label: "ARR", values: ["Bot 25% $150k", "Median $500k", "Top 25% $1.2M", "Top 10% $2.5M"] },
     { label: "CAC payback", hint: "lower is better", values: ["Bot 25% 10.0mo", "Median 16.0mo", "Top 25% 26.0mo", "Top 10% 42.0mo"] },
@@ -2589,123 +4045,216 @@ function SignalsPage({
     { label: "Net revenue retention", values: ["Bot 25% 95%", "Median 108%", "Top 25% 125%", "Top 10% 145%"] },
     { label: "Logo retention", values: ["Bot 25% 80%", "Median 88%", "Top 25% 93%", "Top 10% 97%"] },
   ];
-  const signalRows = [
-    { type: "fundraising", text: "Investor intros wanted", highlight: "Innovius Capital", date: "2026-q2", age: "15d ago", title: "I'm pleased to introduce you to Ethan from Innovius Capital. He'd love to learn more about patriotpay and your capital strategy." },
-    { type: "gtm", text: "Channel / GTM challenges", highlight: "Stuck creating bespoke solutions for each customer; only 20% overlap between customer data models.", date: "2026-q1", age: "1mo ago", title: "Major bottleneck: stuck creating bespoke solutions for each customer. Currently only 20% overlap between customer data models." },
-    { type: "team", text: "FTE headcount", highlight: "2", date: "2026-q1", confidence: "50%", age: "1mo ago", title: "Anna and Aditya joined." },
-    { type: "strategic", text: "Key opportunities", highlight: "Build standardized platform with customer portal, AI model outputs, reporting, and troubleshooting widgets.", date: "2026-q1", age: "1mo ago", title: "Planned platform features: customer login portal, AI model outputs, reporting, and troubleshooting widgets." },
-    { type: "gtm", text: "Primary GTM motion", highlight: "Sales-led with heavy customer discovery and workshop-based onboarding.", date: "2026-q1", age: "1mo ago", title: "Customer discovery phase takes months. Workshop-heavy process to build trust." },
-    { type: "product", text: "Product portfolio breadth", highlight: "1", date: "2026-q1", confidence: "60%", age: "1mo ago", title: "Current state: no customer portal exists. Customers receive data via Excel, Snowflake, or original format." },
-    { type: "strategic", text: "Key risks", highlight: "Data inconsistency across geographies; gappy datasets require estimates.", date: "2026-q1", age: "1mo ago", title: "Data challenges across regions. Gappy, inconsistent datasets require estimates." },
-  ];
-  const connectorPrompts = [
-    { title: "Project management", text: "Connect Jira, Linear, or Asana to read milestones, scope movement, and release progress." },
-    { title: "Meetings", text: "Link calls and transcripts to extract customer asks, investor feedback, and decision signals." },
-    { title: "Revenue and support", text: "Bring CRM, billing, and support activity into the model for sharper growth and risk signals." },
-  ];
+
+  const renderTimelineRow = (row: IntelligenceItem) => {
+    const isBenchmarkRow = row.id.startsWith("intel-bench-");
+    return (
+      <div
+        className={`signals-timeline-row${isBenchmarkRow ? " signals-timeline-row-benchmark" : ""}${selectedIntelligenceId === row.id ? " selected" : ""}${blinkingIntelligenceIds.includes(row.id) || benchmarkBlinkIds.includes(row.id) ? " blink-once" : ""}`}
+        key={row.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => setSelectedIntelligenceId(row.id)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setSelectedIntelligenceId(row.id);
+          }
+        }}
+      >
+        <span className="signals-row-type">{row.type}</span>
+        {isBenchmarkRow ? (
+          <div className="signals-row-benchmark-main">
+            <strong>{row.text}</strong>
+            <span className="signals-row-value">{row.highlight}</span>
+            <time>{row.date}</time>
+          </div>
+        ) : (
+          <div className="signals-row-content">
+            <div className="signals-row-primary">
+              <strong>{row.text}</strong>
+              <time>{row.date}</time>
+              {row.confidence ? <small>conf {row.confidence}</small> : null}
+            </div>
+            <p>{row.highlight}</p>
+          </div>
+        )}
+        <div className="signals-row-meta">
+          {!isBenchmarkRow && row.sources.length > 0 ? (
+            <span className="signals-source-ref">
+              {row.sources.length} source{row.sources.length > 1 ? "s" : ""}
+            </span>
+          ) : null}
+          <span className="signals-row-age">{row.age}</span>
+          {!isBenchmarkRow ? (
+            <button
+              type="button"
+              className="signals-row-dismiss"
+              aria-label="Remove intelligence"
+              onClick={(event) => handleRemoveIntelligence(row.id, event)}
+            >
+              ×
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="signals-row-dismiss muted"
+              aria-label="Benchmark intelligence"
+              tabIndex={-1}
+              onClick={(event) => event.stopPropagation()}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const intelligenceTimelinePanel = (
+    <div className="signals-timeline-panel" ref={timelinePanelRef}>
+      {intelligenceFocusActive ? (
+        <div className="pitch-deck-confirm-banner intelligence-focus-banner">
+          <span>
+            Showing {visibleIntelligenceItems.length} intelligence item{visibleIntelligenceItems.length === 1 ? "" : "s"} from{" "}
+            <strong>{intelligenceFocus!.label}</strong>
+          </span>
+          <div className="pitch-deck-confirm-actions">
+            <button type="button" onClick={() => onClearIntelligenceFocus?.()}>Show all intelligence</button>
+          </div>
+        </div>
+      ) : null}
+      <div className="signals-timeline-head">
+        <strong>Intelligence timeline</strong>
+        {!showLogForm && isProfileComplete && !intelligenceFocusActive ? (
+          <button
+            type="button"
+            className="signals-log-intelligence-btn"
+            onClick={() => setShowLogForm(true)}
+          >
+            + Log intelligence
+          </button>
+        ) : (
+          <em className="signals-timeline-event-count">{visibleIntelligenceItems.length} events</em>
+        )}
+      </div>
+      <div className="signals-filter-row">
+        {intelligenceFocusActive ? (
+          <>
+            <span className="active">From pitch deck</span>
+            <em>{visibleIntelligenceItems.length} events</em>
+          </>
+        ) : (
+          <>
+            {timelineFilters.map(filter => (
+              <button
+                type="button"
+                className={activeTimelineFilter === filter ? "active" : ""}
+                key={filter}
+                onClick={() => setActiveTimelineFilter(filter)}
+              >
+                {filter}
+              </button>
+            ))}
+            {showLogForm ? (
+              <button
+                type="button"
+                className="signals-log-cancel"
+                onClick={() => {
+                  setShowLogForm(false);
+                  resetLogForm();
+                }}
+              >
+                Cancel
+              </button>
+            ) : (
+              <em>{visibleIntelligenceItems.length} events</em>
+            )}
+          </>
+        )}
+      </div>
+      {showLogForm && isProfileComplete && !intelligenceFocusActive ? (
+        <div className="signals-log-form-row">
+          <select
+            value={logSignalType}
+            onChange={(event) => setLogSignalType(event.target.value)}
+          >
+            <option value="">Pick a category...</option>
+            {logSignalOptions.map(option => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={logPeriod}
+            onChange={(event) => setLogPeriod(event.target.value)}
+            aria-label="Period"
+          />
+          <input
+            type="text"
+            value={logValue}
+            onChange={(event) => setLogValue(event.target.value)}
+            placeholder="Value (free text)"
+          />
+          <input
+            type="text"
+            value={logNote}
+            onChange={(event) => setLogNote(event.target.value)}
+            placeholder="Note (optional)"
+          />
+          <button
+            type="button"
+            className="signals-log-submit"
+            disabled={!logSignalType || !logValue.trim()}
+            onClick={handleLogIntelligence}
+          >
+            Log
+          </button>
+        </div>
+      ) : null}
+      <div className="signals-timeline-list">
+        {benchmarkIntelligenceItems.map(renderTimelineRow)}
+        {showQuarterlySubmission && benchmarkSubmission ? (
+          <QuarterlySubmissionPanel
+            submission={benchmarkSubmission}
+            onEdit={onEditBenchmark || (() => undefined)}
+          />
+        ) : null}
+        {otherIntelligenceItems.map(renderTimelineRow)}
+      </div>
+      {isProfileComplete && !benchmarkSubmission ? (
+        <div className="signals-footnote">
+          Overlay uses <span>b2b_saas:seed:us</span>. Explore all cohorts on <a>Benchmarks</a>.
+        </div>
+      ) : null}
+    </div>
+  );
 
   if (isProfileComplete) {
     return (
       <section className="signals-screenshot-page">
-        <div className="signals-private-panel">
-          <div>
-            <span>Private benchmark applied</span>
-            <h2>See how patriotpay stacks up against peers</h2>
-            <p>
-              Fuel placed Patriot Pay against the <strong>B2B Saas · Seed · US</strong> cohort using the completed profile,
-              benchmark inputs, York IE project context, and first available signals.
-            </p>
-            <label className="signals-cohort-select">
-              cohort
-              <select defaultValue="b2b_saas:seed:us">
-                <option value="b2b_saas:growth:us">B2B Saas · Growth · US · n=94</option>
-                <option value="b2b_saas:seed:us">B2B Saas · Seed · US · n=147</option>
-                <option value="b2b_saas:series_a:us">B2B Saas · Series A · US · n=203</option>
-                <option value="dev_tools:series_a:us">Dev Tools · Series A · US · n=41</option>
-              </select>
-            </label>
-          </div>
-          <button className="signals-add-private">Update private data →</button>
-        </div>
+        <PrivateDataCompactStrip
+          documentSlots={documentSlots}
+          processingDocumentTypeId={processingDocumentTypeId}
+          onUploadDocument={handleDocumentUpload}
+          onUpdatePeriod={onUpdatePeriod}
+        />
 
-        <div className="signals-benchmark-panel">
-          <div className="signals-panel-heading">
-            <span>Cohort benchmarks · 2026-Q2</span>
-            <em>Profile complete · benchmark overlay active</em>
-          </div>
-          <div className="signals-benchmark-grid">
-            {benchmarkRows.map((row) => (
-              <div className="signals-benchmark-item" key={row.label}>
-                <div className="signals-benchmark-title">
-                  {row.label}
-                  {row.hint ? <span>{row.hint}</span> : null}
-                </div>
-                <div className="signals-bar"><b /><i /></div>
-                <div className="signals-benchmark-scale">
-                  {row.values.map(value => <span key={value}>{value}</span>)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {documentNoticeBanner}
 
-        <div className="signals-timeline-panel">
-          <div className="signals-timeline-head">
-            <strong>Signal timeline</strong>
-            <button>+ Log signal</button>
-          </div>
-          <div className="signals-filter-row">
-            {["All", "fundraising", "gtm", "product", "strategic", "team"].map((filter, index) => (
-              <span className={index === 0 ? "active" : ""} key={filter}>{filter}</span>
-            ))}
-            <em>7 events</em>
-          </div>
-          <div className="signals-timeline-list">
-            {signalRows.map(row => (
-              <div className="signals-timeline-row" key={`${row.type}-${row.text}`} title={row.title}>
-                <span className="signals-row-type">{row.type}</span>
-                <div className="signals-row-content">
-                  <div className="signals-row-primary">
-                    <strong>{row.text}</strong>
-                    <time>{row.date}</time>
-                    {row.confidence ? <small>conf {row.confidence}</small> : null}
-                  </div>
-                  <p>{row.highlight}</p>
-                </div>
-                <div className="signals-row-meta">
-                  <button>provenance</button>
-                  <span className="signals-row-age">{row.age}</span>
-                </div>
-                <em>×</em>
-              </div>
-            ))}
-          </div>
-          <div className="signals-footnote">
-            Overlay uses <span>b2b_saas:seed:us</span>. Explore all cohorts on <a>Benchmarks</a>.
-          </div>
-        </div>
+        <ContextFeedPage
+          onOpenConnectors={onLinkConnectors}
+          onIntelligenceGenerated={handleIntelligenceGenerated}
+        />
 
-        <div className="signals-connectors-panel">
-          <div className="signals-connectors-copy">
-            <span>Generate more signals</span>
-            <h3>Link the tools patriotpay already uses</h3>
-            <p>
-              Connect project management, meetings, CRM, billing, and support tools to give Fuel more context and produce
-              more accurate launch, growth, fundraising, and risk signals.
-            </p>
-          </div>
-          <div className="signals-connector-grid">
-            {connectorPrompts.map(prompt => (
-              <div className="signals-connector-card" key={prompt.title}>
-                <strong>{prompt.title}</strong>
-                <p>{prompt.text}</p>
-              </div>
-            ))}
-          </div>
-          <button className="signals-connectors-action" onClick={onLinkConnectors}>
-            Link more connectors →
-          </button>
-        </div>
+        {intelligenceTimelinePanel}
+
+        {selectedIntelligence ? (
+          <IntelligenceProvenanceSidebar
+            item={selectedIntelligence}
+            onClose={() => setSelectedIntelligenceId(null)}
+          />
+        ) : null}
       </section>
     );
   }
@@ -2713,12 +4262,13 @@ function SignalsPage({
   return (
     <section className="signals-screenshot-page">
       <div className="signals-private-panel">
-        <div>
-          <span>No private data on file</span>
-          <h2>See how patriotpay stacks up against peers</h2>
+        <div className="signals-private-panel-copy">
+          <h2>See how Patriot Pay stacks up against peers</h2>
           <p>
-            Below is what the <strong>B2B Saas · Seed · US</strong> cohort looks like across the distribution. Complete
-            the company profile and benchmark inputs to place patriotpay on these bars.
+            Below is what the <strong>B2B Saas · Seed · US</strong> looks like across the distribution — bottom 25%,
+            median, top 25%, top 10%. Log ARR, NRR, burn, headcount, challenges, or anything else you know about Patriot
+            Pay to overlay them on this distribution — it&apos;s private to your account and stamps the quarter so you
+            can track changes over time.
           </p>
           <label className="signals-cohort-select">
             cohort
@@ -2730,8 +4280,19 @@ function SignalsPage({
             </select>
           </label>
         </div>
-        <button className="signals-add-private" onClick={onFinishProfile}>Finish profile →</button>
+        <div className="signals-private-actions">
+          <button type="button" className="signals-private-btn primary" onClick={onLogBenchmarkData}>
+            Log benchmark data →
+          </button>
+          <DocumentUploadDropdown
+            documentSlots={documentSlots}
+            processingTypeId={processingDocumentTypeId}
+            onUpload={handleDocumentUpload}
+          />
+        </div>
       </div>
+
+      {documentNoticeBanner}
 
       <div className="signals-benchmark-panel">
         <div className="signals-panel-heading">
@@ -2754,12 +4315,19 @@ function SignalsPage({
         </div>
       </div>
 
-      <div className="signals-timeline-panel">
-        <div className="signals-timeline-head">
-          <strong>Signal timeline</strong>
-          <button>+ Log signal</button>
-        </div>
-      </div>
+      <ContextFeedPage
+        onOpenConnectors={onLinkConnectors}
+        onIntelligenceGenerated={handleIntelligenceGenerated}
+      />
+
+      {intelligenceFocusActive ? intelligenceTimelinePanel : null}
+
+      {selectedIntelligence ? (
+        <IntelligenceProvenanceSidebar
+          item={selectedIntelligence}
+          onClose={() => setSelectedIntelligenceId(null)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -2796,11 +4364,11 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
   if (stage === "profile") {
     return (
       <section className="finish-profile-shell">
-        <button className="profile-wizard-back" onClick={onBack}>← Back to Signals</button>
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Intelligence</button>
         <div className="finish-profile-card">
           <span>Profile ready</span>
-          <h2>Looks like you're from Patriot Pay.</h2>
-          <p>We pieced together a quick profile from your homepage. Confirm what looks right and we'll set up your workspace.</p>
+          <h2>You're from Patriot Pay.</h2>
+          <p>Confirm your profile so Fuel can match you to the right peer cohort and generate relevant intelligence from day one.</p>
 
           <label>
             <em>Company</em>
@@ -2815,7 +4383,7 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
             {businessModels.map(model => (
               <button className={model === "Operating + investment firm" ? "active" : ""} key={model}>
                 <strong>{model}</strong>
-                <small>{model === "Operating + investment firm" ? "Both operating revenue and portfolio / investments." : "Fuel will tailor benchmarks and signals to this model."}</small>
+                <small>{model === "Operating + investment firm" ? "Both operating revenue and portfolio / investments." : "Fuel will tailor benchmarks and intelligence to this model."}</small>
               </button>
             ))}
           </div>
@@ -2831,8 +4399,8 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
             <em>LinkedIn</em>
             <input placeholder="https://www.linkedin.com/company/patriotpay" />
           </label>
-          <div className="verified-domain-note">You'll claim patriotpay.com as your verified company domain.</div>
-          <button className="wizard-primary" onClick={() => setStage("benchmark")}>Claim this company</button>
+          <div className="verified-domain-note">We'll link patriotpay.com to your Fuel profile. Teammates can create their own profiles for the same company.</div>
+          <button className="wizard-primary" onClick={() => setStage("benchmark")}>Create my profile</button>
         </div>
 
         <aside className="agent-worklog-card">
@@ -2849,7 +4417,7 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
   if (stage === "review") {
     return (
       <section className="benchmark-wizard-shell">
-        <button className="profile-wizard-back" onClick={onBack}>← Back to Signals</button>
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Intelligence</button>
         <WizardRail activeStep={4} />
         <div className="benchmark-card">
           <span>Step 5 of 5 · Review</span>
@@ -2913,7 +4481,7 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
 
     return (
       <section className="benchmark-wizard-shell generated-benchmark-shell">
-        <button className="profile-wizard-back" onClick={onBack}>← Back to Signals</button>
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Intelligence</button>
         <div className="generated-benchmark-card">
           <div className="generated-stage-card">
             <span>Your startup journey</span>
@@ -2943,7 +4511,7 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
               <button onClick={() => setStage("benchmark")} aria-label="Edit benchmark numbers">✎</button>
             </div>
             <div className="generated-cohort-pill">Cohort · b2b saas · seed · US · n=147</div>
-            <p className="generated-helper">Cohort distribution shown below. Fuel uses this benchmark to generate stronger signals.</p>
+            <p className="generated-helper">Cohort distribution shown below. Fuel uses this benchmark to generate stronger intelligence.</p>
             <div className="generated-kpi-list">
               {kpiGroups.map(group => (
                 <div className="generated-kpi-group" key={group.group}>
@@ -2971,11 +4539,11 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
           </div>
 
           <div className="generated-benchmark-note">
-            <strong>Your benchmark is now ready.</strong> Fuel can use these signals to recommend playbooks and identify
+            <strong>Your benchmark is now ready.</strong> Fuel can use this intelligence to recommend playbooks and identify
             the highest-leverage initiatives for your next stage.
           </div>
           <div className="benchmark-actions">
-            <button className="wizard-primary" onClick={onSubmitBenchmark}>Generate signals</button>
+            <button className="wizard-primary" onClick={onSubmitBenchmark}>Generate intelligence</button>
             <button className="wizard-link" onClick={() => setStage("benchmark")}>Edit benchmark</button>
           </div>
         </div>
@@ -2985,7 +4553,7 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
 
   return (
     <section className="benchmark-wizard-shell">
-      <button className="profile-wizard-back" onClick={onBack}>← Back to Signals</button>
+      <button className="profile-wizard-back" onClick={onBack}>← Back to Intelligence</button>
       <WizardRail activeStep={benchmarkStep} />
       <div className="benchmark-card">
         <span>Step {benchmarkStep + 1} of 5 · KPI benchmark</span>
@@ -3048,7 +4616,7 @@ function TourPromptBanner({ onStartTour, onDismiss }: { onStartTour: () => void;
         <span>New workspace tour</span>
         <strong>Want a quick walkthrough of Fuel?</strong>
         <p>
-          See how Overview, Context Feed, Signals, Initiatives, and Playbooks work together now that your profile is set up.
+          See how Overview, Intelligence, Initiatives, and Playbooks work together now that your profile is set up.
         </p>
       </div>
       <div className="tour-prompt-actions">
@@ -3105,16 +4673,16 @@ function InitiativesPage() {
         <div className="initiatives-empty-card">
           <strong>No initiatives yet</strong>
           <p>
-            Start one manually with <span>+ New initiative</span>, or let Fuel generate suggested initiatives from Signals
+            Start one manually with <span>+ New initiative</span>, or let Fuel generate suggested initiatives from Intelligence
             once the company profile and context are complete.
           </p>
         </div>
       )}
 
       <div className="initiatives-signal-note">
-        <span>Generated from Signals</span>
+        <span>Generated from Intelligence</span>
         <p>
-          When Fuel has enough profile, benchmark, and context data, signal patterns can become recommended initiatives
+          When Fuel has enough profile, benchmark, and context data, intelligence patterns can become recommended initiatives
           for GTM, product, finance, and operating priorities.
         </p>
       </div>
@@ -3122,18 +4690,28 @@ function InitiativesPage() {
   );
 }
 
-function OverviewPage({ activeTourTarget, profileComplete, onEditProfile }: { activeTourTarget?: string; profileComplete: boolean; onEditProfile: () => void }) {
+function OverviewPage({
+  activeTourTarget,
+  profileComplete,
+  onEditProfile,
+  company,
+}: {
+  activeTourTarget?: string;
+  profileComplete: boolean;
+  onEditProfile: () => void;
+  company: { displayName: string; domain: string; headquarters: string; employees: string; linkedin: string };
+}) {
   const stats = [
-    { label: "Total funding", value: profileComplete ? "$4.2M" : "Needs input", hint: profileComplete ? "Seed stage" : "Finish profile", missing: !profileComplete },
-    { label: "Funding rounds", value: profileComplete ? "2" : "Needs review", hint: profileComplete ? "Latest: Seed" : "Funding data", missing: !profileComplete },
-    { label: "Last funding", value: profileComplete ? "Feb 2024" : "Add date", hint: profileComplete ? "York IE partner" : "Required", missing: !profileComplete },
+    { label: "Total funding", value: profileComplete ? "$4.2M" : "-", hint: profileComplete ? "Seed stage" : "Finish profile", missing: !profileComplete },
+    { label: "Funding rounds", value: profileComplete ? "2" : "-", hint: profileComplete ? "Latest: Seed" : "Finish profile", missing: !profileComplete },
+    { label: "Last funding", value: profileComplete ? "Feb 2024" : "-", hint: profileComplete ? "York IE partner" : "Finish profile", missing: !profileComplete },
     { label: "Founded", value: "2021", hint: profileComplete ? "4 yrs active" : "From public source", missing: false },
   ];
   const details = [
-    { label: "Headquarters", value: profileComplete ? "Boston, MA, US" : "Needs review", missing: !profileComplete },
-    { label: "Employees", value: profileComplete ? "11-50" : "Add headcount", missing: !profileComplete },
+    { label: "Headquarters", value: profileComplete ? company.headquarters : "-", missing: !profileComplete },
+    { label: "Employees", value: profileComplete ? company.employees : "-", missing: !profileComplete },
     { label: "Founded", value: "2021", missing: false },
-    { label: "LinkedIn", value: profileComplete ? "linkedin.com/company/patriotpay" : "Add LinkedIn URL", missing: !profileComplete },
+    { label: "LinkedIn", value: profileComplete ? company.linkedin : "-", missing: !profileComplete },
     { label: "Keywords", value: "patient billing · healthcare payments · revenue cycle · AI agent · SMB practices", missing: false },
   ];
   const rounds = [
@@ -3150,25 +4728,23 @@ function OverviewPage({ activeTourTarget, profileComplete, onEditProfile }: { ac
 
   return (
     <section className="overview-tour-page">
-      {!profileComplete ? (
-        <div className="overview-finish-profile-panel">
-          <div>
-            <span>Profile setup required</span>
-            <h3>Finish your profile to unlock Fuel recommendations</h3>
-            <p>
-              The more complete your company data is, the better Fuel can identify signals, recommend initiatives, suggest
-              the right playbooks, and generate useful operating context for Patriot Pay.
-            </p>
-          </div>
-          <button
-            className={`signals-finish-profile-action ${activeTourTarget === "finish-profile" ? "tour-highlight" : ""}`}
-            onClick={onEditProfile}
-          >
-            Finish profile
-          </button>
+      <div className="overview-finish-profile-panel">
+        <div>
+          <span>{profileComplete ? "Profile data added" : "Profile setup required"}</span>
+          <h3>{profileComplete ? "Review your profile to keep Fuel recommendations accurate" : "Finish your profile to unlock Fuel recommendations"}</h3>
+          <p>
+            {profileComplete
+              ? `Fuel has company data on file for ${company.displayName}. Review it when anything changes so intelligence, initiatives, playbooks, and benchmark context stay accurate.`
+              : `The more complete your company data is, the better Fuel can identify intelligence, recommend initiatives, suggest the right playbooks, and generate useful operating context for ${company.displayName}.`}
+          </p>
         </div>
-      ) : null}
-
+        <button
+          className={`signals-finish-profile-action ${activeTourTarget === "finish-profile" ? "tour-highlight" : ""}`}
+          onClick={onEditProfile}
+        >
+          {profileComplete ? "Review profile" : "Finish profile"}
+        </button>
+      </div>
       <div className="overview-metric-grid">
         {stats.map(stat => (
           <div className={`overview-metric-card ${stat.missing ? "missing" : ""}`} key={stat.label}>
@@ -3228,10 +4804,10 @@ function OverviewPage({ activeTourTarget, profileComplete, onEditProfile }: { ac
           </div>
 
           <div className={`overview-panel ${activeTourTarget === "signals" ? "tour-highlight" : ""}`}>
-            <span>Recent Signals</span>
+            <span>Recent Intelligence</span>
             <p>
-              Detailed generated signals will appear after Patriot Pay finishes the profile and benchmark setup. Manual
-              signals can still be logged from the Signals tab.
+              Detailed generated intelligence will appear after Patriot Pay finishes the profile and benchmark setup. Manual
+              intelligence can still be logged from Intelligence.
             </p>
           </div>
 
@@ -3241,7 +4817,7 @@ function OverviewPage({ activeTourTarget, profileComplete, onEditProfile }: { ac
               <button>Manage initiatives →</button>
             </div>
             <p>
-              Initiatives will be recommended from benchmark gaps, York IE project context, and generated signals once
+              Initiatives will be recommended from benchmark gaps, York IE project context, and generated intelligence once
               setup is complete.
             </p>
           </div>
@@ -3252,7 +4828,7 @@ function OverviewPage({ activeTourTarget, profileComplete, onEditProfile }: { ac
             <span>Context</span>
             <p>
               No additional context sources connected yet. Add meeting notes, CRM activity, LinkedIn posts, or York IE
-              updates to make Fuel's signals more specific.
+              updates to make Fuel's intelligence more specific.
             </p>
           </div>
 
@@ -3358,23 +4934,29 @@ function SignalsLoadingPage() {
           <span />
           <span />
         </div>
-        <span>Generating signals</span>
-        <h2>Generating your signals based on your profile</h2>
+        <span>Generating intelligence</span>
+        <h2>Generating intelligence based on your profile</h2>
         <p>
-          Fuel is combining your company profile, York account context, and benchmark cohort to prepare the first signal
-          view for patriotpay.
+          Fuel is combining your company profile, York account context, and benchmark cohort to prepare the first
+          intelligence view for patriotpay.
         </p>
         <div className="signals-loading-steps">
           <div><i />Reading company profile</div>
           <div><i />Linking York account context</div>
-          <div><i />Preparing benchmark and signal timeline</div>
+          <div><i />Preparing benchmark and intelligence timeline</div>
         </div>
       </div>
     </section>
   );
 }
 
-function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: () => void; onStartTour: () => void }) {
+function ContextFeedPage({
+  onOpenConnectors,
+  onIntelligenceGenerated,
+}: {
+  onOpenConnectors: () => void;
+  onIntelligenceGenerated?: (item: IntelligenceItem) => void;
+}) {
   type ContextConnector = {
     id: string;
     name: string;
@@ -3382,6 +4964,7 @@ function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: 
     category: string;
     icon: string;
     color: string;
+    logoSrc?: string;
     status: string;
     description: string;
     sources: string[];
@@ -3389,10 +4972,38 @@ function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: 
     includedLabel?: string;
   };
   const [connectorsOpen, setConnectorsOpen] = useState(false);
-  const [showConnectorIntro, setShowConnectorIntro] = useState(true);
   const [selectedConnector, setSelectedConnector] = useState<ContextConnector | null>(null);
-  const [includedTooltip, setIncludedTooltip] = useState<string | null>(null);
+  const [showSourceForm, setShowSourceForm] = useState(false);
+  const [sourceTitle, setSourceTitle] = useState("");
+  const [sourceDescription, setSourceDescription] = useState("");
+  const [signalsGenerated, setSignalsGenerated] = useState(false);
   const contextConnectors: ContextConnector[] = [
+    {
+      id: "google-analytics",
+      name: "Google Analytics",
+      type: "Web analytics",
+      category: "Analytics",
+      icon: "GA",
+      color: "#F9AB00",
+      logoSrc: "/source-logos/google-analytics.svg",
+      status: "Connected",
+      description: "Use traffic, source mix, conversion, and funnel behavior as source context for market and GTM intelligence.",
+      sources: ["traffic", "channels", "conversions"],
+      tone: "connected",
+    },
+    {
+      id: "semrush",
+      name: "Semrush",
+      type: "SEO intelligence",
+      category: "Marketing",
+      icon: "S",
+      color: "#FF642D",
+      logoSrc: "/source-logos/semrush.svg",
+      status: "Connected",
+      description: "Bring keyword movement, competitors, backlinks, and search visibility into Sources for GTM intelligence.",
+      sources: ["keywords", "competitors", "backlinks"],
+      tone: "connected",
+    },
     {
       id: "granola",
       name: "Granola",
@@ -3414,7 +5025,7 @@ function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: 
       color: "#00AC47",
       includedLabel: "Included in context package",
       status: "Connect",
-      description: "Bring sales calls, roadmap reviews, and weekly check-ins into the context feed for richer GTM and product signals.",
+      description: "Bring sales calls, roadmap reviews, and weekly check-ins into Sources for richer GTM and product intelligence.",
       sources: ["calendar", "recordings", "attendees"],
     },
     {
@@ -3424,6 +5035,7 @@ function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: 
       category: "Meetings",
       icon: "Z",
       color: "#2D8CFF",
+      logoSrc: "/source-logos/zoom.svg",
       includedLabel: "Included in context package",
       status: "Connect",
       description: "Use Zoom conversations to identify repeated objections, expansion signals, stakeholder requests, and team commitments.",
@@ -3448,6 +5060,7 @@ function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: 
       category: "CRM",
       icon: "H",
       color: "#FF7A59",
+      logoSrc: "/source-logos/hubspot.svg",
       status: "Connected",
       description: "Sync emails, notes, lifecycle movement, and deal activity to give Fuel context behind growth and retention signals.",
       sources: ["emails", "notes", "deals"],
@@ -3538,138 +5151,137 @@ function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: 
   };
   const recommendedConnectors = contextConnectors.filter(connector => connector.tone !== "connected");
   const activeConnector = selectedConnector || recommendedConnectors[0];
-  const feedItems = [
-    {
-      title: "You're invited: York IE Boston Tech Week Events",
-      source: "hubspot_activity",
-      system: "hubspot",
-      meta: "greg@york.ie - anna.turvoll@patriotpay.com",
-      age: "14d ago",
-      signals: 0,
-    },
-    {
-      title: "Innovius Capital // patriotpay",
-      source: "hubspot_activity",
-      system: "hubspot",
-      meta: "tom@york.ie - ethan@innoviuscapital.com; anna@patriotpay.com",
-      age: "15d ago",
-      signals: 1,
-    },
-    {
-      title: "AI won't fix your broken funnel (but this will)",
-      source: "hubspot_activity",
-      system: "hubspot",
-      meta: "bryan@york.ie - michael.farrand@patriotpay.com",
-      age: "20d ago",
-      signals: 0,
-    },
-    {
-      title: "patriotpay and York IE",
-      source: "meeting_transcript",
-      system: "granola",
-      meta: "mike@york.ie",
-      age: "29d ago",
-      signals: 6,
-    },
-  ];
+  const upsellConnectors = recommendedConnectors.slice(0, 5);
+
+  const openConnector = (connector: ContextConnector) => {
+    setConnectorsOpen(true);
+    setSelectedConnector(connector);
+  };
+
+  const startAddSource = () => {
+    setShowSourceForm(true);
+    setSignalsGenerated(false);
+    setSourceTitle("");
+    setSourceDescription("");
+  };
+
+  const cancelAddSource = () => {
+    setShowSourceForm(false);
+    setSourceTitle("");
+    setSourceDescription("");
+  };
+
+  const handleGenerateIntelligence = () => {
+    if (!sourceTitle.trim()) return;
+    const sourceId = `src-manual-${Date.now()}`;
+    onIntelligenceGenerated?.({
+      id: `intel-manual-${Date.now()}`,
+      type: "strategic",
+      text: sourceTitle.trim(),
+      highlight: sourceDescription.trim() || "Manual source entry",
+      date: "2026-q2",
+      age: "Just now",
+      title: sourceDescription.trim() || sourceTitle.trim(),
+      confidence: "72%",
+      sources: [{
+        id: sourceId,
+        title: sourceTitle.trim(),
+        description: sourceDescription.trim() || "Manually added source context for intelligence generation.",
+        system: "manual",
+        sourceType: "private_note",
+        meta: "shreya.g@york.ie",
+        date: new Date().toLocaleDateString("en-US"),
+        snippet: sourceDescription.trim() || sourceTitle.trim(),
+        ref: `manual:note:${sourceId}`,
+      }],
+    });
+    setSignalsGenerated(true);
+    setShowSourceForm(false);
+    setSourceTitle("");
+    setSourceDescription("");
+  };
 
   return (
     <section className="context-feed-page">
-      <div className="context-feed-action-bar">
-        <button>+ Add private note</button>
-      </div>
+      <div className="sources-panel">
+        <div className="sources-header">
+          <div className="sources-header-copy">
+            <span>Sources</span>
+            <strong>Auto-generate sources from connected context</strong>
+            <p>Capture notes, connector activity, and meetings — then turn them into intelligence.</p>
+          </div>
+          <div className="sources-header-actions">
+            {showSourceForm ? (
+              <>
+                <button type="button" className="ghost" onClick={cancelAddSource}>Cancel</button>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={!sourceTitle.trim() || signalsGenerated}
+                  onClick={handleGenerateIntelligence}
+                >
+                  {signalsGenerated ? "Generated" : "Generate intelligence"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={startAddSource}>+ Add a source</button>
+              </>
+            )}
+          </div>
+        </div>
 
-      {showConnectorIntro ? (
-      <div className="context-connectors-panel">
-        <div className="context-connectors-head">
-          <div>
-            <span>Context sources</span>
-            <h3>Unlock richer signals with meeting, social, and CRM context</h3>
-            <p>
-              Fuel can generate better signals when it understands the conversations behind your metrics. Connect the systems
-              where customer asks, investor feedback, objections, and GTM activity already live.
-            </p>
+        {showSourceForm ? (
+          <div className="source-add-form">
+            <label>
+              <span>Title</span>
+              <input
+                type="text"
+                value={sourceTitle}
+                onChange={(event) => setSourceTitle(event.target.value)}
+                placeholder="e.g. Q3 enterprise pipeline risk"
+                autoFocus
+              />
+            </label>
+            <label>
+              <span>Description</span>
+              <textarea
+                value={sourceDescription}
+                onChange={(event) => setSourceDescription(event.target.value)}
+                placeholder="What should Fuel extract from this source?"
+                rows={2}
+              />
+            </label>
           </div>
-          <div className="context-connectors-actions">
-            <button className="secondary" onClick={() => setShowConnectorIntro(false)}>Set up later</button>
-            <button className="secondary" onClick={onOpenConnectors}>View all connectors</button>
+        ) : null}
+
+        <div className="sources-upsell">
+          <div className="sources-header-copy sources-upsell-copy">
+            <span>Connectors</span>
+            <strong>Connect more sources</strong>
+            <p>Link CRM, meetings, and email for richer intelligence generation.</p>
           </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {recommendedConnectors.map(connector => (
-            <button
-              key={connector.name}
-              style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
-                padding: "14px 13px",
-                background: "#172632",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 11, cursor: "pointer",
-                textAlign: "left", transition: "all 0.15s",
-                minHeight: 142,
-              }}
-            >
-              <div style={{
-                width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                background: connector.color + "22",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 800, color: connector.color,
-              }}>
-                {connector.icon}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#8FA99A", marginBottom: 6 }}>
-                  {connector.name}
-                </div>
-                <div style={{ fontSize: 12.5, color: "#8FA99A", lineHeight: 1.45, marginBottom: 10 }}>
-                  {connector.description}
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  <span
-                    className={`included-badge-tooltip ${includedTooltip === connector.id ? "show" : ""}`}
-                    onMouseEnter={() => setIncludedTooltip(connector.id)}
-                    onMouseLeave={() => setIncludedTooltip(null)}
-                    style={{ fontSize: 11.5, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}
-                  >
-                    Included
-                    <span className="included-tooltip-bubble">Included for York IE customers</span>
-                  </span>
-                  <span style={{ fontSize: 11.5, color: "#8FA99A", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
-                    {connector.type}
-                  </span>
-                </div>
-              </div>
-              <div
-                role="button"
-                tabIndex={0}
-                aria-label={`Configure ${connector.name}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setConnectorsOpen(true);
-                  setSelectedConnector(connector);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    setConnectorsOpen(true);
-                    setSelectedConnector(connector);
-                  }
-                }}
-                style={{
-                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                background: "transparent",
-                border: "1px solid rgba(255,255,255,0.12)",
-                cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#3DD68C", fontSize: 13, fontWeight: 800,
-              }}>
-                +
-              </div>
-            </button>
-          ))}
+          <div className="source-connector-strip">
+            {upsellConnectors.map(connector => (
+              <button
+                key={connector.id}
+                type="button"
+                className="source-connector-chip"
+                title={`Connect ${connector.name}`}
+                aria-label={`Connect ${connector.name}`}
+                onClick={() => openConnector(connector)}
+              >
+                <span className="source-connector-logo" style={{ background: connector.color + "22", color: connector.color }}>
+                  {connector.logoSrc ? <img src={connector.logoSrc} alt="" /> : connector.icon}
+                </span>
+                <span className="source-connector-name">{connector.name}</span>
+                <span className="source-connector-add" aria-hidden="true">+</span>
+              </button>
+            ))}
+            <button type="button" className="source-all-connectors" onClick={onOpenConnectors}>All connectors</button>
+          </div>
         </div>
       </div>
-      ) : null}
 
       {connectorsOpen ? (
         <>
@@ -3707,34 +5319,109 @@ function ContextFeedPage({ onOpenConnectors, onStartTour }: { onOpenConnectors: 
           </div>
         </>
       ) : null}
-
-      {!showConnectorIntro ? (
-        <>
-          <div className="context-feed-filters">
-            <button className="active">All <span>4</span></button>
-            <button>Private notes <span>4</span></button>
-          </div>
-
-          <div className="context-feed-list">
-            {feedItems.map(item => (
-              <div className="context-feed-row" key={item.title}>
-                <div className="context-feed-main">
-                  <strong>{item.title}</strong>
-                  <div className="context-feed-meta">
-                    <span className="context-feed-source">{item.source}</span>
-                    <span className={`context-feed-system ${item.system}`}>{item.system}</span>
-                    <span>{item.meta}</span>
-                    <span>{item.age}</span>
-                    {item.signals > 0 ? <em>+ {item.signals} signal{item.signals > 1 ? "s" : ""}</em> : null}
-                  </div>
-                </div>
-                <button className="context-feed-remove" aria-label={`Remove ${item.title}`}>x</button>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : null}
     </section>
+  );
+}
+
+type PlanTier = "free" | "pro";
+
+type AiUsageSnapshot = {
+  plan: PlanTier;
+  usedRatio: number;
+  paused: boolean;
+  refillInMs: number | null;
+  periodResetsLabel: string;
+  breakdown: {
+    playbooks: number;
+    intelligence: number;
+    fuelAi: number;
+  };
+};
+
+function formatUsageWaitDuration(ms: number) {
+  const totalMinutes = Math.max(1, Math.ceil(ms / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours && minutes) return `${hours}h ${minutes}m`;
+  if (hours) return `${hours}h`;
+  return `${minutes}m`;
+}
+
+function getAiUsageStatus(usage: AiUsageSnapshot) {
+  if (usage.paused && usage.refillInMs) {
+    return `Paused · refills in ${formatUsageWaitDuration(usage.refillInMs)}`;
+  }
+  if (usage.usedRatio >= 0.95) return "Nearly at limit";
+  if (usage.usedRatio >= 0.7) return "Running low";
+  return "Plenty available";
+}
+
+function ProfileUsagePanel({
+  usage,
+  userName,
+  userEmail,
+  onClose,
+  onAddUsage,
+}: {
+  usage: AiUsageSnapshot;
+  userName: string;
+  userEmail: string;
+  onClose: () => void;
+  onAddUsage: () => void;
+}) {
+  const usedPercent = Math.round(Math.min(1, Math.max(0, usage.usedRatio)) * 100);
+  const status = getAiUsageStatus(usage);
+  const breakdownRows = [
+    { key: "playbooks", label: "Playbooks", ratio: usage.breakdown.playbooks },
+    { key: "intelligence", label: "Intelligence", ratio: usage.breakdown.intelligence },
+    { key: "fuelAi", label: "Fuel AI", ratio: usage.breakdown.fuelAi },
+  ] as const;
+
+  return (
+    <div className="profile-usage-panel" role="dialog" aria-label="Profile and AI usage">
+      <div className="profile-usage-head">
+        <div>
+          <strong>{userName}</strong>
+          <span>{userEmail}</span>
+        </div>
+        <button type="button" className="profile-usage-close" aria-label="Close profile menu" onClick={onClose}>×</button>
+      </div>
+      <div className="profile-usage-plan">
+        <span className={`profile-usage-plan-badge ${usage.plan}`}>{usage.plan === "pro" ? "Pro" : "Free"}</span>
+        <em>Resets {usage.periodResetsLabel}</em>
+      </div>
+      <div className="profile-usage-section">
+        <div className="profile-usage-section-head">
+          <span>AI usage this period</span>
+          <strong>{usedPercent}%</strong>
+        </div>
+        <div className="profile-usage-meter" aria-hidden="true">
+          <span
+            className={`profile-usage-meter-fill${usage.paused ? " paused" : usedPercent >= 85 ? " low" : ""}`}
+            style={{ width: `${usedPercent}%` }}
+          />
+        </div>
+        <p className={`profile-usage-status${usage.paused ? " paused" : usedPercent >= 85 ? " low" : ""}`}>{status}</p>
+      </div>
+      <div className="profile-usage-breakdown">
+        <span className="profile-usage-breakdown-label">Where it went</span>
+        {breakdownRows.map(row => (
+          <div className="profile-usage-breakdown-row" key={row.key}>
+            <span>{row.label}</span>
+            <div className="profile-usage-breakdown-track">
+              <span style={{ width: `${Math.round(row.ratio * 100)}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      {usage.paused || usedPercent >= 70 ? (
+        <div className="profile-usage-actions">
+          <button type="button" className="profile-usage-add-btn" onClick={onAddUsage}>
+            Add usage
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -3750,6 +5437,73 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
   const [profileComplete, setProfileComplete] = useState(initialPage === "signals-loading" || startsWithTourAfterSignals);
+  const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
+  const [processingDocumentTypeId, setProcessingDocumentTypeId] = useState<string | null>(null);
+  const [documentHistorySlot, setDocumentHistorySlot] = useState<DataRoomDocumentSlot | null>(null);
+  const [intelligenceItems, setIntelligenceItems] = useState(INITIAL_INTELLIGENCE_ITEMS);
+  const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
+  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(null);
+  const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [aiUsage, setAiUsage] = useState<AiUsageSnapshot>({
+    plan: "pro",
+    usedRatio: 0.62,
+    paused: false,
+    refillInMs: null,
+    periodResetsLabel: "Apr 1",
+    breakdown: { playbooks: 0.42, intelligence: 0.35, fuelAi: 0.23 },
+  });
+  const handleDocumentUpload = (typeId: string, typeLabel: string, file: File, source: string) => {
+    setProcessingDocumentTypeId(typeId);
+    window.setTimeout(() => {
+      const generatedItems = createDocumentIntelligence(typeId, typeLabel, file.name);
+      const generatedIds = generatedItems.map(item => item.id);
+      setIntelligenceItems(previous => [...generatedItems, ...previous]);
+      setBenchmarkBlinkIds(generatedIds);
+      window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
+      setDocumentSlots(previous => upsertDocumentSlot(previous, {
+        typeId,
+        typeLabel,
+        file,
+        source,
+        intelligenceIds: generatedIds,
+        intelligenceCount: generatedItems.length,
+      }));
+      setProcessingDocumentTypeId(null);
+    }, 1400);
+  };
+  const applyBenchmarkSubmission = (values: BenchmarkFormValues) => {
+    const { items, submission } = createBenchmarkIntelligence(values);
+    setIntelligenceItems(previous => {
+      const nonBenchmark = previous.filter(item => !item.id.startsWith("intel-bench-"));
+      return [...items, ...nonBenchmark];
+    });
+    setBenchmarkSubmission(submission);
+    setBenchmarkBlinkIds(submission.intelligenceIds);
+    window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
+  };
+  const handleBenchmarkSubmit = (values: BenchmarkFormValues) => {
+    applyBenchmarkSubmission(values);
+    setActivePage("signals");
+  };
+  const handleViewIntelligenceFromDataRoom = (record: DataRoomFileRecord) => {
+    if (!record.intelligenceIds.length) return;
+    setIntelligenceFocus({ ids: record.intelligenceIds, label: record.name });
+    setActivePage("signals");
+  };
+  const [selectedCompany, setSelectedCompany] = useState({
+    id: "patriotpay",
+    name: "patriotpay",
+    displayName: "Patriot Pay",
+    domain: "patriotpay.com",
+    logo: "P",
+    logoBg: "#1E4D8C",
+    meta: "Healthcare · Patient Billing · Seed",
+    headquarters: "Boston, MA, US",
+    employees: "11-50",
+    linkedin: "linkedin.com/company/patriotpay",
+  });
   const [showTourPrompt, setShowTourPrompt] = useState(false);
   const [tourTaken, setTourTaken] = useState(() => {
     try {
@@ -3759,7 +5513,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
       return false;
     }
   });
-  const isProfileWizard = activePage === "profile-wizard";
+  const isProfileWizard = activePage === "profile-wizard" || activePage === "benchmark-form";
   const tourSteps = [
     {
       page: "overview",
@@ -3768,16 +5522,10 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
       text: "This is the company home base. Use it to review the company snapshot, key details, funding history, related companies, and data sources Fuel has on file.",
     },
     {
-      page: "context-feed",
-      target: "context",
-      title: "Context Feed",
-      text: "The Context Feed tab shows the background Fuel can use to understand the company: notes, meetings, CRM activity, LinkedIn updates, and York IE project context.",
-    },
-    {
       page: "signals",
       target: "signals",
-      title: "Signals",
-      text: "The Signals tab is where Fuel surfaces important changes, risks, opportunities, and next-step prompts once the profile and context are ready.",
+      title: "Intelligence",
+      text: "The Intelligence tab combines sources, evidence, benchmarks, and generated insights so you can see what Fuel used and what it produced.",
     },
     {
       page: "initiatives",
@@ -3897,13 +5645,6 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
 
   function startTour() {
     setShowTourPrompt(false);
-    setTourTaken(true);
-    try {
-      window.localStorage.setItem("fuelWorkspaceTourTakenAt", String(Date.now()));
-      window.localStorage.setItem("fuelWorkspaceTourTaken", "true");
-    } catch {
-      // Ignore storage failures in preview/demo environments.
-    }
     setTourOpen(true);
     setTourIndex(0);
   }
@@ -3917,17 +5658,37 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
     }
   }
 
-  function closeTour() {
+  function closeTour(completed = false) {
     setTourOpen(false);
+    if (completed) {
+      setTourTaken(true);
+      try {
+        window.localStorage.setItem("fuelWorkspaceTourTakenAt", String(Date.now()));
+        window.localStorage.setItem("fuelWorkspaceTourTaken", "true");
+      } catch {
+        // Ignore storage failures in preview/demo environments.
+      }
+    }
     if (startsWithTour) {
       setActivePage("overview");
+    }
+  }
+
+  function skipTour() {
+    closeTour(false);
+    setTourTaken(false);
+    try {
+      window.localStorage.removeItem("fuelWorkspaceTourTakenAt");
+      window.localStorage.removeItem("fuelWorkspaceTourTaken");
+    } catch {
+      // Ignore storage failures in preview/demo environments.
     }
   }
 
   function nextTourStep() {
     const lastTourStep = profileComplete ? tourSteps.length - 2 : tourSteps.length - 1;
     if (tourStep >= lastTourStep) {
-      closeTour();
+      closeTour(true);
       return;
     }
     setTourIndex(tourStep + 1);
@@ -3937,6 +5698,33 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
     setTourIndex(tourStep - 1);
   }
 
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [profileMenuOpen]);
+
+  const handleAddAiUsage = () => {
+    setAiUsage(current => ({
+      ...current,
+      paused: false,
+      refillInMs: null,
+      usedRatio: Math.max(0, current.usedRatio - 0.35),
+    }));
+    setProfileMenuOpen(false);
+  };
 
   return (
     <div className="app">
@@ -3991,13 +5779,50 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
         </div>
         <div className="nav-section">
           <div className="nav-label">Recently viewed</div>
-            <div className="recent-item active" style={{ cursor: "pointer" }} onClick={() => setActivePage("journey")}>
+            <div
+              className={`recent-item ${selectedCompany.id === "patriotpay" ? "active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => {
+                setSelectedCompany({
+                  id: "patriotpay",
+                  name: "patriotpay",
+                  displayName: "Patriot Pay",
+                  domain: "patriotpay.com",
+                  logo: "P",
+                  logoBg: "#1E4D8C",
+                  meta: "Healthcare · Patient Billing · Seed",
+                  headquarters: "Boston, MA, US",
+                  employees: "11-50",
+                  linkedin: "linkedin.com/company/patriotpay",
+                });
+                setActivePage("journey");
+              }}
+            >
             <div className="recent-favicon" style={{ background: "#1E4D8C", color: "#fff" }}>
               P
             </div>
             patriotpay
           </div>
-          <div className="recent-item">
+          <div
+            className={`recent-item ${selectedCompany.id === "operator-ai" ? "active" : ""}`}
+            style={{ cursor: "pointer" }}
+            onClick={() => {
+              setSelectedCompany({
+                id: "operator-ai",
+                name: "Operator AI",
+                displayName: "Operator AI",
+                domain: "operator.ai",
+                logo: "O",
+                logoBg: "#5B3A8C",
+                meta: "AI Operations · Workflow Automation · Seed",
+                headquarters: "New York, NY, US",
+                employees: "11-50",
+                linkedin: "linkedin.com/company/operator-ai",
+              });
+              setProfileComplete(true);
+              setActivePage("overview");
+            }}
+          >
             <div className="recent-favicon" style={{ background: "#5B3A8C", color: "#fff" }}>
               O
             </div>
@@ -4016,12 +5841,29 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
             Winrate
           </div>
         </div>
-        <div className="sidebar-foot">
-          <div style={{ fontSize: "12px", color: "var(--text-3)" }}>SG</div>
-          <div style={{ fontSize: "11px", color: "var(--text-3)", lineHeight: 1.2 }}>
-            <div style={{ color: "var(--text-2)", fontSize: "12.5px" }}>Shreya Gokani</div>
-            <div>shreya.g@york.ie</div>
-          </div>
+        <div className="sidebar-foot-wrap" ref={profileMenuRef}>
+          {profileMenuOpen ? (
+            <ProfileUsagePanel
+              usage={aiUsage}
+              userName="Shreya Gokani"
+              userEmail="shreya.g@york.ie"
+              onClose={() => setProfileMenuOpen(false)}
+              onAddUsage={handleAddAiUsage}
+            />
+          ) : null}
+          <button
+            type="button"
+            className={`sidebar-foot${profileMenuOpen ? " open" : ""}`}
+            aria-expanded={profileMenuOpen}
+            aria-label="Open profile and usage"
+            onClick={() => setProfileMenuOpen(current => !current)}
+          >
+            <div className="sidebar-foot-avatar">SG</div>
+            <div className="sidebar-foot-copy">
+              <div className="sidebar-foot-name">Shreya Gokani</div>
+              <div className="sidebar-foot-email">shreya.g@york.ie</div>
+            </div>
+          </button>
         </div>
       </aside>
 
@@ -4038,7 +5880,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
               <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
             </div>
             <button className="ask-ai-btn">✦ Ask Fuel AI</button>
-            {profileComplete && !isProfileWizard && !tourTaken ? (
+            {!isProfileWizard && !tourTaken ? (
               <button className="header-btn" onClick={startTour}>Tour</button>
             ) : null}
             <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Q4 '25 · Nov 8</span>
@@ -4047,16 +5889,16 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
 
         {!isProfileWizard ? <div className="company-header">
           <div className="company-card">
-            <div className="company-logo">P</div>
+            <div className="company-logo" style={{ background: selectedCompany.logoBg }}>{selectedCompany.logo}</div>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "5px" }}>
-                <div className="company-name">patriotpay</div>
-                <span className="badge">patriotpay.com</span>
+                <div className="company-name">{selectedCompany.name}</div>
+                <span className="badge">{selectedCompany.domain}</span>
               </div>
               <div className="company-meta">
                 <span>Engaged Feb 2024</span>
                 <span className="dot" />
-                <span>Healthcare · Patient Billing · Seed</span>
+                <span>{selectedCompany.meta}</span>
                 <span className="dot" />
                 <span>9 months active</span>
               </div>
@@ -4070,8 +5912,7 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
 
         {!isProfileWizard ? <div className="tabs">
           <div className={`tab ${activePage === "overview" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "overview" ? "tour-highlight" : ""}`} onClick={() => setActivePage("overview")}>Overview</div>
-          <div className={`tab ${activePage === "signals" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} onClick={() => setActivePage("signals")}>Signals</div>
-          <div className={`tab ${activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "context" ? "tour-highlight" : ""}`} onClick={() => setActivePage("context-feed")}>Context Feed</div>
+          <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} onClick={() => setActivePage("signals")}>Intelligence</div>
           <div
             className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
             onClick={() => setActivePage("initiatives")}
@@ -4081,8 +5922,16 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
           <div className="tab">
             Research <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>1</span>
           </div>
-          <div className="tab">Data Room</div>
-          <div className={`tab ${activePage === "journey" ? "active" : ""}`} onClick={() => setActivePage("journey")}>Current Updates</div>
+          <div
+            className={`tab ${activePage === "data-room" ? "active" : ""}`}
+            onClick={() => setActivePage("data-room")}
+          >
+            Data Room
+            {countActiveDocuments(documentSlots) > 0 ? (
+              <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>{countActiveDocuments(documentSlots)}</span>
+            ) : null}
+          </div>
+          <div className={`tab ${activePage === "journey" ? "active" : ""}`} onClick={() => setActivePage("journey")}>Scorecard</div>
         </div> : null}
 
         {!isProfileWizard && showTourPrompt ? (
@@ -4123,13 +5972,32 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
           ) : activePage === "signals" ? (
             <SignalsPage
               isProfileComplete={profileComplete}
-              onFinishProfile={() => setActivePage("profile-wizard")}
-              onLinkConnectors={() => setActivePage("context-feed")}
+              onLogBenchmarkData={() => setActivePage("profile-wizard")}
+              onUpdatePeriod={() => setActivePage("benchmark-form")}
+              onLinkConnectors={() => setActivePage("connectors")}
+              documentSlots={documentSlots}
+              processingDocumentTypeId={processingDocumentTypeId}
+              onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Intelligence · Private upload")}
+              onOpenDataRoom={() => setActivePage("data-room")}
+              intelligenceItems={intelligenceItems}
+              setIntelligenceItems={setIntelligenceItems}
+              intelligenceFocus={intelligenceFocus}
+              onClearIntelligenceFocus={() => setIntelligenceFocus(null)}
+              benchmarkSubmission={benchmarkSubmission}
+              onEditBenchmark={() => setActivePage("benchmark-form")}
+              benchmarkBlinkIds={benchmarkBlinkIds}
+            />
+          ) : activePage === "benchmark-form" ? (
+            <LogPrivateDataPage
+              onBack={() => setActivePage("signals")}
+              onSubmit={handleBenchmarkSubmit}
+              initialValues={benchmarkSubmission?.formValues || EMPTY_BENCHMARK_FORM}
             />
           ) : activePage === "profile-wizard" ? (
             <FinishProfileWizard
               onBack={() => setActivePage("signals")}
               onSubmitBenchmark={() => {
+                applyBenchmarkSubmission(WIZARD_DEFAULT_BENCHMARK);
                 setProfileComplete(true);
                 setActivePage("signals-loading");
               }}
@@ -4139,19 +6007,41 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
               profileComplete={profileComplete}
               onEditProfile={() => setActivePage("profile-wizard")}
+              company={selectedCompany}
             />
           ) : activePage === "context-feed" ? (
-            <ContextFeedPage
-              onOpenConnectors={() => setActivePage("connectors")}
-              onStartTour={startTour}
+            <SignalsPage
+              isProfileComplete={profileComplete}
+              onLogBenchmarkData={() => setActivePage("profile-wizard")}
+              onUpdatePeriod={() => setActivePage("benchmark-form")}
+              onLinkConnectors={() => setActivePage("connectors")}
+              documentSlots={documentSlots}
+              processingDocumentTypeId={processingDocumentTypeId}
+              onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Intelligence · Private upload")}
+              onOpenDataRoom={() => setActivePage("data-room")}
+              intelligenceItems={intelligenceItems}
+              setIntelligenceItems={setIntelligenceItems}
+              intelligenceFocus={intelligenceFocus}
+              onClearIntelligenceFocus={() => setIntelligenceFocus(null)}
+              benchmarkSubmission={benchmarkSubmission}
+              onEditBenchmark={() => setActivePage("benchmark-form")}
+              benchmarkBlinkIds={benchmarkBlinkIds}
             />
           ) : activePage === "initiatives" ? (
             <InitiativesPage />
+          ) : activePage === "data-room" ? (
+            <DataRoomPage
+              documentSlots={documentSlots}
+              processingDocumentTypeId={processingDocumentTypeId}
+              onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Data Room · Private upload")}
+              onViewIntelligence={handleViewIntelligenceFromDataRoom}
+              onOpenDocumentHistory={setDocumentHistorySlot}
+            />
           ) : (
             <>
               <div className="journey-header">
                 <div>
-                  <div className="journey-title">Current Updates</div>
+                  <div className="journey-title">Scorecard</div>
                   <div className="journey-sub">Health and milestones across active service tracks · click milestones for details</div>
                 </div>
                 <div className="journey-stage-card">
@@ -4203,7 +6093,13 @@ export default function PatriotPayJourney({ initialPage = "journey" }: { initial
           text={tourSteps[tourStep].text}
           onNext={nextTourStep}
           onPrevious={previousTourStep}
-          onSkip={closeTour}
+          onSkip={skipTour}
+        />
+      ) : null}
+      {documentHistorySlot ? (
+        <DocumentHistorySidebar
+          slot={documentHistorySlot}
+          onClose={() => setDocumentHistorySlot(null)}
         />
       ) : null}
     </div>

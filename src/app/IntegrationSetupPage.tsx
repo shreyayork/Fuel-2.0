@@ -714,7 +714,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                       {connectedCount} integration{connectedCount !== 1 ? "s" : ""} connected
                     </div>
                     <div style={{ fontSize: 12, color: "#8FA99A", marginBottom: 18, lineHeight: 1.6 }}>
-                      Your Fuel journey tracks are ready. Signals will start flowing as your integrations sync.
+                      Your Fuel journey tracks are ready. Intelligence will start flowing as your integrations sync.
                     </div>
                     <button onClick={onComplete} style={{
                       background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",

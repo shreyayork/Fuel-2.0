@@ -8,7 +8,7 @@ The existing onboarding story structure is sound: it follows the user from compa
 
 Recommended final terminology:
 
-- Use `Current Updates` for the main workspace tab until product confirms a stronger replacement. The current UI still uses `Current Updates`, while the earlier story plan also references `Pulse`, so this should not remain mixed.
+- Use `Scorecard` for the main workspace tab. The current UI uses `Scorecard`, while the earlier story plan also references `Pulse`, so this should not remain mixed.
 - Use `Signals` for generated insights and market/account movement.
 - Use `Context Feed` for private notes, meetings, posts, CRM/email context, and other source material that improves signal quality.
 - Use `Start my journey` only as the final onboarding handoff CTA from chat.
@@ -98,10 +98,10 @@ Acceptance criteria should be updated to remove mixed tab naming:
 - A York projects card lists active workstreams Fuel will use for signals.
 - The card includes one Development project only.
 - The card includes Marketing and RevOps project context.
-- Copy says users can review detailed project updates in `Current Updates` until the final tab label is confirmed.
+- Copy says users can review detailed project updates in `Scorecard`.
 - CTA says `Use these projects for signals`.
 
-Product/design note: if product chooses a replacement for `Current Updates`, update this story, the tab label, and the chat copy together.
+Product/design note: if product chooses a replacement for `Scorecard`, update this story, the tab label, and the chat copy together.
 
 ### Signal Generation Handoff
 
@@ -121,7 +121,7 @@ Product/design note: `Start my journey` works as a user-friendly final CTA, but 
 
 ## Terminology Decisions To Confirm
 
-- Confirm whether `Current Updates` is final, or replace it everywhere with a more product-owned label. The stories and UI should not mix `Current Updates`, `Pulse`, and `Your Journey`.
+- Confirm whether `Scorecard` is final. The stories and UI should not mix `Scorecard`, `Pulse`, and `Your Journey`.
 - Confirm whether `Patriot Pay` should be the display name in onboarding stories, while `patriotpay` remains the lowercase workspace header style.
 - Confirm whether non-York customers should skip York project context entirely or see a connector-led context setup after the Fuel value explanation.
 
