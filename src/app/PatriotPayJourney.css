@@ -6366,6 +6366,37 @@ body {
   position: relative;
 }
 
+.document-upload-wrap-inline {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.document-upload-trigger-inline {
+  align-items: center;
+  background: rgba(10, 20, 28, 0.55);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 8px;
+  color: rgb(203, 211, 219);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  gap: 4px;
+  height: 37px;
+  justify-content: center;
+  min-width: 112px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.document-upload-trigger-inline:hover,
+.document-upload-trigger-inline.is-open {
+  background: rgba(61, 214, 140, 0.08);
+  border-color: rgba(61, 214, 140, 0.42);
+  color: rgb(244, 246, 248);
+}
+
 .document-upload-option {
   align-items: center;
   display: flex;
@@ -6416,8 +6447,8 @@ body {
 .document-upload-menu {
   background: rgb(23, 38, 50);
   border: 1px solid rgb(38, 57, 71);
-  border-radius: 8px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -6429,6 +6460,26 @@ body {
   right: 0;
   top: calc(100% + 6px);
   z-index: 20;
+}
+
+.document-upload-menu-floating {
+  position: fixed;
+  right: auto;
+  top: auto;
+  z-index: 1200;
+}
+
+.document-upload-menu-inline {
+  min-width: 260px;
+}
+
+.document-upload-menu-head {
+  color: rgb(138, 153, 166);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
 }
 
 .document-upload-option,
@@ -9175,7 +9226,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sources-header {
@@ -9295,8 +9346,75 @@ body {
   outline: none;
 }
 
-.source-add-form label:last-child {
+.source-add-form label:has(textarea) {
   grid-column: 1 / -1;
+}
+
+.source-add-form-title-label {
+  min-width: 0;
+}
+
+.source-add-form-title-row {
+  align-items: stretch;
+  display: flex;
+  gap: 8px;
+}
+
+.source-add-form-title-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.source-attached-document {
+  align-items: center;
+  background: rgba(61, 214, 140, 0.08);
+  border: 1px solid rgba(61, 214, 140, 0.22);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.source-attached-document span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.source-attached-document strong {
+  color: rgb(244, 246, 248);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.source-attached-document em {
+  color: rgb(143, 232, 210);
+  font-size: 11px;
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-attached-document button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgb(203, 211, 219);
+  cursor: pointer;
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 8px;
+}
+
+.source-attached-document button:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgb(244, 246, 248);
 }
 
 .sources-upsell {

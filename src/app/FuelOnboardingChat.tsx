@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { fuel } from "./fuelTokens";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -147,8 +148,8 @@ function starterFuelProfile(name: string): CrunchbaseData {
 const INTEGRATIONS = [
   { id: "jira",       name: "Jira",             category: "Development", abbr: "JR", color: "#2684FF", premium: true, addOnPrice: 29 },
   { id: "linear",     name: "Linear",           category: "Development", abbr: "LN", color: "#5E6AD2", premium: false, addOnPrice: 0 },
-  { id: "launchpad",  name: "Launchpad",        category: "Development", abbr: "LP", color: "#3DD68C", york: true },
-  { id: "pulse",      name: "Pulse",            category: "Development", abbr: "PL", color: "#3DD68C", york: true },
+  { id: "launchpad",  name: "Launchpad",        category: "Development", abbr: "LP", color: "#00B48A", york: true },
+  { id: "pulse",      name: "Pulse",            category: "Development", abbr: "PL", color: "#00B48A", york: true },
   { id: "ga4",        name: "Google Analytics", category: "Marketing",   abbr: "GA", color: "#F9AB00", premium: false, addOnPrice: 0 },
   { id: "gads",       name: "Google Ads",       category: "Marketing",   abbr: "Gd", color: "#4285F4", premium: true, addOnPrice: 59 },
   { id: "semrush",    name: "Semrush",          category: "Marketing",   abbr: "SR", color: "#FF642D", premium: true, addOnPrice: 79 },
@@ -233,13 +234,13 @@ function TypingDots() {
         {[0, 1, 2].map(i => (
           <span key={i} style={{
             width: 6, height: 6, borderRadius: "50%",
-            background: "#3DD68C",
+            background: "#00B48A",
             animation: `fuelDot 1.2s ease-in-out ${i * 0.2}s infinite`,
             display: "block",
           }} />
         ))}
       </div>
-      <span style={{ fontSize: 11, color: "#556878" }}>Fuel AI is thinking...</span>
+      <span style={{ fontSize: 11, color: "#8FA99A" }}>Fuel AI is thinking...</span>
     </div>
   );
 }
@@ -288,7 +289,7 @@ function inputStyle(focused?: boolean): React.CSSProperties {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, color: "#556878", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
+    <div style={{ fontSize: 10, color: "#8FA99A", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
       {children}
     </div>
   );
@@ -356,29 +357,29 @@ function CrunchbaseCard({
             background: "linear-gradient(135deg, #1a3d2f 0%, #132130 100%)",
             border: "1px solid rgba(61,214,140,0.2)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 14, fontWeight: 800, color: "#3DD68C",
+            fontSize: 14, fontWeight: 800, color: "#00B48A",
           }}>{fields.name.charAt(0)}</div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 13, color: "#F2F5F2" }}>{fields.name}</div>
-            <div style={{ fontSize: 11, color: "#3DD68C", marginTop: 1 }}>{fields.category}</div>
+            <div style={{ fontSize: 11, color: "#00B48A", marginTop: 1 }}>{fields.category}</div>
           </div>
           <div style={{
             marginLeft: "auto", fontSize: 10, background: "rgba(61,214,140,0.1)",
-            color: "#3DD68C", border: "1px solid rgba(61,214,140,0.2)",
+            color: "#00B48A", border: "1px solid rgba(61,214,140,0.2)",
             borderRadius: 4, padding: "2px 7px", fontWeight: 600,
           }}>{sourceLabel}</div>
         </div>
         <div style={{ padding: "14px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
           {displayFields.map(({ label, value, full }) => (
             <div key={label} style={full ? { gridColumn: "1 / -1" } : {}}>
-              <div style={{ fontSize: 10, color: "#556878", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 2 }}>{label}</div>
+              <div style={{ fontSize: 10, color: "#8FA99A", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 2 }}>{label}</div>
               <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.4 }}>{value}</div>
             </div>
           ))}
         </div>
         {rounds.length > 0 && (
           <div style={{ padding: "0 16px 12px" }}>
-            <div style={{ fontSize: 10, color: "#556878", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>Funding rounds</div>
+            <div style={{ fontSize: 10, color: "#8FA99A", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>Funding rounds</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {rounds.map(r => (
                 <div key={r.id} style={{
@@ -387,8 +388,8 @@ function CrunchbaseCard({
                   borderRadius: 7, padding: "7px 10px",
                 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4", minWidth: 70 }}>{r.type}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#3DD68C", minWidth: 60 }}>{r.amount || "—"}</span>
-                  {r.date && <span style={{ fontSize: 11, color: "#556878" }}>{r.date}</span>}
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#00B48A", minWidth: 60 }}>{r.amount || "—"}</span>
+                  {r.date && <span style={{ fontSize: 11, color: "#8FA99A" }}>{r.date}</span>}
                   {r.investors && (
                     <span style={{ fontSize: 11, color: "#8FA99A", marginLeft: "auto", textAlign: "right" }}>
                       {r.investors}
@@ -502,7 +503,7 @@ function CrunchbaseCard({
             <FieldLabel>Funding rounds</FieldLabel>
             <button onClick={addRound} style={{
               display: "flex", alignItems: "center", gap: 4,
-              background: "rgba(61,214,140,0.08)", color: "#3DD68C",
+              background: "rgba(61,214,140,0.08)", color: "#00B48A",
               border: "1px solid rgba(61,214,140,0.2)", borderRadius: 6,
               padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer",
             }}>+ Add round</button>
@@ -512,7 +513,7 @@ function CrunchbaseCard({
             <div style={{
               textAlign: "center", padding: "16px",
               background: "#172632", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8,
-              fontSize: 12, color: "#6F8798",
+              fontSize: 12, color: "#8FA99A",
             }}>No rounds added yet — click "Add round" to start</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, overflow: "hidden" }}>
@@ -524,7 +525,7 @@ function CrunchbaseCard({
                 padding: "6px 10px",
               }}>
                 {["Round", "Amount", "Date", "Investors", ""].map(h => (
-                  <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#6F8798", textTransform: "uppercase", letterSpacing: "0.4px" }}>{h}</div>
+                  <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.4px" }}>{h}</div>
                 ))}
               </div>
               {/* Rows */}
@@ -589,7 +590,7 @@ function CrunchbaseCard({
           padding: "8px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer",
         }}>Save & review</button>
         <button onClick={() => setMode("view")} style={{
-          background: "transparent", color: "#556878",
+          background: "transparent", color: "#8FA99A",
           border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7,
           padding: "8px 14px", fontSize: 12, cursor: "pointer",
         }}>Cancel</button>
@@ -610,7 +611,7 @@ function BusinessModelCard({ selected, onSelect }: { selected?: string; onSelect
       marginTop: 4,
       padding: 14,
     }}>
-      <div style={{ fontSize: 10, fontWeight: 800, color: "#3DD68C", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: fuel.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
         Business model
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
@@ -639,7 +640,7 @@ function BusinessModelCard({ selected, onSelect }: { selected?: string; onSelect
                 textAlign: "left",
               }}
             >
-              <strong style={{ color: active ? "#8FE8D2" : "#F2F5F2", display: "block", fontSize: 12.5, lineHeight: 1.25 }}>
+              <strong style={{ color: active ? "#F2F5F2" : "#F2F5F2", display: "block", fontSize: 12.5, lineHeight: 1.25 }}>
                 {option.label}
               </strong>
               <span style={{ color: "#8FA99A", display: "block", fontSize: 11.5, lineHeight: 1.35, marginTop: 5 }}>
@@ -688,7 +689,7 @@ function ProfileFormCard({
     background: "rgba(0,180,138,0.1)",
     border: "1px solid rgba(0,180,138,0.16)",
     borderRadius: 999,
-    color: "#8FE8D2",
+    color: "#F2F5F2",
     display: "inline-flex",
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
     fontSize: 9.5,
@@ -713,7 +714,7 @@ function ProfileFormCard({
       marginTop: 4,
       padding: 16,
     }}>
-      <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+      <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
         + Profile ready
       </div>
       <div style={{ color: "#F2F5F2", fontSize: 18, fontWeight: 800, lineHeight: 1.2, marginBottom: 6 }}>
@@ -761,7 +762,7 @@ function ProfileFormCard({
                     textAlign: "left",
                   }}
                 >
-                  <strong style={{ color: active ? "#8FE8D2" : "#F2F5F2", display: "block", fontSize: 11.5, lineHeight: 1.25 }}>
+                  <strong style={{ color: active ? "#F2F5F2" : "#F2F5F2", display: "block", fontSize: 11.5, lineHeight: 1.25 }}>
                     {option.label}
                   </strong>
                   <span style={{ color: "#8FA99A", display: "block", fontSize: 10.5, lineHeight: 1.3, marginTop: 4 }}>
@@ -813,7 +814,7 @@ function ProfileFormCard({
                   background: "rgba(61,214,140,0.08)",
                   border: "1px solid rgba(61,214,140,0.2)",
                   borderRadius: 6,
-                  color: "#3DD68C",
+                  color: "#00B48A",
                   cursor: "pointer",
                   font: "inherit",
                   fontSize: 10.5,
@@ -877,7 +878,7 @@ function ProfileFormCard({
           background: "rgba(0,180,138,0.08)",
           border: "1px solid rgba(0,180,138,0.18)",
           borderRadius: 8,
-          color: "#8FE8D2",
+          color: "#F2F5F2",
           fontSize: 11.5,
           lineHeight: 1.45,
           padding: "10px 12px",
@@ -1024,9 +1025,71 @@ function getBenchmarkPercentileValue(field: BenchmarkWizardField, key: typeof BE
 
 function BenchmarkPercentileHint() {
   return (
-    <p style={{ color: "#6F8798", fontSize: 11, lineHeight: 1.4, margin: "8px 0 0" }}>
-      P25–P90 = where peers rank · green band = cohort · dot = you
+    <p style={{ color: fuel.textMuted, fontSize: 11, lineHeight: 1.45, margin: "8px 0 0" }}>
+      P25–P90 = peer benchmarks · green band = cohort range · dot = you
     </p>
+  );
+}
+
+function estimateValuePercentile(value: number, field: BenchmarkWizardField): number {
+  const { p25, p50, p75, p90 } = field;
+  const lerp = (val: number, lo: number, hi: number, pctLo: number, pctHi: number) => {
+    if (hi === lo) return Math.round((pctLo + pctHi) / 2);
+    const t = Math.min(1, Math.max(0, (val - lo) / (hi - lo)));
+    return Math.round(pctLo + t * (pctHi - pctLo));
+  };
+
+  if (value <= p25) return Math.max(1, lerp(value, Math.max(0, p25 * 0.35), p25, 1, 25));
+  if (value <= p50) return lerp(value, p25, p50, 25, 50);
+  if (value <= p75) return lerp(value, p50, p75, 50, 75);
+  if (value <= p90) return lerp(value, p75, p90, 75, 90);
+  return Math.min(99, lerp(value, p90, p90 * 1.2, 90, 99));
+}
+
+function percentileMeaningSuffix(pct: number): string {
+  if (pct <= 15) return "bottom of cohort";
+  if (pct >= 85) return "top of cohort";
+  return `${pct}% of peers at or below`;
+}
+
+function BenchmarkPercentileExplanation({
+  field,
+  value,
+  compact = false,
+}: {
+  field: BenchmarkWizardField;
+  value: number | null;
+  compact?: boolean;
+}) {
+  const wrapStyle: React.CSSProperties = {
+    alignItems: "baseline",
+    color: fuel.text,
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: compact ? 10.5 : 11,
+    fontWeight: 600,
+    gap: "4px 6px",
+    lineHeight: 1.45,
+    margin: compact ? "0 0 8px" : "0 0 10px",
+  };
+
+  if (value == null) {
+    return (
+      <div style={{ ...wrapStyle, color: fuel.textMuted, fontWeight: 500 }}>
+        Type a number — dot shows where you land on the bar.
+      </div>
+    );
+  }
+
+  const pct = estimateValuePercentile(value, field);
+  const display = formatBenchmarkDisplay(value, field.unit);
+
+  return (
+    <div style={wrapStyle}>
+      <span style={{ fontSize: compact ? 12 : 13, fontWeight: 800 }}>{display}</span>
+      <span style={{ color: fuel.textMuted, fontWeight: 500 }}>·</span>
+      <span>{percentileMeaningSuffix(pct)}</span>
+    </div>
   );
 }
 
@@ -1045,11 +1108,11 @@ function BenchmarkPercentileScale({
         const isMedian = bucket.key === "p50";
         return (
           <div key={bucket.key} title={bucket.title}>
-            <div style={{ color: isMedian && highlightMedian ? "#8FE8D2" : "#6F8798", fontSize: compact ? 9 : 10, fontWeight: 800 }}>
+            <div style={{ color: isMedian && highlightMedian ? fuel.text : fuel.textMuted, fontSize: compact ? 9 : 10, fontWeight: 800 }}>
               {bucket.label}
             </div>
             <div style={{
-              color: isMedian && highlightMedian ? "#F2F5F2" : "#8FA99A",
+              color: fuel.text,
               fontSize: compact ? 10.5 : 11.5,
               fontWeight: 700,
               marginTop: compact ? 2 : 3,
@@ -1201,7 +1264,7 @@ function BenchmarkCohortTrack({
             width: compact ? 12 : 16,
           }} />
           <div style={{
-            background: "#D0DDD8",
+            background: "#F2F5F2",
             height: compact ? 14 : 18,
             left: `${marker}%`,
             position: "absolute",
@@ -1648,11 +1711,11 @@ function buildFuelHelpContent(
   }
 }
 
-function renderBoldText(text: string) {
+function renderBoldText(text: string, color = fuel.text) {
   return text.split("**").map((part, i) =>
     i % 2 === 0
       ? <span key={i}>{part}</span>
-      : <strong key={i} style={{ color: "#F2F5F2", fontWeight: 700 }}>{part}</strong>,
+      : <strong key={i} style={{ color, fontWeight: 700 }}>{part}</strong>,
   );
 }
 
@@ -1663,10 +1726,10 @@ function KpiSnapshotMoment({ moment, embedded = false }: { moment: KpiSnapshotMo
         <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 700, lineHeight: 1.45, marginBottom: 8 }}>
           {renderBoldText(moment.headline)}
         </div>
-        <p style={{ color: "#B8C9C0", fontSize: 13, lineHeight: 1.6, margin: "0 0 8px" }}>
+        <p style={{ color: fuel.textMuted, fontSize: 13, lineHeight: 1.6, margin: "0 0 8px" }}>
           {renderBoldText(moment.strength)}
         </p>
-        <p style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.55, margin: 0 }}>
+        <p style={{ color: fuel.textMuted, fontSize: 12.5, lineHeight: 1.55, margin: 0 }}>
           {renderBoldText(moment.gaps)}
         </p>
       </>
@@ -1675,21 +1738,21 @@ function KpiSnapshotMoment({ moment, embedded = false }: { moment: KpiSnapshotMo
 
   return (
     <div style={{
-      background: "linear-gradient(135deg, rgba(0,180,138,0.12) 0%, rgba(236,214,127,0.05) 100%)",
-      border: "1px solid rgba(0,180,138,0.32)",
+      background: fuel.surface,
+      border: `1px solid ${fuel.border}`,
       borderRadius: 12,
       padding: "16px 18px",
     }}>
-      <div style={{ color: "#3DD68C", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.12em", marginBottom: 10, textTransform: "uppercase" }}>
+      <div style={{ color: fuel.textMuted, fontSize: 9.5, fontWeight: 900, letterSpacing: "0.12em", marginBottom: 10, textTransform: "uppercase" }}>
         Fuel
       </div>
-      <div style={{ color: "#F2F5F2", fontSize: 17, fontWeight: 800, lineHeight: 1.35, marginBottom: 10 }}>
+      <div style={{ color: fuel.text, fontSize: 17, fontWeight: 800, lineHeight: 1.35, marginBottom: 10 }}>
         {renderBoldText(moment.headline)}
       </div>
-      <div style={{ color: "#D0DDD8", fontSize: 13, lineHeight: 1.6, marginBottom: 8 }}>
+      <div style={{ color: fuel.text, fontSize: 13, lineHeight: 1.6, marginBottom: 8 }}>
         {renderBoldText(moment.strength)}
       </div>
-      <div style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.55 }}>
+      <div style={{ color: fuel.textMuted, fontSize: 12.5, lineHeight: 1.55 }}>
         {renderBoldText(moment.gaps)}
       </div>
     </div>
@@ -1704,7 +1767,7 @@ function FuelHelpBubble({
   playbooks?: SuggestedPlaybook[];
 }) {
   const trackColors: Record<SuggestedPlaybook["track"], string> = {
-    Development: "#3DD68C",
+    Development: "#00B48A",
     Marketing: "#2BB8A0",
     RevOps: "#D4924A",
     FinOps: "#8B76D4",
@@ -1712,42 +1775,42 @@ function FuelHelpBubble({
 
   return (
     <div style={{
-      background: "linear-gradient(135deg, rgba(0,180,138,0.1) 0%, rgba(236,214,127,0.04) 100%)",
-      border: "1px solid rgba(0,180,138,0.28)",
+      background: fuel.surface,
+      border: `1px solid ${fuel.border}`,
       borderRadius: "4px 12px 12px 12px",
       padding: "14px 16px",
     }}>
-      <div style={{ color: "#3DD68C", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.12em", marginBottom: 8, textTransform: "uppercase" }}>
+      <div style={{ color: fuel.textMuted, fontSize: 9.5, fontWeight: 900, letterSpacing: "0.12em", marginBottom: 8, textTransform: "uppercase" }}>
         {content.label ?? "How Fuel helps"}
       </div>
-      <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 800, lineHeight: 1.35, marginBottom: content.summary || content.items?.length || content.sections?.length || playbooks?.length ? 8 : 0 }}>
+      <div style={{ color: fuel.text, fontSize: 15, fontWeight: 800, lineHeight: 1.35, marginBottom: content.summary || content.items?.length || content.sections?.length || playbooks?.length ? 8 : 0 }}>
         {content.headline}
       </div>
       {content.summary ? (
-        <div style={{ color: "#8FA99A", fontSize: 12.5, lineHeight: 1.5, marginBottom: 10 }}>{renderBoldText(content.summary)}</div>
+        <div style={{ color: fuel.textMuted, fontSize: 12.5, lineHeight: 1.5, marginBottom: 10 }}>{renderBoldText(content.summary)}</div>
       ) : null}
       {content.items?.map(item => (
-        <div key={item} style={{ color: "#D0DDD8", fontSize: 12.5, lineHeight: 1.55, marginBottom: 5, paddingLeft: 12, position: "relative" }}>
-          <span style={{ color: "#00B48A", left: 0, position: "absolute" }}>·</span>
+        <div key={item} style={{ color: fuel.text, fontSize: 12.5, lineHeight: 1.55, marginBottom: 5, paddingLeft: 12, position: "relative" }}>
+          <span style={{ color: fuel.textMuted, left: 0, position: "absolute" }}>·</span>
           {renderBoldText(item)}
         </div>
       ))}
       {content.sections?.map(section => (
         <div key={section.label} style={{ marginTop: content.items?.length ? 10 : 0 }}>
-          <div style={{ color: "#8FE8D2", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4, textTransform: "uppercase" }}>
+          <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 4, textTransform: "uppercase" }}>
             {section.label}
           </div>
           {section.items.map(item => (
-            <div key={item} style={{ color: "#D0DDD8", fontSize: 12, lineHeight: 1.45, marginBottom: 3, paddingLeft: 12, position: "relative" }}>
-              <span style={{ color: "#00B48A", left: 0, position: "absolute" }}>·</span>
+            <div key={item} style={{ color: fuel.text, fontSize: 12, lineHeight: 1.45, marginBottom: 3, paddingLeft: 12, position: "relative" }}>
+              <span style={{ color: fuel.textMuted, left: 0, position: "absolute" }}>·</span>
               {renderBoldText(item)}
             </div>
           ))}
         </div>
       ))}
       {playbooks?.length ? (
-        <div style={{ borderTop: "1px solid rgba(0,180,138,0.14)", marginTop: 12, paddingTop: 12 }}>
-          <div style={{ color: "#8FE8D2", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>
+        <div style={{ borderTop: `1px solid ${fuel.border}`, marginTop: 12, paddingTop: 12 }}>
+          <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" }}>
             Try these first
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1800,7 +1863,7 @@ function FuelHelpBubble({
       {content.teaser ? (
         <div style={{
           borderTop: "1px solid rgba(0,180,138,0.14)",
-          color: "#8FE8D2",
+          color: "#F2F5F2",
           fontSize: 11.5,
           fontWeight: 700,
           letterSpacing: "0.02em",
@@ -1871,7 +1934,7 @@ function LiveBenchmarkBar({
               background: "rgba(0,180,138,0.12)",
               border: "1px solid rgba(0,180,138,0.28)",
               borderRadius: 999,
-              color: "#8FE8D2",
+              color: "#F2F5F2",
               fontSize: 10,
               fontWeight: 800,
               padding: "3px 9px",
@@ -1881,16 +1944,13 @@ function LiveBenchmarkBar({
           ) : null}
         </div>
       ) : null}
+      <BenchmarkPercentileExplanation compact={compact} field={field} value={value} />
       <BenchmarkCohortTrack animate={animate} compact={compact} field={field} marker={marker} />
-      <div style={{ marginBottom: insight && !compact ? 12 : 0, marginTop: compact ? 0 : 2 }}>
+      <div style={{ marginBottom: insight && !compact ? 12 : 0, marginTop: compact ? 6 : 8 }}>
         <BenchmarkPercentileScale compact={compact} field={field} />
       </div>
       {insight ? (
         <BenchmarkInsightCallout animate={animate} compact={compact} insight={insight} />
-      ) : !compact ? (
-        <div style={{ color: "#6F8798", fontSize: 11.5, lineHeight: 1.45 }}>
-          Enter a number — your marker lands on the curve instantly.
-        </div>
       ) : null}
     </div>
   );
@@ -1920,7 +1980,7 @@ function LockedBenchmarkRow({
           background: "rgba(0,180,138,0.1)",
           border: "1px solid rgba(0,180,138,0.2)",
           borderRadius: 999,
-          color: "#8FE8D2",
+          color: "#F2F5F2",
           fontSize: 9.5,
           fontWeight: 800,
           padding: "2px 7px",
@@ -1932,8 +1992,9 @@ function LockedBenchmarkRow({
           ✎
         </button>
       </div>
+      <BenchmarkPercentileExplanation compact field={field} value={value} />
       <BenchmarkCohortTrack compact field={field} marker={marker} />
-      <div style={{ marginBottom: 6 }}>
+      <div style={{ marginBottom: 6, marginTop: 6 }}>
         <BenchmarkPercentileInline field={field} />
       </div>
       <BenchmarkInsightCallout compact insight={insight} />
@@ -1957,6 +2018,8 @@ function BenchmarkCard({
     [profile, businessModel],
   );
   const [mode, setMode] = React.useState<"entry" | "loading" | "results">("entry");
+  const [entryFlow, setEntryFlow] = React.useState<"wizard" | "edit-one">("wizard");
+  const [editingFieldIndex, setEditingFieldIndex] = React.useState<number | null>(null);
   const [completedCount, setCompletedCount] = React.useState(0);
   const [pulseKey, setPulseKey] = React.useState<string | null>(null);
   const [cohortEditing, setCohortEditing] = React.useState(false);
@@ -2007,10 +2070,17 @@ function BenchmarkCard({
     }
   }, [buildSnapshot, mode, onSnapshotChange, selectedJourneyStage]);
 
-  const activeField = BENCHMARK_WIZARD_FIELDS[completedCount];
+  const isSingleFieldEdit = entryFlow === "edit-one" && editingFieldIndex !== null;
+  const isEditBrowse = entryFlow === "edit-one" && editingFieldIndex === null;
+  const activeField = isSingleFieldEdit
+    ? BENCHMARK_WIZARD_FIELDS[editingFieldIndex]
+    : BENCHMARK_WIZARD_FIELDS[completedCount];
   const activeRaw = activeField ? benchmarkValues[activeField.key] : "";
   const activeValue = activeField ? parseBenchmarkNumber(activeRaw) : null;
-  const allComplete = completedCount >= BENCHMARK_WIZARD_FIELDS.length;
+  const allComplete = entryFlow === "edit-one"
+    ? editingFieldIndex === null && completedCount >= BENCHMARK_WIZARD_FIELDS.length
+    : completedCount >= BENCHMARK_WIZARD_FIELDS.length;
+  const showActiveEditor = Boolean(activeField) && (isSingleFieldEdit || !allComplete);
   const activeInputRef = React.useRef<HTMLInputElement>(null);
   const wizardEndRef = React.useRef<HTMLDivElement>(null);
   const journeyResultsRef = React.useRef<HTMLDivElement>(null);
@@ -2039,11 +2109,11 @@ function BenchmarkCard({
   }, [mode]);
 
   React.useEffect(() => {
-    if (mode !== "entry" || allComplete) return;
+    if (mode !== "entry" || allComplete || isEditBrowse) return;
     scrollWizardIntoView();
     const timer = window.setTimeout(() => activeInputRef.current?.focus(), 60);
     return () => window.clearTimeout(timer);
-  }, [allComplete, completedCount, mode, scrollWizardIntoView]);
+  }, [allComplete, completedCount, editingFieldIndex, isEditBrowse, mode, scrollWizardIntoView]);
 
   const journeyStages = [
     { stage: "Stage 1", title: "Idea", detail: "Problem identified", done: true },
@@ -2074,6 +2144,7 @@ function BenchmarkCard({
       label: field.label,
       start: field.bandStart,
       end: field.bandEnd,
+      value,
       marker: value != null ? valueToMarkerPercent(value, field) : null,
       filled: value != null,
     };
@@ -2087,6 +2158,16 @@ function BenchmarkCard({
 
   function confirmActiveField() {
     if (!activeField || activeValue == null) return;
+
+    if (isSingleFieldEdit) {
+      setEditingFieldIndex(null);
+      setCompletedCount(BENCHMARK_WIZARD_FIELDS.length);
+      setMode("results");
+      onSnapshotChange?.(buildSnapshot());
+      setPulseKey(null);
+      return;
+    }
+
     const nextCount = completedCount + 1;
     setCompletedCount(nextCount);
     setPulseKey(null);
@@ -2096,9 +2177,28 @@ function BenchmarkCard({
     }
   }
 
-  function editField(index: number) {
-    setCompletedCount(index);
+  function cancelSingleFieldEdit() {
+    setEditingFieldIndex(null);
     setPulseKey(null);
+    if (entryFlow === "edit-one") {
+      setCompletedCount(BENCHMARK_WIZARD_FIELDS.length);
+      setMode("results");
+    }
+  }
+
+  function startFieldEdit(index: number) {
+    setPulseKey(null);
+    if (entryFlow === "edit-one") {
+      setEditingFieldIndex(index);
+      return;
+    }
+    setCompletedCount(index);
+  }
+
+  function finishEditBrowse() {
+    setEditingFieldIndex(null);
+    setEntryFlow("wizard");
+    setMode("results");
   }
 
   const cardShell = (children: React.ReactNode) => (
@@ -2119,7 +2219,7 @@ function BenchmarkCard({
     background: "rgba(61,214,140,0.08)",
     border: "1px solid rgba(61,214,140,0.22)",
     borderRadius: 6,
-    color: "#3DD68C",
+    color: "#00B48A",
     cursor: "pointer",
     display: "inline-flex",
     flexShrink: 0,
@@ -2137,13 +2237,13 @@ function BenchmarkCard({
         <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "12px 16px" }}>
           <div style={{ alignItems: "center", display: "flex", gap: 10, justifyContent: "space-between" }}>
             <div>
-              <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
+              <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
                 Your peer cohort
               </div>
-              <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35 }}>
+              <div style={{ color: fuel.text, fontSize: 14, fontWeight: 800, lineHeight: 1.35 }}>
                 {cohortLabel}
               </div>
-              <div style={{ color: "#6F8798", fontSize: 11.5, lineHeight: 1.45, marginTop: 4 }}>
+              <div style={{ color: fuel.textMuted, fontSize: 11.5, lineHeight: 1.45, marginTop: 4 }}>
                 Suggested from your profile — adjust if needed.
               </div>
             </div>
@@ -2159,7 +2259,7 @@ function BenchmarkCard({
                 { key: "region" as const, label: "Region", options: COHORT_REGIONS },
               ].map(section => (
                 <div key={section.key}>
-                  <div style={{ color: "#6F8798", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>
+                  <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>
                     {section.label}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -2174,7 +2274,7 @@ function BenchmarkCard({
                             background: active ? "rgba(0,180,138,0.14)" : "#0B1720",
                             border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.08)",
                             borderRadius: 999,
-                            color: active ? "#8FE8D2" : "#D0DDD8",
+                            color: active ? "#F2F5F2" : "#F2F5F2",
                             cursor: "pointer",
                             font: "inherit",
                             fontSize: 11,
@@ -2200,7 +2300,34 @@ function BenchmarkCard({
           gap: 8,
           padding: "12px 16px 16px",
         }}>
-          {BENCHMARK_WIZARD_FIELDS.slice(0, completedCount).map((field, index) => {
+          {isEditBrowse ? (
+            <div style={{ alignItems: "center", display: "flex", gap: 10, justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45 }}>
+                Tap ✎ on any metric to edit one field.
+              </div>
+              <button
+                type="button"
+                onClick={finishEditBrowse}
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  color: "#F2F5F2",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  font: "inherit",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  padding: "7px 12px",
+                }}
+              >
+                Done
+              </button>
+            </div>
+          ) : null}
+
+          {(isEditBrowse ? BENCHMARK_WIZARD_FIELDS : BENCHMARK_WIZARD_FIELDS.slice(0, completedCount)).map((field, index) => {
+            if (isSingleFieldEdit && index === editingFieldIndex) return null;
             const value = parseBenchmarkNumber(benchmarkValues[field.key]);
             if (value == null) return null;
             return (
@@ -2208,18 +2335,18 @@ function BenchmarkCard({
                 key={field.key}
                 editButtonStyle={editButtonStyle}
                 field={field}
-                onEdit={() => editField(index)}
+                onEdit={() => startFieldEdit(index)}
                 value={value}
               />
             );
           })}
 
-          {!allComplete && activeField ? (
+          {showActiveEditor && activeField ? (
             <div style={{
               background: "rgba(0,180,138,0.06)",
               border: "1px solid rgba(0,180,138,0.22)",
               borderRadius: 10,
-              marginTop: completedCount > 0 ? 4 : 0,
+              marginTop: isSingleFieldEdit || completedCount > 0 ? 4 : 0,
               padding: 12,
             }}>
               <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: activeField.promptHint ? 6 : 10 }}>
@@ -2230,31 +2357,47 @@ function BenchmarkCard({
                   {activeField.promptHint}
                 </div>
               ) : null}
-              <input
-                ref={activeInputRef}
-                key={activeField.key}
-                autoFocus
-                value={activeRaw}
-                onChange={(event) => updateFieldValue(activeField.key, event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && activeValue != null) confirmActiveField();
-                }}
-                placeholder={activeField.placeholder}
-                style={{
-                  background: "#0B1720",
-                  border: "1px solid rgba(0,180,138,0.35)",
-                  borderRadius: 10,
-                  boxShadow: activeValue != null ? "0 0 0 1px rgba(0,180,138,0.12)" : "none",
-                  color: "#F2F5F2",
-                  font: "inherit",
-                  fontSize: 18,
-                  fontWeight: 800,
-                  marginBottom: 10,
-                  outline: "none",
-                  padding: "10px 12px",
-                  width: "100%",
-                }}
-              />
+              <div style={{ marginBottom: 10, position: "relative" }}>
+                <input
+                  ref={activeInputRef}
+                  key={activeField.key}
+                  autoFocus
+                  value={activeRaw}
+                  onChange={(event) => updateFieldValue(activeField.key, event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && activeValue != null) confirmActiveField();
+                  }}
+                  placeholder={activeField.placeholder}
+                  inputMode={activeField.unit === "percent" ? "decimal" : "numeric"}
+                  style={{
+                    background: "#0B1720",
+                    border: "1px solid rgba(0,180,138,0.35)",
+                    borderRadius: 10,
+                    boxShadow: activeValue != null ? "0 0 0 1px rgba(0,180,138,0.12)" : "none",
+                    color: "#F2F5F2",
+                    font: "inherit",
+                    fontSize: 18,
+                    fontWeight: 800,
+                    outline: "none",
+                    padding: activeField.unit === "percent" ? "10px 36px 10px 12px" : "10px 12px",
+                    width: "100%",
+                  }}
+                />
+                {activeField.unit === "percent" ? (
+                  <span style={{
+                    color: "#8FA99A",
+                    fontSize: 16,
+                    fontWeight: 800,
+                    pointerEvents: "none",
+                    position: "absolute",
+                    right: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                  }}>
+                    %
+                  </span>
+                ) : null}
+              </div>
               <LiveBenchmarkBar
                 compact
                 field={activeField}
@@ -2262,7 +2405,7 @@ function BenchmarkCard({
                 animate={pulseKey === activeField.key}
               />
               <div style={{ marginTop: 10 }}>
-                <div style={{ alignItems: "center", display: "flex", gap: 10 }}>
+                <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 10 }}>
                   <button
                     type="button"
                     disabled={activeValue == null}
@@ -2271,7 +2414,7 @@ function BenchmarkCard({
                       background: activeValue != null ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.06)",
                       border: "none",
                       borderRadius: 8,
-                      color: activeValue != null ? "#0a1a12" : "#6F8798",
+                      color: activeValue != null ? "#0a1a12" : "#8FA99A",
                       cursor: activeValue != null ? "pointer" : "not-allowed",
                       font: "inherit",
                       fontSize: 12,
@@ -2279,13 +2422,36 @@ function BenchmarkCard({
                       padding: "10px 18px",
                     }}
                   >
-                    {completedCount >= BENCHMARK_WIZARD_FIELDS.length - 1 ? "See my full benchmark →" : "Lock in & next →"}
+                    {isSingleFieldEdit
+                      ? "Save →"
+                      : completedCount >= BENCHMARK_WIZARD_FIELDS.length - 1
+                        ? "See my full benchmark →"
+                        : "Lock in & next →"}
                   </button>
-                  <span style={{ color: "#6F8798", fontSize: 11.5 }}>
-                    {completedCount + 1} of {BENCHMARK_WIZARD_FIELDS.length}
-                  </span>
+                  {isSingleFieldEdit ? (
+                    <button
+                      type="button"
+                      onClick={cancelSingleFieldEdit}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#8FA99A",
+                        cursor: "pointer",
+                        font: "inherit",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        padding: "10px 4px",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  ) : (
+                    <span style={{ color: "#8FA99A", fontSize: 11.5 }}>
+                      {completedCount + 1} of {BENCHMARK_WIZARD_FIELDS.length}
+                    </span>
+                  )}
                 </div>
-                {completedCount < BENCHMARK_WIZARD_FIELDS.length - 1 ? (
+                {!isSingleFieldEdit && completedCount < BENCHMARK_WIZARD_FIELDS.length - 1 ? (
                   <div style={{ color: "#8FA99A", fontSize: 11.5, lineHeight: 1.45, marginTop: 8 }}>
                     {BENCHMARK_WIZARD_FIELDS.length - completedCount - 1} more metrics to go. Takes ~3 minutes.
                   </div>
@@ -2308,7 +2474,7 @@ function BenchmarkCard({
         <div style={{ display: "inline-flex", gap: 4, marginBottom: 12 }}>
           {[0, 1, 2].map(i => (
             <span key={i} style={{
-              width: 7, height: 7, borderRadius: "50%", background: "#3DD68C",
+              width: 7, height: 7, borderRadius: "50%", background: "#00B48A",
               animation: `fuelDot 1.2s ease-in-out ${i * 0.2}s infinite`,
               display: "block",
             }} />
@@ -2334,10 +2500,10 @@ function BenchmarkCard({
       }}>
         <div style={{ alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between", marginBottom: 12 }}>
           <div>
-            <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
+            <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>
               Your startup journey
             </div>
-            <div style={{ color: "#D0DDD8", fontSize: 14, fontWeight: 500, lineHeight: 1.6, maxWidth: 560 }}>
+            <div style={{ color: fuel.text, fontSize: 14, fontWeight: 500, lineHeight: 1.6, maxWidth: 560 }}>
               {renderBoldText(getStageJourneyMessage(selectedJourneyStage))}
             </div>
           </div>
@@ -2345,7 +2511,7 @@ function BenchmarkCard({
             background: "rgba(0,180,138,0.1)",
             border: "1px solid rgba(0,180,138,0.2)",
             borderRadius: 999,
-            color: "#8FE8D2",
+            color: "#F2F5F2",
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
             fontSize: 10.5,
             fontWeight: 800,
@@ -2376,7 +2542,7 @@ function BenchmarkCard({
                 }}
               >
                 {isSelected ? <span style={{ color: "#00B48A", fontSize: 12, position: "absolute", right: 10, top: 8 }}>✓</span> : null}
-                <div style={{ color: "#6F8798", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>{item.stage}</div>
+                <div style={{ color: "#8FA99A", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>{item.stage}</div>
                 <strong style={{ color: "#F2F5F2", display: "block", fontSize: 12, lineHeight: 1.25 }}>{item.title}</strong>
                 <p style={{ color: "#8FA99A", fontSize: 10.5, lineHeight: 1.3, margin: "4px 0 0" }}>{item.detail}</p>
               </button>
@@ -2393,7 +2559,7 @@ function BenchmarkCard({
       }}>
         <div style={{ padding: "18px 20px 0" }}>
           <div style={{ alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between", marginBottom: 14 }}>
-            <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>
               KPI snapshot
             </div>
             <button
@@ -2402,6 +2568,8 @@ function BenchmarkCard({
               aria-label="Edit benchmark numbers"
               onClick={() => {
                 setMode("entry");
+                setEntryFlow("edit-one");
+                setEditingFieldIndex(null);
                 setCompletedCount(BENCHMARK_WIZARD_FIELDS.length);
               }}
               style={{
@@ -2409,7 +2577,7 @@ function BenchmarkCard({
                 background: "rgba(61,214,140,0.08)",
                 border: "1px solid rgba(61,214,140,0.22)",
                 borderRadius: 7,
-                color: "#3DD68C",
+                color: "#00B48A",
                 cursor: "pointer",
                 display: "inline-flex",
                 flexShrink: 0,
@@ -2428,7 +2596,7 @@ function BenchmarkCard({
           <div style={{
             alignItems: "center",
             borderTop: "1px solid rgba(255,255,255,0.07)",
-            color: "#6F8798",
+            color: "#8FA99A",
             display: "flex",
             fontSize: 11,
             fontWeight: 600,
@@ -2438,7 +2606,7 @@ function BenchmarkCard({
             padding: "10px 0 14px",
           }}>
             <span>{cohortLabel}</span>
-            <span style={{ color: "#556878", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 10.5 }}>n=147</span>
+            <span style={{ color: "#8FA99A", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 10.5 }}>n=147</span>
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "0 20px 20px" }}>
@@ -2457,7 +2625,7 @@ function BenchmarkCard({
                   {showGroup ? (
                     <>
                       <div style={{ color: "#00B48A", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>{row.group}</div>
-                      <div style={{ color: "#556878", fontSize: 10, lineHeight: 1.3, marginTop: 2 }}>{row.sub}</div>
+                      <div style={{ color: "#8FA99A", fontSize: 10, lineHeight: 1.3, marginTop: 2 }}>{row.sub}</div>
                     </>
                   ) : null}
                 </div>
@@ -2466,6 +2634,9 @@ function BenchmarkCard({
                     <span style={{ color: "#F2F5F2", fontSize: 12, fontWeight: 700 }}>{row.label}</span>
                     <BenchmarkPercentileInline field={row.field} />
                   </div>
+                  {row.value != null ? (
+                    <BenchmarkPercentileExplanation compact field={row.field} value={row.value} />
+                  ) : null}
                   <BenchmarkCohortTrack compact field={row.field} marker={row.marker} />
                 </div>
               </div>
@@ -2482,7 +2653,7 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
   const tracks = [
     {
       label: "Development",
-      color: "#3DD68C",
+      color: "#00B48A",
       icon: "⚙️",
       tracked: ["Product roadmap & delivery health", "Code quality & release readiness", "Design approval status"],
       helps: "Senior engineers and product leads embedded in your team — shipping faster, quality intact.",
@@ -2533,7 +2704,7 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
               <span style={{ fontSize: 12, fontWeight: 700, color: t.color }}>{t.label}</span>
             </div>
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#6F8798", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 5 }}>Fuel tracks</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 5 }}>Fuel tracks</div>
               {t.tracked.map(item => (
                 <div key={item} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 3 }}>
                   <span style={{ color: t.color, fontSize: 10, marginTop: 1, flexShrink: 0 }}>·</span>
@@ -2543,7 +2714,7 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
             </div>
             <div style={{
               borderTop: `1px solid ${t.color}18`, paddingTop: 8,
-              fontSize: 11, color: "#D0DDD8", lineHeight: 1.45, fontStyle: "italic",
+              fontSize: 11, color: "#F2F5F2", lineHeight: 1.45, fontStyle: "italic",
             }}>{t.helps}</div>
           </div>
         ))}
@@ -2649,7 +2820,7 @@ function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
       overflow: "hidden",
     }}>
       <div style={{ padding: "13px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", marginBottom: 5, textTransform: "uppercase" }}>
+        <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", marginBottom: 5, textTransform: "uppercase" }}>
           York IE projects
         </div>
         <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800 }}>
@@ -2668,8 +2839,8 @@ function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
             padding: 12,
           }}>
             <div style={{ alignItems: "center", display: "flex", gap: 8, marginBottom: 5 }}>
-              <span style={{ color: "#3DD68C", fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>{project.area}</span>
-              <span style={{ background: "rgba(0,180,138,0.1)", border: "1px solid rgba(0,180,138,0.2)", borderRadius: 999, color: "#8FE8D2", fontSize: 10, fontWeight: 800, padding: "2px 7px" }}>
+              <span style={{ color: "#00B48A", fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>{project.area}</span>
+              <span style={{ background: "rgba(0,180,138,0.1)", border: "1px solid rgba(0,180,138,0.2)", borderRadius: 999, color: "#F2F5F2", fontSize: 10, fontWeight: 800, padding: "2px 7px" }}>
                 {project.status}
               </span>
             </div>
@@ -2714,7 +2885,7 @@ function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
     { icon: "🏆", title: "P90 companies are instrumented", desc: "Better instincts don't explain the benchmark gap — better data does." },
   ];
   const categories = [
-    { label: "Development", color: "#3DD68C", integrations: ["Jira", "Linear", "Launchpad", "Pulse"] },
+    { label: "Development", color: "#00B48A", integrations: ["Jira", "Linear", "Launchpad", "Pulse"] },
     { label: "Marketing",   color: "#2BB8A0", integrations: ["Google Analytics", "Google Ads", "Semrush", "LinkedIn", "Meta"] },
     { label: "RevOps",      color: "#D4924A", integrations: ["HubSpot", "Salesforce"] },
     { label: "FinOps",      color: "#8B76D4", integrations: ["QuickBooks", "Stripe"] },
@@ -2748,7 +2919,7 @@ function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
 
       {/* Available integrations by track */}
       <div style={{ padding: "8px 16px 12px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div style={{ fontSize: 11.5, fontWeight: 700, color: "#6F8798", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>Available integrations</div>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>Available integrations</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {categories.map(cat => (
             <div key={cat.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2805,7 +2976,7 @@ function IntegrationSelector({
         const items = INTEGRATIONS.filter(i => i.category === cat);
         return (
           <div key={cat} style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#556878", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>{cat}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>{cat}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {items.map(item => {
                 const isSelected = selected.includes(item.id);
@@ -2823,17 +2994,17 @@ function IntegrationSelector({
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 9, fontWeight: 800, color: item.color,
                     }}>{item.abbr}</span>
-                    <span style={{ fontSize: 11.5, color: isSelected ? "#3DD68C" : "#8FA99A", fontWeight: isSelected ? 600 : 400 }}>{item.name}</span>
+                    <span style={{ fontSize: 11.5, color: isSelected ? "#00B48A" : "#8FA99A", fontWeight: isSelected ? 600 : 400 }}>{item.name}</span>
                     {"york" in item && item.york && (
-                      <span style={{ fontSize: 9, color: "#3DD68C", background: "rgba(61,214,140,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>York</span>
+                      <span style={{ fontSize: 9, color: "#00B48A", background: "rgba(61,214,140,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>York</span>
                     )}
                     {!("york" in item && item.york) && item.premium && (
                       <span style={{ fontSize: 9, color: "#D4924A", background: "rgba(212,146,74,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 800 }}>Premium · ${item.addOnPrice}/mo</span>
                     )}
                     {!("york" in item && item.york) && !item.premium && (
-                      <span style={{ fontSize: 9, color: "#3DD68C", background: "rgba(61,214,140,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 800 }}>Free</span>
+                      <span style={{ fontSize: 9, color: "#00B48A", background: "rgba(61,214,140,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 800 }}>Free</span>
                     )}
-                    {isSelected && <span style={{ fontSize: 12, color: "#3DD68C" }}>✓</span>}
+                    {isSelected && <span style={{ fontSize: 12, color: "#00B48A" }}>✓</span>}
                   </button>
                 );
               })}
@@ -2850,7 +3021,7 @@ function IntegrationSelector({
           {selected.length > 0 ? `Connect ${selected.length} integration${selected.length > 1 ? "s" : ""}` : "Skip for now"}
         </button>
         {selected.length === 0 && (
-          <span style={{ fontSize: 12, color: "#6F8798" }}>You can add premium connectors anytime from the Connector Hub</span>
+          <span style={{ fontSize: 12, color: "#8FA99A" }}>You can add premium connectors anytime from the Connector Hub</span>
         )}
       </div>
     </div>
@@ -2859,7 +3030,9 @@ function IntegrationSelector({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function FuelOnboardingChat({ onComplete, onManual }: { onComplete: () => void; onManual: () => void }) {
+export type OnboardingBenchmarkValues = BenchmarkValues;
+
+export default function FuelOnboardingChat({ onComplete, onManual }: { onComplete: (benchmark: OnboardingBenchmarkValues | null) => void; onManual: () => void }) {
   const inferredCompanyName = inferCompanyNameFromEmail(LOGGED_IN_EMAIL);
   const inferredDomain = domainFromEmail(LOGGED_IN_EMAIL);
   const inferredProfile = inferredCompanyName
@@ -2890,6 +3063,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
   const benchmarkWorkspaceMsgIdRef = useRef<string | null>(null);
   const benchmarkClosingMsgIdRef = useRef<string | null>(null);
   const benchmarkJourneyStageRef = useRef("");
+  const latestBenchmarkSnapshotRef = useRef<BenchmarkSnapshot | null>(null);
   const prevMessageCountRef = useRef(0);
 
   useEffect(() => {
@@ -2953,6 +3127,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
   }, [pushMessage]);
 
   const handleBenchmarkSnapshotChange = useCallback((snapshot: BenchmarkSnapshot, options?: { initial?: boolean }) => {
+    latestBenchmarkSnapshotRef.current = snapshot;
     benchmarkJourneyStageRef.current = snapshot.journeyStage;
     const analysis = analyzeBenchmarkSnapshot(snapshot);
 
@@ -3311,6 +3486,10 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     processingRef.current = false;
   }, [pushMessage, userData.companyName]);
 
+  const completeOnboarding = useCallback(() => {
+    onComplete(latestBenchmarkSnapshotRef.current?.values ?? null);
+  }, [onComplete]);
+
   const handleStartJourney = useCallback(async () => {
     if (processingRef.current || journeyStarted) return;
     processingRef.current = true;
@@ -3333,9 +3512,9 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     ));
     setCompletedProgress(prev => new Set([...prev, "integrations", "config"]));
     setStep("done");
-    window.setTimeout(onComplete, 700);
+    window.setTimeout(completeOnboarding, 700);
     processingRef.current = false;
-  }, [journeyStarted, onComplete, pushMessage, userData.companyName]);
+  }, [completeOnboarding, journeyStarted, pushMessage, userData.companyName]);
 
   const handleValuePropContinue = useCallback(async () => {
     await handleBenchmarkContinue();
@@ -3423,8 +3602,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
   const handleLaunch = useCallback(() => {
     disableLastChips();
     pushMessage({ role: "user", text: "Start my journey →" });
-    setTimeout(onComplete, 600);
-  }, [disableLastChips, onComplete, pushMessage]);
+    setTimeout(completeOnboarding, 600);
+  }, [completeOnboarding, disableLastChips, pushMessage]);
 
   // ── Input handler ─────────────────────────────────────────────────────────
 
@@ -3523,9 +3702,9 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
               fontSize: 12, fontWeight: 900, color: "#0a1a12",
             }}>F</div>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F2" }}>Fuel</span>
-            <span style={{ fontSize: 12, color: "#6F8798", fontWeight: 500 }}>by York IE</span>
+            <span style={{ fontSize: 12, color: "#8FA99A", fontWeight: 500 }}>by York IE</span>
             <span style={{
-              fontSize: 9, fontWeight: 700, color: "#3DD68C",
+              fontSize: 9, fontWeight: 700, color: "#00B48A",
               background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)",
               borderRadius: 4, padding: "1px 6px", letterSpacing: "0.3px",
             }}>ONBOARDING</span>
@@ -3534,7 +3713,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
             onClick={onManual}
             className="fuel-manual"
             style={{
-              background: "none", border: "none", color: "#556878",
+              background: "none", border: "none", color: "#8FA99A",
               fontSize: 12, cursor: "pointer", transition: "color 0.15s",
             }}
           >
@@ -3610,7 +3789,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                             border: "1px solid rgba(0,180,138,0.18)",
                             borderRadius: msg.role === "ai" ? "4px 12px 12px 12px" : "12px 4px 12px 12px",
                             padding: "11px 14px",
-                            fontSize: 13, color: "#D0DDD8", lineHeight: 1.65,
+                            fontSize: 13, color: "#F2F5F2", lineHeight: 1.65,
                             whiteSpace: "pre-line",
                           }}>
                             {msg.text.split("**").map((part, i) =>
@@ -3627,7 +3806,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                           border: "1px solid rgba(255,255,255,0.07)",
                           borderRadius: msg.role === "ai" ? "4px 12px 12px 12px" : "12px 4px 12px 12px",
                           padding: "11px 14px",
-                          fontSize: 13, color: "#D0DDD8", lineHeight: 1.65,
+                          fontSize: 13, color: "#F2F5F2", lineHeight: 1.65,
                           whiteSpace: "pre-line",
                         }}>
                           {msg.text.split("**").map((part, i) =>
@@ -3718,7 +3897,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                                 York IE will be in touch shortly to match you with the right team.<br />Scorecard is set up and waiting.
                               </div>
                               {!launched && (
-                                <button onClick={() => { setLaunched(true); onComplete(); }} style={{
+                                <button onClick={() => { setLaunched(true); completeOnboarding(); }} style={{
                                   background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
                                   color: "#0a1a12", border: "none", borderRadius: 8,
                                   padding: "10px 28px", fontSize: 13, fontWeight: 800, cursor: "pointer",
@@ -3751,7 +3930,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                               style={{
                                 background: "#172632",
                                 border: "1px solid rgba(61,214,140,0.25)",
-                                color: "#3DD68C", borderRadius: 20,
+                                color: "#00B48A", borderRadius: 20,
                                 padding: "6px 14px", fontSize: 12, fontWeight: 600,
                                 cursor: "pointer", transition: "all 0.15s",
                               }}
@@ -3819,7 +3998,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "all 0.15s",
                   fontSize: 15,
-                  color: inputActive && inputValue.trim() ? "#0a1a12" : "#6F8798",
+                  color: inputActive && inputValue.trim() ? "#0a1a12" : "#8FA99A",
                 }}
               >→</button>
             </div>
@@ -3833,7 +4012,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
             padding: "28px 20px",
             overflowY: "auto",
           }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#556878", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 16 }}>
               What&apos;s getting set up
             </div>
 
@@ -3851,11 +4030,11 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                       fontSize: 10,
                       transition: "all 0.3s",
                     }}>
-                      {done ? <span style={{ color: "#3DD68C" }}>✓</span> : <span style={{ color: "#6F8798" }}>○</span>}
+                      {done ? <span style={{ color: "#00B48A" }}>✓</span> : <span style={{ color: "#8FA99A" }}>○</span>}
                     </div>
                     <span style={{
                       fontSize: 12,
-                      color: done ? "#3DD68C" : current ? "#8FA99A" : "#6F8798",
+                      color: done ? "#00B48A" : current ? "#8FA99A" : "#8FA99A",
                       fontWeight: done ? 600 : 400,
                       transition: "color 0.3s",
                     }}>{item.label}</span>
@@ -3881,10 +4060,10 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                   }}>
                     <div style={{
                       width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                      background: stageReached && i === 0 ? "#3DD68C" : "rgba(255,255,255,0.1)",
+                      background: stageReached && i === 0 ? "#00B48A" : "rgba(255,255,255,0.1)",
                     }} />
                     <span style={{
-                      fontSize: 12, color: stageReached && i === 0 ? "#8FA99A" : "#6F8798",
+                      fontSize: 12, color: stageReached && i === 0 ? "#8FA99A" : "#8FA99A",
                     }}>Stage {i + 1}: {stage}</span>
                   </div>
                 );
@@ -3897,8 +4076,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
               border: "1px solid rgba(61,214,140,0.12)",
               borderRadius: 10, padding: "12px 14px",
             }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#3DD68C", marginBottom: 4 }}>⚡ Connector Hub</div>
-              <div style={{ fontSize: 11, color: "#556878", lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#00B48A", marginBottom: 4 }}>⚡ Connector Hub</div>
+              <div style={{ fontSize: 11, color: "#8FA99A", lineHeight: 1.5 }}>
                 Add integrations and premium connectors anytime from the Connector Hub in your workspace.
               </div>
             </div>

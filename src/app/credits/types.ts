@@ -32,16 +32,3 @@ export type CreditSnapshot = {
 };
 
 export type CreditCosts = Record<CreditActionType, number>;
-
-export type DemoPresetId =
-  | "free-healthy"
-  | "free-running-low"
-  | "free-monthly-empty"
-  | "free-daily-blocked"
-  | "free-just-unblocked"
-  | "pro-healthy"
-  | "pro-running-low"
-  | "pro-monthly-empty"
-  | "pro-daily-blocked"
-  | "pro-just-unblocked"
-  | "pro-after-top-up";

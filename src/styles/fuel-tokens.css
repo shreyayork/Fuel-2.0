@@ -1,0 +1,11 @@
+/* Fuel 2.0 — standard dark UI palette. Use these vars instead of one-off hex colors. */
+:root {
+  --fuel-text: #f2f5f2;
+  --fuel-text-muted: #8fa99a;
+  --fuel-accent: #00b48a;
+  --fuel-surface: #1f3140;
+  --fuel-surface-inset: #0b1720;
+  --fuel-surface-raised: #172632;
+  --fuel-border: rgba(255, 255, 255, 0.09);
+  --fuel-border-accent: rgba(0, 180, 138, 0.28);
+}

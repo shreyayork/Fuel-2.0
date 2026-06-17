@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
 import "./credits/credits.css";
@@ -8,7 +9,6 @@ import {
   CreditBlockBanner,
   CreditToastHost,
   UpgradeModal,
-  DesignPreviewSwitcher,
   useCredits,
   useCreditsOptional,
 } from "./credits";
@@ -2637,6 +2637,7 @@ type IntelligenceItem = {
   title: string;
   confidence?: string;
   sources: IntelligenceSource[];
+  updatedAtMs?: number;
 };
 
 const DATA_ROOM_DOCUMENT_TYPES = [
@@ -2830,9 +2831,10 @@ function createDocumentIntelligence(typeId: string, typeLabel: string, fileName:
 
   const baseKey = typeId.startsWith("custom:") ? "custom" : typeId;
   const rows = templates[baseKey] || templates.pitch_deck;
+  const createdAtMs = Date.now();
 
   return rows.map((row, index) => ({
-    id: `intel-doc-${typeId}-${Date.now() + index}`,
+    id: `intel-doc-${typeId}-${createdAtMs + index}`,
     type: row.type,
     text: row.text,
     highlight: row.highlight,
@@ -2841,7 +2843,69 @@ function createDocumentIntelligence(typeId: string, typeLabel: string, fileName:
     title: row.title,
     confidence: `${84 - index * 2}%`,
     sources: [docSource],
+    updatedAtMs: createdAtMs,
   }));
+}
+
+function inferIntelligenceTypeFromDocument(typeId: string): string {
+  const baseKey = typeId.startsWith("custom:") ? "custom" : typeId;
+  const typeMap: Record<string, string> = {
+    pitch_deck: "fundraising",
+    investor_notes: "fundraising",
+    investment_memo: "fundraising",
+    cap_table: "fundraising",
+    board_deck: "strategic",
+    financial_model: "finance",
+    product_roadmap: "product",
+    customer_contract: "gtm",
+    due_diligence: "strategic",
+    custom: "strategic",
+  };
+  return typeMap[baseKey] || "strategic";
+}
+
+function createSourceIntelligence({
+  title,
+  description,
+  document,
+}: {
+  title: string;
+  description: string;
+  document?: { typeId: string; typeLabel: string; fileName: string };
+}): IntelligenceItem {
+  const now = Date.now();
+  const trimmedTitle = title.trim();
+  const trimmedDescription = description.trim();
+  const documentContext = document ? `${document.typeLabel} · ${document.fileName}` : "";
+  const sourceDescription = [trimmedDescription, documentContext].filter(Boolean).join(" · ")
+    || (document ? `${document.typeLabel} attached as source context.` : "Manually added source context for intelligence generation.");
+
+  const sources: IntelligenceSource[] = [{
+    id: `src-manual-${now}`,
+    title: trimmedTitle,
+    description: sourceDescription,
+    system: document ? document.typeId : "manual",
+    sourceType: document ? document.typeId : "private_note",
+    meta: document ? `Private · ${document.typeLabel}` : "shreya.g@york.ie",
+    date: new Date().toLocaleDateString("en-US"),
+    snippet: trimmedDescription || documentContext || trimmedTitle,
+    ref: document ? `private:${document.typeId}:${document.fileName}` : `manual:note:${now}`,
+  }];
+
+  const highlight = trimmedDescription || documentContext || "Manual source entry";
+
+  return {
+    id: `intel-manual-${now}`,
+    type: document ? inferIntelligenceTypeFromDocument(document.typeId) : "strategic",
+    text: trimmedTitle,
+    highlight,
+    date: "2026-q2",
+    age: "Just now",
+    title: trimmedDescription || trimmedTitle,
+    confidence: document ? "78%" : "72%",
+    sources,
+    updatedAtMs: now,
+  };
 }
 
 type IntelligenceFocus = {
@@ -2923,6 +2987,33 @@ const EMPTY_BENCHMARK_FORM: BenchmarkFormValues = {
   biggestChallenges: "",
 };
 
+export type OnboardingBenchmarkInput = {
+  arr: string;
+  arrGrowth: string;
+  nrr: string;
+  logoRetention: string;
+  monthlyBurn: string;
+  cashOnHand: string;
+  grossMargin: string;
+  headcount: string;
+  payingCustomers: string;
+};
+
+function toBenchmarkFormValues(onboarding: OnboardingBenchmarkInput): BenchmarkFormValues {
+  return {
+    ...EMPTY_BENCHMARK_FORM,
+    arr: onboarding.arr,
+    arrGrowth: onboarding.arrGrowth,
+    nrr: onboarding.nrr,
+    logoRetention: onboarding.logoRetention,
+    monthlyBurn: onboarding.monthlyBurn,
+    cashOnHand: onboarding.cashOnHand,
+    grossMargin: onboarding.grossMargin,
+    headcount: onboarding.headcount,
+    paidCustomers: onboarding.payingCustomers,
+  };
+}
+
 const BENCHMARK_COHORT_ROWS = [
   { key: "arr", metric: "ARR", bot25: "$150K", median: "$500K", top25: "$1.2M" },
   { key: "arrGrowth", metric: "ARR growth (YoY)", bot25: "120%", median: "200%", top25: "350%" },
@@ -2961,6 +3052,14 @@ function formatRelativeAge(timestampMs: number) {
   if (hours < 24) return `${hours}H AGO`;
   const days = Math.floor(hours / 24);
   return `${days}D AGO`;
+}
+
+function getIntelligenceUpdatedAtMs(item: IntelligenceItem, benchmarkSubmittedAtMs?: number | null) {
+  if (item.updatedAtMs) return item.updatedAtMs;
+  if (item.id.startsWith("intel-bench-") && benchmarkSubmittedAtMs) return benchmarkSubmittedAtMs;
+  const stampedId = item.id.match(/-(\d{10,})(?:-\d+)?$/);
+  if (stampedId) return Number(stampedId[1]);
+  return 0;
 }
 
 function formatBenchmarkValue(key: string, raw: string) {
@@ -3026,6 +3125,7 @@ function createBenchmarkIntelligence(values: BenchmarkFormValues, period = BENCH
         title: `${spec.label}: ${formatted}`,
         confidence: "Submitted",
         sources: [benchmarkSource],
+        updatedAtMs: submittedAtMs,
       };
     });
 
@@ -3199,12 +3299,14 @@ function formatBenchmarkTableValue(metric: string, value: string) {
 function QuarterlySubmissionPanel({
   submission,
   onEdit,
+  highlight = false,
 }: {
   submission: BenchmarkSubmission;
   onEdit: () => void;
+  highlight?: boolean;
 }) {
   return (
-    <div className="quarterly-submission-panel">
+    <div className={`quarterly-submission-panel${highlight ? " blink-once" : ""}`}>
       <div className="quarterly-submission-head">
         <div className="quarterly-submission-title-row">
           <strong>Quarterly submission · {submission.period}</strong>
@@ -3243,136 +3345,6 @@ function QuarterlySubmissionPanel({
     </div>
   );
 }
-
-const INITIAL_INTELLIGENCE_ITEMS: IntelligenceItem[] = [
-  {
-    id: "inv-intros",
-    type: "fundraising",
-    text: "Investor intros wanted",
-    highlight: "Innovius Capital",
-    date: "2026-q2",
-    age: "15d ago",
-    title: "I'm pleased to introduce you to Ethan from Innovius Capital. He'd love to learn more about patriotpay and your capital strategy.",
-    confidence: "85%",
-    sources: [{
-      id: "src-innovius",
-      title: "Innovius Capital // patriotpay",
-      description: "Email thread between York IE and Innovius Capital introducing Ethan for a capital strategy conversation.",
-      system: "hubspot",
-      sourceType: "hubspot_activity",
-      meta: "tom@york.ie",
-      date: "12/05/2026",
-      snippet: "I'm pleased to introduce you to Ethan from Innovius Capital. He'd love to learn more about patriotpay and your capital strategy.",
-      ref: "hubspot:email:109494280866",
-    }],
-  },
-  {
-    id: "gtm-challenges",
-    type: "gtm",
-    text: "Channel / GTM challenges",
-    highlight: "Stuck creating bespoke solutions for each customer; only 20% overlap between customer data models.",
-    date: "2026-q1",
-    age: "1mo ago",
-    title: "Major bottleneck: stuck creating bespoke solutions for each customer. Currently only 20% overlap between customer data models.",
-    confidence: "78%",
-    sources: [
-      {
-        id: "src-meeting-york",
-        title: "patriotpay and York IE",
-        description: "Weekly check-in covering customer onboarding bottlenecks and fragmented data models across accounts.",
-        system: "granola",
-        sourceType: "meeting_transcript",
-        meta: "mike@york.ie",
-        date: "11/08/2025",
-        snippet: "Major bottleneck: stuck creating bespoke solutions for each customer. Currently only 20% overlap between customer data models.",
-        ref: "granola:meeting:882441",
-      },
-      {
-        id: "src-funnel-email",
-        title: "AI won't fix your broken funnel (but this will)",
-        description: "Follow-up email discussing custom implementations and per-customer data schema rebuilds.",
-        system: "hubspot",
-        sourceType: "hubspot_activity",
-        meta: "bryan@york.ie - michael.farrand@patriotpay.com",
-        date: "11/22/2025",
-        snippet: "Each customer wants a slightly different data schema — we're rebuilding integrations per deal.",
-        ref: "hubspot:email:109388220441",
-      },
-    ],
-  },
-  {
-    id: "team-headcount",
-    type: "team",
-    text: "FTE headcount",
-    highlight: "2",
-    date: "2026-q1",
-    confidence: "50%",
-    age: "1mo ago",
-    title: "Anna and Aditya joined.",
-    sources: [],
-  },
-  {
-    id: "strategic-opportunities",
-    type: "strategic",
-    text: "Key opportunities",
-    highlight: "Build standardized platform with customer portal, AI model outputs, reporting, and troubleshooting widgets.",
-    date: "2026-q1",
-    age: "1mo ago",
-    title: "Planned platform features: customer login portal, AI model outputs, reporting, and troubleshooting widgets.",
-    sources: [{
-      id: "src-york-meeting",
-      title: "patriotpay and York IE",
-      description: "Roadmap discussion covering platform standardization and planned customer-facing portal features.",
-      system: "granola",
-      sourceType: "meeting_transcript",
-      meta: "mike@york.ie",
-      date: "11/08/2025",
-      snippet: "Planned platform features: customer login portal, AI model outputs, reporting, and troubleshooting widgets.",
-      ref: "granola:meeting:882441",
-    }],
-  },
-  {
-    id: "gtm-motion",
-    type: "gtm",
-    text: "Primary GTM motion",
-    highlight: "Sales-led with heavy customer discovery and workshop-based onboarding.",
-    date: "2026-q1",
-    age: "1mo ago",
-    title: "Customer discovery phase takes months. Workshop-heavy process to build trust.",
-    sources: [],
-  },
-  {
-    id: "product-breadth",
-    type: "product",
-    text: "Product portfolio breadth",
-    highlight: "1",
-    date: "2026-q1",
-    confidence: "60%",
-    age: "1mo ago",
-    title: "Current state: no customer portal exists. Customers receive data via Excel, Snowflake, or original format.",
-    sources: [],
-  },
-  {
-    id: "strategic-risks",
-    type: "strategic",
-    text: "Key risks",
-    highlight: "Data inconsistency across geographies; gappy datasets require estimates.",
-    date: "2026-q1",
-    age: "1mo ago",
-    title: "Data challenges across regions. Gappy, inconsistent datasets require estimates.",
-    sources: [{
-      id: "src-data-risk",
-      title: "patriotpay and York IE",
-      description: "Operations review noting regional data gaps and estimation requirements across geographies.",
-      system: "granola",
-      sourceType: "meeting_transcript",
-      meta: "mike@york.ie",
-      date: "10/29/2025",
-      snippet: "Data challenges across regions. Gappy, inconsistent datasets require estimates.",
-      ref: "granola:meeting:881902",
-    }],
-  },
-];
 
 function IntelligenceProvenanceSidebar({
   item,
@@ -3576,11 +3548,15 @@ function DocumentUploadDropdown({
   onUpload,
   scope = "all",
   documentSlots,
+  inline = false,
+  attachedFileName,
 }: {
   processingTypeId?: string | null;
   onUpload: (typeId: string, typeLabel: string, file: File) => void;
   scope?: "all" | "custom-only";
   documentSlots?: DataRoomDocumentSlot[];
+  inline?: boolean;
+  attachedFileName?: string;
 }) {
   const credits = useCreditsOptional();
   const creditBlocked = credits?.generationBlocked ?? false;
@@ -3614,8 +3590,10 @@ function DocumentUploadDropdown({
   };
 
   const renderTriggerLabel = () => {
-    if (isProcessing) return "Processing document…";
+    if (isProcessing) return inline ? "Processing…" : "Processing document…";
     if (isCustomOnly) return "Add custom document ▾";
+    if (inline && attachedFileName) return "Change document ▾";
+    if (inline) return "Document ▾";
     if (activeCount > 0) return `Upload document · ${activeCount} ▾`;
     return "Upload document ▾";
   };
@@ -3637,6 +3615,127 @@ function DocumentUploadDropdown({
     );
   };
 
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = React.useState<{ top: number; left: number; minWidth: number } | null>(null);
+
+  const updateMenuPosition = useCallback(() => {
+    if (!wrapRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    const menuWidth = inline ? 260 : 240;
+    const left = Math.max(12, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 12));
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const estimatedHeight = 280;
+    const top = spaceBelow >= estimatedHeight + 12
+      ? rect.bottom + 8
+      : Math.max(12, rect.top - estimatedHeight - 8);
+
+    setMenuPosition({
+      top,
+      left,
+      minWidth: Math.max(rect.width, menuWidth),
+    });
+  }, [inline]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPosition(null);
+      return;
+    }
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (wrapRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const renderMenuContent = () => {
+    if (isCustomOnly) {
+      return (
+        <div className="document-upload-custom">
+          <span>
+            Custom document
+            {customSlots.length ? <em className="document-upload-section-count">{customSlots.length} on file</em> : null}
+          </span>
+          <input
+            type="text"
+            value={customLabel}
+            placeholder="Document type name"
+            onChange={(event) => setCustomLabel(event.target.value)}
+          />
+          <button
+            type="button"
+            disabled={!customLabel.trim()}
+            onClick={() => beginUpload("custom", customLabel.trim())}
+          >
+            Choose file
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="document-upload-menu-head">Attach a document</div>
+        {DATA_ROOM_DOCUMENT_TYPES.filter(type => type.id !== "custom").map(type => renderOption(type.id, type.label))}
+        {customSlots.map(slot => renderOption(slot.typeId, slot.typeLabel))}
+        <div className="document-upload-custom">
+          <span>
+            Custom document
+            {customSlots.length ? <em className="document-upload-section-count">{customSlots.length} on file</em> : null}
+          </span>
+          <input
+            type="text"
+            value={customLabel}
+            placeholder="Document type name"
+            onChange={(event) => setCustomLabel(event.target.value)}
+          />
+          <button
+            type="button"
+            disabled={!customLabel.trim()}
+            onClick={() => beginUpload("custom", customLabel.trim())}
+          >
+            Choose file
+          </button>
+        </div>
+      </>
+    );
+  };
+
+  const menu = open && menuPosition ? (
+    <div
+      ref={menuRef}
+      className={`document-upload-menu document-upload-menu-floating${inline ? " document-upload-menu-inline" : ""}`}
+      style={{
+        top: menuPosition.top,
+        left: menuPosition.left,
+        minWidth: menuPosition.minWidth,
+      }}
+    >
+      {renderMenuContent()}
+    </div>
+  ) : null;
+
   return (
     <>
       <input
@@ -3647,11 +3746,16 @@ function DocumentUploadDropdown({
         disabled={isProcessing}
         onChange={handleFileChange}
       />
-      <div className={`document-upload-wrap${isCustomOnly ? " document-upload-wrap-custom-only" : ""}`}>
+      <div
+        ref={wrapRef}
+        className={`document-upload-wrap${isCustomOnly ? " document-upload-wrap-custom-only" : ""}${inline ? " document-upload-wrap-inline" : ""}${open ? " is-open" : ""}`}
+      >
         <button
           type="button"
-          className={`${isCustomOnly ? "data-room-add-custom-btn" : "signals-private-btn secondary"} document-upload-trigger${isProcessing ? " processing" : ""}${creditBlocked ? " credit-action-disabled" : ""}`}
+          className={`${inline ? "document-upload-trigger-inline" : isCustomOnly ? "data-room-add-custom-btn" : "signals-private-btn secondary"} document-upload-trigger${isProcessing ? " processing" : ""}${open ? " is-open" : ""}${creditBlocked ? " credit-action-disabled" : ""}`}
           disabled={isProcessing}
+          aria-expanded={open}
+          aria-haspopup="listbox"
           onClick={() => {
             if (creditBlocked) {
               credits?.setPopoverOpen(true);
@@ -3662,56 +3766,8 @@ function DocumentUploadDropdown({
         >
           {renderTriggerLabel()}
         </button>
-        {open ? (
-          <div className="document-upload-menu">
-            {isCustomOnly ? (
-              <div className="document-upload-custom">
-                <span>
-                  Custom document
-                  {customSlots.length ? <em className="document-upload-section-count">{customSlots.length} on file</em> : null}
-                </span>
-                <input
-                  type="text"
-                  value={customLabel}
-                  placeholder="Document type name"
-                  onChange={(event) => setCustomLabel(event.target.value)}
-                />
-                <button
-                  type="button"
-                  disabled={!customLabel.trim()}
-                  onClick={() => beginUpload("custom", customLabel.trim())}
-                >
-                  Choose file
-                </button>
-              </div>
-            ) : (
-              <>
-                {DATA_ROOM_DOCUMENT_TYPES.filter(type => type.id !== "custom").map(type => renderOption(type.id, type.label))}
-                {customSlots.map(slot => renderOption(slot.typeId, slot.typeLabel))}
-                <div className="document-upload-custom">
-                  <span>
-                    Custom document
-                    {customSlots.length ? <em className="document-upload-section-count">{customSlots.length} on file</em> : null}
-                  </span>
-                  <input
-                    type="text"
-                    value={customLabel}
-                    placeholder="Document type name"
-                    onChange={(event) => setCustomLabel(event.target.value)}
-                  />
-                  <button
-                    type="button"
-                    disabled={!customLabel.trim()}
-                    onClick={() => beginUpload("custom", customLabel.trim())}
-                  >
-                    Choose file
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        ) : null}
       </div>
+      {menu ? createPortal(menu, document.body) : null}
     </>
   );
 }
@@ -3759,14 +3815,8 @@ function DocumentRowUploadButton({
 }
 
 function PrivateDataCompactStrip({
-  documentSlots,
-  processingDocumentTypeId = null,
-  onUploadDocument,
   onUpdatePeriod,
 }: {
-  documentSlots: DataRoomDocumentSlot[];
-  processingDocumentTypeId?: string | null;
-  onUploadDocument: (typeId: string, typeLabel: string, file: File) => void;
   onUpdatePeriod: () => void;
 }) {
   return (
@@ -3787,11 +3837,6 @@ function PrivateDataCompactStrip({
         </label>
       </div>
       <div className="signals-private-strip-actions">
-        <DocumentUploadDropdown
-          documentSlots={documentSlots}
-          processingTypeId={processingDocumentTypeId}
-          onUpload={onUploadDocument}
-        />
         <button type="button" className="signals-private-btn primary" onClick={onUpdatePeriod}>
           Update this period
         </button>
@@ -3884,6 +3929,7 @@ function SignalsPage({
   documentSlots,
   processingDocumentTypeId = null,
   onUploadDocument,
+  onPersistSourceDocument,
   onOpenDataRoom,
   intelligenceItems,
   setIntelligenceItems,
@@ -3892,6 +3938,7 @@ function SignalsPage({
   benchmarkSubmission = null,
   onEditBenchmark,
   benchmarkBlinkIds = [],
+  activeTourTarget,
 }: {
   isProfileComplete: boolean;
   onLogBenchmarkData: () => void;
@@ -3900,6 +3947,7 @@ function SignalsPage({
   documentSlots: DataRoomDocumentSlot[];
   processingDocumentTypeId?: string | null;
   onUploadDocument: (typeId: string, typeLabel: string, file: File) => void;
+  onPersistSourceDocument?: (typeId: string, typeLabel: string, file: File, intelligenceIds: string[]) => void;
   onOpenDataRoom: () => void;
   intelligenceItems: IntelligenceItem[];
   setIntelligenceItems: React.Dispatch<React.SetStateAction<IntelligenceItem[]>>;
@@ -3908,6 +3956,7 @@ function SignalsPage({
   benchmarkSubmission?: BenchmarkSubmission | null;
   onEditBenchmark?: () => void;
   benchmarkBlinkIds?: string[];
+  activeTourTarget?: string;
 }) {
   const timelinePanelRef = useRef<HTMLDivElement>(null);
   const [selectedIntelligenceId, setSelectedIntelligenceId] = useState<string | null>(null);
@@ -3942,11 +3991,45 @@ function SignalsPage({
     [visibleIntelligenceItems],
   );
   const showQuarterlySubmission = Boolean(
-    isProfileComplete
-    && benchmarkSubmission
+    benchmarkSubmission
     && !intelligenceFocusActive
     && benchmarkIntelligenceItems.length > 0,
   );
+  type TimelineBlock =
+    | { kind: "benchmark"; updatedAtMs: number; items: IntelligenceItem[]; submission: BenchmarkSubmission }
+    | { kind: "intelligence"; updatedAtMs: number; item: IntelligenceItem };
+
+  const timelineBlocks = useMemo(() => {
+    const blocks: TimelineBlock[] = [];
+
+    if (showQuarterlySubmission && benchmarkSubmission && benchmarkIntelligenceItems.length > 0) {
+      blocks.push({
+        kind: "benchmark",
+        updatedAtMs: benchmarkSubmission.submittedAtMs,
+        items: benchmarkIntelligenceItems,
+        submission: benchmarkSubmission,
+      });
+    }
+
+    otherIntelligenceItems.forEach(item => {
+      blocks.push({
+        kind: "intelligence",
+        updatedAtMs: getIntelligenceUpdatedAtMs(item, benchmarkSubmission?.submittedAtMs),
+        item,
+      });
+    });
+
+    return blocks.sort((left, right) => right.updatedAtMs - left.updatedAtMs);
+  }, [
+    benchmarkIntelligenceItems,
+    benchmarkSubmission,
+    otherIntelligenceItems,
+    showQuarterlySubmission,
+  ]);
+  const showIntelligenceTimeline = isProfileComplete
+    || intelligenceFocusActive
+    || Boolean(benchmarkSubmission)
+    || intelligenceItems.some(item => !item.id.startsWith("intel-bench-"));
   const selectedIntelligence = intelligenceItems.find(item => item.id === selectedIntelligenceId) || null;
 
   useEffect(() => {
@@ -3995,7 +4078,13 @@ function SignalsPage({
 
   const handleIntelligenceGenerated = (item: IntelligenceItem) => {
     setIntelligenceItems(previous => [item, ...previous]);
-    setSelectedIntelligenceId(item.id);
+    setSelectedIntelligenceId(null);
+    setBlinkingIntelligenceIds([item.id]);
+    window.setTimeout(() => setBlinkingIntelligenceIds([]), 1200);
+    window.setTimeout(() => {
+      const row = timelinePanelRef.current?.querySelector(`[data-intelligence-id="${item.id}"]`);
+      row?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 100);
   };
 
   const resetLogForm = () => {
@@ -4018,6 +4107,7 @@ function SignalsPage({
       title: logNote.trim() || logValue.trim(),
       confidence: "Manual",
       sources: [],
+      updatedAtMs: Date.now(),
     });
     resetLogForm();
     setShowLogForm(false);
@@ -4073,6 +4163,7 @@ function SignalsPage({
       <div
         className={`signals-timeline-row${isBenchmarkRow ? " signals-timeline-row-benchmark" : ""}${selectedIntelligenceId === row.id ? " selected" : ""}${blinkingIntelligenceIds.includes(row.id) || benchmarkBlinkIds.includes(row.id) ? " blink-once" : ""}`}
         key={row.id}
+        data-intelligence-id={row.id}
         role="button"
         tabIndex={0}
         onClick={() => setSelectedIntelligenceId(row.id)}
@@ -4234,14 +4325,24 @@ function SignalsPage({
         </div>
       ) : null}
       <div className="signals-timeline-list">
-        {benchmarkIntelligenceItems.map(renderTimelineRow)}
-        {showQuarterlySubmission && benchmarkSubmission ? (
-          <QuarterlySubmissionPanel
-            submission={benchmarkSubmission}
-            onEdit={onEditBenchmark || (() => undefined)}
-          />
-        ) : null}
-        {otherIntelligenceItems.map(renderTimelineRow)}
+        {timelineBlocks.map((block) => {
+          if (block.kind === "benchmark") {
+            const benchmarkBlinking = block.items.some(item => (
+              blinkingIntelligenceIds.includes(item.id) || benchmarkBlinkIds.includes(item.id)
+            ));
+            return (
+              <React.Fragment key={`benchmark-${block.submission.submittedAtMs}`}>
+                {block.items.map(renderTimelineRow)}
+                <QuarterlySubmissionPanel
+                  submission={block.submission}
+                  onEdit={onEditBenchmark || (() => undefined)}
+                  highlight={benchmarkBlinking}
+                />
+              </React.Fragment>
+            );
+          }
+          return renderTimelineRow(block.item);
+        })}
       </div>
       {isProfileComplete && !benchmarkSubmission ? (
         <div className="signals-footnote">
@@ -4255,18 +4356,16 @@ function SignalsPage({
     return (
       <section className="signals-screenshot-page">
         <CreditBlockBanner />
-        <PrivateDataCompactStrip
-          documentSlots={documentSlots}
-          processingDocumentTypeId={processingDocumentTypeId}
-          onUploadDocument={handleDocumentUpload}
-          onUpdatePeriod={onUpdatePeriod}
-        />
+        <PrivateDataCompactStrip onUpdatePeriod={onUpdatePeriod} />
 
         {documentNoticeBanner}
 
         <ContextFeedPage
           onOpenConnectors={onLinkConnectors}
           onIntelligenceGenerated={handleIntelligenceGenerated}
+          documentSlots={documentSlots}
+          onPersistSourceDocument={onPersistSourceDocument}
+          highlightAddSource={activeTourTarget === "add-source"}
         />
 
         {intelligenceTimelinePanel}
@@ -4306,11 +4405,6 @@ function SignalsPage({
           <button type="button" className="signals-private-btn primary" onClick={onLogBenchmarkData}>
             Log benchmark data →
           </button>
-          <DocumentUploadDropdown
-            documentSlots={documentSlots}
-            processingTypeId={processingDocumentTypeId}
-            onUpload={handleDocumentUpload}
-          />
         </div>
       </div>
 
@@ -4340,9 +4434,13 @@ function SignalsPage({
       <ContextFeedPage
         onOpenConnectors={onLinkConnectors}
         onIntelligenceGenerated={handleIntelligenceGenerated}
+        documentSlots={documentSlots}
+        processingDocumentTypeId={processingDocumentTypeId}
+        onPersistSourceDocument={onPersistSourceDocument}
+        highlightAddSource={activeTourTarget === "add-source"}
       />
 
-      {intelligenceFocusActive ? intelligenceTimelinePanel : null}
+      {showIntelligenceTimeline ? intelligenceTimelinePanel : null}
 
       {selectedIntelligence ? (
         <IntelligenceProvenanceSidebar
@@ -4750,23 +4848,24 @@ function OverviewPage({
 
   return (
     <section className="overview-tour-page">
-      <div className="overview-finish-profile-panel">
-        <div>
-          <span>{profileComplete ? "Profile data added" : "Profile setup required"}</span>
-          <h3>{profileComplete ? "Review your profile to keep Fuel recommendations accurate" : "Finish your profile to unlock Fuel recommendations"}</h3>
-          <p>
-            {profileComplete
-              ? `Fuel has company data on file for ${company.displayName}. Review it when anything changes so intelligence, initiatives, playbooks, and benchmark context stay accurate.`
-              : `The more complete your company data is, the better Fuel can identify intelligence, recommend initiatives, suggest the right playbooks, and generate useful operating context for ${company.displayName}.`}
-          </p>
+      {!profileComplete ? (
+        <div className="overview-finish-profile-panel">
+          <div>
+            <span>Profile setup required</span>
+            <h3>Finish your profile to unlock Fuel recommendations</h3>
+            <p>
+              The more complete your company data is, the better Fuel can identify intelligence, recommend initiatives, suggest the right playbooks, and generate useful operating context for {company.displayName}.
+            </p>
+          </div>
+          <button
+            className={`signals-finish-profile-action ${activeTourTarget === "finish-profile" ? "tour-highlight" : ""}`}
+            data-tour-target={activeTourTarget === "finish-profile" ? "finish-profile" : undefined}
+            onClick={onEditProfile}
+          >
+            Finish profile
+          </button>
         </div>
-        <button
-          className={`signals-finish-profile-action ${activeTourTarget === "finish-profile" ? "tour-highlight" : ""}`}
-          onClick={onEditProfile}
-        >
-          {profileComplete ? "Review profile" : "Finish profile"}
-        </button>
-      </div>
+      ) : null}
       <div className="overview-metric-grid">
         {stats.map(stat => (
           <div className={`overview-metric-card ${stat.missing ? "missing" : ""}`} key={stat.label}>
@@ -4889,11 +4988,12 @@ function OverviewPage({
   );
 }
 
-function GuidedTourOverlay({ step, total, title, text, onNext, onPrevious, onSkip }: {
+function GuidedTourOverlay({ step, total, title, text, highlightTarget, onNext, onPrevious, onSkip }: {
   step: number;
   total: number;
   title: string;
   text: string;
+  highlightTarget?: string;
   onNext: () => void;
   onPrevious: () => void;
   onSkip: () => void;
@@ -4902,31 +5002,50 @@ function GuidedTourOverlay({ step, total, title, text, onNext, onPrevious, onSki
 
   useEffect(() => {
     function positionPopover() {
-      const highlighted = document.querySelector(".tour-highlight");
+      const highlighted = highlightTarget
+        ? document.querySelector(`[data-tour-target="${highlightTarget}"]`)
+        : document.querySelector(".tour-highlight");
       if (!highlighted) {
         setPopoverStyle({});
         return;
       }
 
+      highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
+
       const rect = highlighted.getBoundingClientRect();
       const popoverWidth = 306;
+      const popoverHeight = 200;
       const pageMargin = 24;
+      const gap = 16;
       const left = Math.min(
         Math.max(rect.left, pageMargin),
-        window.innerWidth - popoverWidth - pageMargin
+        window.innerWidth - popoverWidth - pageMargin,
       );
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const placeAbove = spaceBelow < popoverHeight + gap + pageMargin;
+      const top = placeAbove
+        ? Math.max(pageMargin, rect.top - popoverHeight - gap)
+        : rect.bottom + gap;
 
       setPopoverStyle({
         left,
         right: "auto",
-        top: rect.bottom + 24,
+        top,
       });
     }
 
     positionPopover();
+    const frame = window.requestAnimationFrame(positionPopover);
+    const retry = window.setTimeout(positionPopover, 120);
+    const retryLate = window.setTimeout(positionPopover, 320);
     window.addEventListener("resize", positionPopover);
-    return () => window.removeEventListener("resize", positionPopover);
-  }, [step]);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(retry);
+      window.clearTimeout(retryLate);
+      window.removeEventListener("resize", positionPopover);
+    };
+  }, [step, highlightTarget]);
 
   return (
     <div className="guided-tour-overlay">
@@ -4975,9 +5094,17 @@ function SignalsLoadingPage() {
 function ContextFeedPage({
   onOpenConnectors,
   onIntelligenceGenerated,
+  documentSlots,
+  processingDocumentTypeId = null,
+  onPersistSourceDocument,
+  highlightAddSource = false,
 }: {
   onOpenConnectors: () => void;
   onIntelligenceGenerated?: (item: IntelligenceItem) => void;
+  documentSlots?: DataRoomDocumentSlot[];
+  processingDocumentTypeId?: string | null;
+  onPersistSourceDocument?: (typeId: string, typeLabel: string, file: File, intelligenceIds: string[]) => void;
+  highlightAddSource?: boolean;
 }) {
   const { tryAction, generationBlocked, setPopoverOpen } = useCredits();
   type ContextConnector = {
@@ -4999,6 +5126,7 @@ function ContextFeedPage({
   const [showSourceForm, setShowSourceForm] = useState(false);
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceDescription, setSourceDescription] = useState("");
+  const [attachedDocument, setAttachedDocument] = useState<{ typeId: string; typeLabel: string; file: File } | null>(null);
   const [signalsGenerated, setSignalsGenerated] = useState(false);
   const contextConnectors: ContextConnector[] = [
     {
@@ -5186,43 +5314,48 @@ function ContextFeedPage({
     setSignalsGenerated(false);
     setSourceTitle("");
     setSourceDescription("");
+    setAttachedDocument(null);
   };
 
   const cancelAddSource = () => {
     setShowSourceForm(false);
     setSourceTitle("");
     setSourceDescription("");
+    setAttachedDocument(null);
+  };
+
+  const handleAttachDocument = (typeId: string, typeLabel: string, file: File) => {
+    setAttachedDocument({ typeId, typeLabel, file });
   };
 
   const handleGenerateIntelligence = () => {
     if (!sourceTitle.trim()) return;
     tryAction("generateSource", () => {
-      const sourceId = `src-manual-${Date.now()}`;
-      onIntelligenceGenerated?.({
-        id: `intel-manual-${Date.now()}`,
-        type: "strategic",
-        text: sourceTitle.trim(),
-        highlight: sourceDescription.trim() || "Manual source entry",
-        date: "2026-q2",
-        age: "Just now",
-        title: sourceDescription.trim() || sourceTitle.trim(),
-        confidence: "72%",
-        sources: [{
-          id: sourceId,
-          title: sourceTitle.trim(),
-          description: sourceDescription.trim() || "Manually added source context for intelligence generation.",
-          system: "manual",
-          sourceType: "private_note",
-          meta: "shreya.g@york.ie",
-          date: new Date().toLocaleDateString("en-US"),
-          snippet: sourceDescription.trim() || sourceTitle.trim(),
-          ref: `manual:note:${sourceId}`,
-        }],
+      const item = createSourceIntelligence({
+        title: sourceTitle,
+        description: sourceDescription,
+        document: attachedDocument
+          ? {
+              typeId: attachedDocument.typeId,
+              typeLabel: attachedDocument.typeLabel,
+              fileName: attachedDocument.file.name,
+            }
+          : undefined,
       });
+      onIntelligenceGenerated?.(item);
+      if (attachedDocument && onPersistSourceDocument) {
+        onPersistSourceDocument(
+          attachedDocument.typeId,
+          attachedDocument.typeLabel,
+          attachedDocument.file,
+          [item.id],
+        );
+      }
       setSignalsGenerated(true);
       setShowSourceForm(false);
       setSourceTitle("");
       setSourceDescription("");
+      setAttachedDocument(null);
     });
   };
 
@@ -5256,7 +5389,14 @@ function ContextFeedPage({
               </>
             ) : (
               <>
-                <button type="button" onClick={startAddSource}>+ Add a source</button>
+                <button
+                  type="button"
+                  className={highlightAddSource ? "tour-highlight" : ""}
+                  data-tour-target={highlightAddSource ? "add-source" : undefined}
+                  onClick={startAddSource}
+                >
+                  + Add a source
+                </button>
               </>
             )}
           </div>
@@ -5264,16 +5404,35 @@ function ContextFeedPage({
 
         {showSourceForm ? (
           <div className="source-add-form">
-            <label>
+            <label className="source-add-form-title-label">
               <span>Title</span>
-              <input
-                type="text"
-                value={sourceTitle}
-                onChange={(event) => setSourceTitle(event.target.value)}
-                placeholder="e.g. Q3 enterprise pipeline risk"
-                autoFocus
-              />
+              <div className="source-add-form-title-row">
+                <input
+                  type="text"
+                  value={sourceTitle}
+                  onChange={(event) => setSourceTitle(event.target.value)}
+                  placeholder="e.g. Q3 enterprise pipeline risk"
+                  autoFocus
+                />
+                {onPersistSourceDocument ? (
+                  <DocumentUploadDropdown
+                    inline
+                    documentSlots={documentSlots}
+                    onUpload={handleAttachDocument}
+                    attachedFileName={attachedDocument?.file.name}
+                  />
+                ) : null}
+              </div>
             </label>
+            {attachedDocument ? (
+              <div className="source-attached-document">
+                <span>
+                  <strong>{attachedDocument.typeLabel}</strong>
+                  <em>{attachedDocument.file.name}</em>
+                </span>
+                <button type="button" onClick={() => setAttachedDocument(null)}>Remove</button>
+              </div>
+            ) : null}
             <label>
               <span>Description</span>
               <textarea
@@ -5360,12 +5519,14 @@ function ProfileUsagePanel({
   userEmail,
   onClose,
   onUpgrade,
+  onTopUp,
 }: {
   snapshot: CreditSnapshot;
   userName: string;
   userEmail: string;
   onClose: () => void;
   onUpgrade: () => void;
+  onTopUp?: () => void;
 }) {
   const remaining = totalRemaining(snapshot);
   const usedPercent = Math.round((1 - monthlyRemainingRatio(snapshot)) * 100);
@@ -5383,6 +5544,10 @@ function ProfileUsagePanel({
       {snapshot.plan === "free" ? (
         <button type="button" className="profile-usage-upgrade-link" onClick={onUpgrade}>
           Upgrade to Pro →
+        </button>
+      ) : onTopUp ? (
+        <button type="button" className="profile-usage-upgrade-link" onClick={onTopUp}>
+          Top up credits →
         </button>
       ) : null}
       <div className="profile-usage-plan">
@@ -5416,7 +5581,6 @@ function AskFuelAiButton() {
   const { snapshot, tryAction, generationBlocked, setPopoverOpen } = useCredits();
   const remaining = totalRemaining(snapshot);
   const dailyLeft = dailyRemaining(snapshot);
-  const isFree = snapshot.plan === "free";
 
   return (
     <button
@@ -5431,7 +5595,6 @@ function AskFuelAiButton() {
       }}
     >
       ✦ Ask Fuel AI
-      {isFree ? <span className="credit-inline-badge">Free</span> : null}
     </button>
   );
 }
@@ -5461,6 +5624,10 @@ function SidebarProfileFooter({
               setProfileMenuOpen(false);
               openUpgrade("pro");
             }}
+            onTopUp={() => {
+              setProfileMenuOpen(false);
+              openUpgrade("topup");
+            }}
           />
         ) : null}
         <button
@@ -5486,18 +5653,29 @@ function SidebarProfileFooter({
   );
 }
 
-export default function PatriotPayJourney({ initialPage = "journey" }: { initialPage?: string }) {
+export default function PatriotPayJourney({
+  initialPage = "journey",
+  initialBenchmark = null,
+}: {
+  initialPage?: string;
+  initialBenchmark?: OnboardingBenchmarkInput | null;
+}) {
   return (
     <CreditProvider>
-      <PatriotPayJourneyInner initialPage={initialPage} />
+      <PatriotPayJourneyInner initialPage={initialPage} initialBenchmark={initialBenchmark} />
       <UpgradeModal />
       <CreditToastHost />
-      <DesignPreviewSwitcher />
     </CreditProvider>
   );
 }
 
-function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: string }) {
+function PatriotPayJourneyInner({
+  initialPage = "journey",
+  initialBenchmark = null,
+}: {
+  initialPage?: string;
+  initialBenchmark?: OnboardingBenchmarkInput | null;
+}) {
   const startsWithTour = initialPage === "guided-tour";
   const startsWithTourAfterSignals = initialPage === "signals-loading-tour";
   const [openTracks, setOpenTracks] = useState(() => new Set());
@@ -5512,9 +5690,14 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
   const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
   const [processingDocumentTypeId, setProcessingDocumentTypeId] = useState<string | null>(null);
   const [documentHistorySlot, setDocumentHistorySlot] = useState<DataRoomDocumentSlot | null>(null);
-  const [intelligenceItems, setIntelligenceItems] = useState(INITIAL_INTELLIGENCE_ITEMS);
+  const initialBenchmarkSeed = initialBenchmark ? createBenchmarkIntelligence(toBenchmarkFormValues(initialBenchmark)) : null;
+  const [intelligenceItems, setIntelligenceItems] = useState<IntelligenceItem[]>(
+    () => initialBenchmarkSeed?.items ?? [],
+  );
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
-  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(null);
+  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(
+    () => initialBenchmarkSeed?.submission ?? null,
+  );
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -5539,6 +5722,22 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
         setProcessingDocumentTypeId(null);
       }, 1400);
     });
+  };
+  const persistSourceDocument = (
+    typeId: string,
+    typeLabel: string,
+    file: File,
+    intelligenceIds: string[],
+    source = "Intelligence · Source upload",
+  ) => {
+    setDocumentSlots(previous => upsertDocumentSlot(previous, {
+      typeId,
+      typeLabel,
+      file,
+      source,
+      intelligenceIds,
+      intelligenceCount: intelligenceIds.length,
+    }));
   };
   const applyBenchmarkSubmission = (values: BenchmarkFormValues) => {
     const { items, submission } = createBenchmarkIntelligence(values);
@@ -5593,6 +5792,18 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
       target: "signals",
       title: "Intelligence",
       text: "The Intelligence tab combines sources, evidence, benchmarks, and generated insights so you can see what Fuel used and what it produced.",
+    },
+    {
+      page: "signals",
+      target: "add-source",
+      title: "Add a source",
+      text: "Add notes, upload a document, or capture context here — then generate intelligence from it. This is where manual sources and private uploads enter the timeline.",
+    },
+    {
+      page: "data-room",
+      target: "data-room",
+      title: "Data Room",
+      text: "The Data Room stores pitch decks, investor notes, models, and other private files. Fuel uses them as evidence behind intelligence and benchmarks.",
     },
     {
       page: "initiatives",
@@ -5942,17 +6153,18 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
               </div>
             </div>
             <div className="header-actions">
-              <button className={`header-btn ${tourOpen && tourSteps[tourStep].target === "playbooks" ? "tour-highlight" : ""}`}>Playbooks ▾</button>
+              <button className={`header-btn ${tourOpen && tourSteps[tourStep].target === "playbooks" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "playbooks" ? "playbooks" : undefined}>Playbooks ▾</button>
               <button className="header-btn primary">≡ Generate brief</button>
             </div>
           </div>
         </div> : null}
 
         {!isProfileWizard ? <div className="tabs">
-          <div className={`tab ${activePage === "overview" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "overview" ? "tour-highlight" : ""}`} onClick={() => setActivePage("overview")}>Overview</div>
-          <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} onClick={() => setActivePage("signals")}>Intelligence</div>
+          <div className={`tab ${activePage === "overview" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "overview" ? "overview" : undefined} onClick={() => setActivePage("overview")}>Overview</div>
+          <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>Intelligence</div>
           <div
             className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
+            data-tour-target={tourOpen && tourSteps[tourStep].target === "initiatives" ? "initiatives" : undefined}
             onClick={() => setActivePage("initiatives")}
           >
             Initiatives <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>2</span>
@@ -5961,7 +6173,8 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
             Research <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>1</span>
           </div>
           <div
-            className={`tab ${activePage === "data-room" ? "active" : ""}`}
+            className={`tab ${activePage === "data-room" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "data-room" ? "tour-highlight" : ""}`}
+            data-tour-target={tourOpen && tourSteps[tourStep].target === "data-room" ? "data-room" : undefined}
             onClick={() => setActivePage("data-room")}
           >
             Data Room
@@ -6016,6 +6229,9 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
               documentSlots={documentSlots}
               processingDocumentTypeId={processingDocumentTypeId}
               onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Intelligence · Private upload")}
+              onPersistSourceDocument={(typeId, typeLabel, file, intelligenceIds) => (
+                persistSourceDocument(typeId, typeLabel, file, intelligenceIds, "Intelligence · Source upload")
+              )}
               onOpenDataRoom={() => setActivePage("data-room")}
               intelligenceItems={intelligenceItems}
               setIntelligenceItems={setIntelligenceItems}
@@ -6024,6 +6240,7 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
               benchmarkSubmission={benchmarkSubmission}
               onEditBenchmark={() => setActivePage("benchmark-form")}
               benchmarkBlinkIds={benchmarkBlinkIds}
+              activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
             />
           ) : activePage === "benchmark-form" ? (
             <LogPrivateDataPage
@@ -6056,6 +6273,9 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
               documentSlots={documentSlots}
               processingDocumentTypeId={processingDocumentTypeId}
               onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Intelligence · Private upload")}
+              onPersistSourceDocument={(typeId, typeLabel, file, intelligenceIds) => (
+                persistSourceDocument(typeId, typeLabel, file, intelligenceIds, "Intelligence · Source upload")
+              )}
               onOpenDataRoom={() => setActivePage("data-room")}
               intelligenceItems={intelligenceItems}
               setIntelligenceItems={setIntelligenceItems}
@@ -6064,6 +6284,7 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
               benchmarkSubmission={benchmarkSubmission}
               onEditBenchmark={() => setActivePage("benchmark-form")}
               benchmarkBlinkIds={benchmarkBlinkIds}
+              activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
             />
           ) : activePage === "initiatives" ? (
             <InitiativesPage />
@@ -6129,6 +6350,7 @@ function PatriotPayJourneyInner({ initialPage = "journey" }: { initialPage?: str
           total={profileComplete ? tourSteps.length - 1 : tourSteps.length}
           title={tourSteps[tourStep].title}
           text={tourSteps[tourStep].text}
+          highlightTarget={tourSteps[tourStep].target}
           onNext={nextTourStep}
           onPrevious={previousTourStep}
           onSkip={skipTour}

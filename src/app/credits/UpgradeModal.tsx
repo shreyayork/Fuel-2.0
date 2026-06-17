@@ -1,21 +1,22 @@
 import React, { useState } from "react";
-import { TOP_UP_OPTIONS } from "./constants";
+import { TOP_UP_FOOTNOTE, TOP_UP_OPTIONS } from "./constants";
 import { useCredits } from "./CreditProvider";
 import type { UpgradeReason } from "./types";
 
 const PRO_HEADERS: Record<UpgradeReason, string> = {
-  monthlyEmpty: "You've used all your credits this month. Pro gives you 16× more.",
+  monthlyEmpty: "You've used all your credits this month. Pro gives you 8× more.",
   dailyBlocked: "Tired of waiting 24 hours? Pro resets in 6 hours.",
-  runningLow: "You're running low. Pro gives you 4,000 credits every month.",
+  runningLow: "You're running low. Pro gives you 2,000 credits every month.",
   healthy: "Get more from Fuel every month.",
 };
 
 const PRO_INCLUDES = [
-  "4,000 credits per month (16× more than Free)",
+  "2,000 credits per month (8× more than Free)",
   "Daily limit resets in 6 hours not 24",
   "All document types",
   "Resets automatically every month",
-  "400 daily credits (8× more per day)",
+  "200 daily credits (4× more per day)",
+  "Top-up packs available anytime",
 ];
 
 export function UpgradeModal() {
@@ -31,11 +32,11 @@ export function UpgradeModal() {
   } = useCredits();
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-  const [topUpId, setTopUpId] = useState("builder");
+  const [topUpId, setTopUpId] = useState("growth");
 
   if (!upgradeOpen) return null;
 
-  const selectedTopUp = TOP_UP_OPTIONS.find(option => option.id === topUpId) ?? TOP_UP_OPTIONS[1];
+  const selectedTopUp = TOP_UP_OPTIONS.find(option => option.id === topUpId) ?? TOP_UP_OPTIONS[2];
   const isFree = snapshot.plan === "free";
 
   return (
@@ -52,82 +53,47 @@ export function UpgradeModal() {
 
         {upgradeTab === "pro" ? (
           <>
-            <h3 style={{ color: "#F2F5F2", fontSize: 18, fontWeight: 800, lineHeight: 1.35, margin: "0 0 14px" }}>
-              {PRO_HEADERS[upgradeReason]}
-            </h3>
-            <ul style={{ color: "#B8C9C0", fontSize: 12.5, lineHeight: 1.55, margin: "0 0 16px", paddingLeft: 18 }}>
-              {PRO_INCLUDES.map(item => <li key={item} style={{ marginBottom: 4 }}>{item}</li>)}
+            <h3 className="credit-upgrade-title">{PRO_HEADERS[upgradeReason]}</h3>
+            <ul className="credit-upgrade-includes">
+              {PRO_INCLUDES.map(item => <li key={item}>{item}</li>)}
             </ul>
-            <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr", marginBottom: 14 }}>
+            <div className="credit-billing-grid">
               <button
                 type="button"
+                className={`credit-billing-option${billingCycle === "monthly" ? " selected" : ""}`}
                 onClick={() => setBillingCycle("monthly")}
-                style={{
-                  background: billingCycle === "monthly" ? "rgba(0,180,138,0.12)" : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${billingCycle === "monthly" ? "rgba(0,180,138,0.35)" : "rgba(255,255,255,0.08)"}`,
-                  borderRadius: 8,
-                  color: "#F2F5F2",
-                  cursor: "pointer",
-                  font: "inherit",
-                  padding: 10,
-                  textAlign: "left",
-                }}
               >
-                <div style={{ fontSize: 10, opacity: 0.8, textTransform: "uppercase" }}>Monthly</div>
-                <strong style={{ fontSize: 20 }}>$30</strong><span>/ mo</span>
+                <div className="credit-billing-label">Monthly</div>
+                <strong className="credit-billing-price">$30</strong><span>/ mo</span>
               </button>
               <button
                 type="button"
+                className={`credit-billing-option recommended${billingCycle === "annual" ? " selected" : ""}`}
                 onClick={() => setBillingCycle("annual")}
-                style={{
-                  background: billingCycle === "annual" ? "rgba(0,180,138,0.14)" : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${billingCycle === "annual" ? "rgba(0,180,138,0.4)" : "rgba(255,255,255,0.08)"}`,
-                  borderRadius: 8,
-                  color: "#F2F5F2",
-                  cursor: "pointer",
-                  font: "inherit",
-                  padding: 10,
-                  position: "relative",
-                  textAlign: "left",
-                }}
               >
-                <span style={{
-                  background: "linear-gradient(135deg, #00B48A, #ECD67F)",
-                  borderRadius: 999,
-                  color: "#0a1a12",
-                  fontSize: 8,
-                  fontWeight: 900,
-                  left: 8,
-                  padding: "2px 6px",
-                  position: "absolute",
-                  top: -8,
-                }}>
-                  Recommended
-                </span>
-                <div style={{ fontSize: 10, opacity: 0.8, textTransform: "uppercase" }}>Annual</div>
-                <strong style={{ fontSize: 20 }}>$300</strong><span>/ yr</span>
-                <div style={{ color: "#8FE8D2", fontSize: 11, marginTop: 2 }}>$25/mo · 2 months free</div>
+                <span className="credit-billing-recommended">Recommended</span>
+                <div className="credit-billing-label">Annual</div>
+                <strong className="credit-billing-price">$300</strong><span>/ yr</span>
+                <div className="credit-billing-sub">$25/mo · 2 months free</div>
               </button>
             </div>
-            <button type="button" className="credit-btn-primary" style={{ width: "100%" }} onClick={completeProUpgrade}>
+            <button type="button" className="credit-btn-primary credit-upgrade-cta" onClick={completeProUpgrade}>
               Start Pro · {billingCycle === "annual" ? "$300/yr" : "$30/mo"}
             </button>
-            <p style={{ color: "#556878", fontSize: 11, margin: "10px 0 0", textAlign: "center" }}>
-              Powered by Stripe · cancel anytime
-            </p>
+            <p className="credit-upgrade-footnote">Powered by Stripe · cancel anytime</p>
           </>
         ) : (
           <>
             {isFree ? (
-              <p style={{ color: "#8FA99A", fontSize: 13, lineHeight: 1.55, margin: "0 0 14px" }}>
+              <p className="credit-topup-gate">
                 Top-ups are available on Pro.{" "}
                 <button type="button" className="profile-usage-upgrade-link" onClick={() => setUpgradeTab("pro")}>
-                  Upgrade to Pro →
+                  Upgrade first to unlock them.
                 </button>
               </p>
             ) : (
               <>
-                <div className="credit-topup-grid" style={{ marginBottom: 14 }}>
+                <div className="credit-topup-grid">
                   {TOP_UP_OPTIONS.map(option => (
                     <button
                       key={option.id}
@@ -135,36 +101,39 @@ export function UpgradeModal() {
                       className={`credit-topup-option${topUpId === option.id ? " selected" : ""}`}
                       onClick={() => setTopUpId(option.id)}
                     >
-                      <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between" }}>
-                        <strong style={{ color: "#F2F5F2" }}>{option.label}</strong>
-                        {option.popular ? (
-                          <span style={{ color: "#8FE8D2", fontSize: 10, fontWeight: 800 }}>Most popular</span>
-                        ) : null}
+                      <div className="credit-topup-option-head">
+                        <strong>{option.label}</strong>
+                        <div className="credit-topup-option-badges">
+                          {option.popular ? (
+                            <span className="credit-topup-badge popular">Most popular</span>
+                          ) : null}
+                          {option.discount ? (
+                            <span className="credit-topup-badge discount">{option.discount}</span>
+                          ) : null}
+                        </div>
                       </div>
-                      <div style={{ color: "#8FE8D2", fontSize: 14, fontWeight: 800, margin: "4px 0" }}>
-                        {option.credits.toLocaleString()} credits · ${option.price}
+                      <div className="credit-topup-option-meta">
+                        <span className="credit-topup-option-credits">{option.credits.toLocaleString()} credits</span>
+                        <span className="credit-topup-option-price">${option.price}</span>
                       </div>
-                      <div style={{ color: "#6F8798", fontSize: 11 }}>{option.blurb}</div>
+                      <p className="credit-topup-option-blurb">{option.blurb}</p>
                     </button>
                   ))}
                 </div>
                 <button
                   type="button"
-                  className="credit-btn-primary"
-                  style={{ width: "100%" }}
+                  className="credit-btn-primary credit-upgrade-cta"
                   onClick={() => completeTopUp(selectedTopUp.credits)}
                 >
-                  Top up · ${selectedTopUp.price}
+                  Top up · {selectedTopUp.label} · ${selectedTopUp.price}
                 </button>
-                <p style={{ color: "#556878", fontSize: 11, margin: "10px 0 0", textAlign: "center" }}>
-                  Powered by Stripe · added instantly
-                </p>
+                <p className="credit-upgrade-footnote">{TOP_UP_FOOTNOTE}</p>
               </>
             )}
           </>
         )}
 
-        <button type="button" className="credit-btn-ghost" style={{ marginTop: 12, width: "100%" }} onClick={closeUpgrade}>
+        <button type="button" className="credit-btn-ghost credit-upgrade-close" onClick={closeUpgrade}>
           Close
         </button>
       </div>

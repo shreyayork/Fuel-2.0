@@ -44,17 +44,17 @@ export function CreditPopover() {
     case "dailyBlocked":
       body = (
         <>
-          <h4>Daily limit reached</h4>
+          <h4>{isFree ? "Free limit reached" : "Pro daily pause"}</h4>
           <p>
             {isFree
-              ? "You've used all 50 daily credits. Free accounts wait 24 hours before the next daily allowance."
-              : "You've used all 400 daily credits. Pro accounts reset daily credits in 6 hours."}
+              ? "You've used your free uploads and context adds for now. Upgrade to Pro, or wait 24 hours for credits to reset."
+              : "You've used today's Pro allowance. Top up for more, or wait 6 hours for daily credits to reset."}
           </p>
           <div className="credit-countdown">{formatCountdown(blockCountdownMs)}</div>
-          <p>Your monthly balance ({remaining.toLocaleString()} credits) is still intact.</p>
+          <p>{remaining.toLocaleString()} monthly credits remain on your account.</p>
           {renderActions(
             <button type="button" className="credit-btn-primary" onClick={() => openUpgrade(isFree ? "pro" : "topup", "dailyBlocked")}>
-              {isFree ? "Go Pro · 6hr reset" : "Top up credits"}
+              {isFree ? "Upgrade to Pro" : "Top up credits"}
             </button>,
             <button type="button" className="credit-btn-ghost" onClick={() => setPopoverOpen(false)}>
               Wait · {formatCountdown(blockCountdownMs)}
@@ -75,13 +75,13 @@ export function CreditPopover() {
           <p>Your existing intelligence is safe — nothing is lost.</p>
           {isFree ? (
             <>
-              <p>Pro gives you 16× more credits every month.</p>
+              <p>Pro gives you 8× more credits every month.</p>
               {renderActions(
                 <button type="button" className="credit-btn-primary" onClick={() => openUpgrade("pro", "monthlyEmpty")}>
                   Go Pro · $30/mo
                 </button>,
                 <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "monthlyEmpty")}>
-                  Top up · $3 for 300 credits
+                  See top-up packs
                 </button>,
               )}
             </>
@@ -155,7 +155,11 @@ export function CreditPopover() {
             <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("pro", "healthy")}>
               Upgrade to Pro
             </button>,
-          ) : null}
+          ) : renderActions(
+            <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "healthy")}>
+              Top up credits
+            </button>,
+          )}
         </>
       );
   }

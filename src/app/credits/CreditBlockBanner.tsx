@@ -10,9 +10,13 @@ export function CreditBlockBanner() {
 
   return (
     <div className="credit-block-banner" role="status">
-      <span>Daily limit reached · unblocked in {formatCountdown(blockCountdownMs)}</span>
+      <span>
+        {isFree
+          ? `Free limit reached · upgrade to Pro or wait ${formatCountdown(blockCountdownMs)}`
+          : `Pro daily pause · top up or wait ${formatCountdown(blockCountdownMs)}`}
+      </span>
       <button type="button" onClick={() => openUpgrade(isFree ? "pro" : "topup", "dailyBlocked")}>
-        {isFree ? "Go Pro for 6hr reset" : "Top up"}
+        {isFree ? "Upgrade to Pro" : "Top up"}
       </button>
     </div>
   );

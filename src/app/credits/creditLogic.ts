@@ -1,4 +1,5 @@
 import { ACTION_LABELS, CREDIT_COSTS, PLAN_LIMITS } from "./constants";
+import { createDemoFreeSnapshot, getDemoBlockMs, isDemoCreditMode } from "./demoFlow";
 import type { CreditActionType, CreditPlan, CreditSnapshot, PopoverState, UpgradeReason } from "./types";
 
 export function totalRemaining(snapshot: CreditSnapshot): number {
@@ -104,12 +105,15 @@ export function applyDeduction(snapshot: CreditSnapshot, action: CreditActionTyp
   let next = { ...snapshot, justUnblocked: false };
   let remainingCost = cost;
 
-  if (next.topUpBalance > 0) {
-    const fromTopUp = Math.min(next.topUpBalance, remainingCost);
-    next.topUpBalance -= fromTopUp;
-    remainingCost -= fromTopUp;
+  const monthlyRoom = Math.max(0, next.monthlyLimit - next.monthlyUsed);
+  const fromMonthly = Math.min(remainingCost, monthlyRoom);
+  next.monthlyUsed += fromMonthly;
+  remainingCost -= fromMonthly;
+
+  if (remainingCost > 0) {
+    next.topUpBalance = Math.max(0, next.topUpBalance - remainingCost);
   }
-  next.monthlyUsed += remainingCost;
+
   next.dailyUsed += cost;
 
   if (action === "docUpload") next.stats = { ...next.stats, docs: next.stats.docs + 1, signals: next.stats.signals + 1 };
@@ -117,8 +121,9 @@ export function applyDeduction(snapshot: CreditSnapshot, action: CreditActionTyp
   if (action === "generateSource") next.stats = { ...next.stats, signals: next.stats.signals + 1 };
 
   const limits = PLAN_LIMITS[next.plan];
-  if (next.dailyUsed >= limits.daily) {
-    next.blockUntil = now + limits.blockMs;
+  if (next.dailyUsed >= next.dailyLimit) {
+    const blockMs = isDemoCreditMode() ? getDemoBlockMs(next.plan) : limits.blockMs;
+    next.blockUntil = now + blockMs;
   }
 
   if (totalRemaining(next) <= 0 && next.monthlyUsed >= next.monthlyLimit + next.topUpBalance) {
@@ -129,6 +134,9 @@ export function applyDeduction(snapshot: CreditSnapshot, action: CreditActionTyp
 }
 
 export function createDefaultSnapshot(plan: CreditPlan = "free"): CreditSnapshot {
+  if (isDemoCreditMode() && plan === "free") {
+    return createDemoFreeSnapshot();
+  }
   const limits = PLAN_LIMITS[plan];
   return {
     plan,

@@ -9,12 +9,12 @@ import {
   getUpgradeReason,
   isDailyBlocked,
   isGenerationBlocked,
-  isMonthlyEmpty,
   monthlyRemainingRatio,
   totalRemaining,
 } from "./creditLogic";
-import { buildDemoSnapshot } from "./demoPresets";
-import type { CreditActionType, CreditSnapshot, DemoPresetId, UpgradeReason } from "./types";
+import { createDemoProSnapshot, isDemoCreditMode } from "./demoFlow";
+import { PLAN_LIMITS } from "./constants";
+import type { CreditActionType, CreditSnapshot, UpgradeReason } from "./types";
 
 export type CreditToast = {
   id: string;
@@ -46,7 +46,6 @@ type CreditContextValue = {
   dismissToast: () => void;
   completeProUpgrade: () => void;
   completeTopUp: (credits: number) => void;
-  applyDemoPreset: (preset: DemoPresetId) => void;
   clearJustUnblocked: () => void;
 };
 
@@ -62,7 +61,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   const [upgradeTab, setUpgradeTab] = useState<UpgradeModalTab>("pro");
   const [upgradeReason, setUpgradeReason] = useState<UpgradeReason>("healthy");
   const [toast, setToast] = useState<CreditToast | null>(null);
-  const prevBlockedRef = useRef(isDailyBlocked(snapshot));
+  const prevBlockedRef = useRef(isGenerationBlocked(snapshot));
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -71,10 +70,25 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const wasBlocked = prevBlockedRef.current;
-    const blocked = isDailyBlocked(snapshot, now);
-    if (wasBlocked && !blocked && snapshot.dailyUsed >= snapshot.dailyLimit) {
-      setSnapshot(current => ({ ...current, justUnblocked: true, dailyUsed: 0, blockUntil: null }));
+    const blocked = isGenerationBlocked(snapshot, now);
+
+    if (wasBlocked && !blocked) {
+      if (isDemoCreditMode()) {
+        setSnapshot(current => {
+          const next = current.plan === "pro" ? createDemoProSnapshot() : createDefaultSnapshot("free");
+          setToast({
+            id: `unblock-${++toastSeq}`,
+            message: current.plan === "pro"
+              ? "Pro daily credits restored — you can upload or add context again."
+              : "Credits restored — you can upload or add context again.",
+          });
+          return next;
+        });
+      } else if (snapshot.dailyUsed >= snapshot.dailyLimit) {
+        setSnapshot(current => ({ ...current, justUnblocked: true, dailyUsed: 0, blockUntil: null }));
+      }
     }
+
     prevBlockedRef.current = blocked;
   }, [now, snapshot]);
 
@@ -125,51 +139,54 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const completeProUpgrade = useCallback(() => {
-    setSnapshot({
-      plan: "pro",
-      monthlyUsed: 0,
-      monthlyLimit: 4000,
-      dailyUsed: 0,
-      dailyLimit: 400,
-      topUpBalance: 0,
-      blockUntil: null,
-      monthlyResetLabel: "Apr 1",
-      justUnblocked: false,
-      monthlyLowToastShown: false,
-      stats: snapshot.stats,
-    });
+    const next = isDemoCreditMode()
+      ? createDemoProSnapshot()
+      : {
+        plan: "pro" as const,
+        monthlyUsed: 0,
+        monthlyLimit: PLAN_LIMITS.pro.monthly,
+        dailyUsed: 0,
+        dailyLimit: PLAN_LIMITS.pro.daily,
+        topUpBalance: 0,
+        blockUntil: null,
+        monthlyResetLabel: "Apr 1",
+        justUnblocked: false,
+        monthlyLowToastShown: false,
+        stats: snapshot.stats,
+      };
+    setSnapshot(next);
     setUpgradeOpen(false);
-    setToast({ id: `pro-${++toastSeq}`, message: "Welcome to Pro. You have 4,000 credits this month." });
+    setToast({
+      id: `pro-${++toastSeq}`,
+      message: isDemoCreditMode()
+        ? "Welcome to Pro — a few more uploads and context adds before the next pause."
+        : `Welcome to Pro. You have ${PLAN_LIMITS.pro.monthly.toLocaleString()} credits this month.`,
+    });
   }, [snapshot.stats]);
 
   const completeTopUp = useCallback((credits: number) => {
+    const purchasedAt = Date.now();
     setSnapshot(current => {
-      const next = { ...current, topUpBalance: current.topUpBalance + credits };
+      const wasDailyBlocked = current.plan === "pro" && isDailyBlocked(current, purchasedAt);
+      const next = {
+        ...current,
+        topUpBalance: current.topUpBalance + credits,
+        ...(wasDailyBlocked
+          ? { dailyUsed: 0, blockUntil: null, justUnblocked: true }
+          : {}),
+      };
       const remaining = totalRemaining(next);
       window.setTimeout(() => {
         setToast({
           id: `topup-${++toastSeq}`,
-          message: `${credits.toLocaleString()} credits added. You now have ${remaining.toLocaleString()} credits this month.`,
+          message: wasDailyBlocked
+            ? `${credits.toLocaleString()} credits added. You're unblocked — fresh day, full ${current.dailyLimit} credits.`
+            : `${credits.toLocaleString()} credits added. You now have ${remaining.toLocaleString()} credits available.`,
         });
       }, 0);
       return next;
     });
     setUpgradeOpen(false);
-  }, []);
-
-  const applyDemoPreset = useCallback((preset: DemoPresetId) => {
-    const next = buildDemoSnapshot(preset, Date.now());
-    setSnapshot(next);
-    setPopoverOpen(false);
-    setUpgradeOpen(false);
-    if (preset === "pro-after-top-up") {
-      setToast({
-        id: `demo-topup-${++toastSeq}`,
-        message: "800 credits added. You now have 800 credits this month.",
-      });
-    } else {
-      setToast(null);
-    }
   }, []);
 
   const value = useMemo<CreditContextValue>(() => ({
@@ -195,10 +212,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     dismissToast: () => setToast(null),
     completeProUpgrade,
     completeTopUp,
-    applyDemoPreset,
     clearJustUnblocked: () => setSnapshot(current => ({ ...current, justUnblocked: false })),
   }), [
-    applyDemoPreset,
     barFill,
     barTone,
     blockCountdownMs,
