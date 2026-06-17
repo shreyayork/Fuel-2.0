@@ -12,11 +12,11 @@ export function CreditBlockBanner() {
     <div className="credit-block-banner" role="status">
       <span>
         {isFree
-          ? `Free limit reached · upgrade to Pro or wait ${formatCountdown(blockCountdownMs)}`
+          ? `Free limit reached · get your AI advisor back with Pro (from $25/mo) or wait ${formatCountdown(blockCountdownMs)}`
           : `Pro daily pause · top up or wait ${formatCountdown(blockCountdownMs)}`}
       </span>
       <button type="button" onClick={() => openUpgrade(isFree ? "pro" : "topup", "dailyBlocked")}>
-        {isFree ? "Upgrade to Pro" : "Top up"}
+        {isFree ? "Go Pro" : "Top up"}
       </button>
     </div>
   );

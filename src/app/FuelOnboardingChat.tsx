@@ -3176,7 +3176,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
       if (!inferredCompanyName) {
         pushMessage({
           role: "ai",
-          text: `👋 Hi! I'm Fuel AI, York IE's onboarding assistant.\n\nYou're signed in as **${LOGGED_IN_EMAIL}**. What company should I set up in Fuel?`,
+          text: `👋 Hi — I'm **Fuel**, your smart advisor. The kind that doesn't take a percentage of your company.\n\nYou're signed in as **${LOGGED_IN_EMAIL}**. What company should I set up?`,
         });
         setTimeout(() => inputRef.current?.focus(), 100);
         return;
@@ -3184,8 +3184,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
       pushMessage({
         role: "ai",
-        text: `👋 Found you.\n\nYou're signed in as **${LOGGED_IN_EMAIL}** — so I pulled **${inferredCompanyName}** from your domain.\n\nBefore I can show you anything useful, I need 60 seconds of your time. Confirm what I found, fill in what I missed, and I'll build you a benchmark profile against real peers — not generic industry averages.`,
-        chips: [{ label: "Review your profile →", value: "show-profile-form" }],
+        text: `👋 Found you.\n\nI'm **Fuel** — your smart advisor. The kind that doesn't take a percentage of your company.\n\nYou're signed in as **${LOGGED_IN_EMAIL}** — so I pulled **${inferredCompanyName}** from your domain.\n\nBefore I can show you anything useful, I need 60 seconds of your time. Confirm what I found, fill in what I missed, and I'll build you a benchmark profile against real peers — not generic industry averages.\n\nDoes this look right?`,
+        chips: [{ label: "Yes, review my profile →", value: "show-profile-form" }],
       });
       setStep("profile-intro");
     }, 500);

@@ -8,6 +8,7 @@ import {
   willRunOutBeforeReset,
   daysUntilMonthlyEmpty,
 } from "./creditLogic";
+import { PRO_PRICE_FRAME, PRO_TAGLINE } from "./constants";
 import { useCredits } from "./CreditProvider";
 
 export function CreditPopover() {
@@ -47,14 +48,14 @@ export function CreditPopover() {
           <h4>{isFree ? "Free limit reached" : "Pro daily pause"}</h4>
           <p>
             {isFree
-              ? "You've used your free uploads and context adds for now. Upgrade to Pro, or wait 24 hours for credits to reset."
+              ? "Your free advisor allowance is paused for today. Pro keeps you moving — from $25/mo, not equity."
               : "You've used today's Pro allowance. Top up for more, or wait 6 hours for daily credits to reset."}
           </p>
           <div className="credit-countdown">{formatCountdown(blockCountdownMs)}</div>
           <p>{remaining.toLocaleString()} monthly credits remain on your account.</p>
           {renderActions(
             <button type="button" className="credit-btn-primary" onClick={() => openUpgrade(isFree ? "pro" : "topup", "dailyBlocked")}>
-              {isFree ? "Upgrade to Pro" : "Top up credits"}
+              {isFree ? "Get your AI advisor · from $25/mo" : "Top up credits"}
             </button>,
             <button type="button" className="credit-btn-ghost" onClick={() => setPopoverOpen(false)}>
               Wait · {formatCountdown(blockCountdownMs)}
@@ -75,10 +76,11 @@ export function CreditPopover() {
           <p>Your existing intelligence is safe — nothing is lost.</p>
           {isFree ? (
             <>
-              <p>Pro gives you 8× more credits every month.</p>
+              <p>{PRO_TAGLINE}</p>
+              <p>{PRO_PRICE_FRAME}</p>
               {renderActions(
                 <button type="button" className="credit-btn-primary" onClick={() => openUpgrade("pro", "monthlyEmpty")}>
-                  Go Pro · $30/mo
+                  Go Pro · from $25/mo
                 </button>,
                 <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "monthlyEmpty")}>
                   See top-up packs
@@ -108,9 +110,10 @@ export function CreditPopover() {
             {snapshot.plan === "pro" ? ` · ~${actionsRemaining(snapshot, "playbookRun")} playbook runs` : ""}
           </p>
           <p>{dailyLeft} daily credits left today.</p>
+          {isFree ? <p>{PRO_PRICE_FRAME}</p> : null}
           {renderActions(
             <button type="button" className="credit-btn-primary" onClick={() => openUpgrade(isFree ? "pro" : "topup", "runningLow")}>
-              {isFree ? "Go Pro · $30/mo" : "Top up credits"}
+              {isFree ? "Go Pro · from $25/mo" : "Top up credits"}
             </button>,
             isFree ? (
               <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "runningLow")}>
@@ -128,11 +131,11 @@ export function CreditPopover() {
           <p>Daily credits are available again — {dailyLeft} of {snapshot.dailyLimit} today.</p>
           <p>{remaining.toLocaleString()} monthly credits remaining.</p>
           {isFree ? (
-            <p style={{ marginTop: 8 }}>Pro resets daily limits in 6 hours, not 24.</p>
+            <p style={{ marginTop: 8 }}>Pro keeps your AI advisor available — daily resets in 6 hours, from $25/mo.</p>
           ) : null}
           {isFree ? renderActions(
             <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("pro", "healthy")}>
-              See Pro
+              See Pro · from $25/mo
             </button>,
           ) : null}
         </>
@@ -153,7 +156,7 @@ export function CreditPopover() {
           </div>
           {isFree ? renderActions(
             <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("pro", "healthy")}>
-              Upgrade to Pro
+              Get your AI advisor · from $25/mo
             </button>,
           ) : renderActions(
             <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "healthy")}>

@@ -13,7 +13,7 @@ import {
   totalRemaining,
 } from "./creditLogic";
 import { createDemoProSnapshot, isDemoCreditMode } from "./demoFlow";
-import { PLAN_LIMITS } from "./constants";
+import { PLAN_LIMITS, PRO_TAGLINE } from "./constants";
 import type { CreditActionType, CreditSnapshot, UpgradeReason } from "./types";
 
 export type CreditToast = {
@@ -159,8 +159,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     setToast({
       id: `pro-${++toastSeq}`,
       message: isDemoCreditMode()
-        ? "Welcome to Pro — a few more uploads and context adds before the next pause."
-        : `Welcome to Pro. You have ${PLAN_LIMITS.pro.monthly.toLocaleString()} credits this month.`,
+        ? "Welcome to Pro — your AI advisor is live. No equity. No retainer."
+        : `Welcome to Pro — ${PRO_TAGLINE}`,
     });
   }, [snapshot.stats]);
 

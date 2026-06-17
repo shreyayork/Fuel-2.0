@@ -1,23 +1,13 @@
 import React, { useState } from "react";
-import { TOP_UP_FOOTNOTE, TOP_UP_OPTIONS } from "./constants";
+import {
+  PRO_INCLUDES,
+  PRO_PRICE_FRAME,
+  PRO_TAGLINE,
+  PRO_UPGRADE_HEADERS,
+  TOP_UP_FOOTNOTE,
+  TOP_UP_OPTIONS,
+} from "./constants";
 import { useCredits } from "./CreditProvider";
-import type { UpgradeReason } from "./types";
-
-const PRO_HEADERS: Record<UpgradeReason, string> = {
-  monthlyEmpty: "You've used all your credits this month. Pro gives you 8× more.",
-  dailyBlocked: "Tired of waiting 24 hours? Pro resets in 6 hours.",
-  runningLow: "You're running low. Pro gives you 2,000 credits every month.",
-  healthy: "Get more from Fuel every month.",
-};
-
-const PRO_INCLUDES = [
-  "2,000 credits per month (8× more than Free)",
-  "Daily limit resets in 6 hours not 24",
-  "All document types",
-  "Resets automatically every month",
-  "200 daily credits (4× more per day)",
-  "Top-up packs available anytime",
-];
 
 export function UpgradeModal() {
   const {
@@ -53,7 +43,9 @@ export function UpgradeModal() {
 
         {upgradeTab === "pro" ? (
           <>
-            <h3 className="credit-upgrade-title">{PRO_HEADERS[upgradeReason]}</h3>
+            <p className="credit-upgrade-tagline">{PRO_TAGLINE}</p>
+            <h3 className="credit-upgrade-title">{PRO_UPGRADE_HEADERS[upgradeReason]}</h3>
+            <p className="credit-upgrade-subtitle">{PRO_PRICE_FRAME}</p>
             <ul className="credit-upgrade-includes">
               {PRO_INCLUDES.map(item => <li key={item}>{item}</li>)}
             </ul>
@@ -78,17 +70,17 @@ export function UpgradeModal() {
               </button>
             </div>
             <button type="button" className="credit-btn-primary credit-upgrade-cta" onClick={completeProUpgrade}>
-              Start Pro · {billingCycle === "annual" ? "$300/yr" : "$30/mo"}
+              Start your AI advisor · {billingCycle === "annual" ? "$25/mo billed yearly" : "$30/mo"}
             </button>
-            <p className="credit-upgrade-footnote">Powered by Stripe · cancel anytime</p>
+            <p className="credit-upgrade-footnote">Powered by Stripe · cancel anytime · no equity, no advisory fees</p>
           </>
         ) : (
           <>
             {isFree ? (
               <p className="credit-topup-gate">
-                Top-ups are available on Pro.{" "}
+                Top-ups unlock on Pro — your always-on AI advisor, from $25/mo.{" "}
                 <button type="button" className="profile-usage-upgrade-link" onClick={() => setUpgradeTab("pro")}>
-                  Upgrade first to unlock them.
+                  See Pro pricing
                 </button>
               </p>
             ) : (

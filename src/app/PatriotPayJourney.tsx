@@ -5542,9 +5542,12 @@ function ProfileUsagePanel({
         <button type="button" className="profile-usage-close" aria-label="Close profile menu" onClick={onClose}>×</button>
       </div>
       {snapshot.plan === "free" ? (
-        <button type="button" className="profile-usage-upgrade-link" onClick={onUpgrade}>
-          Upgrade to Pro →
-        </button>
+        <>
+          <p className="profile-usage-advisor-copy">An AI advisor that doesn&apos;t take percentage points of your company.</p>
+          <button type="button" className="profile-usage-upgrade-link" onClick={onUpgrade}>
+            Go Pro · from $25/mo →
+          </button>
+        </>
       ) : onTopUp ? (
         <button type="button" className="profile-usage-upgrade-link" onClick={onTopUp}>
           Top up credits →

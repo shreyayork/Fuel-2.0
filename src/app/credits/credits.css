@@ -229,6 +229,21 @@
   width: calc(100% - 32px);
 }
 
+.credit-upgrade-tagline {
+  color: #00B48A;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 0 0 10px;
+}
+
+.credit-upgrade-subtitle {
+  color: #8FA99A;
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: -6px 0 14px;
+}
+
 .credit-upgrade-title {
   color: #F2F5F2;
   font-size: 18px;
@@ -482,6 +497,13 @@
   color: var(--fuel-text, #F2F5F2);
   font-size: 11px;
   font-weight: 700;
+}
+
+.profile-usage-advisor-copy {
+  color: #8FA99A;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 8px;
 }
 
 .profile-usage-upgrade-link {

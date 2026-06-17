@@ -1,4 +1,25 @@
-import type { CreditActionType, CreditCosts, CreditPlan } from "./types";
+import type { CreditActionType, CreditCosts, CreditPlan, UpgradeReason } from "./types";
+
+export const PRO_TAGLINE =
+  "An AI advisor that doesn't take percentage points of your company.";
+
+export const PRO_PRICE_FRAME =
+  "From $25/mo — a fraction of advisory retainers, zero equity dilution.";
+
+export const PRO_UPGRADE_HEADERS: Record<UpgradeReason, string> = {
+  monthlyEmpty: "Your advisor ran out of room this month.",
+  dailyBlocked: "Free tier paused your advisor for today.",
+  runningLow: "You're running low on advisor time.",
+  healthy: "Replace equity-diluting advisors with Fuel Pro.",
+};
+
+export const PRO_INCLUDES = [
+  "Always-on operating advisor across benchmarks, intelligence, and playbooks",
+  "2,000 credits/month — research, documents, and AI guidance on demand",
+  "No equity, no retainer — cancel anytime",
+  "Daily limits reset in 6 hours, not 24",
+  "Top-up packs for fundraising sprints or diligence pushes",
+];
 
 export const CREDIT_COSTS: CreditCosts = {
   docUpload: 15,
