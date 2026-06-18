@@ -1962,15 +1962,15 @@ function DevelopmentDetailPage({ onBack }) {
                   <div className="quality-chart-toggle">
                     <button className="active">Chart</button>
                     <button>Table</button>
-                  </div>
                 </div>
+              </div>
                 <div className="quality-global-chart-head">
                   <div>
                     <span>Execution Health trend</span>
                     <strong>All listed weeks · all parameters</strong>
-                  </div>
+                    </div>
                   <p>Compare Quality, Stability, AI Leverage, and Speed across the weekly tiles below.</p>
-                </div>
+                    </div>
                 <svg viewBox="0 0 760 250" role="img" aria-label="Execution Health trend across all listed weeks">
                   <rect className="quality-band green" x="56" y="44" width="640" height="56" />
                   <rect className="quality-band yellow" x="56" y="100" width="640" height="40" />
@@ -2057,9 +2057,9 @@ function DevelopmentDetailPage({ onBack }) {
                               </em>
                             ) : null}
                           </strong>
-                        </div>
+                  </div>
                         <p>{detail.text}</p>
-                      </div>
+                  </div>
                     );
                   })}
                 </div>
@@ -3168,7 +3168,7 @@ function BenchmarkMetricField({
   placeholder?: string;
 }) {
   const cohort = BENCHMARK_FIELD_COHORT[cohortKey];
-  return (
+    return (
     <label className="log-private-metric">
       <span>{label}</span>
       <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
@@ -3207,11 +3207,11 @@ function LogPrivateDataPage({
     <section className="log-private-data-page">
       <button type="button" className="profile-wizard-back" onClick={onBack}>← Back</button>
       <div className="log-private-data-head">
-        <div>
+          <div>
           <span>Private benchmark</span>
           <h2>Log private data · 2026-Q2</h2>
         </div>
-        <label className="signals-cohort-select">
+            <label className="signals-cohort-select">
           cohort
           <select defaultValue="b2b_saas:seed:us">
             <option value="b2b_saas:seed:us">b2b_saas · seed · us</option>
@@ -3827,20 +3827,20 @@ function PrivateDataCompactStrip({
           <span className="signals-private-strip-badge">submitted</span>
         </div>
         <label className="signals-cohort-select signals-private-strip-cohort">
-          cohort
-          <select defaultValue="b2b_saas:seed:us">
-            <option value="b2b_saas:growth:us">B2B Saas · Growth · US · n=94</option>
-            <option value="b2b_saas:seed:us">B2B Saas · Seed · US · n=147</option>
-            <option value="b2b_saas:series_a:us">B2B Saas · Series A · US · n=203</option>
-            <option value="dev_tools:series_a:us">Dev Tools · Series A · US · n=41</option>
-          </select>
-        </label>
-      </div>
+              cohort
+              <select defaultValue="b2b_saas:seed:us">
+                <option value="b2b_saas:growth:us">B2B Saas · Growth · US · n=94</option>
+                <option value="b2b_saas:seed:us">B2B Saas · Seed · US · n=147</option>
+                <option value="b2b_saas:series_a:us">B2B Saas · Series A · US · n=203</option>
+                <option value="dev_tools:series_a:us">Dev Tools · Series A · US · n=41</option>
+              </select>
+            </label>
+          </div>
       <div className="signals-private-strip-actions">
         <button type="button" className="signals-private-btn primary" onClick={onUpdatePeriod}>
           Update this period
         </button>
-      </div>
+        </div>
     </div>
   );
 }
@@ -3871,7 +3871,7 @@ function DataRoomPage({
             Pitch decks, investor notes, financial models, and other private files Fuel uses to generate intelligence.
             One latest file per type — add custom types from the dropdown when you need more.
           </p>
-        </div>
+          </div>
         <div className="data-room-head-actions">
           <DocumentUploadDropdown
             documentSlots={documentSlots}
@@ -3880,8 +3880,8 @@ function DataRoomPage({
             scope="custom-only"
           />
           <em>{activeCount} active · {displaySlots.length} types</em>
-        </div>
-      </div>
+                </div>
+                </div>
       <div className="data-room-list">
         <div className="data-room-row data-room-row-head">
           <span>Type</span>
@@ -3914,9 +3914,9 @@ function DataRoomPage({
               onUpload={onUploadDocument}
               onOpenHistory={onOpenDocumentHistory}
             />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -4139,8 +4139,8 @@ function SignalsPage({
           <button type="button" onClick={onOpenDataRoom}>Open Data Room</button>
         ) : null}
         <button type="button" aria-label="Dismiss" onClick={() => setDocumentNotice(null)}>×</button>
-      </div>
-    </div>
+          </div>
+          </div>
   ) : null;
 
   const benchmarkRows = [
@@ -4174,7 +4174,7 @@ function SignalsPage({
           }
         }}
       >
-        <span className="signals-row-type">{row.type}</span>
+                <span className="signals-row-type">{row.type}</span>
         {isBenchmarkRow ? (
           <div className="signals-row-benchmark-main">
             <strong>{row.text}</strong>
@@ -4182,22 +4182,22 @@ function SignalsPage({
             <time>{row.date}</time>
           </div>
         ) : (
-          <div className="signals-row-content">
-            <div className="signals-row-primary">
-              <strong>{row.text}</strong>
-              <time>{row.date}</time>
-              {row.confidence ? <small>conf {row.confidence}</small> : null}
-            </div>
-            <p>{row.highlight}</p>
-          </div>
+                <div className="signals-row-content">
+                  <div className="signals-row-primary">
+                    <strong>{row.text}</strong>
+                    <time>{row.date}</time>
+                    {row.confidence ? <small>conf {row.confidence}</small> : null}
+                  </div>
+                  <p>{row.highlight}</p>
+                </div>
         )}
-        <div className="signals-row-meta">
+                <div className="signals-row-meta">
           {!isBenchmarkRow && row.sources.length > 0 ? (
             <span className="signals-source-ref">
               {row.sources.length} source{row.sources.length > 1 ? "s" : ""}
             </span>
           ) : null}
-          <span className="signals-row-age">{row.age}</span>
+                  <span className="signals-row-age">{row.age}</span>
           {!isBenchmarkRow ? (
             <button
               type="button"
@@ -4218,8 +4218,8 @@ function SignalsPage({
               ×
             </button>
           )}
-        </div>
-      </div>
+                </div>
+              </div>
     );
   };
 
@@ -4234,7 +4234,7 @@ function SignalsPage({
           <div className="pitch-deck-confirm-actions">
             <button type="button" onClick={() => onClearIntelligenceFocus?.()}>Show all intelligence</button>
           </div>
-        </div>
+              </div>
       ) : null}
       <div className="signals-timeline-head">
         <strong>Intelligence timeline</strong>
@@ -4284,7 +4284,7 @@ function SignalsPage({
             )}
           </>
         )}
-      </div>
+          </div>
       {showLogForm && isProfileComplete && !intelligenceFocusActive ? (
         <div className="signals-log-form-row">
           <select
@@ -4370,6 +4370,8 @@ function SignalsPage({
 
         {intelligenceTimelinePanel}
 
+        <SourcesConnectorsUpsell onOpenConnectors={onLinkConnectors} />
+
         {selectedIntelligence ? (
           <IntelligenceProvenanceSidebar
             item={selectedIntelligence}
@@ -4441,6 +4443,8 @@ function SignalsPage({
       />
 
       {showIntelligenceTimeline ? intelligenceTimelinePanel : null}
+
+      <SourcesConnectorsUpsell onOpenConnectors={onLinkConnectors} />
 
       {selectedIntelligence ? (
         <IntelligenceProvenanceSidebar
@@ -5091,6 +5095,47 @@ function SignalsLoadingPage() {
   );
 }
 
+const UPSELL_CONNECTORS = [
+  { id: "google-meet", name: "Google Meet", icon: "GM", color: "#00AC47" },
+  { id: "zoom", name: "Zoom", icon: "Z", color: "#2D8CFF", logoSrc: "/source-logos/zoom.svg" },
+  { id: "linkedin", name: "LinkedIn", icon: "in", color: "#0A66C2" },
+  { id: "salesforce-context", name: "Salesforce", icon: "SF", color: "#00A1E0" },
+  { id: "gmail", name: "Gmail", icon: "Gm", color: "#EA4335" },
+];
+
+function SourcesConnectorsUpsell({ onOpenConnectors }: { onOpenConnectors: () => void }) {
+  return (
+    <div className="signals-connectors-upsell">
+      <div className="sources-upsell">
+        <div className="sources-header-copy sources-upsell-copy">
+          <span>Connectors</span>
+          <strong>Connect more sources</strong>
+          <p>Link CRM, meetings, and email for richer intelligence generation.</p>
+        </div>
+        <div className="source-connector-strip">
+          {UPSELL_CONNECTORS.map(connector => (
+            <button
+              key={connector.id}
+              type="button"
+              className="source-connector-chip"
+              title={`Connect ${connector.name}`}
+              aria-label={`Connect ${connector.name}`}
+              onClick={onOpenConnectors}
+            >
+              <span className="source-connector-logo" style={{ background: connector.color + "22", color: connector.color }}>
+                {connector.logoSrc ? <img src={connector.logoSrc} alt="" /> : connector.icon}
+              </span>
+              <span className="source-connector-name">{connector.name}</span>
+              <span className="source-connector-add" aria-hidden="true">+</span>
+            </button>
+          ))}
+          <button type="button" className="source-all-connectors" onClick={onOpenConnectors}>All connectors</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ContextFeedPage({
   onOpenConnectors,
   onIntelligenceGenerated,
@@ -5302,12 +5347,6 @@ function ContextFeedPage({
   };
   const recommendedConnectors = contextConnectors.filter(connector => connector.tone !== "connected");
   const activeConnector = selectedConnector || recommendedConnectors[0];
-  const upsellConnectors = recommendedConnectors.slice(0, 5);
-
-  const openConnector = (connector: ContextConnector) => {
-    setConnectorsOpen(true);
-    setSelectedConnector(connector);
-  };
 
   const startAddSource = () => {
     setShowSourceForm(true);
@@ -5367,12 +5406,12 @@ function ContextFeedPage({
             <span>Sources</span>
             <strong>Auto-generate sources from connected context</strong>
             <p>Capture notes, connector activity, and meetings — then turn them into intelligence.</p>
-          </div>
+      </div>
           <div className="sources-header-actions">
             {showSourceForm ? (
               <>
                 <button type="button" className="ghost" onClick={cancelAddSource}>Cancel</button>
-                <button
+            <button
                   type="button"
                   className={`primary${generationBlocked ? " credit-action-disabled" : ""}`}
                   disabled={!sourceTitle.trim() || signalsGenerated}
@@ -5399,8 +5438,8 @@ function ContextFeedPage({
                 </button>
               </>
             )}
-          </div>
-        </div>
+              </div>
+                </div>
 
         {showSourceForm ? (
           <div className="source-add-form">
@@ -5422,16 +5461,16 @@ function ContextFeedPage({
                     attachedFileName={attachedDocument?.file.name}
                   />
                 ) : null}
-              </div>
+                </div>
             </label>
             {attachedDocument ? (
               <div className="source-attached-document">
                 <span>
                   <strong>{attachedDocument.typeLabel}</strong>
                   <em>{attachedDocument.file.name}</em>
-                </span>
+                  </span>
                 <button type="button" onClick={() => setAttachedDocument(null)}>Remove</button>
-              </div>
+                </div>
             ) : null}
             <label>
               <span>Description</span>
@@ -5442,35 +5481,9 @@ function ContextFeedPage({
                 rows={2}
               />
             </label>
-          </div>
+              </div>
         ) : null}
 
-        <div className="sources-upsell">
-          <div className="sources-header-copy sources-upsell-copy">
-            <span>Connectors</span>
-            <strong>Connect more sources</strong>
-            <p>Link CRM, meetings, and email for richer intelligence generation.</p>
-          </div>
-          <div className="source-connector-strip">
-            {upsellConnectors.map(connector => (
-              <button
-                key={connector.id}
-                type="button"
-                className="source-connector-chip"
-                title={`Connect ${connector.name}`}
-                aria-label={`Connect ${connector.name}`}
-                onClick={() => openConnector(connector)}
-              >
-                <span className="source-connector-logo" style={{ background: connector.color + "22", color: connector.color }}>
-                  {connector.logoSrc ? <img src={connector.logoSrc} alt="" /> : connector.icon}
-                </span>
-                <span className="source-connector-name">{connector.name}</span>
-                <span className="source-connector-add" aria-hidden="true">+</span>
-              </button>
-            ))}
-            <button type="button" className="source-all-connectors" onClick={onOpenConnectors}>All connectors</button>
-          </div>
-        </div>
       </div>
 
       {connectorsOpen ? (
@@ -5556,26 +5569,26 @@ function ProfileUsagePanel({
       <div className="profile-usage-plan">
         <span className={`profile-usage-plan-badge ${snapshot.plan}`}>{snapshot.plan === "pro" ? "Pro" : "Free"}</span>
         <em>Resets {snapshot.monthlyResetLabel}</em>
-      </div>
+          </div>
       <div className="profile-usage-section">
         <div className="profile-usage-section-head">
           <span>Credits this month</span>
           <strong>{remaining.toLocaleString()} left</strong>
-        </div>
+                  </div>
         <div className="profile-usage-meter" aria-hidden="true">
           <span
             className={`profile-usage-meter-fill${remaining <= snapshot.monthlyLimit * 0.1 ? " low" : ""}`}
             style={{ width: `${Math.max(4, Math.round(monthlyRemainingRatio(snapshot) * 100))}%` }}
           />
-        </div>
+                </div>
         <p className="profile-usage-status">{dailyLeft} daily credits left today · {usedPercent}% used</p>
-      </div>
+              </div>
       <div className="profile-usage-breakdown">
         <span className="profile-usage-breakdown-label">This month</span>
         <div className="profile-usage-breakdown-row"><span>Signals</span><strong>{snapshot.stats.signals}</strong></div>
         <div className="profile-usage-breakdown-row"><span>Docs</span><strong>{snapshot.stats.docs}</strong></div>
         <div className="profile-usage-breakdown-row"><span>AI messages</span><strong>{snapshot.stats.messages}</strong></div>
-      </div>
+          </div>
     </div>
   );
 }
@@ -5632,7 +5645,7 @@ function SidebarProfileFooter({
               openUpgrade("topup");
             }}
           />
-        ) : null}
+      ) : null}
         <button
           type="button"
           className={`sidebar-foot${profileMenuOpen ? " open" : ""}`}
@@ -5871,7 +5884,7 @@ function PatriotPayJourneyInner({
     const timer = window.setTimeout(() => {
       if (startsWithTourAfterSignals) {
         setActivePage("signals");
-        setShowTourPrompt(true);
+          setShowTourPrompt(true);
         return;
       }
 
