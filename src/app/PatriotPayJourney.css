@@ -521,6 +521,49 @@ body {
   padding: 18px 22px;
 }
 
+.company-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.company-name-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.company-overview-chip {
+  align-items: center;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  border-radius: 7px;
+  color: var(--accent);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  gap: 7px;
+  padding: 7px 13px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.company-overview-chip:hover {
+  background: rgba(61, 214, 140, 0.16);
+  border-color: rgba(61, 214, 140, 0.38);
+  color: rgb(61, 214, 140);
+}
+
+.company-overview-chip-dot {
+  background: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  height: 6px;
+  width: 6px;
+}
+
 .company-logo {
   width: 48px;
   height: 48px;
@@ -595,7 +638,7 @@ body {
   gap: 4px;
   border-bottom: 1px solid var(--border);
   padding: 0 28px;
-  margin-top: 20px;
+  margin-top: 14px;
 }
 
 .tab {
@@ -11332,4 +11375,993 @@ body {
   .quarterly-submission-row.head {
     display: none;
   }
+
+  .scorecard-v2-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ─── Scorecard V2 ───────────────────────────────────────────────────────── */
+
+.scorecard-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.scorecard-v2-panel {
+  background: #1F3140;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.scorecard-v2-panel .panel-heading {
+  margin-bottom: 12px;
+}
+
+.scorecard-v2-panel .panel-heading span {
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.scorecard-v2-panel .panel-heading strong {
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.scorecard-v2-summary {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 14px;
+}
+
+.scorecard-v2-summary strong {
+  color: var(--text-1);
+  font-weight: 700;
+}
+
+.scorecard-v2-intel-gateway .scorecard-v2-summary {
+  margin-bottom: 12px;
+}
+
+.scorecard-v2-playbooks-panel {
+  padding-top: 14px;
+}
+
+.scorecard-v2-playbooks-panel > div {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.scorecard-v2-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scorecard-v2-chip {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-1);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  padding: 8px 14px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.scorecard-v2-chip:hover {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.scorecard-v2-dot {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dot-color, var(--accent)) 25%, transparent);
+  flex-shrink: 0;
+  height: 7px;
+  width: 7px;
+}
+
+.scorecard-v2-metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.scorecard-v2-metric-card {
+  background: rgb(10, 23, 32);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  padding: 13px;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.scorecard-v2-metric-card:hover {
+  border-color: rgba(61, 214, 140, 0.35);
+}
+
+.scorecard-v2-metric-label {
+  color: rgb(138, 153, 166);
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.scorecard-v2-metric-value {
+  color: var(--tier-color, var(--text-1));
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.scorecard-v2-metric-pos {
+  align-items: center;
+  color: var(--tier-color, var(--text-2));
+  display: flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.scorecard-v2-action-row {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-1);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 14px;
+  padding: 14px 0;
+  text-align: left;
+  width: 100%;
+}
+
+.scorecard-v2-action-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.scorecard-v2-action-row:hover .scorecard-v2-action-title {
+  color: var(--accent);
+}
+
+.scorecard-v2-action-num {
+  align-items: center;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  border-radius: 8px;
+  color: var(--accent);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.scorecard-v2-action-title {
+  color: var(--text-1);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  transition: color 0.15s;
+}
+
+.scorecard-v2-action-desc {
+  color: var(--text-2);
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.scorecard-v2-action-arrow {
+  color: var(--text-3);
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.scorecard-v2-empty {
+  background: #1F3140;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+
+.scorecard-v2-empty h3 {
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.scorecard-v2-empty p {
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.scorecard-v2-empty-note {
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.scorecard-v2-empty-note strong {
+  color: var(--text-1);
+}
+
+.scorecard-v2-drill-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.scorecard-v2-drill-title {
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.scorecard-v2-drill-urgency {
+  align-items: center;
+  color: var(--urgency-color, var(--text-2));
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  margin-top: 4px;
+  text-transform: capitalize;
+}
+
+.scorecard-v2-accordion {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.scorecard-v2-accordion.is-open {
+  border-color: color-mix(in srgb, var(--card-accent, var(--accent-line)) 45%, var(--border));
+}
+
+.scorecard-v2-accordion-toggle {
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 12px;
+  padding: 14px 16px;
+  text-align: left;
+  width: 100%;
+}
+
+.scorecard-v2-accordion-toggle:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.scorecard-v2-accordion-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.scorecard-v2-accordion-category {
+  color: var(--text-2);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.scorecard-v2-accordion-chevron {
+  color: var(--text-3);
+  display: inline-block;
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+
+.scorecard-v2-accordion.is-open .scorecard-v2-accordion-chevron {
+  transform: rotate(180deg);
+}
+
+.scorecard-v2-accordion-body {
+  border-top: 1px solid var(--border);
+  padding: 14px 16px 16px;
+}
+
+.scorecard-v2-accordion-insight {
+  color: var(--text-1);
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+
+.scorecard-v2-intel {
+  background: rgb(10, 23, 32);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 11.5px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+}
+
+.scorecard-v2-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scorecard-v2-priority {
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+.scorecard-v2-priority[data-priority="urgent"] {
+  background: rgba(207, 138, 138, 0.15);
+  border: 1px solid rgba(207, 138, 138, 0.35);
+  color: #CF8A8A;
+}
+
+.scorecard-v2-priority[data-priority="watch"] {
+  background: rgba(212, 168, 106, 0.15);
+  border: 1px solid rgba(212, 168, 106, 0.35);
+  color: #D4A86A;
+}
+
+.scorecard-v2-priority[data-priority="good"] {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Advisor panel (overview, below category cards)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scorecard-advisor-panel {
+  background: linear-gradient(135deg, var(--surface-2) 0%, rgba(0,180,138,0.035) 100%);
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+  margin-top: 14px;
+  padding: 18px 20px 16px;
+}
+
+.scorecard-advisor-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.scorecard-advisor-label {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.scorecard-advisor-company {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.scorecard-advisor-text {
+  color: var(--text-1);
+  font-size: 13px;
+  line-height: 1.55;
+  margin-bottom: 13px;
+}
+
+.scorecard-advisor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.scorecard-advisor-chip {
+  align-items: center;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 5px;
+  padding: 5px 13px;
+  transition: border-color 0.14s, color 0.14s, background 0.14s;
+}
+
+.scorecard-advisor-chip:hover {
+  background: var(--surface-2);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.scorecard-advisor-chip.is-urgent {
+  background: rgba(207, 138, 138, 0.07);
+  border-color: rgba(207, 138, 138, 0.32);
+  color: #CF8A8A;
+}
+
+.scorecard-advisor-chip.is-urgent:hover {
+  background: rgba(207, 138, 138, 0.12);
+  border-color: #CF8A8A;
+  color: #e09090;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Overview — category cards
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scorecard-cat-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.scorecard-cat-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.14s;
+}
+
+.scorecard-cat-card:hover {
+  border-color: var(--text-3);
+}
+
+.scorecard-cat-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 20px 0;
+}
+
+.scorecard-cat-badge {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  gap: 5px;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  text-transform: uppercase;
+}
+
+.scorecard-cat-view-link {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.scorecard-cat-bar-wrap {
+  padding: 12px 20px 0;
+}
+
+.scorecard-cat-bar-track {
+  background: var(--surface-3);
+  border-radius: 3px;
+  height: 5px;
+  margin-bottom: 5px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.scorecard-cat-bar-fill {
+  border-radius: 3px;
+  height: 100%;
+  transition: width 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.scorecard-cat-bar-ends {
+  display: flex;
+  justify-content: space-between;
+}
+
+.scorecard-cat-bar-ends span {
+  color: var(--text-4);
+  font-size: 9px;
+}
+
+.scorecard-cat-body {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding: 14px 20px 18px;
+}
+
+.scorecard-cat-insight {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+
+.scorecard-cat-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.scorecard-cat-signal {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.scorecard-cat-signal-dot {
+  border-radius: 50%;
+  flex-shrink: 0;
+  height: 7px;
+  width: 7px;
+}
+
+.scorecard-cat-signal-text {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Drilldown — shared layout
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scorecard-v2-drill-header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.scorecard-v2-drill-title {
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.scorecard-section-lbl {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  margin-bottom: 12px;
+  margin-top: 28px;
+  text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Drilldown — hero header
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scorecard-drill-hero {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cat-col, var(--accent));
+  border-radius: 10px;
+  margin-bottom: 4px;
+  padding: 18px 22px 20px;
+}
+
+.scorecard-drill-hero-nav {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.scorecard-drill-back-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  transition: border-color 0.14s, color 0.14s;
+}
+
+.scorecard-drill-back-btn:hover {
+  border-color: var(--text-3);
+  color: var(--text-1);
+}
+
+.scorecard-drill-hero-crumb {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.scorecard-drill-hero-title {
+  color: var(--text-1);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 5px;
+}
+
+.scorecard-drill-hero-sub {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 16px;
+  max-width: 680px;
+}
+
+.scorecard-drill-hero-bar-wrap {
+  margin-top: 0;
+}
+
+.scorecard-drill-hero-bar-track {
+  background: var(--surface-3);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.scorecard-drill-hero-bar-fill {
+  border-radius: 4px;
+  height: 100%;
+  transition: width 0.7s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.scorecard-drill-hero-bar-meta {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+}
+
+.scorecard-drill-hero-bar-end {
+  color: var(--text-4);
+  font-size: 10px;
+}
+
+.scorecard-drill-hero-position {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Drilldown — premium metric cards (2-column grid)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scorecard-drill-metric-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.scorecard-drill-mcard {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cat-col, var(--accent));
+  border-radius: 8px;
+  padding: 16px 18px 14px;
+}
+
+.scorecard-drill-mcard-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.scorecard-drill-mcard-name {
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.scorecard-drill-mcard-intel {
+  background: var(--surface-3);
+  border-radius: 4px;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+.scorecard-drill-mcard-main {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 3px;
+}
+
+.scorecard-drill-mcard-val {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.scorecard-drill-mcard-pill {
+  border: 1px solid transparent;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 9px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.scorecard-drill-mcard-vs {
+  color: var(--text-3);
+  font-size: 11.5px;
+  margin-bottom: 14px;
+  margin-top: 2px;
+}
+
+
+.scorecard-drill-missing-note {
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-3);
+  font-size: 12px;
+  margin-top: 8px;
+  padding: 12px 16px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Drilldown — intelligence timeline
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scorecard-drill-intel {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.scorecard-drill-intel-row {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  padding: 11px 16px;
+}
+
+.scorecard-drill-intel-row:last-child {
+  border-bottom: none;
+}
+
+.scorecard-drill-intel-cat {
+  color: var(--accent);
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  width: 80px;
+}
+
+.scorecard-drill-intel-text {
+  color: var(--text-1);
+  flex: 1;
+  font-size: 13px;
+}
+
+.scorecard-drill-intel-val {
+  font-size: 13px;
+  font-weight: 600;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.scorecard-drill-intel-date {
+  color: var(--text-3);
+  font-size: 11px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Drilldown — playbooks grid (with track color strip)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scorecard-drill-pb-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.scorecard-drill-pb-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: row;
+  font: inherit;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.scorecard-drill-pb-card:hover {
+  border-color: var(--cat-col, var(--accent-line));
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+}
+
+.scorecard-drill-pb-track-strip {
+  border-radius: 0;
+  flex-shrink: 0;
+  opacity: 0.65;
+  width: 3px;
+}
+
+.scorecard-drill-pb-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 15px;
+}
+
+.scorecard-drill-pb-title {
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.scorecard-drill-pb-desc {
+  color: var(--text-3);
+  flex: 1;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.scorecard-drill-pb-cta {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Drilldown — suggested initiatives (left-border style)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scorecard-drill-init-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 28px;
+  margin-bottom: 10px;
+}
+
+.scorecard-drill-init-create {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 11px;
+  gap: 4px;
+  padding: 5px 12px;
+  transition: border-color 0.14s, color 0.14s;
+}
+
+.scorecard-drill-init-create:hover {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.scorecard-drill-init-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 36px;
+}
+
+.scorecard-drill-init-row {
+  align-items: flex-start;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--init-col, var(--accent));
+  border-radius: 8px;
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  transition: border-color 0.14s;
+}
+
+.scorecard-drill-init-row:hover {
+  border-color: var(--init-col, var(--accent-line));
+  border-left-color: var(--init-col, var(--accent));
+}
+
+.scorecard-drill-init-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.scorecard-drill-init-title {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.scorecard-drill-init-desc {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.scorecard-drill-init-action {
+  flex-shrink: 0;
+}
+
+.scorecard-drill-init-btn {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 5px 12px;
+  transition: border-color 0.14s, color 0.14s;
+  white-space: nowrap;
+}
+
+.scorecard-drill-init-btn:hover {
+  border-color: var(--accent-line);
+  color: var(--accent);
 }

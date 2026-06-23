@@ -3,13 +3,21 @@ import PatriotPayJourney, { type OnboardingBenchmarkInput } from "./PatriotPayJo
 import FuelOnboardingChat, { type OnboardingBenchmarkValues } from "./FuelOnboardingChat.tsx";
 import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
 
-type View = "onboarding" | "integrations" | "journey" | "signals" | "tour";
+type View = "onboarding" | "integrations" | "journey" | "signals" | "tour" | "overview";
 
 export default function App() {
   const [view, setView] = useState<View>("onboarding");
   const [onboardingBenchmark, setOnboardingBenchmark] = useState<OnboardingBenchmarkInput | null>(null);
 
   if (view === "journey") return <PatriotPayJourney />;
+  if (view === "overview") {
+    return (
+      <PatriotPayJourney
+        initialPage="overview-loading"
+        initialBenchmark={onboardingBenchmark}
+      />
+    );
+  }
   if (view === "signals") {
     return (
       <PatriotPayJourney
@@ -29,7 +37,7 @@ export default function App() {
     <FuelOnboardingChat
       onComplete={(benchmark: OnboardingBenchmarkValues | null) => {
         setOnboardingBenchmark(benchmark);
-        setView("signals");
+        setView("overview");
       }}
       onManual={() => setView("tour")}
     />

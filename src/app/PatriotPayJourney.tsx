@@ -14,6 +14,7 @@ import {
 } from "./credits";
 import { totalRemaining, dailyRemaining, monthlyRemainingRatio } from "./credits/creditLogic";
 import type { CreditSnapshot } from "./credits/types";
+import ScorecardV2 from "./ScorecardV2";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -3014,6 +3015,20 @@ function toBenchmarkFormValues(onboarding: OnboardingBenchmarkInput): BenchmarkF
   };
 }
 
+function formValuesToOnboardingBenchmark(form: BenchmarkFormValues): OnboardingBenchmarkInput {
+  return {
+    arr: form.arr,
+    arrGrowth: form.arrGrowth,
+    nrr: form.nrr,
+    logoRetention: form.logoRetention,
+    monthlyBurn: form.monthlyBurn,
+    cashOnHand: form.cashOnHand,
+    grossMargin: form.grossMargin,
+    headcount: form.headcount,
+    payingCustomers: form.paidCustomers,
+  };
+}
+
 const BENCHMARK_COHORT_ROWS = [
   { key: "arr", metric: "ARR", bot25: "$150K", median: "$500K", top25: "$1.2M" },
   { key: "arrGrowth", metric: "ARR growth (YoY)", bot25: "120%", median: "200%", top25: "350%" },
@@ -5694,15 +5709,16 @@ function PatriotPayJourneyInner({
 }) {
   const startsWithTour = initialPage === "guided-tour";
   const startsWithTourAfterSignals = initialPage === "signals-loading-tour";
+  const startsWithOverview = initialPage === "overview-loading";
   const [openTracks, setOpenTracks] = useState(() => new Set());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
-  const [activePage, setActivePage] = useState(startsWithTour ? "overview" : startsWithTourAfterSignals ? "signals-loading" : initialPage);
+  const [activePage, setActivePage] = useState(startsWithTour ? "overview" : (startsWithTourAfterSignals || startsWithOverview) ? "signals-loading" : initialPage);
   const [tourOpen, setTourOpen] = useState(startsWithTour);
   const [tourStep, setTourStep] = useState(0);
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
-  const [profileComplete, setProfileComplete] = useState(initialPage === "signals-loading" || startsWithTourAfterSignals);
+  const [profileComplete, setProfileComplete] = useState(initialPage === "signals-loading" || startsWithTourAfterSignals || startsWithOverview);
   const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
   const [processingDocumentTypeId, setProcessingDocumentTypeId] = useState<string | null>(null);
   const [documentHistorySlot, setDocumentHistorySlot] = useState<DataRoomDocumentSlot | null>(null);
@@ -5882,19 +5898,22 @@ function PatriotPayJourneyInner({
     if (activePage !== "signals-loading") return;
 
     const timer = window.setTimeout(() => {
-      if (startsWithTourAfterSignals) {
-        setActivePage("signals");
-          setShowTourPrompt(true);
+      if (startsWithOverview) {
+        setActivePage("scorecard-v2");
         return;
       }
-
+      if (startsWithTourAfterSignals) {
+        setActivePage("signals");
+        setShowTourPrompt(true);
+        return;
+      }
       setActivePage("signals");
     }, 2200);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [activePage, startsWithTourAfterSignals]);
+  }, [activePage, startsWithTourAfterSignals, startsWithOverview]);
 
   useEffect(() => {
     function closeDropdown(event) {
@@ -6155,9 +6174,9 @@ function PatriotPayJourneyInner({
         {!isProfileWizard ? <div className="company-header">
           <div className="company-card">
             <div className="company-logo" style={{ background: selectedCompany.logoBg }}>{selectedCompany.logo}</div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "5px" }}>
-                <div className="company-name">{selectedCompany.name}</div>
+            <div className="company-identity">
+              <div className="company-name-row">
+                <div className="company-name">{selectedCompany.displayName}</div>
                 <span className="badge">{selectedCompany.domain}</span>
               </div>
               <div className="company-meta">
@@ -6169,6 +6188,15 @@ function PatriotPayJourneyInner({
               </div>
             </div>
             <div className="header-actions">
+              <button
+                type="button"
+                className={`company-overview-chip${activePage === "overview" ? " active" : ""}${tourOpen && tourSteps[tourStep].target === "overview" ? " tour-highlight" : ""}`}
+                data-tour-target={tourOpen && tourSteps[tourStep].target === "overview" ? "overview" : undefined}
+                onClick={() => setActivePage("overview")}
+              >
+                <span className="company-overview-chip-dot" /                >
+                  Profile
+                </button>
               <button className={`header-btn ${tourOpen && tourSteps[tourStep].target === "playbooks" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "playbooks" ? "playbooks" : undefined}>Playbooks ▾</button>
               <button className="header-btn primary">≡ Generate brief</button>
             </div>
@@ -6176,7 +6204,7 @@ function PatriotPayJourneyInner({
         </div> : null}
 
         {!isProfileWizard ? <div className="tabs">
-          <div className={`tab ${activePage === "overview" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "overview" ? "overview" : undefined} onClick={() => setActivePage("overview")}>Overview</div>
+          <div className={`tab ${activePage === "scorecard-v2" ? "active" : ""}`} onClick={() => setActivePage("scorecard-v2")}>Overview</div>
           <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>Intelligence</div>
           <div
             className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
@@ -6312,7 +6340,25 @@ function PatriotPayJourneyInner({
               onViewIntelligence={handleViewIntelligenceFromDataRoom}
               onOpenDocumentHistory={setDocumentHistorySlot}
             />
-          ) : (
+          ) : activePage === "scorecard-v2" ? (
+            <ScorecardV2
+              benchmark={formValuesToOnboardingBenchmark(
+                benchmarkSubmission?.formValues ?? (initialBenchmark ? toBenchmarkFormValues(initialBenchmark) : WIZARD_DEFAULT_BENCHMARK),
+              )}
+              cohortLabel={selectedCompany.meta}
+              companyName={selectedCompany.displayName}
+              journeyStage="Early Revenue"
+              documentSlots={documentSlots.map(slot => ({
+                typeId: slot.typeId,
+                typeLabel: slot.typeLabel,
+                current: slot.current ? { name: slot.current.name } : null,
+              }))}
+              onUploadPitchDeck={() => setActivePage("data-room")}
+              onOpenIntelligence={() => setActivePage("signals")}
+              onOpenInitiatives={() => setActivePage("initiatives")}
+              onGenerateInitiative={() => setActivePage("initiatives")}
+            />
+          ) : activePage === "journey" ? (
             <>
               <div className="journey-header">
                 <div>
@@ -6356,7 +6402,7 @@ function PatriotPayJourneyInner({
                 </div>
               ) : null}
             </>
-          )}
+          ) : null}
         </div>
         </>)}
       </div>
