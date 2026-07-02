@@ -1,45 +1,35 @@
 import { useState } from "react";
 import PatriotPayJourney, { type OnboardingBenchmarkInput } from "./PatriotPayJourney.tsx";
-import FuelOnboardingChat, { type OnboardingBenchmarkValues } from "./FuelOnboardingChat.tsx";
+import OnboardingFlow, { answersToOnboardingBenchmark } from "./OnboardingFlow.tsx";
 import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
 
-type View = "onboarding" | "integrations" | "journey" | "signals" | "tour" | "overview";
+type View = "onboarding" | "integrations" | "workspace";
 
 export default function App() {
   const [view, setView] = useState<View>("onboarding");
   const [onboardingBenchmark, setOnboardingBenchmark] = useState<OnboardingBenchmarkInput | null>(null);
 
-  if (view === "journey") return <PatriotPayJourney />;
-  if (view === "overview") {
+  if (view === "workspace") {
     return (
       <PatriotPayJourney
-        initialPage="overview-loading"
+        initialPage="scorecard-v2"
         initialBenchmark={onboardingBenchmark}
       />
     );
   }
-  if (view === "signals") {
-    return (
-      <PatriotPayJourney
-        initialPage="signals-loading-tour"
-        initialBenchmark={onboardingBenchmark}
-      />
-    );
-  }
-  if (view === "tour") return <PatriotPayJourney initialPage="guided-tour" />;
-  if (view === "integrations")
+  if (view === "integrations") {
     return (
       <IntegrationSetupPage
-        onComplete={() => setView("journey")}
+        onComplete={() => setView("workspace")}
       />
     );
+  }
   return (
-    <FuelOnboardingChat
-      onComplete={(benchmark: OnboardingBenchmarkValues | null) => {
-        setOnboardingBenchmark(benchmark);
-        setView("overview");
+    <OnboardingFlow
+      onComplete={answers => {
+        setOnboardingBenchmark(answersToOnboardingBenchmark(answers));
+        setView("workspace");
       }}
-      onManual={() => setView("tour")}
     />
   );
 }

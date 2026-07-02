@@ -1285,7 +1285,7 @@ export function BenchmarkPercentileScale({
           || (activeBucket === "below" && bucket.key === "p25");
         return (
           <div key={bucket.key} title={bucket.title}>
-            <div style={{
+    <div style={{
               color: isActive && tierStyle
                 ? tierStyle.marker
                 : isMedian && highlightMedian
@@ -1303,8 +1303,8 @@ export function BenchmarkPercentileScale({
               marginTop: compact ? 2 : 3,
             }}>
               {getBenchmarkPercentileValue(field, bucket.key)}
-            </div>
           </div>
+      </div>
         );
       })}
     </div>
@@ -3448,7 +3448,7 @@ function BenchmarkCard({
     setCompletedCount(nextCount);
     setPulseKey(null);
     if (nextCount >= BENCHMARK_WIZARD_FIELDS.length) {
-      setMode("loading");
+    setMode("loading");
       window.setTimeout(() => setMode("results"), 1400);
     }
   }
@@ -3478,7 +3478,7 @@ function BenchmarkCard({
   }
 
   const cardShell = (children: React.ReactNode) => (
-    <div style={{
+      <div style={{
       background: "#1F3140",
       border: "1px solid rgba(255,255,255,0.09)",
       borderRadius: 12,
@@ -3487,23 +3487,23 @@ function BenchmarkCard({
       width: "100%",
     }}>
       {children}
-    </div>
+          </div>
   );
 
   const editButtonStyle: React.CSSProperties = {
-    alignItems: "center",
+                          alignItems: "center",
     background: "rgba(61,214,140,0.08)",
     border: "1px solid rgba(61,214,140,0.22)",
     borderRadius: 6,
     color: "#00B48A",
     cursor: "pointer",
-    display: "inline-flex",
+                          display: "inline-flex",
     flexShrink: 0,
     font: "inherit",
     fontSize: 12,
-    fontWeight: 800,
+                          fontWeight: 800,
     height: 28,
-    justifyContent: "center",
+                          justifyContent: "center",
     width: 28,
   };
 
@@ -3602,12 +3602,12 @@ function BenchmarkCard({
                     style={{
                       background: "rgba(255,255,255,0.06)",
                       border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: 8,
+                          borderRadius: 8,
                       color: "#F2F5F2",
                       cursor: "pointer",
                       flexShrink: 0,
                       font: "inherit",
-                      fontSize: 11,
+                          fontSize: 11,
                       fontWeight: 800,
                       padding: "7px 12px",
                     }}
@@ -3640,14 +3640,14 @@ function BenchmarkCard({
                 }}>
                   <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: activeField.promptHint ? 6 : 10 }}>
                     {activeField.prompt}
-                  </div>
+                        </div>
                   {activeField.promptHint ? (
                     <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>
                       {activeField.promptHint}
                     </div>
                   ) : null}
                   <div style={{ marginBottom: 10, position: "relative" }}>
-                    <input
+                      <input
                       ref={activeInputRef}
                       key={activeField.key}
                       autoFocus
@@ -3673,7 +3673,7 @@ function BenchmarkCard({
                     {activeField.unit === "percent" && (
                       <span style={{ color: "#8FA99A", fontSize: 16, fontWeight: 800, pointerEvents: "none", position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>%</span>
                     )}
-                  </div>
+              </div>
                   <LiveBenchmarkBar compact field={activeField} value={activeValue} animate={pulseKey === activeField.key} />
                   <div style={{ alignItems: "center", display: "flex", gap: 10, marginTop: 10 }}>
                     <button
@@ -3697,8 +3697,8 @@ function BenchmarkCard({
                     <button type="button" onClick={cancelSingleFieldEdit} style={{ background: "none", border: "none", color: "#8FA99A", cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 700, padding: "10px 4px" }}>
                       Cancel
                     </button>
-                  </div>
-                </div>
+            </div>
+        </div>
               ) : null}
             </>
           ) : (
@@ -3839,12 +3839,12 @@ function BenchmarkCard({
                       {activeGroupIdx < BENCHMARK_GROUPS.length - 1
                         ? `Lock in ${activeGroup.label} →`
                         : "See my full benchmark →"}
-                    </button>
+          </button>
                     <span style={{ color: "#8FA99A", fontSize: 11.5 }}>
                       {activeGroup.fieldKeys.filter(k => parseBenchmarkNumber(benchmarkValues[k]) != null).length} / {activeGroup.fieldKeys.length} filled
                     </span>
-                  </div>
-                </div>
+        </div>
+      </div>
               )}
             </>
           )}
@@ -3914,27 +3914,27 @@ function BenchmarkCard({
           {journeyStages.map(item => {
             const isSelected = item.title === selectedJourneyStage;
             return (
-              <button
-                key={item.stage}
-                type="button"
-                onClick={() => setSelectedJourneyStage(item.title)}
-                style={{
-                  background: isSelected ? "rgba(0,180,138,0.13)" : item.done ? "rgba(31,49,64,0.85)" : "#0B1720",
-                  border: isSelected ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: 9,
-                  cursor: "pointer",
+            <button
+              key={item.stage}
+              type="button"
+              onClick={() => setSelectedJourneyStage(item.title)}
+              style={{
+              background: isSelected ? "rgba(0,180,138,0.13)" : item.done ? "rgba(31,49,64,0.85)" : "#0B1720",
+              border: isSelected ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 9,
+              cursor: "pointer",
                   font: "inherit",
-                  minHeight: 76,
-                  padding: 10,
-                  position: "relative",
-                  textAlign: "left",
+              minHeight: 76,
+              padding: 10,
+              position: "relative",
+              textAlign: "left",
                 }}
               >
-                {isSelected ? <span style={{ color: "#00B48A", fontSize: 12, position: "absolute", right: 10, top: 8 }}>✓</span> : null}
+              {isSelected ? <span style={{ color: "#00B48A", fontSize: 12, position: "absolute", right: 10, top: 8 }}>✓</span> : null}
                 <div style={{ color: "#8FA99A", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>{item.stage}</div>
-                <strong style={{ color: "#F2F5F2", display: "block", fontSize: 12, lineHeight: 1.25 }}>{item.title}</strong>
-                <p style={{ color: "#8FA99A", fontSize: 10.5, lineHeight: 1.3, margin: "4px 0 0" }}>{item.detail}</p>
-              </button>
+              <strong style={{ color: "#F2F5F2", display: "block", fontSize: 12, lineHeight: 1.25 }}>{item.title}</strong>
+              <p style={{ color: "#8FA99A", fontSize: 10.5, lineHeight: 1.3, margin: "4px 0 0" }}>{item.detail}</p>
+            </button>
             );
           })}
         </div>
@@ -7451,7 +7451,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
   const handleGtmQualComplete = useCallback(async (answers: Record<string, string>) => {
     qualAnswersRef.current = { ...qualAnswersRef.current, ...answers } as typeof qualAnswersRef.current;
     setQualAnswers(prev => ({ ...prev, ...answers }));
-    await aiSay(
+      await aiSay(
       `Great. Now let's see where ${userData.companyName || "your company"} sits on the numbers.`,
       { delay: 700 },
     );
@@ -7460,7 +7460,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
   // Called after all RevOps answers — shows transition + posts pending KPI + dev qual card
   const showKpiAfterRevOps = useCallback(async () => {
-    await aiSay(
+      await aiSay(
       `You're all set. Here's where ${userData.companyName || "your company"} stands across your cohort.`,
       { delay: 600 },
     );
@@ -8640,9 +8640,9 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                         ? <span style={{ color: "#00B48A" }}>✓</span>
                         : <span style={{ color: isActive ? "#00B48A" : "#566E7A" }}>{i + 1}</span>
                       }
-                    </div>
+                  </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
+            <div style={{
                         display: "flex", alignItems: "center", gap: 6,
                       }}>
                         <span style={{
@@ -8659,12 +8659,12 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                             borderRadius: 8, padding: "1px 6px", letterSpacing: "0.05em",
                           }}>ACTIVE</span>
                         )}
-                      </div>
+              </div>
                       {/* Sub-text: show operational gap line after team confirm, else stage description */}
                       {(isActive || isDone) && (
                         <div style={{ fontSize: 10, color: isDone ? "#6B8899" : "#8FA99A", marginTop: 2 }}>
                           {isActive ? operationalGapLine : stg.sub}
-                        </div>
+            </div>
                       )}
                     </div>
                   </div>

@@ -15,6 +15,8 @@ import {
 import { totalRemaining, dailyRemaining, monthlyRemainingRatio } from "./credits/creditLogic";
 import type { CreditSnapshot } from "./credits/types";
 import ScorecardV2 from "./ScorecardV2";
+import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
+import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -2694,14 +2696,7 @@ function slugifyDocumentLabel(label: string) {
 }
 
 function createInitialDocumentSlots(): DataRoomDocumentSlot[] {
-  return DATA_ROOM_DOCUMENT_TYPES
-    .filter(type => type.id !== "custom")
-    .map(type => ({
-      typeId: type.id,
-      typeLabel: type.label,
-      current: null,
-      history: [],
-    }));
+  return [];
 }
 
 function getDocumentTypeLabel(typeId: string, fallback?: string) {
@@ -2711,21 +2706,12 @@ function getDocumentTypeLabel(typeId: string, fallback?: string) {
   return fallback || typeId;
 }
 
-function getDisplayDocumentSlots(slots: DataRoomDocumentSlot[]) {
-  const predefined = DATA_ROOM_DOCUMENT_TYPES
-    .filter(type => type.id !== "custom")
-    .map(type => slots.find(slot => slot.typeId === type.id) || {
-      typeId: type.id,
-      typeLabel: type.label,
-      current: null,
-      history: [],
-    });
-  const custom = slots.filter(slot => slot.typeId.startsWith("custom:"));
-  return [...predefined, ...custom];
+function getActiveDocumentSlots(slots: DataRoomDocumentSlot[]) {
+  return slots.filter(slot => slot.current);
 }
 
 function countActiveDocuments(slots: DataRoomDocumentSlot[]) {
-  return getDisplayDocumentSlots(slots).filter(slot => slot.current).length;
+  return getActiveDocumentSlots(slots).length;
 }
 
 function upsertDocumentSlot(
@@ -3873,8 +3859,8 @@ function DataRoomPage({
   onViewIntelligence: (record: DataRoomFileRecord) => void;
   onOpenDocumentHistory: (slot: DataRoomDocumentSlot) => void;
 }) {
-  const displaySlots = getDisplayDocumentSlots(documentSlots);
-  const activeCount = countActiveDocuments(documentSlots);
+  const activeSlots = getActiveDocumentSlots(documentSlots);
+  const activeCount = activeSlots.length;
 
   return (
     <section className="data-room-page">
@@ -3884,7 +3870,7 @@ function DataRoomPage({
           <h2>Data Room</h2>
           <p>
             Pitch decks, investor notes, financial models, and other private files Fuel uses to generate intelligence.
-            One latest file per type — add custom types from the dropdown when you need more.
+            Add a document from the dropdown — one latest file per type.
           </p>
           </div>
         <div className="data-room-head-actions">
@@ -3892,46 +3878,52 @@ function DataRoomPage({
             documentSlots={documentSlots}
             processingTypeId={processingDocumentTypeId}
             onUpload={onUploadDocument}
-            scope="custom-only"
           />
-          <em>{activeCount} active · {displaySlots.length} types</em>
+          {activeCount > 0 ? <em>{activeCount} active</em> : null}
                 </div>
                 </div>
-      <div className="data-room-list">
-        <div className="data-room-row data-room-row-head">
-          <span>Type</span>
-          <span>Latest file</span>
-          <span>Format</span>
-          <span>Uploaded</span>
-          <span>Intelligence</span>
-          <span>Actions</span>
+      {activeCount === 0 ? (
+        <div className="data-room-empty">
+          <strong>No documents yet</strong>
+          <p>Choose a document type from Upload document — the same list as Intelligence — to add your first file.</p>
         </div>
-        {displaySlots.map(slot => (
-          <div className={`data-room-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`} key={slot.typeId}>
-            <strong>{slot.typeLabel}</strong>
-            <span className="data-room-latest">{slot.current?.name || "—"}</span>
-            <span>{slot.current?.format || "—"}</span>
-            <span>{slot.current?.uploadedAt || "—"}</span>
-            <span className="data-room-intelligence">
-              {slot.current && slot.current.intelligenceCount > 0 ? (
-                <button
-                  type="button"
-                  className="data-room-intelligence-link"
-                  onClick={() => onViewIntelligence(slot.current!)}
-                >
-                  {slot.current.intelligenceCount} generated →
-                </button>
-              ) : "—"}
-            </span>
-            <DocumentRowActions
-              slot={slot}
-              processingTypeId={processingDocumentTypeId}
-              onUpload={onUploadDocument}
-              onOpenHistory={onOpenDocumentHistory}
-            />
-              </div>
-            ))}
+      ) : (
+        <div className="data-room-list">
+          <div className="data-room-row data-room-row-head">
+            <span>Type</span>
+            <span>Latest file</span>
+            <span>Format</span>
+            <span>Uploaded</span>
+            <span>Intelligence</span>
+            <span>Actions</span>
           </div>
+          {activeSlots.map(slot => (
+            <div className={`data-room-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`} key={slot.typeId}>
+              <strong>{slot.typeLabel}</strong>
+              <span className="data-room-latest">{slot.current?.name || "—"}</span>
+              <span>{slot.current?.format || "—"}</span>
+              <span>{slot.current?.uploadedAt || "—"}</span>
+              <span className="data-room-intelligence">
+                {slot.current && slot.current.intelligenceCount > 0 ? (
+                  <button
+                    type="button"
+                    className="data-room-intelligence-link"
+                    onClick={() => onViewIntelligence(slot.current!)}
+                  >
+                    {slot.current.intelligenceCount} generated →
+                  </button>
+                ) : "—"}
+              </span>
+              <DocumentRowActions
+                slot={slot}
+                processingTypeId={processingDocumentTypeId}
+                onUpload={onUploadDocument}
+                onOpenHistory={onOpenDocumentHistory}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -5608,8 +5600,8 @@ function ProfileUsagePanel({
   );
 }
 
-function AskFuelAiButton() {
-  const { snapshot, tryAction, generationBlocked, setPopoverOpen } = useCredits();
+function AskFuelAiButton({ onOpen }: { onOpen: () => void }) {
+  const { snapshot, generationBlocked, setPopoverOpen } = useCredits();
   const remaining = totalRemaining(snapshot);
   const dailyLeft = dailyRemaining(snapshot);
 
@@ -5622,11 +5614,111 @@ function AskFuelAiButton() {
           setPopoverOpen(true);
           return;
         }
-        tryAction("aiChat", () => undefined);
+        onOpen();
       }}
     >
       ✦ Ask Fuel AI
     </button>
+  );
+}
+
+function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGenerateBrief }: { companyName: string; tourPlaybooksActive?: boolean; onRunPlaybook?: (pb: Playbook) => void; onGenerateBrief?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [search, setSearch] = useState("");
+  const closeTimer = useRef<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null; }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => { setOpen(false); }, 220);
+  };
+  const closeAll = () => { setOpen(false); setShowPicker(false); setSearch(""); };
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) closeAll();
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showPicker]);
+
+  const q = search.toLowerCase();
+  const filtered = PLAYBOOKS.filter(p =>
+    !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q) || p.category.toLowerCase().includes(q),
+  );
+  const grouped: Record<string, Playbook[]> = {};
+  filtered.forEach(p => { (grouped[p.category] ||= []).push(p); });
+
+  return (
+    <div
+      className="ai-actions-menu"
+      ref={wrapRef}
+      onMouseEnter={() => { cancelClose(); setOpen(true); }}
+      onMouseLeave={() => { if (!showPicker) scheduleClose(); }}
+    >
+      <button
+        type="button"
+        className="header-btn ai-menu-trigger"
+        title="AI Actions"
+        onClick={() => setOpen(v => !v)}
+      >
+        ✦
+      </button>
+      {open ? (
+        <div className="ai-actions-dropdown">
+          <button
+            type="button"
+            className={`ai-dropdown-item has-submenu ${tourPlaybooksActive ? "tour-highlight" : ""} ${showPicker ? "active" : ""}`}
+            data-tour-target={tourPlaybooksActive ? "playbooks" : undefined}
+            onClick={() => setShowPicker(v => !v)}
+          >
+            <span>▤ Playbooks</span>
+            <span className="ai-submenu-caret">▸</span>
+          </button>
+          <button type="button" className="ai-dropdown-item" onClick={() => { onGenerateBrief?.(); closeAll(); }}>
+            ≡ Generate brief
+          </button>
+        </div>
+      ) : null}
+      {showPicker ? (
+        <div className="ai-pb-panel">
+          <input
+            className="afc-pb-search"
+            autoFocus
+            placeholder={`Search ${PLAYBOOK_COUNT} playbooks…`}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <div className="afc-pb-list">
+            {Object.keys(grouped).length === 0 ? (
+              <div className="afc-pb-none">No playbooks match “{search}”.</div>
+            ) : Object.entries(grouped).map(([cat, items]) => (
+              <div key={cat} className="afc-pb-group">
+                <div className="afc-pb-cat">{cat.toUpperCase()}</div>
+                {items.map(pb => (
+                  <button key={pb.id} type="button" className="afc-pb-item" onClick={() => { onRunPlaybook?.(pb); closeAll(); }}>
+                    <div className="afc-pb-item-head">
+                      <span className="afc-pb-name">{pb.name}</span>
+                      <span className="afc-pb-kind"> · {pb.kind}</span>
+                    </div>
+                    <div className="afc-pb-desc">{pb.description}</div>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="afc-pb-foot">
+            <span>Click to run against {companyName}</span>
+            <span className="afc-pb-catalog">Full catalog →</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -5710,15 +5802,23 @@ function PatriotPayJourneyInner({
   const startsWithTour = initialPage === "guided-tour";
   const startsWithTourAfterSignals = initialPage === "signals-loading-tour";
   const startsWithOverview = initialPage === "overview-loading";
+  const startsWithScorecard = initialPage === "scorecard-v2";
   const [openTracks, setOpenTracks] = useState(() => new Set());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
-  const [activePage, setActivePage] = useState(startsWithTour ? "overview" : (startsWithTourAfterSignals || startsWithOverview) ? "signals-loading" : initialPage);
+  const [activePage, setActivePage] = useState(
+    startsWithTour ? "overview"
+      : startsWithScorecard ? "scorecard-v2"
+      : (startsWithTourAfterSignals || startsWithOverview) ? "signals-loading"
+      : initialPage,
+  );
   const [tourOpen, setTourOpen] = useState(startsWithTour);
   const [tourStep, setTourStep] = useState(0);
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
-  const [profileComplete, setProfileComplete] = useState(initialPage === "signals-loading" || startsWithTourAfterSignals || startsWithOverview);
+  const [profileComplete, setProfileComplete] = useState(
+    initialPage === "signals-loading" || startsWithTourAfterSignals || startsWithOverview || startsWithScorecard,
+  );
   const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
   const [processingDocumentTypeId, setProcessingDocumentTypeId] = useState<string | null>(null);
   const [documentHistorySlot, setDocumentHistorySlot] = useState<DataRoomDocumentSlot | null>(null);
@@ -5731,6 +5831,12 @@ function PatriotPayJourneyInner({
     () => initialBenchmarkSeed?.submission ?? null,
   );
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
+  const [askFuelOpen, setAskFuelOpen] = useState(false);
+  const [generatedBrief, setGeneratedBrief] = useState<Brief | null>(null);
+  const [lastPlaybook, setLastPlaybook] = useState<{ name: string; kind: string; description: string; category: string } | null>(null);
+  const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
+  const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
+  const [briefFocusSignal, setBriefFocusSignal] = useState(0);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const { tryAction } = useCredits();
@@ -6163,7 +6269,13 @@ function PatriotPayJourneyInner({
             <div className="search-box">
               <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
             </div>
-            <AskFuelAiButton />
+            <span
+              data-tour-target="ask-fuel-ai"
+              className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
+              style={{ display: "inline-flex" }}
+            >
+              <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+            </span>
             {!isProfileWizard && !tourTaken ? (
               <button className="header-btn" onClick={startTour}>Tour</button>
             ) : null}
@@ -6190,21 +6302,33 @@ function PatriotPayJourneyInner({
             <div className="header-actions">
               <button
                 type="button"
-                className={`company-overview-chip${activePage === "overview" ? " active" : ""}${tourOpen && tourSteps[tourStep].target === "overview" ? " tour-highlight" : ""}`}
-                data-tour-target={tourOpen && tourSteps[tourStep].target === "overview" ? "overview" : undefined}
+                className={`company-overview-chip${activePage === "overview" ? " active" : ""}${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
+                data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
                 onClick={() => setActivePage("overview")}
               >
-                <span className="company-overview-chip-dot" /                >
-                  Profile
-                </button>
-              <button className={`header-btn ${tourOpen && tourSteps[tourStep].target === "playbooks" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "playbooks" ? "playbooks" : undefined}>Playbooks ▾</button>
-              <button className="header-btn primary">≡ Generate brief</button>
+                <span className="company-overview-chip-dot" />
+                View Profile
+              </button>
+              <AiActionsMenu
+                companyName={selectedCompany.displayName}
+                tourPlaybooksActive={tourOpen && tourSteps[tourStep].target === "playbooks"}
+                onRunPlaybook={(pb) => {
+                  setLastPlaybook({ name: pb.name, kind: pb.kind, description: pb.description, category: pb.category });
+                  setPendingPlaybook(pb);
+                  setPlaybookFocusSignal(s => s + 1);
+                  setAskFuelOpen(true);
+                }}
+                onGenerateBrief={() => {
+                  setBriefFocusSignal(s => s + 1);
+                  setAskFuelOpen(true);
+                }}
+              />
             </div>
           </div>
         </div> : null}
 
         {!isProfileWizard ? <div className="tabs">
-          <div className={`tab ${activePage === "scorecard-v2" ? "active" : ""}`} onClick={() => setActivePage("scorecard-v2")}>Overview</div>
+          <div className={`tab ${activePage === "scorecard-v2" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage("scorecard-v2")}>Overview</div>
           <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>Intelligence</div>
           <div
             className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
@@ -6348,6 +6472,26 @@ function PatriotPayJourneyInner({
               cohortLabel={selectedCompany.meta}
               companyName={selectedCompany.displayName}
               journeyStage="Early Revenue"
+              intelligenceItems={intelligenceItems.map(item => ({
+                id: item.id,
+                type: item.type,
+                text: item.text,
+                title: item.title,
+                highlight: item.highlight,
+              }))}
+              profileMeta={{
+                sector: selectedCompany.meta,
+                employees: selectedCompany.employees,
+                headquarters: selectedCompany.headquarters,
+                domain: selectedCompany.domain,
+              }}
+              benchmarkContext={benchmarkSubmission ? {
+                notableCustomers: benchmarkSubmission.formValues.notableCustomers,
+                notableHires: benchmarkSubmission.formValues.notableHires,
+                biggestChallenges: benchmarkSubmission.formValues.biggestChallenges,
+                otherUpdates: benchmarkSubmission.formValues.otherUpdates,
+                openToIntros: benchmarkSubmission.formValues.openToIntros,
+              } : undefined}
               documentSlots={documentSlots.map(slot => ({
                 typeId: slot.typeId,
                 typeLabel: slot.typeLabel,
@@ -6357,6 +6501,18 @@ function PatriotPayJourneyInner({
               onOpenIntelligence={() => setActivePage("signals")}
               onOpenInitiatives={() => setActivePage("initiatives")}
               onGenerateInitiative={() => setActivePage("initiatives")}
+              onRunPlaybook={() => {
+                setPlaybookFocusSignal(s => s + 1);
+                setAskFuelOpen(true);
+              }}
+              onAddSources={() => setActivePage("signals")}
+              onAddDetails={() => setActivePage("overview")}
+              brief={generatedBrief}
+              lastPlaybook={lastPlaybook}
+              onDismissPlaybook={() => setLastPlaybook(null)}
+              onViewBrief={() => { setBriefFocusSignal(s => s + 1); setAskFuelOpen(true); }}
+              onAskFuel={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }}
+              activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
             />
           ) : activePage === "journey" ? (
             <>
@@ -6424,6 +6580,17 @@ function PatriotPayJourneyInner({
           onClose={() => setDocumentHistorySlot(null)}
         />
       ) : null}
+      <AskFuelChatDrawer
+        open={askFuelOpen}
+        onClose={() => setAskFuelOpen(false)}
+        companyName={selectedCompany.displayName}
+        benchmark={benchmarkSubmission?.formValues ?? (initialBenchmark ? toBenchmarkFormValues(initialBenchmark) : WIZARD_DEFAULT_BENCHMARK)}
+        onBriefGenerated={setGeneratedBrief}
+        onViewInitiatives={() => { setAskFuelOpen(false); setActivePage("initiatives"); }}
+        focusBriefSignal={briefFocusSignal}
+        focusPlaybook={pendingPlaybook}
+        focusPlaybookSignal={playbookFocusSignal}
+      />
     </div>
   );
 }

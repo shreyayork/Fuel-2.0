@@ -1,0 +1,1272 @@
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import {
+  ProfileMotion, DevMotion, GtmMotion, RevopsMotion,
+  InvestmentMotion, BenchmarkMotion, HubSpotMotion,
+  GTM_FUNNEL_HINTS, GTM_FUNNEL_CHOICES, type GtmFunnelStage,
+} from "./OnboardingMotionGraphics.tsx";
+import type { OnboardingBenchmarkInput } from "./PatriotPayJourney.tsx";
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+type StepId = "profile" | "development" | "gtm" | "revops" | "benchmarking" | "investment" | "hubspot" | "sources";
+type ConnectStatus = "pending" | "connecting" | "connected";
+type HubSpotStatus = ConnectStatus;
+
+interface FundingRound { id: string; type: string; amount: string; date: string; investors: string; }
+interface ProfileForm {
+  company: string; whatTheyDo: string; businessModel: string;
+  industry: string; founded: string; city: string; stateRegion: string;
+  country: string; website: string; linkedin: string; additionalContext: string;
+}
+interface Answers {
+  productType: string; buildStage: string; productChallenge: string;
+  salesMotion: string; funnelBreakdown: string; investorIntros: string;
+  pipelineTool: string; salesProcess: string; runway: string;
+  arr: string; arrGrowth: string; nrr: string; logoRetention: string;
+  grossMargin: string; monthlyBurn: string; cashOnHand: string;
+  headcount: string; payingCustomers: string;
+  investCheckSize: string; investGeography: string; investPipeline: string;
+}
+
+const STEPS_DEFAULT: StepId[] = ["profile", "development", "gtm", "revops", "benchmarking"];
+const STEPS_INVESTOR: StepId[] = ["profile", "investment", "hubspot"];
+const INVESTOR_MODELS = ["Investment firm", "Services or agency"];
+const HYBRID_MODEL = "Operating + investment firm";
+
+const LEGACY_BUSINESS_MODELS: Record<string, string> = {
+  "Software / SaaS": "Product company",
+  "SaaS / Software product": "Product company",
+  "Venture / PE fund": "Investment firm",
+  "Agency": "Services or agency",
+  "Consultancy": "Services or agency",
+  "Services / Agency": "Services or agency",
+  "Advisory / Consultancy": "Services or agency",
+  "Other": "Product company",
+};
+
+const BUSINESS_MODELS = [
+  { id: "product",   label: "Product company",             desc: "SaaS, marketplace, or app with recurring or transactional revenue." },
+  { id: "services",  label: "Services or agency",          desc: "Project, retainer, or advisory-based revenue." },
+  { id: "invest",    label: "Investment firm",             desc: "Fund or holding company managing a portfolio." },
+  { id: "both",      label: "Operating + investment firm", desc: "Both running a product or service and actively investing." },
+];
+
+const COMPANY_BENCHMARK_METRICS = [
+  { label: "ARR growth (YoY)", key: "arrGrowth" as keyof Answers, ph: "e.g. 85%", p25: 18, p50: 42, p75: 80, p90: 140, unit: "%" },
+  { label: "Net revenue retention", key: "nrr" as keyof Answers, ph: "e.g. 108%", p25: 88, p50: 104, p75: 118, p90: 130, unit: "%" },
+  { label: "Gross margin", key: "grossMargin" as keyof Answers, ph: "e.g. 72%", p25: 48, p50: 62, p75: 74, p90: 82, unit: "%" },
+  { label: "Logo retention", key: "logoRetention" as keyof Answers, ph: "e.g. 92%", p25: 72, p50: 84, p75: 91, p90: 96, unit: "%" },
+  { label: "Monthly net burn", key: "monthlyBurn" as keyof Answers, ph: "e.g. $85,000", p25: 40000, p50: 85000, p75: 160000, p90: 280000, unit: "usd" },
+  { label: "Cash on hand", key: "cashOnHand" as keyof Answers, ph: "e.g. $3,200,000", p25: 800000, p50: 2000000, p75: 4000000, p90: 8000000, unit: "usd" },
+  { label: "Headcount (FTE)", key: "headcount" as keyof Answers, ph: "e.g. 18", p25: 8, p50: 15, p75: 28, p90: 50, unit: "" },
+  { label: "Paying customers", key: "payingCustomers" as keyof Answers, ph: "e.g. 40", p25: 18, p50: 45, p75: 90, p90: 180, unit: "" },
+];
+
+const STEP_META: Record<StepId, { label: string; sub: string }> = {
+  profile:      { label: "Profile",       sub: "Review your details" },
+  development:  { label: "Development",   sub: "Product & engineering" },
+  gtm:          { label: "Go-to-market",  sub: "Sales & growth" },
+  revops:       { label: "G&A",           sub: "Capital + efficiency" },
+  investment:   { label: "Investment",    sub: "Fund thesis & deal flow" },
+  hubspot:      { label: "Connect",       sub: "Load your deal pipeline" },
+  benchmarking: { label: "Benchmarking",  sub: "Optional — compare metrics" },
+  sources:      { label: "Sources",       sub: "Meetings & investor updates" },
+};
+
+const ROUND_TYPES = ["Pre-seed","Seed","Series A","Series B","Series C+","Bridge","Grant","Revenue-based"];
+
+interface CompanyRecord {
+  id: string;
+  name: string;
+  domain: string;
+  whatTheyDo: string;
+  businessModel: string;
+  industry: string;
+  founded: string;
+  city: string;
+  stateRegion: string;
+  country: string;
+  linkedin: string;
+  funding: { type: string; amount: string }[];
+}
+
+const COMPANY_CATALOG: CompanyRecord[] = [
+  {
+    id: "patriot-pay", name: "Patriot Pay", domain: "patriotpay.com",
+    whatTheyDo: "Patriot Pay is a B2B SaaS company building modern payment infrastructure for growing SMBs and mid-market operators.",
+    businessModel: "Product company", industry: "FinTech · Payments Infrastructure",
+    founded: "2021", city: "Boston", stateRegion: "MA", country: "United States",
+    linkedin: "https://linkedin.com/company/patriotpay",
+    funding: [{ type: "Seed", amount: "$4.2M" }],
+  },
+  {
+    id: "ramp", name: "Ramp", domain: "ramp.com",
+    whatTheyDo: "Ramp is a finance automation platform helping businesses spend less and save more through corporate cards and expense management.",
+    businessModel: "Product company", industry: "FinTech · Spend Management",
+    founded: "2019", city: "New York", stateRegion: "NY", country: "United States",
+    linkedin: "https://linkedin.com/company/ramp",
+    funding: [{ type: "Series D", amount: "$300M" }],
+  },
+  {
+    id: "mercury", name: "Mercury", domain: "mercury.com",
+    whatTheyDo: "Mercury provides banking for startups — accounts, cards, and treasury tools built for venture-backed companies.",
+    businessModel: "Product company", industry: "FinTech · Banking",
+    founded: "2017", city: "San Francisco", stateRegion: "CA", country: "United States",
+    linkedin: "https://linkedin.com/company/mercuryhq",
+    funding: [{ type: "Series B", amount: "$120M" }],
+  },
+  {
+    id: "deel", name: "Deel", domain: "deel.com",
+    whatTheyDo: "Deel is a global HR platform for hiring, paying, and managing international teams and contractors.",
+    businessModel: "Product company", industry: "HR Tech · Global Payroll",
+    founded: "2019", city: "San Francisco", stateRegion: "CA", country: "United States",
+    linkedin: "https://linkedin.com/company/deel",
+    funding: [{ type: "Series D", amount: "$50M" }],
+  },
+  {
+    id: "vanta", name: "Vanta", domain: "vanta.com",
+    whatTheyDo: "Vanta automates security and compliance monitoring for SOC 2, ISO 27001, HIPAA, and more.",
+    businessModel: "Product company", industry: "Security · Compliance",
+    founded: "2018", city: "San Francisco", stateRegion: "CA", country: "United States",
+    linkedin: "https://linkedin.com/company/vanta-security",
+    funding: [{ type: "Series B", amount: "$150M" }],
+  },
+  {
+    id: "nexus-ai", name: "Nexus AI", domain: "nexusai.io",
+    whatTheyDo: "Nexus AI builds vertical AI agents for operations teams in regulated industries.",
+    businessModel: "Product company", industry: "AI · Enterprise Software",
+    founded: "2022", city: "Boston", stateRegion: "MA", country: "United States",
+    linkedin: "https://linkedin.com/company/nexusai",
+    funding: [{ type: "Seed", amount: "$6.5M" }],
+  },
+  {
+    id: "york-growth", name: "York IE", domain: "yorkiegrowth.io",
+    whatTheyDo: "York IE is an operating and investment firm partnering with early-stage B2B software companies.",
+    businessModel: "Operating + investment firm", industry: "Venture · Value Creation",
+    founded: "2015", city: "Manchester", stateRegion: "NH", country: "United States",
+    linkedin: "https://linkedin.com/company/york-ie",
+    funding: [{ type: "Series A", amount: "Undisclosed" }],
+  },
+  {
+    id: "stripe", name: "Stripe", domain: "stripe.com",
+    whatTheyDo: "Stripe builds economic infrastructure for the internet — payments, billing, and financial tools for businesses of all sizes.",
+    businessModel: "Product company", industry: "FinTech · Payments",
+    founded: "2010", city: "San Francisco", stateRegion: "CA", country: "United States",
+    linkedin: "https://linkedin.com/company/stripe",
+    funding: [{ type: "Series I", amount: "$6.5B" }],
+  },
+];
+
+function findCompanyByQuery(query: string): CompanyRecord | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  return COMPANY_CATALOG.find(c => c.name.toLowerCase() === q)
+    ?? COMPANY_CATALOG.find(c => c.name.toLowerCase().startsWith(q))
+    ?? COMPANY_CATALOG.find(c => c.name.toLowerCase().includes(q))
+    ?? null;
+}
+
+function filterCompanies(query: string): CompanyRecord[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return COMPANY_CATALOG.slice(0, 6);
+  return COMPANY_CATALOG.filter(c =>
+    c.name.toLowerCase().includes(q)
+    || c.industry.toLowerCase().includes(q)
+    || c.domain.includes(q)
+  ).slice(0, 6);
+}
+
+function CompanySearch({
+  value, onChange, onSelect, disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (c: CompanyRecord) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const suggestions = useMemo(() => filterCompanies(value), [value]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  useEffect(() => { setHighlight(0); }, [value, suggestions.length]);
+
+  function pick(c: CompanyRecord) {
+    onChange(c.name);
+    onSelect(c);
+    setOpen(false);
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <div style={{ position: "relative" }}>
+        <input
+          className="of-input"
+          value={value}
+          disabled={disabled}
+          onChange={e => { onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={e => {
+            if (!open || suggestions.length === 0) {
+              if (e.key === "Enter") {
+                const match = findCompanyByQuery(value);
+                if (match) pick(match);
+              }
+              return;
+            }
+            if (e.key === "ArrowDown") { e.preventDefault(); setHighlight(h => Math.min(h + 1, suggestions.length - 1)); }
+            if (e.key === "ArrowUp") { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)); }
+            if (e.key === "Enter") { e.preventDefault(); pick(suggestions[highlight]); }
+            if (e.key === "Escape") setOpen(false);
+          }}
+          placeholder="Search companies…"
+          style={{ ...inp, fontSize: 15, padding: "14px 44px 14px 16px", borderRadius: 10 }}
+        />
+        {value && !disabled && (
+          <button
+            type="button"
+            onClick={() => { onChange(""); setOpen(true); }}
+            style={{
+              position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", color: "#556878", fontSize: 18,
+              cursor: "pointer", padding: 0, lineHeight: 1,
+            }}
+            aria-label="Clear"
+          >×</button>
+        )}
+      </div>
+
+      {open && !disabled && suggestions.length > 0 && (
+        <div className="of-suggest-panel" style={{
+          position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 20,
+          background: "#172632", border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 12, overflow: "hidden",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.35)",
+        }}>
+          <div style={{ padding: "8px 14px", fontSize: 10, fontWeight: 700, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            Companies · Crunchbase
+          </div>
+          {suggestions.map((c, i) => (
+            <button
+              key={c.id}
+              type="button"
+              className="of-suggest-item"
+              onMouseEnter={() => setHighlight(i)}
+              onClick={() => pick(c)}
+              style={{
+                width: "100%", textAlign: "left", border: "none", cursor: "pointer",
+                fontFamily: "inherit", padding: "12px 14px",
+                background: i === highlight ? "rgba(61,214,140,0.08)" : "transparent",
+                borderBottom: i < suggestions.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                display: "flex", alignItems: "center", gap: 12,
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                background: "linear-gradient(135deg, #1E4D8C, #2BB8A0)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 14, fontWeight: 800, color: "#fff",
+              }}>{c.name[0]}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2" }}>{c.name}</div>
+                <div style={{ fontSize: 12, color: "#556878", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {c.industry} · {c.city}, {c.stateRegion}
+                </div>
+              </div>
+              <span style={{ fontSize: 11, color: "#3A4F5E", flexShrink: 0 }}>{c.domain}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+let _rid = 0;
+const rid = () => `r${Date.now()}-${++_rid}`;
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const css = `
+  @keyframes ofFadeUp   { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes ofFadeIn   { from { opacity:0; } to { opacity:1; } }
+  @keyframes ofScaleIn  { from { opacity:0; transform:scale(0.88); } to { opacity:1; transform:scale(1); } }
+  @keyframes ofSlideR   { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes ofSpin     { to { transform:rotate(360deg); } }
+  @keyframes ofPulse    { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(0.94);} }
+  @keyframes ofBarFill  { from { width:0; } to { width:var(--w,0%); } }
+  @keyframes ofFloat    { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+  @keyframes ofGlow     { 0%,100%{box-shadow:0 0 20px rgba(61,214,140,.15);} 50%{box-shadow:0 0 40px rgba(61,214,140,.4);} }
+  @keyframes ofDraw     { from{stroke-dashoffset:600} to{stroke-dashoffset:0} }
+  @keyframes ofCountUp  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes ofOrbit    { from{transform:rotate(0deg) translateX(72px) rotate(0deg)} to{transform:rotate(360deg) translateX(72px) rotate(-360deg)} }
+  @keyframes ofShimmer  { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+  @keyframes ofBounceIn { 0%{opacity:0;transform:scale(0.6)} 70%{transform:scale(1.05)} 100%{opacity:1;transform:scale(1)} }
+  @keyframes ofWave     { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1)} }
+  @keyframes ofParticle { 0%{opacity:0;transform:translateY(-10px)} 30%{opacity:1} 100%{opacity:0;transform:translateY(100px)} }
+
+  @keyframes ofHubspotLoad { from { width: 0; } to { width: 100%; } }
+
+  .of-step  { animation: ofFadeUp 0.3s ease both; }
+  .of-spin  { animation: ofSpin 0.9s linear infinite; }
+  .of-pulse { animation: ofPulse 2s ease infinite; }
+  .of-float { animation: ofFloat 3s ease infinite; }
+  .of-glow  { animation: ofGlow 2.5s ease infinite; }
+
+  .of-input { transition: border-color 0.2s; }
+  .of-input:focus { border-color: rgba(61,214,140,0.4) !important; outline: none; }
+
+  .of-chip { transition: all 0.15s; }
+  .of-chip:hover { border-color: rgba(255,255,255,0.2) !important; color: #F2F5F2 !important; }
+
+  .of-figma-opt { transition: all 0.15s ease; }
+  .of-figma-opt:hover { border-color: rgba(255,255,255,0.22) !important; color: #F2F5F2 !important; background: rgba(255,255,255,0.03) !important; }
+  .of-figma-opt--on:hover { border-color: #3DD68C !important; background: rgba(61,214,140,0.08) !important; color: #F2F5F2 !important; }
+
+  .of-figma-q-title { font-size: clamp(26px, 3.2vw, 38px); font-weight: 800; color: #F2F5F2; margin: 0; letter-spacing: -0.5px; line-height: 1.12; }
+  .of-figma-q-grouped { font-size: clamp(15px, 2.2vw, 17px); font-weight: 500; color: #8FA99A; margin: 0; line-height: 1.5; }
+  .of-figma-q-sub { font-size: clamp(14px, 2vw, 16px); color: #556878; margin: 12px 0 0; line-height: 1.55; }
+  .of-step-heading h2 { font-size: clamp(28px, 3.5vw, 38px); }
+  .of-step-heading p { font-size: clamp(14px, 2vw, 16px); }
+
+  .of-add-round:hover { border-color: rgba(255,255,255,0.2) !important; color: #8FA99A !important; }
+
+  .of-back:hover { color: #8FA99A !important; }
+
+  .of-suggest-item:hover { background: rgba(61,214,140,0.08) !important; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
+`;
+
+// ─── Left-panel field helpers ────────────────────────────────────────────────
+
+const inp: React.CSSProperties = {
+  width:"100%", boxSizing:"border-box",
+  background:"#1A2D3F", border:"1px solid rgba(255,255,255,0.1)",
+  borderRadius:8, padding:"10px 14px",
+  fontSize:13, color:"#F2F5F2", fontFamily:"inherit", outline:"none",
+};
+
+function Field({ label, required, hint, children }: {
+  label:string; required?:boolean; hint?:string; children:React.ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom:20 }}>
+      <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:7 }}>
+        {label}{required && <span style={{ color:"#E56B6B", marginLeft:3 }}>*</span>}
+      </label>
+      {children}
+      {hint && <div style={{ fontSize:11, color:"#3A4F5E", marginTop:5 }}>• {hint}</div>}
+    </div>
+  );
+}
+
+const SELECT_ACCENT = "#3DD68C";
+
+function FigmaQuestion({
+  title, subtitle, options, value, onChange, accent = SELECT_ACCENT, hint, columns = 2, grouped = false,
+}: {
+  title: string; subtitle?: string; options: string[]; value: string;
+  onChange: (v: string) => void; accent?: string; hint?: string; columns?: number; grouped?: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: grouped ? 36 : 0 }}>
+      <h2 className={grouped ? "of-figma-q-grouped" : "of-figma-q-title"}>{title}</h2>
+      {subtitle && <p className="of-figma-q-sub">{subtitle}</p>}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: columns === 1 ? "1fr" : "repeat(2, minmax(0, 1fr))",
+        gap: 10,
+        marginTop: grouped ? 14 : 28,
+      }}>
+        {options.map(opt => {
+          const on = value === opt;
+          return (
+            <button
+              key={opt}
+              type="button"
+              className={`of-figma-opt${on ? " of-figma-opt--on" : ""}`}
+              onClick={() => onChange(opt)}
+              style={{
+                padding: "15px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: on ? 600 : 400,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                textAlign: "center",
+                lineHeight: 1.35,
+                background: on ? `${accent}14` : "transparent",
+                border: on ? `1.5px solid ${accent}` : "1.5px solid rgba(255,255,255,0.12)",
+                color: on ? "#F2F5F2" : "#8FA99A",
+                letterSpacing: "-0.1px",
+              }}
+            >{opt}</button>
+          );
+        })}
+      </div>
+      {hint && value && (
+        <div style={{ marginTop: 18, padding: "12px 16px", background: "rgba(61,214,140,0.04)", border: "1px solid rgba(61,214,140,0.12)", borderRadius: 10, fontSize: 13, color: "#8FA99A", lineHeight: 1.65, fontStyle: "italic" }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FigmaDescQuestion({
+  title, subtitle, options, value, onChange, accent = SELECT_ACCENT, hint, grouped = false,
+}: {
+  title: string; subtitle?: string;
+  options: readonly { label: string; desc: string }[];
+  value: string; onChange: (v: string) => void;
+  accent?: string; hint?: string; grouped?: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: grouped ? 36 : 0 }}>
+      <h2 className={grouped ? "of-figma-q-grouped" : "of-figma-q-title"}>{title}</h2>
+      {subtitle && <p className="of-figma-q-sub">{subtitle}</p>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: grouped ? 14 : 28 }}>
+        {options.map(opt => {
+          const on = value === opt.label;
+          return (
+            <button
+              key={opt.label}
+              type="button"
+              className={`of-figma-opt${on ? " of-figma-opt--on" : ""}`}
+              onClick={() => onChange(opt.label)}
+              style={{
+                display: "flex", alignItems: "flex-start", gap: 13,
+                padding: "14px 16px", borderRadius: 10, textAlign: "left",
+                cursor: "pointer", fontFamily: "inherit",
+                background: on ? `${accent}14` : "transparent",
+                border: on ? `1.5px solid ${accent}` : "1.5px solid rgba(255,255,255,0.12)",
+              }}
+            >
+              <div style={{
+                width: 18, height: 18, borderRadius: "50%", flexShrink: 0, marginTop: 1,
+                border: on ? `2px solid ${accent}` : "2px solid rgba(255,255,255,0.15)",
+                background: on ? `${accent}33` : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {on && <div style={{ width: 7, height: 7, borderRadius: "50%", background: accent }} />}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: on ? 600 : 500, color: on ? "#F2F5F2" : "#C8D4CE", lineHeight: 1.3 }}>{opt.label}</div>
+                <div style={{ fontSize: 12, color: on ? "#8FA99A" : "#556878", marginTop: 3, lineHeight: 1.5 }}>{opt.desc}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {hint && <p style={{ fontSize: 12, color: "#8FA99A", marginTop: 12, lineHeight: 1.55 }}>{hint}</p>}
+    </div>
+  );
+}
+
+function FigmaMultiSelect({
+  title, subtitle, options, selected, onToggle, accent = SELECT_ACCENT, max,
+}: {
+  title: string; subtitle?: string; options: string[]; selected: string[];
+  onToggle: (v: string) => void; accent?: string; max?: number;
+}) {
+  const atMax = max !== undefined && selected.length >= max;
+  return (
+    <div>
+      <h2 className="of-figma-q-title">{title}</h2>
+      {subtitle && <p className="of-figma-q-sub">{subtitle}</p>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginTop: 28 }}>
+        {options.map(opt => {
+          const on = selected.includes(opt);
+          const disabled = !on && atMax;
+          return (
+            <button
+              key={opt}
+              type="button"
+              className={`of-figma-opt${on ? " of-figma-opt--on" : ""}`}
+              onClick={() => onToggle(opt)}
+              disabled={disabled}
+              style={{
+                padding: "15px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: on ? 600 : 400,
+                cursor: disabled ? "default" : "pointer",
+                fontFamily: "inherit",
+                textAlign: "center",
+                lineHeight: 1.35,
+                background: on ? `${accent}14` : "transparent",
+                border: on ? `1.5px solid ${accent}` : "1.5px solid rgba(255,255,255,0.12)",
+                color: on ? "#F2F5F2" : "#8FA99A",
+                opacity: disabled ? 0.35 : 1,
+                letterSpacing: "-0.1px",
+              }}
+            >{opt}</button>
+          );
+        })}
+      </div>
+      {selected.length > 0 && max !== undefined && (
+        <p style={{ marginTop: 16, fontSize: 13, color: "#556878" }}>{selected.length} of {max} selected</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Benchmark helpers ───────────────────────────────────────────────────────
+function formatUsd(n: number): string {
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
+function formatBenchmarkP(v: number, unit: string): string {
+  if (unit === "%") return `${v}%`;
+  if (unit === "usd") return formatUsd(v);
+  return String(v);
+}
+
+function parseVal(s: string): number | null {
+  if (!s.trim()) return null;
+  const c = s.replace(/[$,\s]/g, "");
+  const m = c.match(/^([\d.]+)\s*M$/i);  if (m) return parseFloat(m[1]) * 1_000_000;
+  const k = c.match(/^([\d.]+)\s*K$/i);  if (k) return parseFloat(k[1]) * 1_000;
+  const p = c.match(/^([\d.]+)\s*%?$/);  if (p) return parseFloat(p[1]);
+  return null;
+}
+
+function dotColor(val: number, p25: number, p50: number, p75: number): string {
+  if (val < p25) return "#E56B6B";
+  if (val < p50) return "#D4924A";
+  return "#3DD68C";
+}
+
+function dotGlow(val: number, p25: number, p50: number, p75: number): string {
+  if (val < p25) return "0 0 10px rgba(229,107,107,0.7)";
+  if (val < p50) return "0 0 10px rgba(212,146,74,0.6)";
+  if (val >= p75) return "0 0 14px rgba(61,214,140,0.8)";
+  return "0 0 10px rgba(61,214,140,0.55)";
+}
+
+const SUB_Q_COUNT: Partial<Record<StepId, number>> = {
+  investment: 5,
+};
+
+function StepHeading({ meta }: { meta: { label: string; sub: string } }) {
+  return (
+    <div className="of-step-heading" style={{ marginBottom: 36 }}>
+      <h2 style={{ fontWeight: 800, color: "#F2F5F2", margin: "0 0 10px", letterSpacing: "-0.5px", lineHeight: 1.1 }}>{meta.label}</h2>
+      <p style={{ color: "#556878", margin: 0, fontWeight: 400, lineHeight: 1.5 }}>{meta.sub}</p>
+    </div>
+  );
+}
+
+function normalizeBusinessModel(label: string): string {
+  return LEGACY_BUSINESS_MODELS[label] ?? label;
+}
+
+export type OnboardingFlowAnswers = Answers;
+
+export function answersToOnboardingBenchmark(answers: Answers): OnboardingBenchmarkInput {
+  return {
+    arr: answers.arr,
+    arrGrowth: answers.arrGrowth,
+    nrr: answers.nrr,
+    logoRetention: answers.logoRetention,
+    monthlyBurn: answers.monthlyBurn,
+    cashOnHand: answers.cashOnHand,
+    grossMargin: answers.grossMargin,
+    headcount: answers.headcount,
+    payingCustomers: answers.payingCustomers,
+  };
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+export default function OnboardingFlow({ onComplete }: { onComplete: (answers: Answers) => void }) {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  const [companyQuery, setCompanyQuery] = useState("Patriot Pay");
+  const [searchState, setSearchState] = useState<"idle" | "searching" | "review">("idle");
+  const [profileForm, setProfileForm] = useState<ProfileForm>({
+    company:"", whatTheyDo:"", businessModel:"",
+    industry:"", founded:"", city:"", stateRegion:"", country:"",
+    website:"", linkedin:"", additionalContext:"",
+  });
+  const [fundingRounds, setFundingRounds] = useState<FundingRound[]>([]);
+
+  const [answers, setAnswers] = useState<Answers>({
+    productType:"", buildStage:"", productChallenge:"",
+    salesMotion:"", funnelBreakdown:"", investorIntros:"",
+    pipelineTool:"", salesProcess:"", runway:"",
+    arr:"", arrGrowth:"", nrr:"", logoRetention:"", grossMargin:"",
+    monthlyBurn:"", cashOnHand:"", headcount:"", payingCustomers:"",
+    investCheckSize:"", investGeography:"", investPipeline:"",
+  });
+  const [investStages, setInvestStages] = useState<string[]>([]);
+  const [investSectors, setInvestSectors] = useState<string[]>([]);
+  const [investQ, setInvestQ] = useState(0);
+  const [hubspotStatus, setHubspotStatus] = useState<HubSpotStatus>("pending");
+  const [benchmarkGenerating, setBenchmarkGenerating] = useState(false);
+  const [benchmarkSummaryReady, setBenchmarkSummaryReady] = useState(false);
+
+  const filledBenchmarkCount = useMemo(
+    () => COMPANY_BENCHMARK_METRICS.filter(m => parseVal(answers[m.key] || "") !== null).length,
+    [answers],
+  );
+  const allBenchmarkFilled = filledBenchmarkCount === COMPANY_BENCHMARK_METRICS.length;
+
+  const isInvestor = INVESTOR_MODELS.includes(profileForm.businessModel);
+  const activeSteps: StepId[] = isInvestor ? STEPS_INVESTOR : STEPS_DEFAULT;
+
+  const stepId = activeSteps[stepIndex];
+  const isLast = stepIndex === activeSteps.length - 1;
+  const showConnectLater = stepId === "hubspot" && hubspotStatus !== "connected";
+
+  useEffect(() => {
+    if (stepId !== "benchmarking" || !allBenchmarkFilled) {
+      setBenchmarkGenerating(false);
+      setBenchmarkSummaryReady(false);
+      return;
+    }
+    setBenchmarkSummaryReady(false);
+    setBenchmarkGenerating(true);
+    const t = setTimeout(() => {
+      setBenchmarkGenerating(false);
+      setBenchmarkSummaryReady(true);
+    }, 2400);
+    return () => clearTimeout(t);
+  }, [stepId, allBenchmarkFilled, answers]);
+
+  function setPF(k:keyof ProfileForm, v:string) { setProfileForm(p=>({...p,[k]:v})); }
+  function setAns(k:keyof Answers, v:string) { setAnswers(p=>({...p,[k]:v})); }
+
+  function loadCompanyProfile(record: CompanyRecord) {
+    setSearchState("searching");
+    setCompanyQuery(record.name);
+    setTimeout(() => {
+      setProfileForm(prev => ({
+        company: record.name,
+        whatTheyDo: record.whatTheyDo,
+        businessModel: prev.businessModel || normalizeBusinessModel(record.businessModel),
+        industry: record.industry,
+        founded: record.founded,
+        city: record.city,
+        stateRegion: record.stateRegion,
+        country: record.country,
+        website: `https://${record.domain}`,
+        linkedin: record.linkedin,
+        additionalContext: "",
+      }));
+      setFundingRounds(record.funding.map(f => ({
+        id: rid(), type: f.type, amount: f.amount, date: "", investors: "",
+      })));
+      setSearchState("review");
+    }, 1600);
+  }
+
+  function trySelectCompanyFromQuery() {
+    const match = findCompanyByQuery(companyQuery);
+    if (match) loadCompanyProfile(match);
+  }
+
+  function addRound() { setFundingRounds(p=>[...p,{id:rid(),type:"Seed",amount:"",date:"",investors:""}]); }
+  function updateRound(id:string,k:keyof FundingRound,v:string) { setFundingRounds(p=>p.map(r=>r.id===id?{...r,[k]:v}:r)); }
+  function removeRound(id:string) { setFundingRounds(p=>p.filter(r=>r.id!==id)); }
+
+  function connectHubSpot() {
+    if (hubspotStatus !== "pending") return;
+    setHubspotStatus("connecting");
+    setTimeout(() => setHubspotStatus("connected"), 1800);
+  }
+
+  function canAdvance() {
+    if (stepId==="profile") {
+      if (searchState === "idle") return !!findCompanyByQuery(companyQuery);
+      if (searchState === "searching") return false;
+      return searchState === "review" && !!profileForm.company && !!profileForm.businessModel;
+    }
+    if (stepId==="development") return !!(answers.buildStage && answers.productType && answers.productChallenge);
+    if (stepId==="gtm")         return !!(answers.salesMotion && answers.funnelBreakdown && answers.investorIntros);
+    if (stepId==="revops")      return !!(answers.pipelineTool && answers.salesProcess && answers.runway);
+    if (stepId==="investment") {
+      if (investQ===0) return investStages.length > 0;
+      if (investQ===1) return investSectors.length > 0;
+      if (investQ===2) return !!answers.investCheckSize;
+      if (investQ===3) return !!answers.investGeography;
+      if (investQ===4) return !!answers.investPipeline;
+    }
+    if (stepId === "benchmarking" && allBenchmarkFilled && benchmarkGenerating) return false;
+    if (stepId === "hubspot") return hubspotStatus === "connected";
+    return true;
+  }
+
+  function finishOnboarding() {
+    onComplete(answers);
+  }
+
+  function skipConnectors() {
+    finishOnboarding();
+  }
+
+  function next() {
+    if (stepId === "profile" && searchState === "idle") {
+      trySelectCompanyFromQuery();
+      return;
+    }
+    if (stepId==="investment" && investQ < 4) { setInvestQ(q=>q+1); return; }
+    if (stepId==="investment") setInvestQ(0);
+    if (isLast) { finishOnboarding(); return; }
+    setStepIndex(i=>i+1);
+  }
+
+  function back() {
+    if (stepId === "profile") {
+      if (searchState === "review") { setSearchState("idle"); return; }
+    }
+    if (stepId==="investment" && investQ > 0) { setInvestQ(q=>q-1); return; }
+    if (activeSteps[stepIndex-1]==="investment") setInvestQ(4);
+    setStepIndex(i=>Math.max(0,i-1));
+  }
+
+  const showBack = stepIndex > 0
+    || (stepId === "investment" && investQ > 0)
+    || (stepId === "profile" && searchState === "review");
+
+  const companyName = profileForm.company || companyQuery || "your company";
+
+  const currentSubQ = stepId === "investment" ? investQ : 0;
+  const isTopAligned =
+    stepId === "development" ||
+    stepId === "gtm" ||
+    stepId === "revops" ||
+    (stepId === "profile" && searchState === "review") ||
+    stepId === "benchmarking";
+  const isCenteredView = !isTopAligned && (
+    (stepId === "profile" && searchState !== "review")
+    || stepId === "investment"
+    || stepId === "hubspot"
+  );
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo(0, 0);
+  }, [stepId, searchState, currentSubQ]);
+
+  const rightPanel: Record<StepId, React.ReactNode> = {
+    profile:     <ProfileMotion searchState={searchState} form={profileForm} companyQuery={companyQuery} isInvestor={isInvestor} />,
+    development: <DevMotion answers={answers} companyName={companyName} />,
+    gtm:         <GtmMotion answers={answers} companyName={companyName} />,
+    revops:      <RevopsMotion answers={answers} companyName={companyName} />,
+    investment:  <InvestmentMotion
+      investQ={currentSubQ}
+      stages={investStages}
+      sectors={investSectors}
+      checkSize={answers.investCheckSize}
+      geography={answers.investGeography}
+      pipeline={answers.investPipeline}
+      companyName={companyName}
+    />,
+    benchmarking:<BenchmarkMotion
+      answers={answers}
+      cohortLabel={profileForm.industry || "FinTech SaaS · Seed"}
+      companyName={companyName}
+      allMetricsFilled={allBenchmarkFilled}
+      filledCount={filledBenchmarkCount}
+      totalCount={COMPANY_BENCHMARK_METRICS.length}
+      isGenerating={benchmarkGenerating}
+      summaryReady={benchmarkSummaryReady}
+    />,
+    hubspot:     <HubSpotMotion status={hubspotStatus} companyName={companyName} />,
+    sources:     null,
+  };
+
+  // Progress accounts for sub-questions within multi-part steps
+  const totalUnits = activeSteps.reduce((n, s) => n + (SUB_Q_COUNT[s] ?? 1), 0);
+  const doneUnits = activeSteps.slice(0, stepIndex).reduce((n, s) => n + (SUB_Q_COUNT[s] ?? 1), 0)
+    + currentSubQ;
+  const progressPct = Math.round((doneUnits / Math.max(totalUnits - 1, 1)) * 100);
+
+  return (
+    <>
+      <style>{css}</style>
+      <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex" }}>
+        <div style={{ width:"100vw", height:"100vh", background:"#0C1A25", display:"flex", fontFamily:"Inter, -apple-system, sans-serif" }}>
+
+          {/* ── LEFT ── */}
+          <div style={{ width:"50%", minWidth:0, display:"flex", flexDirection:"column", position:"relative" }}>
+
+            {/* Logo — top left */}
+            <div style={{ position:"absolute", top:28, left:48, display:"flex", alignItems:"center", gap:8, zIndex:2 }}>
+              <div style={{ width:24, height:24, borderRadius:6, background:"linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#0a1a12" }}>F</div>
+              <span style={{ fontSize:13, fontWeight:700, color:"#F2F5F2", letterSpacing:"-0.2px" }}>Fuel</span>
+              <span style={{ fontSize:11, color:"#2A3D4E" }}>by York IE</span>
+            </div>
+
+            {/* Scrollable content */}
+            <div
+              ref={scrollRef}
+              style={{
+                flex: 1, overflowY: "auto", display: "flex",
+                alignItems: isCenteredView ? "center" : "flex-start",
+                justifyContent: "center", minHeight: 0,
+              }}
+            >
+              <div style={{
+                width: "100%",
+                padding: isCenteredView ? "40px 72px 96px" : "88px 72px 100px",
+                maxWidth: 520,
+              }}>
+                <div className="of-step" key={`${stepId}-${currentSubQ}-${searchState}`}>
+
+                  {/* PROFILE */}
+                  {stepId==="profile" && (
+                    <div>
+                      {searchState==="idle" && (
+                        <div>
+                          <h2 className="of-figma-q-title" style={{ marginBottom: 12 }}>
+                            Which company is this workspace for?
+                          </h2>
+                          <p className="of-figma-q-sub" style={{ margin: "0 0 28px" }}>
+                            Search by name — Fuel pulls your profile, funding history, and cohort match from public signals.
+                          </p>
+                          <CompanySearch
+                            value={companyQuery}
+                            onChange={v => setCompanyQuery(v)}
+                            onSelect={loadCompanyProfile}
+                          />
+                          <p style={{ fontSize:12, color:"#3A4F5E", marginTop:14, lineHeight:1.55 }}>
+                            Select a match from the list, or continue with your current selection.
+                          </p>
+                        </div>
+                      )}
+
+                      {searchState==="searching" && (
+                        <div style={{ padding:"48px 0", textAlign:"center" }}>
+                          <div style={{ position:"relative", width:80, height:80, margin:"0 auto 24px" }}>
+                            <div className="of-spin" style={{ width:80, height:80, borderRadius:"50%", border:"3px solid rgba(61,214,140,0.1)", borderTop:"3px solid #3DD68C", position:"absolute" }} />
+                            <div className="of-spin" style={{ width:56, height:56, borderRadius:"50%", border:"2px solid rgba(61,214,140,0.06)", borderBottom:"2px solid rgba(61,214,140,0.4)", position:"absolute", top:12, left:12, animationDirection:"reverse", animationDuration:"0.65s" }} />
+                          </div>
+                          <div style={{ fontSize:17, fontWeight:700, color:"#F2F5F2", marginBottom:6 }}>Building {companyQuery}'s profile…</div>
+                          <div style={{ fontSize:13, color:"#556878" }}>Pulling Crunchbase, LinkedIn, funding, and cohort signals</div>
+                        </div>
+                      )}
+
+                      {searchState==="review" && (
+                        <div>
+                          <div style={{ marginBottom:24 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                              <div className="of-pulse" style={{ width:8, height:8, borderRadius:"50%", background:"#3DD68C" }} />
+                              <span style={{ fontSize:11, fontWeight:700, color:"#3DD68C", textTransform:"uppercase", letterSpacing:"0.5px" }}>Profile ready</span>
+                            </div>
+                            <h2 style={{ fontSize:34, fontWeight:800, color:"#F2F5F2", margin:"0 0 8px", letterSpacing:"-0.4px", lineHeight:1.15 }}>Review your {profileForm.company} profile.</h2>
+                            <p style={{ fontSize:15, color:"#556878", margin:0, lineHeight:1.6 }}>The more accurate this is, the tighter your peer cohort. Garbage in, garbage out.</p>
+                          </div>
+
+                          <Field label="Company" required>
+                            <input className="of-input" value={profileForm.company} onChange={e=>setPF("company",e.target.value)} style={inp} />
+                          </Field>
+
+                          <Field label="What they do" required>
+                            <textarea className="of-input" value={profileForm.whatTheyDo} onChange={e=>setPF("whatTheyDo",e.target.value)} rows={3} style={{ ...inp, resize:"vertical", lineHeight:1.65 }} />
+                          </Field>
+
+                          <div style={{ marginBottom:20 }}>
+                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>
+                              Organization type<span style={{ color:"#E56B6B", marginLeft:3 }}>*</span>
+                            </label>
+                            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                              {BUSINESS_MODELS.map(bm=>{
+                                const on = profileForm.businessModel===bm.label;
+                                return (
+                                  <button key={bm.id} type="button" className={`of-figma-opt${on ? " of-figma-opt--on" : ""}`} onClick={()=>setPF("businessModel",bm.label)} style={{ display:"flex", alignItems:"flex-start", gap:13, padding:"14px 16px", borderRadius:10, textAlign:"left", background: on ? `${SELECT_ACCENT}14` : "transparent", border: on ? `1.5px solid ${SELECT_ACCENT}` : "1.5px solid rgba(255,255,255,0.12)", cursor:"pointer", fontFamily:"inherit" }}>
+                                    <div style={{ width:18, height:18, borderRadius:"50%", flexShrink:0, marginTop:1, border: on ? `2px solid ${SELECT_ACCENT}` : "2px solid rgba(255,255,255,0.15)", background: on ? `${SELECT_ACCENT}33` : "transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                      {on && <div style={{ width:7, height:7, borderRadius:"50%", background:SELECT_ACCENT }} />}
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize:13, fontWeight:700, color: on?"#F2F5F2":"#8FA99A", marginBottom:2 }}>{bm.label}</div>
+                                      <div style={{ fontSize:12, color:"#3A4F5E", lineHeight:1.5 }}>{bm.desc}</div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <Field label="Industry" required hint="From homepage positioning">
+                            <input className="of-input" value={profileForm.industry} onChange={e=>setPF("industry",e.target.value)} style={inp} />
+                          </Field>
+
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
+                            <Field label="Founded" required>
+                              <input className="of-input" value={profileForm.founded} onChange={e=>setPF("founded",e.target.value)} placeholder="2021" style={inp} />
+                            </Field>
+                            <Field label="City" required>
+                              <input className="of-input" value={profileForm.city} onChange={e=>setPF("city",e.target.value)} placeholder="Boston" style={inp} />
+                            </Field>
+                            <Field label="State / Region" required>
+                              <input className="of-input" value={profileForm.stateRegion} onChange={e=>setPF("stateRegion",e.target.value)} placeholder="MA" style={inp} />
+                            </Field>
+                            <Field label="Country" required>
+                              <input className="of-input" value={profileForm.country} onChange={e=>setPF("country",e.target.value)} placeholder="United States" style={inp} />
+                            </Field>
+                          </div>
+
+                          <Field label="Website" required hint="From domain extension">
+                            <input className="of-input" value={profileForm.website} onChange={e=>setPF("website",e.target.value)} style={inp} />
+                          </Field>
+
+                          <Field label="LinkedIn">
+                            <input className="of-input" value={profileForm.linkedin} onChange={e=>setPF("linkedin",e.target.value)} placeholder="https://linkedin.com/company/patriotpay" style={inp} />
+                          </Field>
+
+                          {/* Funding rounds */}
+                          <div style={{ marginBottom:20 }}>
+                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>Funding rounds</label>
+                            {fundingRounds.length>0 && (
+                              <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:8 }}>
+                                {fundingRounds.map(r=>(
+                                  <div key={r.id} style={{ background:"#1A2D3F", border:"1px solid rgba(255,255,255,0.07)", borderRadius:9, padding:"11px 13px" }}>
+                                    <div style={{ display:"grid", gridTemplateColumns:"110px 90px 110px 1fr 28px", gap:8, alignItems:"center" }}>
+                                      <select value={r.type} onChange={e=>updateRound(r.id,"type",e.target.value)} style={{ ...inp, padding:"7px 9px", cursor:"pointer" }}>
+                                        {ROUND_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                                      </select>
+                                      <input value={r.amount} onChange={e=>updateRound(r.id,"amount",e.target.value)} placeholder="$4.2M" style={{ ...inp, padding:"7px 10px" }} />
+                                      <input value={r.date} onChange={e=>updateRound(r.id,"date",e.target.value)} placeholder="dd/mm/yyyy" style={{ ...inp, padding:"7px 10px" }} />
+                                      <input value={r.investors} onChange={e=>updateRound(r.id,"investors",e.target.value)} placeholder="Investors" style={{ ...inp, padding:"7px 10px" }} />
+                                      <button onClick={()=>removeRound(r.id)} style={{ background:"none", border:"none", color:"#556878", fontSize:16, cursor:"pointer", padding:0, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <button className="of-add-round" onClick={addRound} style={{ background:"none", border:"1px dashed rgba(255,255,255,0.1)", borderRadius:8, padding:"9px 18px", fontSize:13, color:"#3A4F5E", cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:7, transition:"all 0.15s" }}>
+                              <span style={{ fontSize:16, lineHeight:1 }}>+</span> Add round
+                            </button>
+                          </div>
+
+                          <Field label="Additional context">
+                            <textarea className="of-input" value={profileForm.additionalContext} onChange={e=>setPF("additionalContext",e.target.value)} placeholder="Customers, priorities, markets, or anything Fuel should remember." rows={3} style={{ ...inp, resize:"vertical", lineHeight:1.65 }} />
+                          </Field>
+
+                          <div style={{ padding:"11px 14px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:8, fontSize:12, color:"#3A4F5E", lineHeight:1.6 }}>
+                            Teammates can create their own profiles for the same company once <span style={{ color:"#556878" }}>{profileForm.company}</span> is linked.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* DEVELOPMENT — all questions grouped */}
+                  {stepId==="development" && (
+                    <div>
+                      <StepHeading meta={STEP_META.development} />
+                      <FigmaQuestion grouped title="Where are you in the build?" options={["Pre-launch — still building", "Launched — early users or customers", "Scaling — product is proven, growing fast"]} value={answers.buildStage} onChange={v => setAns("buildStage", v)} columns={1} />
+                      <FigmaQuestion grouped title="What type of product are you building?" options={["SaaS / web app", "Marketplace", "API or developer platform", "Other"]} value={answers.productType} onChange={v => setAns("productType", v)} />
+                      <FigmaQuestion grouped title="What's your biggest product challenge right now?" options={["Speed of execution", "Quality and reliability", "Roadmap clarity", "Not enough engineers"]} value={answers.productChallenge} onChange={v => setAns("productChallenge", v)} columns={1} />
+                    </div>
+                  )}
+
+                  {/* GTM — all questions grouped */}
+                  {stepId==="gtm" && (
+                    <div>
+                      <StepHeading meta={STEP_META.gtm} />
+                      <FigmaQuestion grouped title="What is your primary sales motion?" options={["Sales-led", "Product-led", "Founder-led", "Not yet"]} value={answers.salesMotion} onChange={v => setAns("salesMotion", v)} hint={answers.salesMotion === "Product-led" ? "Self-serve scales well — if conversion holds. We'll track it." : undefined} />
+                      <FigmaDescQuestion grouped title="Where does your go-to-market break down most?" subtitle="Pick the funnel stage where you're losing the most ground." options={GTM_FUNNEL_CHOICES} value={answers.funnelBreakdown} onChange={v => setAns("funnelBreakdown", v)} hint={answers.funnelBreakdown ? GTM_FUNNEL_HINTS[answers.funnelBreakdown as GtmFunnelStage] : undefined} />
+                      <FigmaQuestion grouped title="Are you open to investor introductions from York IE?" options={["Yes", "Not right now", "Actively fundraising"]} value={answers.investorIntros} onChange={v => setAns("investorIntros", v)} columns={1} />
+                    </div>
+                  )}
+
+                  {/* G&A — all questions grouped */}
+                  {stepId==="revops" && (
+                    <div>
+                      <StepHeading meta={STEP_META.revops} />
+                      <FigmaQuestion grouped title="What are you using to manage your pipeline?" options={["CRM", "Spreadsheet", "Nothing yet"]} value={answers.pipelineTool} onChange={v => setAns("pipelineTool", v)} columns={1} />
+                      <FigmaQuestion grouped title="How defined is your sales process?" options={["Documented", "Informal", "Not yet"]} value={answers.salesProcess} onChange={v => setAns("salesProcess", v)} columns={1} />
+                      <FigmaQuestion grouped title="How long is your current runway?" options={["Under 6 months", "6–12 months", "12–18 months", "Over 18 months"]} value={answers.runway} onChange={v => setAns("runway", v)} />
+                    </div>
+                  )}
+
+                  {/* INVESTMENT — one question at a time */}
+                  {stepId==="investment" && (
+                    <div className="of-step" key={investQ}>
+
+                      {investQ===0 && (
+                        <FigmaMultiSelect
+                          title="What stages do you typically invest in?"
+                          subtitle="Select all that apply."
+                          options={["Pre-seed / Seed", "Series A / B", "Growth / Series C+"]}
+                          selected={investStages}
+                          onToggle={s => {
+                            if (investStages.includes(s)) setInvestStages(p => p.filter(x => x !== s));
+                            else setInvestStages(p => [...p, s]);
+                          }}
+                        />
+                      )}
+
+                      {investQ===1 && (
+                        <FigmaMultiSelect
+                          title="What sectors are you most active in?"
+                          subtitle="Pick up to 3."
+                          options={["SaaS / Software", "FinTech", "Healthcare", "Deep tech / AI", "Consumer", "Other"]}
+                          selected={investSectors}
+                          onToggle={s => {
+                            if (investSectors.includes(s)) setInvestSectors(p => p.filter(x => x !== s));
+                            else if (investSectors.length < 3) setInvestSectors(p => [...p, s]);
+                          }}
+                          max={3}
+                        />
+                      )}
+
+                      {investQ===2 && (
+                        <FigmaQuestion
+                          title="What is your typical check size?"
+                          options={["Under $500K", "$500K – $2M", "$2M – $10M", "Over $10M"]}
+                          value={answers.investCheckSize}
+                          onChange={v => setAns("investCheckSize", v)}
+                        />
+                      )}
+
+                      {investQ===3 && (
+                        <FigmaQuestion
+                          title="Where do you primarily invest?"
+                          options={["United States", "North America", "Europe", "Global"]}
+                          value={answers.investGeography}
+                          onChange={v => setAns("investGeography", v)}
+                        />
+                      )}
+
+                      {investQ===4 && (
+                        <FigmaQuestion
+                          title="How are you managing your deal pipeline?"
+                          options={["HubSpot", "Another CRM", "Spreadsheet", "Not yet"]}
+                          value={answers.investPipeline}
+                          onChange={v => setAns("investPipeline", v)}
+                          hint="We'll connect HubSpot in the next step to load your pipeline."
+                        />
+                      )}
+
+                    </div>
+                  )}
+
+                  {/* BENCHMARKING — operating companies only */}
+                  {stepId==="benchmarking" && (
+                    <div>
+                      <div style={{ marginBottom:20 }}>
+                        <h2 style={{ fontSize:38, fontWeight:800, color:"#F2F5F2", margin:"0 0 10px", letterSpacing:"-0.5px", lineHeight:1.1 }}>How do you stack up?</h2>
+                        <p style={{ fontSize:16, color:"#556878", margin:0, lineHeight:1.55 }}>Enter your numbers — the graph shows where you sit. Fuel generates your action plan on the right once all metrics are in.</p>
+                      </div>
+
+                      <div style={{ background:"linear-gradient(135deg, rgba(43,184,160,0.1) 0%, rgba(61,214,140,0.06) 100%)", border:"1px solid rgba(43,184,160,0.25)", borderRadius:12, padding:"14px 18px", marginBottom:22 }}>
+                        <div style={{ fontSize:12, fontWeight:700, color:"#2BB8A0", marginBottom:4 }}>✦ The more you share, the sharper your intelligence</div>
+                        <div style={{ fontSize:12, color:"#8FA99A", lineHeight:1.6 }}>Every number narrows your cohort. Once all metrics are entered, Fuel builds your <strong style={{ color:"#F2F5F2" }}>intelligence</strong>, suggested <strong style={{ color:"#F2F5F2" }}>initiatives</strong>, and <strong style={{ color:"#F2F5F2" }}>playbooks</strong> on the right. This step is optional.</div>
+                      </div>
+
+                      {COMPANY_BENCHMARK_METRICS.map(m => {
+                        const val = parseVal(answers[m.key] || "");
+                        const hasVal = val !== null;
+                        const displayMax = m.p90 * 1.3;
+                        const p25pct = (m.p25 / displayMax) * 100;
+                        const p75pct = (m.p75 / displayMax) * 100;
+                        const p90pct = (m.p90 / displayMax) * 100;
+                        const dotPct = hasVal ? Math.min(Math.max((val! / displayMax) * 100, 1), 99) : null;
+                        const dc = hasVal ? dotColor(val!, m.p25, m.p50, m.p75) : "#3A4F5E";
+                        return (
+                          <div key={m.key} style={{ marginBottom:14 }}>
+                            {/* Label row */}
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
+                              <label style={{ fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.4px" }}>{m.label}</label>
+                            </div>
+                            {/* Input */}
+                            <input
+                              className="of-input"
+                              value={answers[m.key]}
+                              onChange={e => setAns(m.key, e.target.value)}
+                              placeholder={m.ph}
+                              style={{ ...inp, padding:"8px 12px", fontSize:13, marginBottom:7, borderColor: hasVal ? `${dc}55` : undefined, transition:"border-color 0.3s" }}
+                            />
+                            {/* Bar */}
+                            <div style={{ position:"relative", height:7, background:"rgba(255,255,255,0.04)", borderRadius:4 }}>
+                              <div style={{ position:"absolute", left:`${p25pct}%`, top:0, width:`${p75pct-p25pct}%`, height:"100%", background:"rgba(61,214,140,0.2)" }} />
+                              <div style={{ position:"absolute", left:`${p75pct}%`, top:0, width:`${p90pct-p75pct}%`, height:"100%", background:"rgba(61,214,140,0.35)" }} />
+                              <div style={{ position:"absolute", left:`${p90pct}%`, top:0, right:0, height:"100%", background:"rgba(61,214,140,0.12)", borderRadius:"0 4px 4px 0" }} />
+                              <div style={{ position:"absolute", left:`${p25pct}%`, top:0, width:1, height:"100%", background:"rgba(61,214,140,0.3)" }} />
+                              <div style={{ position:"absolute", left:`${p75pct}%`, top:0, width:1, height:"100%", background:"rgba(61,214,140,0.45)" }} />
+                              {dotPct !== null && (
+                                <div style={{
+                                  position:"absolute", top:-5, zIndex:2,
+                                  left:`calc(${dotPct}% - 8px)`,
+                                  width:17, height:17, borderRadius:"50%",
+                                  background:dc, border:"2px solid #0F1E2B",
+                                  boxShadow: dotGlow(val!, m.p25, m.p50, m.p75),
+                                  transition:"left 0.5s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, box-shadow 0.3s",
+                                }} />
+                              )}
+                            </div>
+                            {/* P labels */}
+                            <div style={{ display:"flex", justifyContent:"space-between", marginTop:3 }}>
+                              {[{l:"P25",v:m.p25},{l:"P75",v:m.p75},{l:"P90",v:m.p90}].map(p=>(
+                                <span key={p.l} style={{ fontSize:9, color:"#3A4F5E" }}>{p.l} {formatBenchmarkP(p.v, m.unit)}</span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div style={{ marginTop:8, fontSize:11, color:"#3A4F5E" }}>Numbers stay in your workspace and are never shared externally.</div>
+                    </div>
+                  )}
+
+                  {/* HUBSPOT — investors final step */}
+                  {stepId==="hubspot" && (
+                    <div>
+                      <h2 className="of-figma-q-title" style={{ marginBottom: 12 }}>Connect HubSpot</h2>
+                      <p className="of-figma-q-sub" style={{ marginBottom: 28 }}>
+                        Load your deal pipeline into Fuel. Contacts, companies, deal stages, and notes sync automatically.
+                      </p>
+
+                      <div style={{
+                        background: hubspotStatus === "connected" ? "rgba(61,214,140,0.06)" : "#1A2D3F",
+                        border: hubspotStatus === "connected" ? "1.5px solid rgba(61,214,140,0.35)" : "1.5px solid rgba(255,255,255,0.1)",
+                        borderRadius: 14, padding: "22px 20px", marginBottom: 22,
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+                          <div style={{
+                            width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                            background: "#FF7A5922",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 13, fontWeight: 800, color: "#FF7A59",
+                          }}>HS</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "#F2F5F2" }}>HubSpot CRM</div>
+                            <div style={{ fontSize: 12, color: "#8FA99A", marginTop: 2 }}>Deal pipeline · contacts · companies</div>
+                          </div>
+                          <span style={{
+                            fontSize: 10, fontWeight: 600,
+                            color: hubspotStatus === "connected" ? "#3DD68C" : hubspotStatus === "connecting" ? "#D4924A" : "#556878",
+                            background: hubspotStatus === "connected" ? "rgba(61,214,140,0.1)" : hubspotStatus === "connecting" ? "rgba(212,146,74,0.1)" : "rgba(255,255,255,0.04)",
+                            borderRadius: 6, padding: "3px 9px",
+                          }}>
+                            {hubspotStatus === "connected" ? "Connected" : hubspotStatus === "connecting" ? "Connecting…" : "Not connected"}
+                          </span>
+                        </div>
+
+                        {hubspotStatus === "pending" && (
+                          <button
+                            type="button"
+                            onClick={connectHubSpot}
+                            style={{
+                              width: "100%",
+                              background: "#FF7A59",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 10,
+                              padding: "13px 20px",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                            }}
+                          >
+                            Connect with HubSpot
+                          </button>
+                        )}
+
+                        {hubspotStatus === "connecting" && (
+                          <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                            <div className="of-hubspot-bar" style={{ height: "100%", background: "linear-gradient(90deg, #FF7A59, #FFB199)", borderRadius: 2, animation: "ofHubspotLoad 1.8s ease-in-out forwards" }} />
+                          </div>
+                        )}
+
+                        {hubspotStatus === "connected" && (
+                          <div style={{ fontSize: 12, color: "#3DD68C", lineHeight: 1.55 }}>
+                            ✓ Pipeline synced — {24} deals, {156} contacts loaded into Fuel.
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                        What Fuel pulls in
+                      </div>
+                      {["Deal stages & pipeline health", "Contacts & company records", "Activity notes & task history", "Owner assignments & deal values"].map(item => (
+                        <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF7A59", flexShrink: 0 }} />
+                          <span style={{ fontSize: 13, color: "#8FA99A" }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom bar — back + progress + CTA */}
+            <div style={{ position:"absolute", bottom:0, left:0, right:0, height:64, display:"flex", alignItems:"center", padding:"0 48px", justifyContent:"space-between" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                {showBack && (
+                  <button className="of-back" onClick={back} style={{ background:"none", border:"none", color:"#8FA99A", fontSize:18, cursor:"pointer", fontFamily:"inherit", lineHeight:1, padding:0, flexShrink:0 }}>←</button>
+                )}
+                <div style={{ width:160, height:3, background:"rgba(255,255,255,0.07)", borderRadius:2, overflow:"hidden" }}>
+                  <div style={{ height:"100%", borderRadius:2, background:"linear-gradient(90deg, rgb(0,180,138), rgb(61,214,140))", width:`${progressPct}%`, transition:"width 0.4s ease" }} />
+                </div>
+                <span style={{ fontSize:11, color:"#2A3D4E" }}>{stepIndex + 1} / {activeSteps.length}</span>
+              </div>
+
+              <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                {stepId==="benchmarking" && (
+                  <span style={{ fontSize:12, color:"#2A3D4E" }}>
+                    {benchmarkGenerating ? "Generating…" : "Optional"}
+                  </span>
+                )}
+                {showConnectLater && (
+                  <button
+                    type="button"
+                    onClick={skipConnectors}
+                    style={{
+                      fontSize: 12,
+                      color: "#F2F5F2",
+                      textDecoration: "underline",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      padding: 0,
+                    }}
+                  >
+                    Connect later
+                  </button>
+                )}
+                <button onClick={next} disabled={!canAdvance()} style={{
+                  background: canAdvance() ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.05)",
+                  color: canAdvance() ? "#0a1a12" : "#2A3D4E",
+                  border:"none", borderRadius:10, padding:"12px 32px",
+                  fontSize:14, fontWeight:700,
+                  cursor: canAdvance() ? "pointer" : "default",
+                  fontFamily:"inherit", transition:"all 0.2s",
+                  letterSpacing:"-0.1px",
+                }}>
+                  {isLast ? "Start my journey" : "Continue"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── RIGHT ── */}
+          <div style={{ flex:1, background:"linear-gradient(175deg, #EEF8F5 0%, #D8F0EA 45%, #C8E8DF 100%)", overflow:"hidden", position:"relative" }}>
+            <div className="of-step" key={`g-${stepId}-${searchState}-${currentSubQ}-${hubspotStatus}-${benchmarkGenerating}-${benchmarkSummaryReady}`} style={{ width:"100%", height:"100%", display:"flex" }}>
+              {rightPanel[stepId]}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </>
+  );
+}
