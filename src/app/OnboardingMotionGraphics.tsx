@@ -44,7 +44,7 @@ interface Answers {
 // ─── Motion tokens ───────────────────────────────────────────────────────────
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
-const EASE_SPRING = { type: "spring" as const, stiffness: 260, damping: 28 };
+const EASE_ENTER = { duration: 0.45, ease: EASE_OUT } as const;
 
 /** GTM funnel — 1:1 with the funnel breakdown question and motion graphic */
 export const GTM_FUNNEL_STAGES = [
@@ -284,13 +284,9 @@ function MotionShell({ children, accent = "#00B48A" }: { children: React.ReactNo
           top: "50%", left: "50%", x: "-50%", y: "-58%", pointerEvents: "none",
         }}
       />
-      <motion.div
-        animate={{ y: [0, -10, 0] }}
-        transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
-        style={{ width: "100%", maxWidth: 420, padding: "0 28px", position: "relative", zIndex: 1 }}
-      >
+      <div style={{ width: "100%", maxWidth: 420, padding: "0 28px", position: "relative", zIndex: 1 }}>
         {children}
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -615,7 +611,7 @@ export function DevMotion({ answers, companyName = "Your company" }: { answers: 
                 key={row.label}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 + i * 0.1, ...EASE_SPRING }}
+                transition={{ delay: 0.2 + i * 0.1, ...EASE_ENTER }}
                 style={{
                   padding: "10px 12px", marginBottom: 8,
                   background: "#fff", borderRadius: 8, border: "1px solid #E8F0ED",
@@ -709,7 +705,7 @@ export function GtmMotion({ answers, companyName = "Your company" }: { answers: 
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, ...EASE_SPRING }}
+          transition={{ delay: 0.3, ...EASE_ENTER }}
           style={{ marginTop: 12, padding: "8px 12px", background: "#FFF8EE", borderRadius: 8, border: "1px solid #F0DFC0", fontSize: 11, color: "#A07030", fontWeight: 600, lineHeight: 1.5 }}
         >
           {intel.callout}
@@ -718,7 +714,7 @@ export function GtmMotion({ answers, companyName = "Your company" }: { answers: 
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45, ...EASE_SPRING }}
+            transition={{ delay: 0.45, ...EASE_ENTER }}
             style={{ marginTop: 8, padding: "7px 12px", background: "#F4FAF8", borderRadius: 8, border: "1px solid #D4EDE6", fontSize: 10, color: "#5A7A70", fontWeight: 600 }}
           >
             {intel.introsLine}
@@ -764,7 +760,7 @@ export function RevopsMotion({ answers, companyName = "Your company" }: { answer
                 key={row.label}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.35 + i * 0.1, ...EASE_SPRING }}
+                transition={{ delay: 0.35 + i * 0.1, ...EASE_ENTER }}
                 style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                   padding: "9px 12px", marginBottom: 6,
@@ -780,7 +776,7 @@ export function RevopsMotion({ answers, companyName = "Your company" }: { answer
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, ...EASE_SPRING }}
+          transition={{ delay: 0.5, ...EASE_ENTER }}
           style={{ marginTop: 10, padding: "8px 12px", background: "#F5F0FA", borderRadius: 8, border: "1px solid #E0D4F0", fontSize: 11, color: "#6B5A8A", fontWeight: 600, lineHeight: 1.5 }}
         >
           {intel.insight}
@@ -1034,7 +1030,7 @@ export function InvestmentMotion({
                 <motion.div
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.4, ...EASE_SPRING }}
+                  transition={{ delay: 0.4, ...EASE_ENTER }}
                   style={{ marginTop: 10, padding: "10px 12px", background: "#E8F8F3", borderRadius: 10, border: "1px solid #B8E8D8", fontSize: 11, color: "#2A6B58", lineHeight: 1.55 }}
                 >
                   {pipeline === "HubSpot"
@@ -1706,9 +1702,7 @@ function BenchmarkEmptyState({ variant = "company" }: { variant?: "company" | "i
       animate={{ opacity: 1, y: 0 }}
       style={{ textAlign: "center", padding: "28px 12px" }}
     >
-      <motion.div
-        animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      <div
         style={{
           width: 48, height: 48, borderRadius: 12, margin: "0 auto 16px",
           background: "linear-gradient(135deg, #E8F8F3, #D4EDE6)",
@@ -1718,7 +1712,7 @@ function BenchmarkEmptyState({ variant = "company" }: { variant?: "company" | "i
         }}
       >
         ✦
-      </motion.div>
+      </div>
       <div style={{ fontSize: 14, fontWeight: 700, color: "#1A2B26", marginBottom: 6 }}>Enter a number to begin</div>
       <div style={{ fontSize: 12, color: "#8A9E96", lineHeight: 1.65, maxWidth: 280, margin: "0 auto" }}>
         {variant === "investor"
@@ -2089,7 +2083,7 @@ export function BenchmarkMotion({
                       key={card.displayVal}
                       initial={{ opacity: 0, scale: 0.85 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={EASE_SPRING}
+                      transition={EASE_ENTER}
                       style={{
                         fontSize: 10, fontWeight: 700, color: "#5A7A70",
                         background: "#F4F8F6", border: "1px solid #E0EBE6",

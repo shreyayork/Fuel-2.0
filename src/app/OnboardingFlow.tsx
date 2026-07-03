@@ -303,13 +303,11 @@ const css = `
   @keyframes ofSpin     { to { transform:rotate(360deg); } }
   @keyframes ofPulse    { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(0.94);} }
   @keyframes ofBarFill  { from { width:0; } to { width:var(--w,0%); } }
-  @keyframes ofFloat    { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
   @keyframes ofGlow     { 0%,100%{box-shadow:0 0 20px rgba(61,214,140,.15);} 50%{box-shadow:0 0 40px rgba(61,214,140,.4);} }
   @keyframes ofDraw     { from{stroke-dashoffset:600} to{stroke-dashoffset:0} }
   @keyframes ofCountUp  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
   @keyframes ofOrbit    { from{transform:rotate(0deg) translateX(72px) rotate(0deg)} to{transform:rotate(360deg) translateX(72px) rotate(-360deg)} }
   @keyframes ofShimmer  { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-  @keyframes ofBounceIn { 0%{opacity:0;transform:scale(0.6)} 70%{transform:scale(1.05)} 100%{opacity:1;transform:scale(1)} }
   @keyframes ofWave     { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1)} }
   @keyframes ofParticle { 0%{opacity:0;transform:translateY(-10px)} 30%{opacity:1} 100%{opacity:0;transform:translateY(100px)} }
 
@@ -318,7 +316,6 @@ const css = `
   .of-step  { animation: ofFadeUp 0.3s ease both; }
   .of-spin  { animation: ofSpin 0.9s linear infinite; }
   .of-pulse { animation: ofPulse 2s ease infinite; }
-  .of-float { animation: ofFloat 3s ease infinite; }
   .of-glow  { animation: ofGlow 2.5s ease infinite; }
 
   .of-input { transition: border-color 0.2s; }

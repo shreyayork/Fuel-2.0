@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BenchmarkPeerComparisonPanel,
   BenchmarkCohortTrack,
@@ -92,7 +93,25 @@ type CategoryData = {
   suggestedPlaybooks: CategoryPlaybook[];
   detailSnippets: string[];
   detailCompletionPct: number;
+  detailAnsweredCount: number;
+  detailQuestionCount: number;
   glanceSummary: string;
+  glanceFocus: string;
+  intelDisplayCount: number;
+  scoreContributors: ScoreContributor[];
+};
+
+type ScoreContributorSource = "benchmark" | "profile" | "detail";
+
+type ScoreContributor = {
+  id: string;
+  label: string;
+  source: ScoreContributorSource;
+  display: string;
+  score: number;
+  weight: number;
+  contribution: number;
+  impact: string;
 };
 
 export type ScorecardIntelligenceItem = {
@@ -250,6 +269,185 @@ function tierToScore(tier: PositionTier): number {
   return { top: 90, upper: 72, mid: 52, lower: 32, bottom: 12 }[tier];
 }
 
+function colourFromScore(score: number): string {
+  if (score >= 80) return COLOUR_STRONG;
+  if (score >= 65) return COLOUR_ABOVE;
+  if (score >= 50) return COLOUR_AROUND;
+  if (score >= 35) return COLOUR_BELOW;
+  return COLOUR_WEAK;
+}
+
+function statusFromCompositeScore(score: number): { label: string; tone: "strong" | "above" | "watch" | "weak" } {
+  if (score >= 80) return { label: "Leading Cohort", tone: "strong" };
+  if (score >= 65) return { label: "Above Average", tone: "above" };
+  if (score >= 50) return { label: "Around Median", tone: "watch" };
+  if (score >= 35) return { label: "Needs Attention", tone: "watch" };
+  return { label: "Critical", tone: "weak" };
+}
+
+function contributorTone(score: number): "strong" | "watch" | "weak" {
+  if (score >= 72) return "strong";
+  if (score >= 50) return "watch";
+  return "weak";
+}
+
+function defaultFounderImpact(score: number): string {
+  if (score < 40) return "High drag — founders feel this in execution and fundraising conversations.";
+  if (score < 55) return "Moderate risk — slows the team and weakens your cohort story.";
+  if (score < 72) return "Neutral — tighten before it becomes a bottleneck.";
+  return "Supporting the track — keep momentum.";
+}
+
+const SCORE_WEIGHT_BENCHMARK = 45;
+const SCORE_WEIGHT_PROFILE = 15;
+const SCORE_WEIGHT_DETAIL = 40;
+
+const SOURCE_LABELS: Record<ScoreContributorSource, string> = {
+  benchmark: "Benchmark",
+  profile: "Profile",
+  detail: "Answers",
+};
+
+const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
+  dev_product_type: { "SaaS / web app": 78, "API / platform": 82, Marketplace: 70, "Hardware + software": 62 },
+  dev_ai_role: { "Core product": 86, "A feature": 72, "Not yet": 54 },
+  dev_challenge: { Speed: 66, Quality: 58, "Roadmap clarity": 50 },
+  dev_ship_cadence: { "Multiple times a day": 92, Weekly: 82, Monthly: 56, "Ad hoc": 38 },
+  dev_team_shape: { "Squads by area": 88, "Single team": 76, Outsourced: 46, "Solo / founder-built": 52 },
+  dev_tech_lead: { "Yes, full-time": 94, Fractional: 66, No: 36 },
+  dev_stack_maturity: { "Built to scale": 90, "Works for now": 72, "Hitting limits": 42, "Not sure": 48 },
+  mkt_sales_motion: { "Product-led": 86, "Sales-led": 78, "Founder-led": 52, "Not yet": 36 },
+  mkt_funnel_gap: { Awareness: 58, Conversion: 50, Retention: 44 },
+  mkt_investor_intros: { Yes: 80, "Not right now": 68, "Actively fundraising": 74 },
+  mkt_top_channel: { Outbound: 72, "Inbound / content": 78, Partnerships: 76, Events: 70, Paid: 64 },
+  mkt_marketing_owner: { "Dedicated hire": 88, "Founder-led": 48, Agency: 70, "No one yet": 34 },
+  mkt_sales_cycle: { "Under 30 days": 84, "1–3 months": 74, "3–6 months": 58, "6+ months": 46 },
+  mkt_icp_clarity: { "Crisp & validated": 92, Forming: 62, "Still exploring": 40 },
+  rev_crm: { HubSpot: 82, Salesforce: 86, Spreadsheets: 48, "None yet": 30 },
+  rev_forecast: { "High confidence": 90, "Some visibility": 62, "Mostly guesswork": 38 },
+  rev_biggest_gap: { "Pipeline hygiene": 52, Reporting: 56, "Billing / collections": 48, Forecasting: 44 },
+  rev_metrics_tracked: { "All tracked": 92, "Some tracked": 64, "None yet": 32 },
+  rev_billing: { "Fully automated": 86, Manual: 44, Hybrid: 68 },
+  rev_finance_setup: { "In-house finance": 88, "Fractional CFO": 78, "Founder-managed": 46, Outsourced: 72 },
+  rev_runway_visibility: { "Tracked monthly": 90, "Rough estimate": 58, "Not tracked": 34 },
+};
+
+const DETAIL_ANSWER_IMPACT: Record<string, Record<string, string>> = {
+  dev_challenge: { Quality: "Quality debt compounds — founders end up firefighting instead of selling.", Speed: "Shipping fast without guardrails burns founder time on rework.", "Roadmap clarity": "Unclear roadmap pulls founders back into product every week." },
+  dev_ship_cadence: { "Ad hoc": "Irregular shipping hides product risk until customers churn.", Monthly: "Monthly cadence lags peer velocity at your stage." },
+  dev_tech_lead: { No: "No technical lead leaves architecture and hiring on the founder.", Fractional: "Fractional tech leadership caps scale readiness." },
+  dev_stack_maturity: { "Hitting limits": "Scale limits force expensive rewrites when you should be growing." },
+  dev_team_shape: { "Solo / founder-built": "Founder-built everything becomes the bottleneck past ~10 FTEs.", Outsourced: "Heavy outsourcing slows iteration when GTM needs product moves." },
+  mkt_sales_motion: { "Founder-led": "Founder-led sales caps growth — you become the bottleneck.", "Not yet": "No motion yet — investors will ask how revenue actually happens." },
+  mkt_marketing_owner: { "Founder-led": "Founder-owned marketing steals time from product and fundraising.", "No one yet": "No marketing owner means pipeline stays unpredictable." },
+  mkt_icp_clarity: { "Still exploring": "Fuzzy ICP wastes outbound and lengthens sales cycles.", Forming: "Forming ICP still spreads founder attention across too many bets." },
+  mkt_funnel_gap: { Retention: "Retention gaps show up late — founders feel it in NRR conversations first.", Conversion: "Conversion leaks burn cash before you can prove GTM fit." },
+  rev_crm: { "None yet": "No CRM — founders manually track pipeline and miss follow-ups.", Spreadsheets: "Spreadsheet RevOps breaks the moment you add a second seller." },
+  rev_forecast: { "Mostly guesswork": "Guesswork forecasts fail board and investor reviews.", "Some visibility": "Partial visibility still leaves founders surprised at month-end." },
+  rev_runway_visibility: { "Not tracked": "Unknown runway is the fastest path to a founder crisis.", "Rough estimate": "Rough runway math fails when burn shifts month to month." },
+  rev_metrics_tracked: { "None yet": "Untracked unit economics weaken every fundraising conversation." },
+  rev_finance_setup: { "Founder-managed": "Founder-managed books steal 5–10 hrs/mo and delay close." },
+};
+
+function makeContributor(
+  id: string,
+  label: string,
+  source: ScoreContributorSource,
+  display: string,
+  score: number,
+  weight: number,
+  impact?: string,
+): ScoreContributor {
+  const w = Math.round(weight * 10) / 10;
+  const s = Math.max(0, Math.min(100, Math.round(score)));
+  return {
+    id,
+    label,
+    source,
+    display,
+    score: s,
+    weight: w,
+    contribution: Math.round((s * w / 100) * 10) / 10,
+    impact: impact ?? defaultFounderImpact(s),
+  };
+}
+
+function buildProfileContributor(category: ScorecardCategory, ctx: CategoryBuildContext): ScoreContributor {
+  const inputs = buildProfileInputs(category, ctx);
+  const display = inputs.length ? inputs.join(" · ") : "Not provided";
+  const score = Math.min(100, 30 + inputs.length * 14);
+  return makeContributor(
+    "profile_summary",
+    "Company profile",
+    "profile",
+    display,
+    score,
+    SCORE_WEIGHT_PROFILE,
+    inputs.length ? display : "No profile inputs logged.",
+  );
+}
+
+function buildDetailContributors(category: ScorecardCategory, answers: DetailAnswers): ScoreContributor[] {
+  const section = DETAIL_SECTIONS.find(s => s.id === category);
+  if (!section?.questions.length) return [];
+  const perQ = SCORE_WEIGHT_DETAIL / section.questions.length;
+
+  return section.questions.map(q => {
+    const val = answers[q.id];
+    const score = val ? (DETAIL_ANSWER_SCORES[q.id]?.[val] ?? 58) : 30;
+    const label = DETAIL_QUESTION_LABEL[q.id] ?? q.prompt.replace(/\?$/, "");
+    return makeContributor(q.id, label, "detail", val ?? "Not answered", score, perQ, val ?? "Not answered");
+  });
+}
+
+function buildBenchmarkContributors(
+  category: ScorecardCategory,
+  metricMap: Record<MetricKey, EvaluatedMetric>,
+  runway: number | null,
+): ScoreContributor[] {
+  const keys = CATEGORY_METRIC_KEYS[category];
+  const perMetric = keys.length ? SCORE_WEIGHT_BENCHMARK / keys.length : 0;
+
+  return keys.map(key => {
+    const m = metricMap[key];
+    const hasValue = m?.value != null;
+    const score = hasValue ? tierToScore(m.tier) : 28;
+    const impact = hasValue ? `${m.display} · ${m.positionLabel}` : "Not logged";
+
+    if (category === "rev" && key === "monthlyBurn" && runway != null && runway < 6) {
+      return makeContributor(key, m.label, "benchmark", m.display, Math.min(score, 25), perMetric, `${m.display} · ~${runway.toFixed(0)} mo runway`);
+    }
+
+    return makeContributor(
+      key,
+      m?.label ?? key,
+      "benchmark",
+      hasValue ? m.display : "Not logged",
+      score,
+      perMetric,
+      impact,
+    );
+  });
+}
+
+function buildCategoryScoreContributors(
+  category: ScorecardCategory,
+  metricMap: Record<MetricKey, EvaluatedMetric>,
+  runway: number | null,
+  ctx: CategoryBuildContext,
+): { contributors: ScoreContributor[]; compositeScore: number } {
+  const raw = [
+    ...buildBenchmarkContributors(category, metricMap, runway),
+    buildProfileContributor(category, ctx),
+    ...buildDetailContributors(category, ctx.detailAnswers),
+  ];
+
+  const compositeScore = Math.round(raw.reduce((sum, c) => sum + c.contribution, 0));
+  const contributors = [...raw].sort((a, b) => a.score - b.score || b.weight - a.weight);
+
+  return { contributors, compositeScore };
+}
+
 
 function vsMedianText(metric: EvaluatedMetric): string | null {
   if (metric.value == null) return null;
@@ -380,7 +578,12 @@ function buildCategoryData(category: ScorecardCategory, metricMap: Record<Metric
     suggestedPlaybooks: CATEGORY_PLAYBOOKS[category],
     detailSnippets: [],
     detailCompletionPct: 0,
+    detailAnsweredCount: 0,
+    detailQuestionCount: 0,
     glanceSummary: "",
+    glanceFocus: "",
+    intelDisplayCount: 0,
+    scoreContributors: [],
   };
 }
 
@@ -492,26 +695,356 @@ function trendArrow(tier: PositionTier): string {
   return "↘";
 }
 
+function computeGlancePopoverLayout(
+  rect: DOMRect,
+  popoverH: number,
+): { style: React.CSSProperties; placement: "above" | "below" } {
+  const popoverW = Math.min(380, window.innerWidth - 48);
+  const gap = 10;
+  const margin = 12;
+  const maxH = Math.min(480, window.innerHeight - margin * 2);
+  const effectiveH = Math.min(popoverH, maxH);
+  const spaceBelow = window.innerHeight - rect.bottom - gap - margin;
+  const spaceAbove = rect.top - gap - margin;
+  const placeAbove = spaceBelow < effectiveH && spaceAbove >= spaceBelow;
+
+  const top = placeAbove
+    ? Math.max(margin, rect.top - gap - effectiveH)
+    : Math.min(rect.bottom + gap, window.innerHeight - effectiveH - margin);
+
+  return {
+    placement: placeAbove ? "above" : "below",
+    style: {
+      position: "fixed",
+      top,
+      right: Math.max(margin, window.innerWidth - rect.right),
+      left: "auto",
+      bottom: "auto",
+      width: popoverW,
+      zIndex: 1000,
+    },
+  };
+}
+
+function ScoreHealthPopover({
+  cat,
+  score,
+  updatedLabel = "2h ago",
+  onClickStop,
+  popoverRef,
+  popoverStyle,
+  placement = "below",
+  isFixed = false,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  cat: Pick<CategoryData, "label" | "barColour" | "confidenceLevel" | "confidenceTone" | "scoreContributors">;
+  score: number;
+  updatedLabel?: string;
+  onClickStop?: (e: React.MouseEvent) => void;
+  popoverRef?: React.Ref<HTMLDivElement>;
+  popoverStyle?: React.CSSProperties;
+  placement?: "above" | "below";
+  isFixed?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+}) {
+  const contributors = cat.scoreContributors;
+  const weightSum = Math.round(contributors.reduce((s, c) => s + c.weight, 0) * 10) / 10;
+  const contribSum = Math.round(contributors.reduce((s, c) => s + c.contribution, 0) * 10) / 10;
+
+  return (
+    <div
+      ref={popoverRef}
+      className={`sc-cat-popover sc-glance-score-popover${isFixed ? " is-fixed" : ""}${placement === "above" ? " is-above" : ""}`}
+      style={popoverStyle}
+      role="tooltip"
+      onClick={onClickStop ?? (e => e.stopPropagation())}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="sc-cat-pop-head">
+        <span className="sc-cat-pop-eyebrow">Track health · {cat.label}</span>
+        <strong className="sc-cat-pop-score" style={{ color: cat.barColour }}>{score}<i>/100</i></strong>
+      </div>
+      <p className="sc-cat-pop-explain">
+        Weighted from benchmark metrics ({SCORE_WEIGHT_BENCHMARK}%), company profile ({SCORE_WEIGHT_PROFILE}%), and your {cat.label} answers ({SCORE_WEIGHT_DETAIL}%). Sorted by what pulls founders down most.
+      </p>
+      <div className="sc-cat-pop-rows sc-cat-pop-rows-stacked">
+        {contributors.map((c, i) => (
+          <div
+            key={c.id}
+            className={`sc-cat-pop-block sc-cat-pop-tone-${contributorTone(c.score)}${i === 0 && c.score < 55 ? " is-top-priority" : ""}`}
+          >
+            <div className="sc-cat-pop-block-head">
+              <span className={`sc-cat-pop-source is-${c.source}`}>{SOURCE_LABELS[c.source]}</span>
+              <span className="sc-cat-pop-block-weight">{c.weight}% · +{c.contribution} pts</span>
+            </div>
+            <div className="sc-cat-pop-block-title">{c.label}</div>
+            <div className="sc-cat-pop-block-meta">
+              <span className="sc-cat-pop-block-val">{c.display}</span>
+              <strong className={`sc-cat-pop-block-score sc-cat-tone-${contributorTone(c.score)}`}>{c.score}</strong>
+            </div>
+            <p className="sc-cat-pop-impact">{c.impact}</p>
+          </div>
+        ))}
+      </div>
+      <div className="sc-cat-pop-total">
+        <span>Weighted total</span>
+        <strong style={{ color: cat.barColour }}>{contribSum} / 100</strong>
+        <span className="sc-cat-pop-total-note">({weightSum}% inputs)</span>
+      </div>
+      <div className="sc-cat-pop-foot">
+        <span>Confidence · <strong className={`sc-cat-pop-conf sc-cat-tone-${cat.confidenceTone}`}>{cat.confidenceLevel}</strong></span>
+        <span>Updated {updatedLabel}</span>
+      </div>
+    </div>
+  );
+}
+
+function GlanceScoreRing({
+  cat,
+  score,
+  isOpen,
+  onRequestOpen,
+  onRequestClose,
+}: {
+  cat: CategoryData;
+  score: number;
+  isOpen: boolean;
+  onRequestOpen: () => void;
+  onRequestClose: () => void;
+}) {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties | undefined>();
+  const [placement, setPlacement] = useState<"above" | "below">("below");
+  const size = 76;
+  const stroke = 6;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+
+  const updatePopoverPosition = useCallback((event?: Event) => {
+    const scrollTarget = event?.target;
+    if (scrollTarget instanceof Node && popoverRef.current?.contains(scrollTarget)) return;
+
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const popoverH = popoverRef.current?.offsetHeight ?? 300;
+    const { style, placement: nextPlacement } = computeGlancePopoverLayout(rect, popoverH);
+    setPlacement(nextPlacement);
+    setPopoverStyle(style);
+  }, []);
+
+  const openPopover = useCallback(() => {
+    onRequestOpen();
+  }, [onRequestOpen]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setPopoverStyle(undefined);
+      setPlacement("below");
+      return;
+    }
+
+    const trigger = triggerRef.current;
+    if (trigger) {
+      const { style, placement: nextPlacement } = computeGlancePopoverLayout(trigger.getBoundingClientRect(), 300);
+      setPopoverStyle(style);
+      setPlacement(nextPlacement);
+    }
+
+    updatePopoverPosition();
+    const onScroll = (event: Event) => updatePopoverPosition(event);
+    const onResize = () => updatePopoverPosition();
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [isOpen, updatePopoverPosition, cat.scoreContributors.length]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onDocPointer = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
+      onRequestClose();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onRequestClose();
+    };
+    document.addEventListener("mousedown", onDocPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [isOpen, onRequestClose]);
+
+  const popoverNode = isOpen && popoverStyle ? (
+    <ScoreHealthPopover
+      cat={cat}
+      score={score}
+      popoverRef={popoverRef}
+      popoverStyle={popoverStyle}
+      placement={placement}
+      isFixed
+      onClickStop={e => e.stopPropagation()}
+    />
+  ) : null;
+
+  return (
+    <div className="sc-glance-ring-wrap">
+      <div
+        ref={triggerRef}
+        className="sc-glance-ring-trigger"
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
+        aria-label={`Track health ${score}, ${cat.statusLabel}. Show how this score is calculated.`}
+        onMouseEnter={openPopover}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            openPopover();
+          }
+        }}
+      >
+        <div
+          className="sc-glance-ring-svg-wrap"
+          role="meter"
+          aria-valuenow={score}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="sc-glance-ring" aria-hidden>
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="var(--surface-3)"
+              strokeWidth={stroke}
+            />
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={cat.barColour}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          </svg>
+          <div className="sc-glance-ring-label">
+            <strong style={{ color: cat.barColour }}>{score}</strong>
+          </div>
+        </div>
+        {typeof document !== "undefined" && popoverNode
+          ? createPortal(popoverNode, document.body)
+          : null}
+      </div>
+      <span className={`sc-glance-ring-status sc-cat-tone-${cat.statusTone}`}>{cat.statusLabel}</span>
+    </div>
+  );
+}
+
+function buildGlanceAnswersCta(
+  trackLabel: string,
+  answered: number,
+  total: number,
+): { label: string; meta: string; tone: "empty" | "partial" | "almost" | "complete" } {
+  const remaining = Math.max(0, total - answered);
+
+  if (total === 0) {
+    return { label: `Update ${trackLabel} answers`, meta: "", tone: "empty" };
+  }
+
+  if (answered === 0) {
+    return {
+      label: `Add ${trackLabel} context`,
+      meta: `${total} quick questions · sharpens this score`,
+      tone: "empty",
+    };
+  }
+
+  if (remaining === 0) {
+    return {
+      label: `${trackLabel} context on file`,
+      meta: "update anytime",
+      tone: "complete",
+    };
+  }
+
+  if (remaining === 1) {
+    return {
+      label: `Finish ${trackLabel} context`,
+      meta: "1 question left · biggest score lift now",
+      tone: "almost",
+    };
+  }
+
+  if (remaining <= 2) {
+    return {
+      label: `Almost done with ${trackLabel}`,
+      meta: `${remaining} questions left`,
+      tone: "almost",
+    };
+  }
+
+  if (answered >= Math.ceil(total / 2)) {
+    return {
+      label: `${answered} of ${total} ${trackLabel} answers in`,
+      meta: `${remaining} more unlocks a sharper score`,
+      tone: "partial",
+    };
+  }
+
+  return {
+    label: `Add ${trackLabel} context`,
+    meta: `${answered} of ${total} done · ${remaining} to go`,
+    tone: "partial",
+  };
+}
+
 function CategoryGlanceRow({
   cat,
   runway,
   onOpen,
+  onUpdateDetails,
   onOpenIntelligence,
   onOpenInitiatives,
   onRunPlaybook,
+  glancePopoverOpen,
+  onGlancePopoverOpen,
+  onGlancePopoverClose,
   tourTarget,
 }: {
   cat: CategoryData;
   runway: number | null;
   onOpen: () => void;
+  onUpdateDetails?: () => void;
   onOpenIntelligence?: () => void;
   onOpenInitiatives?: () => void;
   onRunPlaybook?: (id: string) => void;
+  glancePopoverOpen: boolean;
+  onGlancePopoverOpen: () => void;
+  onGlancePopoverClose: () => void;
   tourTarget?: string;
 }) {
   const score = Math.max(0, Math.min(100, cat.score));
-  const summaryLine = cat.glanceSummary || cat.fullLabel;
-  const hook = buildCategoryGlanceHook(cat, runway, cat.detailSnippets, cat.detailCompletionPct);
+  const focusLine = cat.glanceFocus;
+  const answersCta = buildGlanceAnswersCta(cat.label, cat.detailAnsweredCount, cat.detailQuestionCount);
 
   return (
     <article
@@ -523,49 +1056,64 @@ function CategoryGlanceRow({
       tabIndex={0}
       aria-label={`${cat.fullLabel}, ${score} out of 100, ${cat.statusLabel}`}
     >
-      <div className="sc-glance-top">
-        <div className="sc-glance-id">
-          <span className="sc-glance-icon" style={{ background: cat.colourDim, color: cat.colour, borderColor: cat.colourBorder }} aria-hidden>{cat.icon}</span>
-          <div className="sc-glance-copy">
-            <h3 className="sc-glance-name">{cat.label}</h3>
-            <p className="sc-glance-fullname">{cat.fullLabel}</p>
-            {summaryLine ? <p className="sc-glance-metrics">{summaryLine}</p> : null}
+      <div className="sc-glance-layout">
+        <div className="sc-glance-main">
+          <div className="sc-glance-id">
+            <span className="sc-glance-icon" style={{ background: cat.colourDim, color: cat.colour, borderColor: cat.colourBorder }} aria-hidden>{cat.icon}</span>
+            <div className="sc-glance-copy">
+              <h3 className="sc-glance-name">
+                <span>{cat.label}</span>
+                <span className="sc-glance-name-sep" aria-hidden>·</span>
+                <span>{cat.fullLabel}</span>
+                <span className="sc-glance-name-arrow" aria-hidden>→</span>
+              </h3>
+              {focusLine ? <p className="sc-glance-focus">{focusLine}</p> : null}
+              {onUpdateDetails ? (
+                <button
+                  type="button"
+                  className={`sc-glance-answers-btn is-${answersCta.tone}`}
+                  onClick={e => { e.stopPropagation(); onUpdateDetails(); }}
+                >
+                  {answersCta.label}
+                  {answersCta.meta ? (
+                    <>
+                      {" · "}
+                      <span className="sc-glance-answers-btn-meta">{answersCta.meta}</span>
+                    </>
+                  ) : null}
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <div className="sc-glance-foot">
+            <div className="sc-glance-meta-badges" onClick={e => e.stopPropagation()}>
+              {cat.openInitiatives.length > 0 ? (
+                <button type="button" className="sc-glance-meta-badge" onClick={() => onOpenInitiatives?.()}>
+                  {cat.openInitiatives.length} initiative{cat.openInitiatives.length === 1 ? "" : "s"}
+                </button>
+              ) : null}
+              <button type="button" className="sc-glance-meta-badge is-intel" onClick={() => onOpenIntelligence?.()}>
+                {cat.intelDisplayCount > 0 ? `${cat.intelDisplayCount} intel` : "Intelligence"}
+              </button>
+              {cat.suggestedPlaybooks.length > 0 ? (
+                <button
+                  type="button"
+                  className="sc-glance-meta-badge is-playbook"
+                  onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}
+                >
+                  {cat.suggestedPlaybooks.length} playbook{cat.suggestedPlaybooks.length === 1 ? "" : "s"}
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
-        <div className="sc-glance-meta-badges" onClick={e => e.stopPropagation()}>
-          {cat.openInitiatives.length > 0 ? (
-            <button type="button" className="sc-glance-meta-badge" onClick={() => onOpenInitiatives?.()}>
-              {cat.openInitiatives.length} initiative{cat.openInitiatives.length === 1 ? "" : "s"}
-            </button>
-          ) : null}
-          {cat.intelligenceCount > 0 ? (
-            <button type="button" className="sc-glance-meta-badge is-intel" onClick={() => onOpenIntelligence?.()}>
-              {cat.intelligenceCount} intel
-            </button>
-          ) : null}
-          {cat.suggestedPlaybooks.length > 0 ? (
-            <button
-              type="button"
-              className="sc-glance-meta-badge is-playbook"
-              onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}
-            >
-              {cat.suggestedPlaybooks.length} playbook{cat.suggestedPlaybooks.length === 1 ? "" : "s"}
-            </button>
-          ) : null}
-        </div>
-      </div>
-      <div className="sc-glance-bar-head">
-        <span className="sc-glance-track-pill" style={{ color: cat.colour, borderColor: cat.colourBorder, background: cat.colourDim }}>{cat.label}</span>
-        <span className="sc-glance-bar-meta">
-          <strong style={{ color: cat.barColour }}>{score}</strong>/100 · {cat.statusLabel}
-        </span>
-      </div>
-      <div className="sc-glance-bar" role="meter" aria-valuenow={score} aria-valuemin={0} aria-valuemax={100} aria-label={`Benchmark health ${score} percent`}>
-        <div className="sc-glance-bar-fill" style={{ width: `${score}%`, background: cat.barColour }} />
-      </div>
-      <div className="sc-glance-foot">
-        <p className="sc-glance-hook">{hook}</p>
-        <span className="sc-glance-link">View details →</span>
+        <GlanceScoreRing
+          cat={cat}
+          score={score}
+          isOpen={glancePopoverOpen}
+          onRequestOpen={onGlancePopoverOpen}
+          onRequestClose={onGlancePopoverClose}
+        />
       </div>
     </article>
   );
@@ -616,29 +1164,7 @@ function CategoryCard({ cat, onClick, onViewDetails, onViewBenchmark, expanded, 
               <span style={{ fontSize: 14, color: "var(--text-3)", fontWeight: 500 }}>/100</span>
             </div>
             {popoverOpen && (
-              <div className="sc-cat-popover" role="tooltip" onClick={(e) => e.stopPropagation()}>
-                <div className="sc-cat-pop-head">
-                  <span className="sc-cat-pop-eyebrow">Benchmark Health · {cat.label}</span>
-                  <strong className="sc-cat-pop-score" style={{ color: cat.barColour }}>{score}<i>/100</i></strong>
-                </div>
-                <p className="sc-cat-pop-explain">
-                  Credit-score style: metrics are weighted, benchmarked against your cohort, then combined with data completeness and AI confidence.
-                </p>
-                <div className="sc-cat-pop-rows">
-                  {cat.metricWeights.map(m => (
-                    <div key={m.key} className="sc-cat-pop-row">
-                      <span className="sc-cat-pop-metric">{m.label}</span>
-                      <span className="sc-cat-pop-metric-val">{m.display}</span>
-                      <span className="sc-cat-pop-metric-tier" style={{ color: TIER_COLOUR[m.tier] }}>{m.positionLabel}</span>
-                      <span className="sc-cat-pop-metric-weight">{m.weight}%</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="sc-cat-pop-foot">
-                  <span>Confidence · <strong className={`sc-cat-pop-conf sc-cat-tone-${cat.confidenceTone}`}>{cat.confidenceLevel}</strong></span>
-                  <span>Updated {updatedLabel}</span>
-                </div>
-              </div>
+              <ScoreHealthPopover cat={cat} score={score} updatedLabel={updatedLabel} />
             )}
           </div>
           <div className={`sc-cat-status sc-cat-tone-${cat.statusTone}`}>{cat.statusLabel}</div>
@@ -805,24 +1331,28 @@ const INTEL_TYPE_TO_CATEGORY: Record<string, ScorecardCategory> = {
   strategic: "rev",
 };
 
-const DETAIL_SNIPPET_MAP: Partial<Record<string, (val: string) => string | null>> = {
-  dev_product_type: v => `Building ${v.toLowerCase()}`,
-  dev_ai_role: v => (v === "Core product" ? "AI is core to the product" : v === "A feature" ? "AI as a product feature" : null),
-  dev_challenge: v => `Product focus: ${v.toLowerCase()}`,
-  dev_ship_cadence: v => `Ships ${v.toLowerCase()}`,
-  dev_team_shape: v => `Team shape: ${v.toLowerCase()}`,
-  dev_tech_lead: v => (v.startsWith("Yes") ? "Technical leadership in place" : v === "Fractional" ? "Fractional technical lead" : "No dedicated tech lead yet"),
-  dev_stack_maturity: v => (v === "Hitting limits" ? "Architecture hitting scale limits" : v === "Built to scale" ? "Architecture built to scale" : null),
-  mkt_sales_motion: v => `${v} sales motion`,
-  mkt_funnel_gap: v => `Funnel gap: ${v.toLowerCase()}`,
-  mkt_top_channel: v => `Top channel: ${v.toLowerCase()}`,
-  mkt_icp_clarity: v => (v === "Crisp & validated" ? "ICP validated" : v === "Still exploring" ? "ICP still forming" : "ICP forming"),
-  mkt_marketing_owner: v => `Marketing: ${v.toLowerCase()}`,
-  rev_crm: v => (v === "None yet" ? "No CRM yet" : `CRM: ${v}`),
-  rev_forecast: v => `Forecast: ${v.toLowerCase()}`,
-  rev_biggest_gap: v => `RevOps gap: ${v.toLowerCase()}`,
-  rev_runway_visibility: v => (v === "Not tracked" ? "Runway not tracked in ops" : `Runway visibility: ${v.toLowerCase()}`),
-  rev_finance_setup: v => `Finance: ${v.toLowerCase()}`,
+const DETAIL_QUESTION_LABEL: Partial<Record<string, string>> = {
+  dev_product_type: "Product type",
+  dev_ai_role: "AI role",
+  dev_challenge: "Product challenge",
+  dev_ship_cadence: "Ship cadence",
+  dev_team_shape: "Team structure",
+  dev_tech_lead: "Technical lead",
+  dev_stack_maturity: "Architecture",
+  mkt_sales_motion: "Sales motion",
+  mkt_funnel_gap: "Funnel gap",
+  mkt_investor_intros: "Investor intros",
+  mkt_top_channel: "Top channel",
+  mkt_marketing_owner: "Marketing owner",
+  mkt_sales_cycle: "Sales cycle",
+  mkt_icp_clarity: "ICP",
+  rev_crm: "CRM",
+  rev_forecast: "Forecast",
+  rev_biggest_gap: "RevOps gap",
+  rev_metrics_tracked: "SaaS metrics",
+  rev_billing: "Billing",
+  rev_finance_setup: "Finance setup",
+  rev_runway_visibility: "Runway visibility",
 };
 
 function intelligenceForCategory(category: ScorecardCategory, items: ScorecardIntelligenceItem[]): ScorecardIntelligenceItem[] {
@@ -832,90 +1362,188 @@ function intelligenceForCategory(category: ScorecardCategory, items: ScorecardIn
 function buildDetailSnippets(category: ScorecardCategory, answers: DetailAnswers): string[] {
   const section = DETAIL_SECTIONS.find(s => s.id === category);
   if (!section) return [];
-  const snippets: string[] = [];
-  section.questions.forEach(q => {
-    const val = answers[q.id];
-    if (!val) return;
-    const fn = DETAIL_SNIPPET_MAP[q.id];
-    const snippet = fn ? fn(val) : null;
-    if (snippet) snippets.push(snippet);
+  return section.questions.flatMap(q => {
+    const val = answers[q.id]?.trim();
+    if (!val) return [];
+    const label = DETAIL_QUESTION_LABEL[q.id];
+    return [label ? `${label}: ${val}` : val];
   });
-  return snippets;
 }
 
-function truncateText(text: string, max: number): string {
-  const t = text.trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
-}
-
-function buildCategoryBenchmarkSummary(
+function buildCategoryBenchmarkInputs(
   category: ScorecardCategory,
   metricMap: Record<MetricKey, EvaluatedMetric>,
   runway: number | null,
 ): string[] {
-  if (category === "dev") {
-    const hc = metricMap.headcount;
-    const gm = metricMap.grossMargin;
-    const parts: string[] = [];
-    if (hc.value != null) parts.push(`${hc.display} FTEs · ${hc.positionLabel.toLowerCase()}`);
-    else parts.push("Headcount not logged");
-    if (gm.value != null) parts.push(`Gross margin ${gm.positionLabel.toLowerCase()}`);
-    return parts;
-  }
-  if (category === "mkt") {
-    const arr = metricMap.arr;
-    const cust = metricMap.payingCustomers;
-    const ret = metricMap.logoRetention;
-    const parts: string[] = [];
-    if (arr.value != null && arr.value >= 50_000) {
-      parts.push(`ARR ${arr.display} · ${arr.positionLabel.toLowerCase()}`);
-    } else {
-      parts.push("Pre-revenue or early ARR");
-    }
-    if (cust.value != null) parts.push(`${cust.display} customers`);
-    if (ret.value != null) parts.push(`Retention ${ret.positionLabel.toLowerCase()}`);
-    return parts.slice(0, 2);
-  }
-  const cash = metricMap.cashOnHand;
-  const burn = metricMap.monthlyBurn;
   const parts: string[] = [];
-  if (runway != null) {
-    parts.push(runway < 6 ? `~${runway.toFixed(0)}mo runway · critical` : `~${runway.toFixed(0)}mo runway`);
+  CATEGORY_METRIC_KEYS[category].forEach(key => {
+    const m = metricMap[key];
+    if (m?.value != null) parts.push(`${m.label}: ${m.display}`);
+  });
+  if (category === "rev" && runway != null && metricMap.cashOnHand.value != null && metricMap.monthlyBurn.value != null) {
+    parts.push(`Runway: ~${runway.toFixed(0)} mo`);
   }
-  if (burn.value != null) parts.push(`Burn ${burn.display}/mo · ${burn.positionLabel.toLowerCase()}`);
-  else if (cash.value != null) parts.push(`${cash.display} cash on hand`);
-  return parts.slice(0, 2);
+  return parts;
 }
 
-function buildProfileSnippet(
+function buildProfileInputs(
   category: ScorecardCategory,
   ctx: CategoryBuildContext,
-): string | null {
+): string[] {
   const { profileMeta, benchmarkContext } = ctx;
-  if (category === "dev") {
-    if (benchmarkContext?.notableHires?.trim()) {
-      return `Profile · ${truncateText(benchmarkContext.notableHires, 36)}`;
-    }
-    if (profileMeta?.employees?.trim()) return `${profileMeta.employees} employees on file`;
+  const parts: string[] = [];
+
+  if (profileMeta?.sector?.trim()) parts.push(profileMeta.sector.trim());
+  if (profileMeta?.employees?.trim()) parts.push(profileMeta.employees.trim());
+  if (profileMeta?.headquarters?.trim()) parts.push(profileMeta.headquarters.trim());
+
+  if (category === "dev" && benchmarkContext?.notableHires?.trim()) {
+    parts.push(benchmarkContext.notableHires.trim());
   }
   if (category === "mkt") {
-    if (benchmarkContext?.notableCustomers?.trim()) {
-      return `Customers · ${truncateText(benchmarkContext.notableCustomers, 36)}`;
-    }
-    if (profileMeta?.sector?.trim()) {
-      const sector = profileMeta.sector.split("·").map(s => s.trim()).filter(Boolean)[0];
-      if (sector) return `${sector} · GTM profile`;
-    }
-    if (benchmarkContext?.openToIntros) return "Open to investor intros";
+    if (benchmarkContext?.notableCustomers?.trim()) parts.push(benchmarkContext.notableCustomers.trim());
+    if (benchmarkContext?.openToIntros) parts.push("Open to investor intros");
   }
-  if (category === "rev") {
-    if (benchmarkContext?.biggestChallenges?.trim()) {
-      return `Challenge · ${truncateText(benchmarkContext.biggestChallenges, 36)}`;
-    }
-    if (profileMeta?.headquarters?.trim()) return `HQ · ${profileMeta.headquarters}`;
+  if ((category === "mkt" || category === "rev") && benchmarkContext?.biggestChallenges?.trim()) {
+    parts.push(benchmarkContext.biggestChallenges.trim());
   }
+  if (benchmarkContext?.otherUpdates?.trim()) parts.push(benchmarkContext.otherUpdates.trim());
+
+  return parts;
+}
+
+function countCategoryIntelDisplay(
+  category: ScorecardCategory,
+  items: ScorecardIntelligenceItem[],
+  metricMap: Record<MetricKey, EvaluatedMetric>,
+): number {
+  const fromItems = intelligenceForCategory(category, items).length;
+  if (fromItems > 0) return fromItems;
+  return CATEGORY_METRIC_KEYS[category].filter(k => metricMap[k]?.value != null).length;
+}
+
+function isMissingContributor(c: ScoreContributor): boolean {
+  return c.display === "Not answered" || c.display === "Not logged" || c.display === "Not provided";
+}
+
+function humanizeWeakContributor(c: ScoreContributor): string | null {
+  if (c.score >= 64) return null;
+
+  const val = c.display;
+
+  if (c.source === "benchmark") {
+    if (c.score < 40) return `${c.label} at ${val} is well below your cohort.`;
+    return `${c.label} at ${val} is below peer median.`;
+  }
+
+  if (c.source === "detail") {
+    switch (c.id) {
+      case "dev_challenge":
+        return `You flagged ${val.toLowerCase()} as your biggest product challenge.`;
+      case "dev_tech_lead":
+        if (val === "No") return "There is no full-time technical lead on file.";
+        if (val === "Fractional") return "Technical leadership is fractional only.";
+        return null;
+      case "dev_ship_cadence":
+        if (val === "Ad hoc" || val === "Monthly") return `You ship ${val.toLowerCase()}, which reads slower than peers at this stage.`;
+        return null;
+      case "dev_stack_maturity":
+        if (val === "Hitting limits" || val === "Not sure") return `Architecture is ${val.toLowerCase()}.`;
+        return null;
+      case "dev_team_shape":
+        if (val === "Solo / founder-built" || val === "Outsourced") return `Engineering is ${val.toLowerCase()}.`;
+        return null;
+      case "mkt_sales_motion":
+        if (val === "Founder-led" || val === "Not yet") return `GTM is still ${val.toLowerCase()}.`;
+        return null;
+      case "mkt_funnel_gap":
+        return `The funnel breaks down most at ${val.toLowerCase()}.`;
+      case "mkt_marketing_owner":
+        if (val === "Founder-led" || val === "No one yet") return `Marketing is ${val.toLowerCase()}.`;
+        return null;
+      case "mkt_icp_clarity":
+        if (val !== "Crisp & validated") return `ICP is ${val.toLowerCase()}.`;
+        return null;
+      case "rev_crm":
+        if (val === "None yet" || val === "Spreadsheets") return `RevOps runs on ${val.toLowerCase()}.`;
+        return null;
+      case "rev_forecast":
+        if (val !== "High confidence") return `Revenue forecast is ${val.toLowerCase()}.`;
+        return null;
+      case "rev_runway_visibility":
+        if (val !== "Tracked monthly") return `Runway visibility is ${val.toLowerCase()}.`;
+        return null;
+      case "rev_metrics_tracked":
+        if (val === "None yet") return "Core SaaS metrics are not tracked yet.";
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  if (c.source === "profile" && val === "Not provided") {
+    return "Company profile is still thin.";
+  }
+
   return null;
+}
+
+function joinNaturalList(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  const normalize = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+  if (items.length === 2) return `${items[0].replace(/\.$/, "")}, and ${normalize(items[1])}`;
+  return `${items.slice(0, -1).join(", ")}, and ${normalize(items[items.length - 1])}`;
+}
+
+function buildCategoryFocusNarrative(
+  category: ScorecardCategory,
+  score: number,
+  contributors: ScoreContributor[],
+  catIntel: ScorecardIntelligenceItem[],
+): string {
+  const track = CATEGORY_META[category].label;
+  const missing = contributors.filter(isMissingContributor);
+  const seen = new Set<string>();
+  const weakNotes = [...contributors]
+    .filter(c => !isMissingContributor(c))
+    .sort((a, b) => a.score - b.score)
+    .flatMap(c => {
+      const note = humanizeWeakContributor(c);
+      if (!note) return [];
+      const key = `${c.source}:${c.label}`;
+      if (seen.has(key)) return [];
+      seen.add(key);
+      return [note];
+    })
+    .slice(0, 2);
+
+  let lead: string;
+  if (score >= 75) {
+    lead = `${track} is in good shape at ${score}.`;
+  } else if (score >= 55) {
+    lead = `${track} scores ${score} — a few inputs are holding it back.`;
+  } else {
+    lead = `${track} is at ${score} and needs attention.`;
+  }
+
+  const sentences: string[] = [lead];
+
+  if (weakNotes.length) {
+    sentences.push(joinNaturalList(weakNotes) + ".");
+  }
+
+  if (missing.length) {
+    const names = missing.slice(0, 2).map(c => c.label.toLowerCase());
+    const tail = missing.length > 2 ? " and a few more fields" : "";
+    sentences.push(`Add ${names.join(" and ")}${tail} to sharpen this score.`);
+  }
+
+  if (catIntel.length && sentences.length < 3) {
+    sentences.push(catIntel[0].text.endsWith(".") ? catIntel[0].text : `${catIntel[0].text}.`);
+  }
+
+  return sentences.join(" ");
 }
 
 function buildCategoryGlanceSummary(
@@ -924,52 +1552,13 @@ function buildCategoryGlanceSummary(
   runway: number | null,
   ctx: CategoryBuildContext,
   detailSnippets: string[],
-  sectionPct: number,
 ): string {
-  const parts: string[] = [];
-
-  // Detail forms first — most specific to R&D / GTM / G&A
-  detailSnippets.slice(0, 2).forEach(s => parts.push(s));
-
-  // Profile + benchmark narrative from onboarding / benchmark wizard
-  const profileBit = buildProfileSnippet(category, ctx);
-  if (profileBit && !parts.some(p => p.toLowerCase().includes(profileBit.slice(0, 12).toLowerCase()))) {
-    parts.push(profileBit);
-  }
-
-  // Cohort-relative benchmark (not raw label dumps)
-  buildCategoryBenchmarkSummary(category, metricMap, runway).forEach(b => {
-    if (!parts.some(p => p.toLowerCase().includes(b.slice(0, 10).toLowerCase()))) parts.push(b);
-  });
-
-  if (sectionPct > 0 && sectionPct < 100) {
-    parts.push(`View details ${sectionPct}% complete`);
-  } else if (sectionPct === 0 && detailSnippets.length === 0) {
-    parts.push(`Add ${CATEGORY_META[category].label} context in View details`);
-  }
-
-  if (parts.length === 0) {
-    return CATEGORY_META[category].description;
-  }
-
-  return parts.slice(0, 3).join(" · ");
-}
-
-function buildCategoryGlanceHook(
-  base: CategoryData,
-  runway: number | null,
-  detailSnippets: string[],
-  sectionPct: number,
-): string {
-  if (categoryUrgency(base, runway) === "urgent") {
-    const urgentSignal = base.signals.find(s => s.colour === COLOUR_WEAK) ?? base.signals[0];
-    if (urgentSignal) return urgentSignal.text;
-  }
-  if (detailSnippets.length > 2) return detailSnippets[2];
-  const benchHook = base.insight.split(/(?<=\.)\s/)[0]?.trim();
-  if (benchHook && sectionPct >= 50) return benchHook;
-  if (sectionPct < 50) return `Complete ${base.label} View details to sharpen cohort comparison.`;
-  return base.signals[0]?.text ?? benchHook ?? base.insight;
+  const parts = [
+    ...detailSnippets,
+    ...buildProfileInputs(category, ctx),
+    ...buildCategoryBenchmarkInputs(category, metricMap, runway),
+  ].filter(Boolean);
+  return parts.slice(0, 5).join(" · ");
 }
 
 function computeOverallContextPct(
@@ -998,8 +1587,10 @@ function enrichCategoryData(
   const intelTypes = [...new Set(catIntel.map(i => i.type))];
   const detailSnippets = buildDetailSnippets(base.id, ctx.detailAnswers);
   const section = DETAIL_SECTIONS.find(s => s.id === base.id);
-  const sectionPct = section
-    ? Math.round((countSectionAnswers(section, ctx.detailAnswers) / section.questions.length) * 100)
+  const sectionAnswered = section ? countSectionAnswers(section, ctx.detailAnswers) : 0;
+  const sectionTotal = section?.questions.length ?? 0;
+  const sectionPct = sectionTotal
+    ? Math.round((sectionAnswered / sectionTotal) * 100)
     : 0;
   const initiatives = buildCategoryInitiatives(base.id, metricMap, runway);
   const playbooks = playbooksForCategory(base.id, ctx.journeyStage);
@@ -1029,8 +1620,17 @@ function enrichCategoryData(
     insight += ` ${catIntel.length} tagged intelligence signal${catIntel.length > 1 ? "s" : ""} — latest: ${latest.text}.`;
   }
 
+  const { contributors, compositeScore } = buildCategoryScoreContributors(base.id, metricMap, runway, ctx);
+  const compositeStatus = statusFromCompositeScore(compositeScore);
+
   return {
     ...base,
+    score: compositeScore,
+    barWidth: compositeScore,
+    barColour: colourFromScore(compositeScore),
+    statusLabel: compositeStatus.label,
+    statusTone: compositeStatus.tone,
+    scoreContributors: contributors,
     insight,
     openInitiatives: initiatives,
     intelligenceCount: catIntel.length,
@@ -1038,7 +1638,11 @@ function enrichCategoryData(
     suggestedPlaybooks: playbooks,
     detailSnippets,
     detailCompletionPct: sectionPct,
-    glanceSummary: buildCategoryGlanceSummary(base.id, metricMap, runway, ctx, detailSnippets, sectionPct),
+    detailAnsweredCount: sectionAnswered,
+    detailQuestionCount: sectionTotal,
+    glanceSummary: buildCategoryGlanceSummary(base.id, metricMap, runway, ctx, detailSnippets),
+    glanceFocus: buildCategoryFocusNarrative(base.id, compositeScore, contributors, catIntel),
+    intelDisplayCount: countCategoryIntelDisplay(base.id, ctx.intelligenceItems, metricMap),
   };
 }
 
@@ -1093,15 +1697,21 @@ function buildAdvisorSummary(
 
 // ─── UI: Detail-enrichment drawer ─────────────────────────────────────────────
 function DetailsDrawer({
-  companyName, answers, onSelect, onSaveClose, onClose,
+  companyName, answers, onSelect, onSaveClose, onClose, initialStep = 0,
 }: {
   companyName: string;
   answers: DetailAnswers;
   onSelect: (qid: string, value: string) => void;
   onSaveClose: () => void;
   onClose: () => void;
+  initialStep?: number;
 }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep);
+
+  useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
+
   const section = DETAIL_SECTIONS[step];
   const answeredTotal = Object.keys(answers).filter(k => answers[k]).length;
   const isLast = step === DETAIL_SECTIONS.length - 1;
@@ -2461,6 +3071,8 @@ export default function ScorecardV2({
   const [addSourcesOpen, setAddSourcesOpen] = useState(false);
   const cName = companyName ?? "This company";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerStep, setDrawerStep] = useState(0);
+  const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const [advisorOpen, setAdvisorOpen] = useState(true);
   const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(cName));
 
@@ -2476,6 +3088,12 @@ export default function ScorecardV2({
       saveDetailAnswers(cName, next);
       return next;
     });
+  };
+
+  const openDetailsDrawer = (category?: ScorecardCategory) => {
+    const idx = category ? DETAIL_SECTIONS.findIndex(s => s.id === category) : 0;
+    setDrawerStep(idx >= 0 ? idx : 0);
+    setDrawerOpen(true);
   };
 
   const metrics   = useMemo(() => evaluateMetrics(benchmark), [benchmark]);
@@ -2586,7 +3204,7 @@ export default function ScorecardV2({
             <button
               type="button"
               className="sc-adv-header-btn"
-              onClick={() => setDrawerOpen(true)}
+              onClick={() => openDetailsDrawer()}
             >
               View details
               <span className="sc-adv-header-btn-info" aria-hidden="true">ⓘ</span>
@@ -2609,7 +3227,7 @@ export default function ScorecardV2({
             </div>
           ) : brief ? (
             <div className="sc-adv-featured sc-adv-featured-simple">
-              <BriefAdvisorCard brief={brief} onViewDetails={() => setDrawerOpen(true)} />
+              <BriefAdvisorCard brief={brief} onViewDetails={() => openDetailsDrawer()} />
             </div>
           ) : (
             <div className="overview-advisor-panel">
@@ -2635,9 +3253,13 @@ export default function ScorecardV2({
             cat={cat}
             runway={runway}
             onOpen={() => setActiveView(cat.id)}
+            onUpdateDetails={() => openDetailsDrawer(cat.id)}
             onOpenIntelligence={onOpenIntelligence}
             onOpenInitiatives={onOpenInitiatives}
             onRunPlaybook={onRunPlaybook}
+            glancePopoverOpen={openGlancePopover === cat.id}
+            onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
+            onGlancePopoverClose={() => setOpenGlancePopover(null)}
             tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
           />
         ))}
@@ -2647,6 +3269,7 @@ export default function ScorecardV2({
         <DetailsDrawer
           companyName={cName}
           answers={detailAnswers}
+          initialStep={drawerStep}
           onSelect={selectDetail}
           onSaveClose={() => setDrawerOpen(false)}
           onClose={() => setDrawerOpen(false)}
