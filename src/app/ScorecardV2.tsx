@@ -15,6 +15,20 @@ import {
 } from "./FuelOnboardingChat";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney";
 import { mapOnboardingToDetailAnswers, OnboardingBenchmarkFieldList, type OnboardingFlowAnswers } from "./OnboardingFlow.tsx";
+import {
+  DETAIL_SECTIONS,
+  DETAIL_QUESTION_LABEL,
+  DETAIL_QUESTION_BY_ID,
+  TRACK_DETAIL_SECTIONS,
+  countApplicableQuestions,
+  countDetailAnswers as countTrackDetailAnswers,
+  countSectionAnswers,
+  getVisibleQuestions,
+  isMultiSelectSelected,
+  parseMultiSelectAnswer,
+  toggleMultiSelectAnswer,
+  type DetailAnswers,
+} from "./trackQuestions.ts";
 import { BriefAdvisorCard } from "./AskFuelChat.tsx";
 import "./PatriotPayJourney.css";
 
@@ -336,44 +350,212 @@ const SOURCE_LABELS: Record<ScoreContributorSource, string> = {
 };
 
 const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
-  dev_product_type: { "SaaS / web app": 78, "API / platform": 82, Marketplace: 70, "Hardware + software": 62 },
-  dev_ai_role: { "Core product": 86, "A feature": 72, "Not yet": 54 },
-  dev_challenge: { Speed: 66, Quality: 58, "Roadmap clarity": 50 },
-  dev_ship_cadence: { "Multiple times a day": 92, Weekly: 82, Monthly: 56, "Ad hoc": 38 },
-  dev_team_shape: { "Squads by area": 88, "Single team": 76, Outsourced: 46, "Solo / founder-built": 52 },
-  dev_tech_lead: { "Yes, full-time": 94, Fractional: 66, No: 36 },
-  dev_stack_maturity: { "Built to scale": 90, "Works for now": 72, "Hitting limits": 42, "Not sure": 48 },
+  dev_product_stage: {
+    "Idea — not yet in development": 42,
+    "In active development": 58,
+    "Built — not yet launched": 66,
+    "Launched — early users or customers": 78,
+    "Launched — scaling usage or revenue": 90,
+  },
+  dev_product_type: { "SaaS / web app": 78, "API or developer platform": 82, Marketplace: 70, Other: 62 },
+  dev_delivery_constraint: {
+    "Planning and prioritization": 50,
+    "Capacity and hiring": 46,
+    "Quality and reliability": 58,
+    "Technical debt / Architecture": 44,
+  },
+  dev_primary_customer: {
+    "End user and buyer are the same role": 82,
+    "User and buyer are different": 74,
+    "Still validating who the real buyer is": 48,
+    "Building for multiple segments — no focus yet": 38,
+  },
+  dev_launch_timeline: {
+    "Already live — no fixed date": 80,
+    "Within 3 months": 72,
+    "3–6 months": 66,
+    "6–12 months": 58,
+    "No target date yet": 42,
+  },
+  dev_build_model: {
+    "In-house engineering team": 86,
+    "Founders building internally": 68,
+    "Offshore or hybrid team": 62,
+    "Contract dev / agency": 48,
+    "Not building yet — manual or services first": 36,
+  },
+  dev_engineering_size: {
+    "11+ engineers": 90,
+    "4–10 engineers": 78,
+    "1–3 engineers": 58,
+    "No engineers (founders only)": 42,
+  },
+  dev_ship_cadence: {
+    "CI/CD with staged rollout": 92,
+    "Regular releases (e.g. weekly / biweekly)": 82,
+    "Ad hoc — no regular cadence": 38,
+    "Not shipping yet": 30,
+  },
+  dev_ai_role: { "Core to the product": 86, "Important feature": 72, Exploring: 58, "Not applicable": 54 },
+  dev_compliance: { "Already certified": 92, "In progress": 78, "On roadmap (e.g. SOC 2, ISO)": 62, "Not yet": 48 },
+  dev_prioritization: {
+    "Data/Usage Analytics": 86,
+    "Customer Interviews": 78,
+    "Sales/Founder Intuition": 52,
+    "Ad-hoc / No formal process": 38,
+  },
+  dev_feature_debt_split: {
+    "Mostly New Features (80/20)": 82,
+    "Balanced (70/30)": 72,
+    "Heavy focus on Tech Debt/Bugs (50/50 or less)": 48,
+  },
+  dev_eng_bottleneck: {
+    "Planning and prioritization": 50,
+    "Code review / quality gates": 54,
+    "QA and testing": 52,
+    "Deployments and incidents": 48,
+    "Hiring and capacity": 46,
+    "Technical debt / architecture": 44,
+  },
   mkt_sales_motion: { "Product-led": 86, "Sales-led": 78, "Founder-led": 52, "Not yet": 36 },
   mkt_funnel_gap: { Awareness: 58, Conversion: 50, Retention: 44 },
-  mkt_investor_intros: { Yes: 80, "Not right now": 68, "Actively fundraising": 74 },
-  mkt_top_channel: { Outbound: 72, "Inbound / content": 78, Partnerships: 76, Events: 70, Paid: 64 },
-  mkt_marketing_owner: { "Dedicated hire": 88, "Founder-led": 48, Agency: 70, "No one yet": 34 },
-  mkt_sales_cycle: { "Under 30 days": 84, "1–3 months": 74, "3–6 months": 58, "6+ months": 46 },
-  mkt_icp_clarity: { "Crisp & validated": 92, Forming: 62, "Still exploring": 40 },
-  rev_crm: { HubSpot: 82, Salesforce: 86, Spreadsheets: 48, "None yet": 30 },
-  rev_forecast: { "High confidence": 90, "Some visibility": 62, "Mostly guesswork": 38 },
-  rev_biggest_gap: { "Pipeline hygiene": 52, Reporting: 56, "Billing / collections": 48, Forecasting: 44 },
-  rev_metrics_tracked: { "All tracked": 92, "Some tracked": 64, "None yet": 32 },
-  rev_billing: { "Fully automated": 86, Manual: 44, Hybrid: 68 },
-  rev_finance_setup: { "In-house finance": 88, "Fractional CFO": 78, "Founder-managed": 46, Outsourced: 72 },
-  rev_runway_visibility: { "Tracked monthly": 90, "Rough estimate": 58, "Not tracked": 34 },
+  mkt_icp_clarity: {
+    "Documented and shared": 92,
+    "Written ICP the team uses for targeting and qualification": 90,
+    "Clear in founder's head": 62,
+    "We know who fits, but it's not written or enforced yet": 56,
+    "Still a hypothesis": 48,
+    "Early signal from customers, but not validated": 52,
+    "Not defined yet": 38,
+    "Selling broadly or still figuring out who fits": 34,
+  },
+  mkt_revenue_tracking: {
+    "CRM with a defined sales process": 88,
+    "CRM but informal process": 68,
+    "Spreadsheet or lightweight tracking": 48,
+    "No systematic pipeline yet": 30,
+  },
+  mkt_deal_size: { "Over $100K": 86, "$25K–$100K": 78, "$5K–$25K": 68, "Under $5K": 58, "Not sure yet": 44 },
+  mkt_pricing_model: { "Flat subscription": 78, "Usage-based": 82, "Tiered / per seat": 76, Hybrid: 80, "Still figuring out": 40 },
+  mkt_demand_source: { "Inbound / content": 78, "Product-led / self-serve": 82, "Outbound sales": 72, "Partners / channel": 76, "Paid acquisition": 64, "Mix of channels": 70, "Still figuring out": 40 },
+  mkt_sales_team: {
+    "Larger sales org (6+)": 90,
+    "Small team (2–5 in sales)": 82,
+    "Founder + 1 AE or SDR": 68,
+    "Founder only": 52,
+    "No sales hire yet": 36,
+  },
+  mkt_marketing_capacity: {
+    "Small marketing team (2+)": 88,
+    "1 marketing generalist": 76,
+    "Agency or fractional support": 70,
+    "No dedicated marketing — founders or sales cover it": 48,
+    "Not applicable yet": 40,
+  },
+  mkt_cac_payback: { "Yes — tracked regularly": 88, "Rough estimate only": 58, "Not yet": 34 },
+  mkt_competitive_pressure: {
+    "Low — category is early or we lead": 82,
+    "Moderate — several credible alternatives": 62,
+    "High — crowded market, price or feature pressure": 44,
+    "Not sure yet": 48,
+  },
+  mkt_pipeline_definitions: {
+    "Yes, documented and shared — We have written criteria that the team uses.": 90,
+    "Informal / Shared understanding — We have a general idea of what these terms mean, but it's not documented or strictly enforced.": 58,
+    "Not defined yet — We don't use these definitions or are still figuring out our pipeline stages.": 36,
+  },
+  rev_runway: { "Over 18 months": 90, "12–18 months": 78, "6–12 months": 58, "Under 6 months": 34 },
+  rev_finance_management: {
+    "Accounting software with regular close": 90,
+    "Spreadsheet + accountant or bookkeeper": 68,
+    "Founder-managed / informal": 46,
+    "Not set up yet": 30,
+  },
+  rev_capital_priority: {
+    "Actively fundraising": 74,
+    "Open to investor introductions": 80,
+    "Focused on extending runway / reaching profitability": 72,
+    "Not focused on capital right now": 68,
+  },
+  rev_twelve_month_goal: {
+    "Scale growth with current capital": 82,
+    "Extend runway / reach profitability": 76,
+    "Raise next round": 70,
+    "Explore strategic options (M&A, partnerships)": 68,
+    "Not sure yet": 44,
+  },
+  rev_unit_economics: {
+    "Real-time / Automated": 92,
+    "Monthly / Spreadsheet-based": 68,
+    "Rough manual estimates": 48,
+    "Not yet": 32,
+  },
+  rev_forecast: {
+    "Yes, monthly rolling forecast": 90,
+    "Yes, static annual budget": 72,
+    "No, we track historicals only": 40,
+  },
+  rev_operating_mode: {
+    "Balanced growth and efficiency": 82,
+    "Growth-first": 74,
+    "Efficiency / path to profitability": 76,
+  },
+  rev_team_size: { "50+": 88, "16–50": 78, "6–15": 66, "1–5": 52 },
+  rev_hiring_plans: {
+    "Selective hires only": 78,
+    "Hiring aggressively": 72,
+    "Hiring freeze / defer": 58,
+    "Not sure yet": 44,
+  },
+  rev_board_reporting: {
+    "Quarterly board / investor reporting": 86,
+    "Monthly updates": 82,
+    "Ad hoc only": 48,
+    "No investors or board yet": 40,
+  },
+  rev_segment_economics: {
+    "Yes — tracked by segment": 88,
+    "Partially — some segments only": 62,
+    "Not yet — single blended view": 44,
+    "Not applicable — pre-revenue": 54,
+  },
+  rev_raise_needs: {
+    "All of the above": 82,
+    "Metrics and data room": 78,
+    "Investor narrative and deck": 72,
+    Introductions: 70,
+    "Financial model and use of funds": 74,
+    "Process and timeline discipline": 68,
+  },
 };
 
 const DETAIL_ANSWER_IMPACT: Record<string, Record<string, string>> = {
-  dev_challenge: { Quality: "Quality debt compounds — founders end up firefighting instead of selling.", Speed: "Shipping fast without guardrails burns founder time on rework.", "Roadmap clarity": "Unclear roadmap pulls founders back into product every week." },
-  dev_ship_cadence: { "Ad hoc": "Irregular shipping hides product risk until customers churn.", Monthly: "Monthly cadence lags peer velocity at your stage." },
-  dev_tech_lead: { No: "No technical lead leaves architecture and hiring on the founder.", Fractional: "Fractional tech leadership caps scale readiness." },
-  dev_stack_maturity: { "Hitting limits": "Scale limits force expensive rewrites when you should be growing." },
-  dev_team_shape: { "Solo / founder-built": "Founder-built everything becomes the bottleneck past ~10 FTEs.", Outsourced: "Heavy outsourcing slows iteration when GTM needs product moves." },
+  dev_delivery_constraint: {
+    "Quality and reliability": "Quality debt compounds — founders end up firefighting instead of selling.",
+    "Capacity and hiring": "Engineering capacity caps how fast you can respond to GTM signal.",
+    "Planning and prioritization": "Unclear prioritization pulls founders back into product every week.",
+    "Technical debt / Architecture": "Architecture drag slows every release when GTM needs product moves.",
+  },
+  dev_ship_cadence: {
+    "Ad hoc — no regular cadence": "Irregular shipping hides product risk until customers churn.",
+    "Not shipping yet": "No shipping cadence yet — launch readiness becomes the hidden bottleneck.",
+  },
+  dev_build_model: {
+    "Contract dev / agency": "Heavy agency reliance slows iteration when GTM needs product moves.",
+    "Not building yet — manual or services first": "Manual delivery becomes the bottleneck once demand shows up.",
+  },
   mkt_sales_motion: { "Founder-led": "Founder-led sales caps growth — you become the bottleneck.", "Not yet": "No motion yet — investors will ask how revenue actually happens." },
-  mkt_marketing_owner: { "Founder-led": "Founder-owned marketing steals time from product and fundraising.", "No one yet": "No marketing owner means pipeline stays unpredictable." },
-  mkt_icp_clarity: { "Still exploring": "Fuzzy ICP wastes outbound and lengthens sales cycles.", Forming: "Forming ICP still spreads founder attention across too many bets." },
+  mkt_marketing_capacity: { "No dedicated marketing — founders or sales cover it": "Founder-owned marketing steals time from product and fundraising." },
+  mkt_icp_clarity: {
+    "Not defined yet": "Fuzzy ICP wastes outbound and lengthens sales cycles.",
+    "Selling broadly or still figuring out who fits": "Broad selling spreads founder attention across too many bets.",
+  },
   mkt_funnel_gap: { Retention: "Retention gaps show up late — founders feel it in NRR conversations first.", Conversion: "Conversion leaks burn cash before you can prove GTM fit." },
-  rev_crm: { "None yet": "No CRM — founders manually track pipeline and miss follow-ups.", Spreadsheets: "Spreadsheet RevOps breaks the moment you add a second seller." },
-  rev_forecast: { "Mostly guesswork": "Guesswork forecasts fail board and investor reviews.", "Some visibility": "Partial visibility still leaves founders surprised at month-end." },
-  rev_runway_visibility: { "Not tracked": "Unknown runway is the fastest path to a founder crisis.", "Rough estimate": "Rough runway math fails when burn shifts month to month." },
-  rev_metrics_tracked: { "None yet": "Untracked unit economics weaken every fundraising conversation." },
-  rev_finance_setup: { "Founder-managed": "Founder-managed books steal 5–10 hrs/mo and delay close." },
+  mkt_revenue_tracking: { "No systematic pipeline yet": "No pipeline system — founders manually track deals and miss follow-ups.", "Spreadsheet or lightweight tracking": "Spreadsheet RevOps breaks the moment you add a second seller." },
+  rev_forecast: { "No, we track historicals only": "Historical-only finance leaves founders surprised at month-end." },
+  rev_runway: { "Under 6 months": "Tight runway is the fastest path to a founder crisis." },
+  rev_unit_economics: { "Not yet": "Untracked unit economics weaken every fundraising conversation." },
+  rev_finance_management: { "Founder-managed / informal": "Founder-managed books steal 5–10 hrs/mo and delay close." },
 };
 
 function makeContributor(
@@ -414,14 +596,28 @@ function buildProfileContributor(category: ScorecardCategory, ctx: CategoryBuild
   );
 }
 
-function buildDetailContributors(category: ScorecardCategory, answers: DetailAnswers): ScoreContributor[] {
-  const section = DETAIL_SECTIONS.find(s => s.id === category);
-  if (!section?.questions.length) return [];
-  const perQ = SCORE_WEIGHT_DETAIL / section.questions.length;
+function scoreDetailAnswer(questionId: string, val: string | null | undefined): number {
+  if (!val?.trim()) return 30;
+  const table = DETAIL_ANSWER_SCORES[questionId];
+  if (!table) return 58;
+  const question = DETAIL_QUESTION_BY_ID[questionId];
+  if (question?.multi) {
+    const parts = parseMultiSelectAnswer(val);
+    if (!parts.length) return 30;
+    return Math.min(...parts.map(part => table[part] ?? 58));
+  }
+  return table[val] ?? 58;
+}
 
-  return section.questions.map(q => {
+function buildDetailContributors(category: ScorecardCategory, answers: DetailAnswers): ScoreContributor[] {
+  const section = TRACK_DETAIL_SECTIONS.find(s => s.id === category);
+  const questions = section ? getVisibleQuestions(section, answers) : [];
+  if (!questions.length) return [];
+  const perQ = SCORE_WEIGHT_DETAIL / questions.length;
+
+  return questions.map(q => {
     const val = answers[q.id];
-    const score = val ? (DETAIL_ANSWER_SCORES[q.id]?.[val] ?? 58) : 30;
+    const score = scoreDetailAnswer(q.id, val);
     const label = DETAIL_QUESTION_LABEL[q.id] ?? q.prompt.replace(/\?$/, "");
     return makeContributor(q.id, label, "detail", val ?? "Not answered", score, perQ, val ?? "Not answered");
   });
@@ -1332,71 +1528,7 @@ function CategoryCard({ cat, onClick, onViewDetails, onViewBenchmark, expanded, 
   );
 }
 
-// ─── Detail-enrichment form schema ────────────────────────────────────────────
-type DetailQuestion = {
-  id: string;
-  prompt: string;
-  options: string[];
-  multi?: boolean;
-};
-type DetailSection = {
-  id: ScorecardCategory;
-  title: string;
-  subtitle: string;
-  icon: string;
-  questions: DetailQuestion[];
-};
-
-const DETAIL_SECTIONS: DetailSection[] = [
-  {
-    id: "dev",
-    title: "R&D",
-    subtitle: "Product & engineering",
-    icon: "⚙",
-    questions: [
-      { id: "dev_product_type", prompt: "What type of product are you building?", options: ["SaaS / web app", "API / platform", "Marketplace", "Hardware + software"] },
-      { id: "dev_ai_role", prompt: "Is AI core to your product?", options: ["Core product", "A feature", "Not yet"] },
-      { id: "dev_challenge", prompt: "What is your biggest product challenge right now?", options: ["Speed", "Quality", "Roadmap clarity"] },
-      { id: "dev_ship_cadence", prompt: "How often do you ship to production?", options: ["Multiple times a day", "Weekly", "Monthly", "Ad hoc"] },
-      { id: "dev_team_shape", prompt: "How is your engineering team structured?", options: ["Single team", "Squads by area", "Outsourced", "Solo / founder-built"] },
-      { id: "dev_tech_lead", prompt: "Do you have a technical co-founder or CTO?", options: ["Yes, full-time", "Fractional", "No"] },
-      { id: "dev_stack_maturity", prompt: "How mature is your architecture for scale?", options: ["Built to scale", "Works for now", "Hitting limits", "Not sure"] },
-    ],
-  },
-  {
-    id: "mkt",
-    title: "GTM",
-    subtitle: "Sales & growth",
-    icon: "↗",
-    questions: [
-      { id: "mkt_sales_motion", prompt: "What is your primary sales motion?", options: ["Sales-led", "Product-led", "Founder-led", "Not yet"] },
-      { id: "mkt_funnel_gap", prompt: "Where does your funnel break down most?", options: ["Awareness", "Conversion", "Retention"] },
-      { id: "mkt_investor_intros", prompt: "Are you open to investor intros from York IE?", options: ["Yes", "Not right now", "Actively fundraising"] },
-      { id: "mkt_top_channel", prompt: "Which channel drives most of your pipeline?", options: ["Outbound", "Inbound / content", "Partnerships", "Events", "Paid"] },
-      { id: "mkt_marketing_owner", prompt: "Who owns marketing today?", options: ["Dedicated hire", "Founder-led", "Agency", "No one yet"] },
-      { id: "mkt_sales_cycle", prompt: "What's your average sales cycle?", options: ["Under 30 days", "1–3 months", "3–6 months", "6+ months"] },
-      { id: "mkt_icp_clarity", prompt: "How well-defined is your ICP?", options: ["Crisp & validated", "Forming", "Still exploring"] },
-    ],
-  },
-  {
-    id: "rev",
-    title: "G&A",
-    subtitle: "Revenue operations & finance",
-    icon: "◎",
-    questions: [
-      { id: "rev_crm", prompt: "Which CRM / RevOps stack do you run on?", options: ["HubSpot", "Salesforce", "Spreadsheets", "None yet"] },
-      { id: "rev_forecast", prompt: "How predictable is your revenue forecast?", options: ["High confidence", "Some visibility", "Mostly guesswork"] },
-      { id: "rev_biggest_gap", prompt: "What's your biggest RevOps gap?", options: ["Pipeline hygiene", "Reporting", "Billing / collections", "Forecasting"] },
-      { id: "rev_metrics_tracked", prompt: "Do you track core SaaS metrics (CAC, LTV, NRR)?", options: ["All tracked", "Some tracked", "None yet"] },
-      { id: "rev_billing", prompt: "How do you handle billing & invoicing?", options: ["Fully automated", "Manual", "Hybrid"] },
-      { id: "rev_finance_setup", prompt: "What's your current finance setup?", options: ["In-house finance", "Fractional CFO", "Founder-managed", "Outsourced"] },
-      { id: "rev_runway_visibility", prompt: "How clear is your runway & burn picture?", options: ["Tracked monthly", "Rough estimate", "Not tracked"] },
-    ],
-  },
-];
-
-const DETAIL_TOTAL_Q = DETAIL_SECTIONS.reduce((n, s) => n + s.questions.length, 0);
-type DetailAnswers = Record<string, string>;
+// ─── Detail-enrichment form schema (see trackQuestions.ts) ───────────────────
 
 function loadDetailAnswers(companyName: string): DetailAnswers {
   try {
@@ -1406,9 +1538,6 @@ function loadDetailAnswers(companyName: string): DetailAnswers {
 }
 function saveDetailAnswers(companyName: string, answers: DetailAnswers) {
   try { window.localStorage.setItem(`fuel-details-${companyName}`, JSON.stringify(answers)); } catch { /* ignore */ }
-}
-function countSectionAnswers(section: DetailSection, answers: DetailAnswers): number {
-  return section.questions.filter(q => answers[q.id]).length;
 }
 
 const INTEL_TYPE_TO_CATEGORY: Record<string, ScorecardCategory> = {
@@ -1423,38 +1552,14 @@ const INTEL_TYPE_TO_CATEGORY: Record<string, ScorecardCategory> = {
   strategic: "rev",
 };
 
-const DETAIL_QUESTION_LABEL: Partial<Record<string, string>> = {
-  dev_product_type: "Product type",
-  dev_ai_role: "AI role",
-  dev_challenge: "Product challenge",
-  dev_ship_cadence: "Ship cadence",
-  dev_team_shape: "Team structure",
-  dev_tech_lead: "Technical lead",
-  dev_stack_maturity: "Architecture",
-  mkt_sales_motion: "Sales motion",
-  mkt_funnel_gap: "Funnel gap",
-  mkt_investor_intros: "Investor intros",
-  mkt_top_channel: "Top channel",
-  mkt_marketing_owner: "Marketing owner",
-  mkt_sales_cycle: "Sales cycle",
-  mkt_icp_clarity: "ICP",
-  rev_crm: "CRM",
-  rev_forecast: "Forecast",
-  rev_biggest_gap: "RevOps gap",
-  rev_metrics_tracked: "SaaS metrics",
-  rev_billing: "Billing",
-  rev_finance_setup: "Finance setup",
-  rev_runway_visibility: "Runway visibility",
-};
-
 function intelligenceForCategory(category: ScorecardCategory, items: ScorecardIntelligenceItem[]): ScorecardIntelligenceItem[] {
   return items.filter(item => INTEL_TYPE_TO_CATEGORY[item.type.toLowerCase()] === category);
 }
 
 function buildDetailSnippets(category: ScorecardCategory, answers: DetailAnswers): string[] {
-  const section = DETAIL_SECTIONS.find(s => s.id === category);
+  const section = TRACK_DETAIL_SECTIONS.find(s => s.id === category);
   if (!section) return [];
-  return section.questions.flatMap(q => {
+  return getVisibleQuestions(section, answers).flatMap(q => {
     const val = answers[q.id]?.trim();
     if (!val) return [];
     const label = DETAIL_QUESTION_LABEL[q.id];
@@ -1480,15 +1585,15 @@ function detailFieldTone(score: number, answered: boolean): DetailFieldTone {
 }
 
 function buildDetailFieldRows(category: ScorecardCategory, answers: DetailAnswers): DetailFieldRow[] {
-  const section = DETAIL_SECTIONS.find(s => s.id === category);
+  const section = TRACK_DETAIL_SECTIONS.find(s => s.id === category);
   if (!section) return [];
 
   const toneRank: Record<DetailFieldTone, number> = { missing: 0, concern: 1, watch: 2, ok: 3 };
 
-  return section.questions
+  return getVisibleQuestions(section, answers)
     .map(q => {
       const val = answers[q.id]?.trim() || null;
-      const score = val ? (DETAIL_ANSWER_SCORES[q.id]?.[val] ?? 58) : 30;
+      const score = scoreDetailAnswer(q.id, val);
       const tone = detailFieldTone(score, Boolean(val));
       const label = DETAIL_QUESTION_LABEL[q.id] ?? q.prompt.replace(/\?$/, "");
       const contributor = makeContributor(q.id, label, "detail", val ?? "Not answered", score, 1);
@@ -1571,43 +1676,36 @@ function humanizeWeakContributor(c: ScoreContributor): string | null {
 
   if (c.source === "detail") {
     switch (c.id) {
-      case "dev_challenge":
-        return `You flagged ${val.toLowerCase()} as your biggest product challenge.`;
-      case "dev_tech_lead":
-        if (val === "No") return "There is no full-time technical lead on file.";
-        if (val === "Fractional") return "Technical leadership is fractional only.";
-        return null;
+      case "dev_delivery_constraint":
+        return `You flagged ${val.toLowerCase()} as your primary delivery constraint.`;
       case "dev_ship_cadence":
-        if (val === "Ad hoc" || val === "Monthly") return `You ship ${val.toLowerCase()}, which reads slower than peers at this stage.`;
+        if (val === "Ad hoc — no regular cadence" || val === "Not shipping yet") return `You ship ${val.toLowerCase()}, which reads slower than peers at this stage.`;
         return null;
-      case "dev_stack_maturity":
-        if (val === "Hitting limits" || val === "Not sure") return `Architecture is ${val.toLowerCase()}.`;
-        return null;
-      case "dev_team_shape":
-        if (val === "Solo / founder-built" || val === "Outsourced") return `Engineering is ${val.toLowerCase()}.`;
+      case "dev_build_model":
+        if (val === "Contract dev / agency" || val === "Not building yet — manual or services first") return `Product is ${val.toLowerCase()}.`;
         return null;
       case "mkt_sales_motion":
         if (val === "Founder-led" || val === "Not yet") return `GTM is still ${val.toLowerCase()}.`;
         return null;
       case "mkt_funnel_gap":
         return `The funnel breaks down most at ${val.toLowerCase()}.`;
-      case "mkt_marketing_owner":
-        if (val === "Founder-led" || val === "No one yet") return `Marketing is ${val.toLowerCase()}.`;
+      case "mkt_marketing_capacity":
+        if (val === "No dedicated marketing — founders or sales cover it") return `Marketing is ${val.toLowerCase()}.`;
         return null;
       case "mkt_icp_clarity":
-        if (val !== "Crisp & validated") return `ICP is ${val.toLowerCase()}.`;
+        if (!val.startsWith("Documented") && !val.startsWith("Written ICP")) return `ICP is ${val.toLowerCase()}.`;
         return null;
-      case "rev_crm":
-        if (val === "None yet" || val === "Spreadsheets") return `RevOps runs on ${val.toLowerCase()}.`;
+      case "mkt_revenue_tracking":
+        if (val === "No systematic pipeline yet" || val === "Spreadsheet or lightweight tracking") return `Revenue tracking runs on ${val.toLowerCase()}.`;
         return null;
       case "rev_forecast":
-        if (val !== "High confidence") return `Revenue forecast is ${val.toLowerCase()}.`;
+        if (val !== "Yes, monthly rolling forecast") return `Financial forecast is ${val.toLowerCase()}.`;
         return null;
-      case "rev_runway_visibility":
-        if (val !== "Tracked monthly") return `Runway visibility is ${val.toLowerCase()}.`;
+      case "rev_runway":
+        if (val === "Under 6 months") return `Runway is ${val.toLowerCase()}.`;
         return null;
-      case "rev_metrics_tracked":
-        if (val === "None yet") return "Core SaaS metrics are not tracked yet.";
+      case "rev_unit_economics":
+        if (val === "Not yet") return "Unit economics are not tracked yet.";
         return null;
       default:
         return null;
@@ -1669,16 +1767,16 @@ function founderPlainCopy(text: string): string {
 function humanizeFounderFocus(c: ScoreContributor): string | null {
   const val = c.display;
   switch (c.id) {
-    case "dev_challenge":
-      return `Your top product bet right now: ${val.toLowerCase()}.`;
-    case "dev_team_shape":
-      if (val.includes("Solo") || val.includes("founder")) {
+    case "dev_delivery_constraint":
+      return `Your top product constraint right now: ${val.toLowerCase()}.`;
+    case "dev_build_model":
+      if (val.includes("Founders building") || val.includes("Not building yet")) {
         return "You're still founder-built — line up engineering capacity before the next growth push.";
       }
-      if (val === "Outsourced") return "Engineering is outsourced — tighten ownership before scale.";
+      if (val === "Contract dev / agency") return "Engineering is agency-led — tighten ownership before scale.";
       return null;
     case "dev_ship_cadence":
-      if (val === "Ad hoc" || val === "Monthly") {
+      if (val === "Ad hoc — no regular cadence" || val === "Not shipping yet") {
         return "Shipping cadence is slow — faster releases usually unlock the next growth step.";
       }
       return null;
@@ -1689,19 +1787,19 @@ function humanizeFounderFocus(c: ScoreContributor): string | null {
       return null;
     case "mkt_funnel_gap":
       return `The funnel breaks at ${val.toLowerCase()} — fix that stage before spending more at the top of the funnel.`;
-    case "mkt_marketing_owner":
-      if (val === "Founder-led" || val === "No one yet") {
+    case "mkt_marketing_capacity":
+      if (val === "No dedicated marketing — founders or sales cover it") {
         return "Marketing isn't owned yet — put someone clearly in charge so demand generation doesn't stall.";
       }
       return null;
-    case "rev_crm":
-      if (val === "None yet" || val === "Spreadsheets") {
+    case "mkt_revenue_tracking":
+      if (val === "No systematic pipeline yet" || val === "Spreadsheet or lightweight tracking") {
         return "Pipeline still lives in spreadsheets — a real CRM will sharpen your forecast and planning.";
       }
       return null;
     case "rev_forecast":
-      if (val !== "High confidence") {
-        return "Revenue forecast confidence is shaky — tighten pipeline hygiene first.";
+      if (val !== "Yes, monthly rolling forecast") {
+        return "Financial forecast discipline is shaky — tighten rolling forecast hygiene first.";
       }
       return null;
     default:
@@ -2041,7 +2139,8 @@ function computeOverallContextPct(
   benchmarkContext?: ScorecardBenchmarkContext,
 ): number {
   const benchFilled = METRIC_COHORTS.filter(c => parseMetricValue(benchmark[c.key] ?? "")).length / METRIC_COHORTS.length;
-  const detailFilled = Object.keys(detailAnswers).filter(k => detailAnswers[k]).length / DETAIL_TOTAL_Q;
+  const detailTotal = Math.max(1, countApplicableQuestions(detailAnswers));
+  const detailFilled = countTrackDetailAnswers(detailAnswers) / detailTotal;
   const narrativeFilled = [
     benchmarkContext?.biggestChallenges,
     benchmarkContext?.notableCustomers,
@@ -2060,9 +2159,10 @@ function enrichCategoryData(
   const catIntel = intelligenceForCategory(base.id, ctx.intelligenceItems);
   const intelTypes = [...new Set(catIntel.map(i => i.type))];
   const detailSnippets = buildDetailSnippets(base.id, ctx.detailAnswers);
-  const section = DETAIL_SECTIONS.find(s => s.id === base.id);
+  const section = TRACK_DETAIL_SECTIONS.find(s => s.id === base.id);
+  const visibleQuestions = section ? getVisibleQuestions(section, ctx.detailAnswers) : [];
   const sectionAnswered = section ? countSectionAnswers(section, ctx.detailAnswers) : 0;
-  const sectionTotal = section?.questions.length ?? 0;
+  const sectionTotal = visibleQuestions.length;
   const sectionPct = sectionTotal
     ? Math.round((sectionAnswered / sectionTotal) * 100)
     : 0;
@@ -2226,10 +2326,6 @@ function buildAdvisorGenericSummary(
   return `${companyName}${sector} — ${tail} Use the tracks below to drill in.`;
 }
 
-function countDetailAnswers(answers: DetailAnswers): number {
-  return DETAIL_SECTIONS.flatMap(s => s.questions).filter(q => answers[q.id]?.trim()).length;
-}
-
 function mergeDetailAnswers(stored: DetailAnswers, onboarding?: OnboardingFlowAnswers | null): DetailAnswers {
   if (!onboarding) return stored;
   return { ...mapOnboardingToDetailAnswers(onboarding), ...stored };
@@ -2279,11 +2375,12 @@ function buildAdvisorRecommendedActions(
   const benchQuarterStale = benchComplete && isQuarterStale(savedBenchQuarter);
   const detailsQuarterStale = isQuarterStale(savedDetailsQuarter);
 
-  const detailAnswered = countDetailAnswers(mergedDetailAnswers);
-  const detailComplete = detailAnswered >= DETAIL_TOTAL_Q;
-  const detailRemaining = DETAIL_TOTAL_Q - detailAnswered;
-  const onboardingSeeded = countDetailAnswers(mapOnboardingToDetailAnswers(
-    buildContext.onboardingAnswers ?? {},
+  const detailTotal = countApplicableQuestions(mergedDetailAnswers);
+  const detailAnswered = countTrackDetailAnswers(mergedDetailAnswers);
+  const detailComplete = detailAnswered >= detailTotal;
+  const detailRemaining = Math.max(0, detailTotal - detailAnswered);
+  const onboardingSeeded = countTrackDetailAnswers(mapOnboardingToDetailAnswers(
+    buildContext.onboardingAnswers ?? ({} as OnboardingFlowAnswers),
   ));
   const drawerAdded = Math.max(0, detailAnswered - onboardingSeeded);
 
@@ -2375,10 +2472,10 @@ function buildAdvisorRecommendedActions(
       cta: "+ Add Details",
       done: false,
     };
-  } else if (detailAnswered >= Math.ceil(DETAIL_TOTAL_Q / 2)) {
+  } else if (detailAnswered >= Math.ceil(detailTotal / 2)) {
     detailsAction = {
       title: "Complete Missing Details",
-      sub: `${detailAnswered} of ${DETAIL_TOTAL_Q} · ${detailRemaining} left to sharpen tracks.`,
+      sub: `${detailAnswered} of ${detailTotal} · ${detailRemaining} left to sharpen tracks.`,
       cta: "+ Add Details",
       done: false,
     };
@@ -2387,7 +2484,7 @@ function buildAdvisorRecommendedActions(
       title: "Complete Missing Details",
       sub: onboardingSeeded > 0
         ? `${onboardingSeeded} from onboarding · ${detailRemaining} remaining.`
-        : `${detailAnswered} of ${DETAIL_TOTAL_Q} details added.`,
+        : `${detailAnswered} of ${detailTotal} details added.`,
       cta: "+ Add Details",
       done: false,
     };
@@ -2414,9 +2511,12 @@ function DetailsDrawer({
   }, [initialStep]);
 
   const section = DETAIL_SECTIONS[step];
-  const answeredTotal = Object.keys(answers).filter(k => answers[k]).length;
+  const visibleQuestions = getVisibleQuestions(section, answers);
+  const detailTotal = countApplicableQuestions(answers);
+  const answeredTotal = countTrackDetailAnswers(answers);
   const isLast = step === DETAIL_SECTIONS.length - 1;
   const isFirst = step === 0;
+  let lastGroup: string | undefined;
 
   return (
     <div className="sc-drawer-scrim" onClick={onClose}>
@@ -2432,6 +2532,7 @@ function DetailsDrawer({
         <div className="sc-drawer-steps">
           {DETAIL_SECTIONS.map((s, i) => {
             const done = countSectionAnswers(s, answers);
+            const total = getVisibleQuestions(s, answers).length;
             return (
               <button
                 key={s.id}
@@ -2441,14 +2542,14 @@ function DetailsDrawer({
               >
                 <span className="sc-drawer-step-ix">{i + 1}</span>
                 <span className="sc-drawer-step-label">{s.title}</span>
-                <span className="sc-drawer-step-count">{done}/{s.questions.length}</span>
+                <span className="sc-drawer-step-count">{done}/{total}</span>
               </button>
             );
           })}
         </div>
 
         <div className="sc-drawer-progress">
-          <div className="sc-drawer-progress-bar" style={{ width: `${Math.round((answeredTotal / DETAIL_TOTAL_Q) * 100)}%` }} />
+          <div className="sc-drawer-progress-bar" style={{ width: `${Math.round((answeredTotal / Math.max(detailTotal, 1)) * 100)}%` }} />
         </div>
 
         <div className="sc-drawer-body">
@@ -2460,23 +2561,52 @@ function DetailsDrawer({
             </div>
           </div>
 
-          {section.questions.map(q => (
-            <div key={q.id} className="sc-drawer-q">
-              <div className="sc-drawer-q-prompt">{q.prompt}</div>
-              <div className="sc-drawer-opts">
-                {q.options.map(opt => (
-                  <button
-                    key={opt}
-                    type="button"
-                    className={`sc-drawer-opt${answers[q.id] === opt ? " is-selected" : ""}`}
-                    onClick={() => onSelect(q.id, answers[q.id] === opt ? "" : opt)}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+          {visibleQuestions.map(q => {
+            const groupHeader = q.group && q.group !== lastGroup ? q.group : null;
+            if (q.group) lastGroup = q.group;
+            return (
+              <React.Fragment key={q.id}>
+                {groupHeader ? <div className="sc-drawer-group-label">{groupHeader}</div> : null}
+                <div className="sc-drawer-q">
+                  <div className="sc-drawer-q-prompt">{q.prompt}</div>
+                  {q.subtitle ? <div className="sc-drawer-q-sub">{q.subtitle}</div> : null}
+                  {q.kind === "text" ? (
+                    <textarea
+                      className="sc-drawer-text"
+                      rows={3}
+                      value={answers[q.id] ?? ""}
+                      placeholder={q.placeholder}
+                      onChange={e => onSelect(q.id, e.target.value)}
+                    />
+                  ) : (
+                    <div className="sc-drawer-opts">
+                      {(q.options ?? []).map(opt => {
+                        const selected = q.multi
+                          ? isMultiSelectSelected(answers[q.id], opt)
+                          : answers[q.id] === opt;
+                        return (
+                        <button
+                          key={opt}
+                          type="button"
+                          className={`sc-drawer-opt${selected ? " is-selected" : ""}`}
+                          onClick={() => {
+                            if (q.multi) {
+                              onSelect(q.id, toggleMultiSelectAnswer(answers[q.id], opt));
+                              return;
+                            }
+                            onSelect(q.id, answers[q.id] === opt ? "" : opt);
+                          }}
+                        >
+                          {opt}
+                        </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </React.Fragment>
+            );
+          })}
         </div>
 
         <footer className="sc-drawer-foot">
@@ -2869,7 +2999,7 @@ function CategoryDetailContextPanel({
   onEditDetails?: () => void;
   onEditBenchmark?: () => void;
 }) {
-  const detailSection = DETAIL_SECTIONS.find(s => s.id === cat.id);
+  const detailSection = TRACK_DETAIL_SECTIONS.find(s => s.id === cat.id);
   const importantBenchmarks = useMemo(
     () => filterImportantBenchmarks(allBenchmarkMetrics),
     [allBenchmarkMetrics],

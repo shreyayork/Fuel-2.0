@@ -18,6 +18,7 @@
   --red: #C95F5F;
   --red-dim: rgba(201,95,95,0.10);
   --purple: #8B76D4;
+  --fuel-side-panel-width: 720px;
 }
 
 * {
@@ -13979,8 +13980,8 @@ body {
 @keyframes bench-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 .bench-drawer {
-  width: 560px;
-  max-width: 100vw;
+  width: var(--fuel-side-panel-width);
+  max-width: 92vw;
   height: 100vh;
   background: var(--bg);
   border-left: 1px solid var(--border-strong);
@@ -14160,10 +14161,6 @@ body {
 }
 .bench-drawer-save:hover { filter: brightness(1.08); }
 
-/* ─── Add sources drawer ─── */
-.add-sources-drawer {
-  width: 720px;
-}
 .add-sources-eyebrow {
   color: var(--accent, #3FE0A4);
   font-size: 11px;
@@ -15958,7 +15955,7 @@ body {
   position: fixed;
   right: 0;
   top: 0;
-  width: 540px;
+  width: var(--fuel-side-panel-width);
   z-index: 91;
   animation: scDrawerFade 0.2s ease;
 }
@@ -16112,6 +16109,40 @@ body {
   font-size: 13.5px;
   font-weight: 600;
   margin-bottom: 11px;
+}
+
+.sc-drawer-q-sub {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: -6px 0 11px;
+}
+
+.sc-drawer-group-label {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 8px 0 14px;
+  text-transform: uppercase;
+}
+
+.sc-drawer-text {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 12px 14px;
+  resize: vertical;
+  width: 100%;
+}
+
+.sc-drawer-text:focus {
+  border-color: var(--accent);
+  outline: none;
 }
 
 .sc-drawer-opts {

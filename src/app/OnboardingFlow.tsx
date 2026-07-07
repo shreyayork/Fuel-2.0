@@ -5,6 +5,12 @@ import {
   GTM_FUNNEL_HINTS, GTM_FUNNEL_CHOICES, type GtmFunnelStage,
 } from "./OnboardingMotionGraphics.tsx";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney.tsx";
+import {
+  ONBOARDING_TRACK_FIELDS,
+  emptyOnboardingTrackAnswers,
+  mapOnboardingToDetailAnswers as mapTrackOnboardingToDetailAnswers,
+  type OnboardingTrackAnswers,
+} from "./trackQuestions.ts";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -17,11 +23,11 @@ interface ProfileForm {
   company: string; whatTheyDo: string; businessModel: string;
   industry: string; founded: string; city: string; stateRegion: string;
   country: string; website: string; linkedin: string; additionalContext: string;
+  productDescription: string; approxHeadcount: string;
 }
-interface Answers {
-  productType: string; buildStage: string; productChallenge: string;
-  salesMotion: string; funnelBreakdown: string; investorIntros: string;
-  pipelineTool: string; salesProcess: string; runway: string;
+interface Answers extends OnboardingTrackAnswers {
+  profileProductDescription: string;
+  profileApproxHeadcount: string;
   arr: string; arrGrowth: string; nrr: string; logoRetention: string;
   grossMargin: string; monthlyBurn: string; cashOnHand: string;
   headcount: string; payingCustomers: string;
@@ -31,7 +37,6 @@ interface Answers {
 const STEPS_DEFAULT: StepId[] = ["profile", "development", "gtm", "revops", "benchmarking"];
 const STEPS_INVESTOR: StepId[] = ["profile", "investment", "hubspot"];
 const INVESTOR_MODELS = ["Investment firm", "Services or agency"];
-const HYBRID_MODEL = "Operating + investment firm";
 
 const LEGACY_BUSINESS_MODELS: Record<string, string> = {
   "Software / SaaS": "Product company",
@@ -41,6 +46,7 @@ const LEGACY_BUSINESS_MODELS: Record<string, string> = {
   "Consultancy": "Services or agency",
   "Services / Agency": "Services or agency",
   "Advisory / Consultancy": "Services or agency",
+  "Operating + investment firm": "Investment firm",
   "Other": "Product company",
 };
 
@@ -48,7 +54,6 @@ const BUSINESS_MODELS = [
   { id: "product",   label: "Product company",             desc: "SaaS, marketplace, or app with recurring or transactional revenue." },
   { id: "services",  label: "Services or agency",          desc: "Project, retainer, or advisory-based revenue." },
   { id: "invest",    label: "Investment firm",             desc: "Fund or holding company managing a portfolio." },
-  { id: "both",      label: "Operating + investment firm", desc: "Both running a product or service and actively investing." },
 ];
 
 const ONBOARDING_BENCHMARK_FIELDS: {
@@ -155,7 +160,7 @@ const COMPANY_CATALOG: CompanyRecord[] = [
   {
     id: "york-growth", name: "York IE", domain: "yorkiegrowth.io",
     whatTheyDo: "York IE is an operating and investment firm partnering with early-stage B2B software companies.",
-    businessModel: "Operating + investment firm", industry: "Venture · Value Creation",
+    businessModel: "Investment firm", industry: "Venture · Value Creation",
     founded: "2015", city: "Manchester", stateRegion: "NH", country: "United States",
     linkedin: "https://linkedin.com/company/york-ie",
     funding: [{ type: "Series A", amount: "Undisclosed" }],
@@ -526,19 +531,27 @@ function Field({ label, required, hint, children }: {
 
 const SELECT_ACCENT = "#3DD68C";
 
+function isLongOptionList(options: string[]): boolean {
+  return options.length > 4 || options.some(opt => opt.length > 30);
+}
+
 function FigmaQuestion({
-  title, subtitle, options, value, onChange, accent = SELECT_ACCENT, hint, columns = 2, grouped = false,
+  title, subtitle, options, value, onChange, accent = SELECT_ACCENT, hint, columns, grouped = false,
 }: {
   title: string; subtitle?: string; options: string[]; value: string;
   onChange: (v: string) => void; accent?: string; hint?: string; columns?: number; grouped?: boolean;
 }) {
+  const longList = isLongOptionList(options);
+  const gridColumns = longList ? 2 : (columns ?? 2);
+  const singleColumn = gridColumns === 1;
+
   return (
     <div style={{ marginBottom: grouped ? 36 : 0 }}>
       <h2 className={grouped ? "of-figma-q-grouped" : "of-figma-q-title"}>{title}</h2>
       {subtitle && <p className="of-figma-q-sub">{subtitle}</p>}
       <div style={{
         display: "grid",
-        gridTemplateColumns: columns === 1 ? "1fr" : "repeat(2, minmax(0, 1fr))",
+        gridTemplateColumns: singleColumn ? "1fr" : "repeat(2, minmax(0, 1fr))",
         gap: 10,
         marginTop: grouped ? 14 : 28,
       }}>
@@ -551,12 +564,12 @@ function FigmaQuestion({
               className={`of-figma-opt${on ? " of-figma-opt--on" : ""}`}
               onClick={() => onChange(opt)}
               style={{
-                padding: "15px 18px",
+                padding: longList ? "14px 16px" : "15px 18px",
                 borderRadius: 10,
                 fontWeight: on ? 600 : 400,
                 cursor: "pointer",
                 fontFamily: "inherit",
-                textAlign: "center",
+                textAlign: longList ? "left" : "center",
                 lineHeight: 1.35,
                 background: on ? `${accent}14` : "transparent",
                 border: on ? `1.5px solid ${accent}` : "1.5px solid rgba(255,255,255,0.12)",
@@ -810,63 +823,16 @@ export function answersToOnboardingBenchmark(answers: Answers): OnboardingBenchm
   };
 }
 
-/** Maps the 3 onboarding qual questions per track into View-details drawer IDs. */
+/** Maps onboarding qual questions into View-details drawer IDs. */
 export function mapOnboardingToDetailAnswers(answers: Answers): Record<string, string> {
-  const out: Record<string, string> = {};
-  const put = (detailId: string, value: string) => {
-    if (value?.trim()) out[detailId] = value.trim();
-  };
-  const map = (raw: string, table?: Record<string, string>) => table?.[raw] ?? raw;
-
-  if (answers.productType) {
-    put("dev_product_type", map(answers.productType, {
-      "SaaS / web app": "SaaS / web app",
-      Marketplace: "Marketplace",
-      "API or developer platform": "API / platform",
-      Other: "SaaS / web app",
-    }));
-  }
-  if (answers.productChallenge) {
-    put("dev_challenge", map(answers.productChallenge, {
-      "Speed of execution": "Speed",
-      "Quality and reliability": "Quality",
-      "Roadmap clarity": "Roadmap clarity",
-      "Not enough engineers": "Speed",
-    }));
-  }
-  if (answers.buildStage) {
-    put("dev_stack_maturity", map(answers.buildStage, {
-      "Pre-launch — still building": "Works for now",
-      "Launched — early users or customers": "Works for now",
-      "Scaling — product is proven, growing fast": "Built to scale",
-    }));
-  }
-  if (answers.salesMotion) put("mkt_sales_motion", answers.salesMotion);
-  if (answers.funnelBreakdown) put("mkt_funnel_gap", answers.funnelBreakdown);
-  if (answers.investorIntros) put("mkt_investor_intros", answers.investorIntros);
-  if (answers.pipelineTool) {
-    put("rev_crm", map(answers.pipelineTool, {
-      CRM: "HubSpot",
-      Spreadsheet: "Spreadsheets",
-      "Nothing yet": "None yet",
-    }));
-  }
-  if (answers.salesProcess) {
-    put("rev_biggest_gap", map(answers.salesProcess, {
-      Documented: "Pipeline hygiene",
-      Informal: "Reporting",
-      "Not yet": "Forecasting",
-    }));
-  }
-  if (answers.runway) {
-    put("rev_runway_visibility", map(answers.runway, {
-      "Under 6 months": "Rough estimate",
-      "6–12 months": "Tracked monthly",
-      "12–18 months": "Tracked monthly",
-      "Over 18 months": "Tracked monthly",
-    }));
-  }
-  return out;
+  const track: Partial<OnboardingTrackAnswers> = {};
+  ONBOARDING_TRACK_FIELDS.forEach(key => {
+    track[key] = answers[key] ?? "";
+  });
+  return mapTrackOnboardingToDetailAnswers(track, {
+    productDescription: answers.profileProductDescription,
+    approxHeadcount: answers.profileApproxHeadcount || answers.headcount,
+  });
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -880,17 +846,18 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
     company:"", whatTheyDo:"", businessModel:"",
     industry:"", founded:"", city:"", stateRegion:"", country:"",
     website:"", linkedin:"", additionalContext:"",
+    productDescription:"", approxHeadcount:"",
   });
   const [fundingRounds, setFundingRounds] = useState<FundingRound[]>([]);
 
-  const [answers, setAnswers] = useState<Answers>({
-    productType:"", buildStage:"", productChallenge:"",
-    salesMotion:"", funnelBreakdown:"", investorIntros:"",
-    pipelineTool:"", salesProcess:"", runway:"",
+  const [answers, setAnswers] = useState<Answers>(() => ({
+    ...emptyOnboardingTrackAnswers(),
+    profileProductDescription: "",
+    profileApproxHeadcount: "",
     arr:"", arrGrowth:"", nrr:"", logoRetention:"", grossMargin:"",
     monthlyBurn:"", cashOnHand:"", headcount:"", payingCustomers:"",
     investCheckSize:"", investGeography:"", investPipeline:"",
-  });
+  }));
   const [investStages, setInvestStages] = useState<string[]>([]);
   const [investSectors, setInvestSectors] = useState<string[]>([]);
   const [investQ, setInvestQ] = useState(0);
@@ -945,6 +912,8 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
         website: `https://${record.domain}`,
         linkedin: record.linkedin,
         additionalContext: "",
+        productDescription: record.whatTheyDo,
+        approxHeadcount: "",
       }));
       setFundingRounds(record.funding.map(f => ({
         id: rid(), type: f.type, amount: f.amount, date: "", investors: "",
@@ -974,9 +943,15 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
       if (searchState === "searching") return false;
       return searchState === "review" && !!profileForm.company && !!profileForm.businessModel;
     }
-    if (stepId==="development") return !!(answers.buildStage && answers.productType && answers.productChallenge);
-    if (stepId==="gtm")         return !!(answers.salesMotion && answers.funnelBreakdown && answers.investorIntros);
-    if (stepId==="revops")      return !!(answers.pipelineTool && answers.salesProcess && answers.runway);
+    if (stepId==="development") {
+      return !!(answers.dev_product_stage && answers.dev_product_type && answers.dev_delivery_constraint);
+    }
+    if (stepId==="gtm") {
+      return !!(answers.mkt_sales_motion && answers.mkt_funnel_gap && answers.mkt_icp_clarity && answers.mkt_revenue_tracking);
+    }
+    if (stepId==="revops") {
+      return !!(answers.rev_runway && answers.rev_finance_management && answers.rev_capital_priority);
+    }
     if (stepId==="investment") {
       if (investQ===0) return investStages.length > 0;
       if (investQ===1) return investSectors.length > 0;
@@ -990,7 +965,11 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   }
 
   function finishOnboarding() {
-    onComplete(answers);
+    onComplete({
+      ...answers,
+      profileProductDescription: profileForm.productDescription || profileForm.whatTheyDo,
+      profileApproxHeadcount: profileForm.approxHeadcount || answers.headcount,
+    });
   }
 
   function skipConnectors() {
@@ -1151,8 +1130,16 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                             <input className="of-input" value={profileForm.company} onChange={e=>setPF("company",e.target.value)} style={inp} />
                           </Field>
 
-                          <Field label="What they do" required>
+                          <Field label="What they do" required hint="1–3 sentences for intelligence and playbooks">
                             <textarea className="of-input" value={profileForm.whatTheyDo} onChange={e=>setPF("whatTheyDo",e.target.value)} rows={3} style={{ ...inp, resize:"vertical", lineHeight:1.65 }} />
+                          </Field>
+
+                          <Field label="Product description" hint="Website + Crunchbase — add wedge, ICP nuance, and why you win">
+                            <textarea className="of-input" value={profileForm.productDescription} onChange={e=>setPF("productDescription",e.target.value)} rows={3} placeholder="What you build, who it's for, and what makes you different." style={{ ...inp, resize:"vertical", lineHeight:1.65 }} />
+                          </Field>
+
+                          <Field label="Approx headcount (FTE)" hint="Prefilled from LinkedIn when available — confirm if needed">
+                            <input className="of-input" value={profileForm.approxHeadcount} onChange={e=>setPF("approxHeadcount",e.target.value)} placeholder="e.g. 18" style={inp} />
                           </Field>
 
                           <div style={{ marginBottom:20 }}>
@@ -1206,7 +1193,8 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
 
                           {/* Funding rounds */}
                           <div style={{ marginBottom:20 }}>
-                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>Funding rounds</label>
+                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>Funding history</label>
+                            <p style={{ fontSize:12, color:"#556878", margin:"0 0 10px", lineHeight:1.55 }}>From Crunchbase — confirm rounds, amounts, and dates. No need to re-enter if this looks right.</p>
                             {fundingRounds.length>0 && (
                               <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:8 }}>
                                 {fundingRounds.map(r=>(
@@ -1245,29 +1233,30 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                   {stepId==="development" && (
                     <div>
                       <StepHeading meta={STEP_META.development} />
-                      <FigmaQuestion grouped title="Where are you in the build?" options={["Pre-launch — still building", "Launched — early users or customers", "Scaling — product is proven, growing fast"]} value={answers.buildStage} onChange={v => setAns("buildStage", v)} columns={1} />
-                      <FigmaQuestion grouped title="What type of product are you building?" options={["SaaS / web app", "Marketplace", "API or developer platform", "Other"]} value={answers.productType} onChange={v => setAns("productType", v)} />
-                      <FigmaQuestion grouped title="What's your biggest product challenge right now?" options={["Speed of execution", "Quality and reliability", "Roadmap clarity", "Not enough engineers"]} value={answers.productChallenge} onChange={v => setAns("productChallenge", v)} columns={1} />
+                      <FigmaQuestion grouped title="Where is your product today?" options={["Idea — not yet in development", "In active development", "Built — not yet launched", "Launched — early users or customers", "Launched — scaling usage or revenue"]} value={answers.dev_product_stage} onChange={v => setAns("dev_product_stage", v)} />
+                      <FigmaQuestion grouped title="What type of product are you building?" options={["SaaS / web app", "Marketplace", "API or developer platform", "Other"]} value={answers.dev_product_type} onChange={v => setAns("dev_product_type", v)} />
+                      <FigmaQuestion grouped title="What is the primary constraint slowing down your product delivery?" options={["Planning and prioritization", "Capacity and hiring", "Quality and reliability", "Technical debt / Architecture"]} value={answers.dev_delivery_constraint} onChange={v => setAns("dev_delivery_constraint", v)} />
                     </div>
                   )}
 
-                  {/* GTM — all questions grouped */}
+                  {/* GTM — onboarding questions */}
                   {stepId==="gtm" && (
                     <div>
                       <StepHeading meta={STEP_META.gtm} />
-                      <FigmaQuestion grouped title="What is your primary sales motion?" options={["Sales-led", "Product-led", "Founder-led", "Not yet"]} value={answers.salesMotion} onChange={v => setAns("salesMotion", v)} hint={answers.salesMotion === "Product-led" ? "Self-serve scales well — if conversion holds. We'll track it." : undefined} />
-                      <FigmaDescQuestion grouped title="Where does your go-to-market break down most?" subtitle="Pick the funnel stage where you're losing the most ground." options={GTM_FUNNEL_CHOICES} value={answers.funnelBreakdown} onChange={v => setAns("funnelBreakdown", v)} hint={answers.funnelBreakdown ? GTM_FUNNEL_HINTS[answers.funnelBreakdown as GtmFunnelStage] : undefined} />
-                      <FigmaQuestion grouped title="Are you open to investor introductions from York IE?" options={["Yes", "Not right now", "Actively fundraising"]} value={answers.investorIntros} onChange={v => setAns("investorIntros", v)} columns={1} />
+                      <FigmaQuestion grouped title="What is your primary go-to-market motion?" options={["Sales-led", "Product-led", "Founder-led", "Not yet"]} value={answers.mkt_sales_motion} onChange={v => setAns("mkt_sales_motion", v)} hint={answers.mkt_sales_motion === "Product-led" ? "Self-serve scales well — if conversion holds. We'll track it." : undefined} />
+                      <FigmaDescQuestion grouped title="Where are you losing the most ground?" subtitle="Pick the stage where growth is stalling — demand, deals, or retention." options={GTM_FUNNEL_CHOICES} value={answers.mkt_funnel_gap} onChange={v => setAns("mkt_funnel_gap", v)} hint={answers.mkt_funnel_gap ? GTM_FUNNEL_HINTS[answers.mkt_funnel_gap as GtmFunnelStage] : undefined} />
+                      <FigmaQuestion grouped title="How clear is your ideal customer profile today?" subtitle="Can your team describe who buys, why they buy, and who to disqualify?" options={["Documented and shared", "Written ICP the team uses for targeting and qualification", "Clear in founder's head", "We know who fits, but it's not written or enforced yet", "Still a hypothesis", "Early signal from customers, but not validated", "Not defined yet", "Selling broadly or still figuring out who fits"]} value={answers.mkt_icp_clarity} onChange={v => setAns("mkt_icp_clarity", v)} />
+                      <FigmaQuestion grouped title="How do you track and close revenue today?" options={["CRM with a defined sales process", "CRM but informal process", "Spreadsheet or lightweight tracking", "No systematic pipeline yet"]} value={answers.mkt_revenue_tracking} onChange={v => setAns("mkt_revenue_tracking", v)} />
                     </div>
                   )}
 
-                  {/* G&A — all questions grouped */}
+                  {/* G&A — onboarding questions */}
                   {stepId==="revops" && (
                     <div>
                       <StepHeading meta={STEP_META.revops} />
-                      <FigmaQuestion grouped title="What are you using to manage your pipeline?" options={["CRM", "Spreadsheet", "Nothing yet"]} value={answers.pipelineTool} onChange={v => setAns("pipelineTool", v)} columns={1} />
-                      <FigmaQuestion grouped title="How defined is your sales process?" options={["Documented", "Informal", "Not yet"]} value={answers.salesProcess} onChange={v => setAns("salesProcess", v)} columns={1} />
-                      <FigmaQuestion grouped title="How long is your current runway?" options={["Under 6 months", "6–12 months", "12–18 months", "Over 18 months"]} value={answers.runway} onChange={v => setAns("runway", v)} />
+                      <FigmaQuestion grouped title="How long is your current runway?" options={["Under 6 months", "6–12 months", "12–18 months", "Over 18 months"]} value={answers.rev_runway} onChange={v => setAns("rev_runway", v)} />
+                      <FigmaQuestion grouped title="How do you manage company finances today?" options={["Accounting software with regular close", "Spreadsheet + accountant or bookkeeper", "Founder-managed / informal", "Not set up yet"]} value={answers.rev_finance_management} onChange={v => setAns("rev_finance_management", v)} />
+                      <FigmaQuestion grouped title="What's your near-term capital and reporting priority?" options={["Actively fundraising", "Open to investor introductions", "Focused on extending runway / reaching profitability", "Not focused on capital right now"]} value={answers.rev_capital_priority} onChange={v => setAns("rev_capital_priority", v)} />
                     </div>
                   )}
 
