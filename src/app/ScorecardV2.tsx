@@ -1042,150 +1042,6 @@ function buildGlanceAnswersCta(
   };
 }
 
-type OverviewLayoutVersion = "v1" | "v2";
-
-function loadOverviewLayoutVersion(companyName: string): OverviewLayoutVersion {
-  try {
-    const stored = window.localStorage.getItem(`fuel-overview-layout-${companyName}`);
-    return stored === "v1" ? "v1" : "v2";
-  } catch {
-    return "v2";
-  }
-}
-
-function saveOverviewLayoutVersion(companyName: string, version: OverviewLayoutVersion) {
-  try {
-    window.localStorage.setItem(`fuel-overview-layout-${companyName}`, version);
-  } catch { /* ignore */ }
-}
-
-function trackHealthFromTone(tone: CategoryData["statusTone"]): "green" | "amber" | "red" {
-  if (tone === "strong" || tone === "above") return "green";
-  if (tone === "weak") return "red";
-  return "amber";
-}
-
-function OverviewVersionToggle({
-  version,
-  onChange,
-}: {
-  version: OverviewLayoutVersion;
-  onChange: (version: OverviewLayoutVersion) => void;
-}) {
-  return (
-    <div className="sc-overview-version-switch" onClick={e => e.stopPropagation()}>
-      <span className="sc-overview-version-label">Overview layout</span>
-      <div className="sc-overview-version-segment" role="tablist" aria-label="Overview layout version">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={version === "v2"}
-          className={`sc-overview-version-btn${version === "v2" ? " is-active" : ""}`}
-          onClick={() => onChange("v2")}
-        >
-          Progress bars
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={version === "v1"}
-          className={`sc-overview-version-btn${version === "v1" ? " is-active" : ""}`}
-          onClick={() => onChange("v1")}
-        >
-          Detailed view
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function OverviewTrackBarRow({
-  cat,
-  index,
-  onOpen,
-}: {
-  cat: CategoryData;
-  index: number;
-  onOpen: () => void;
-}) {
-  const health = trackHealthFromTone(cat.statusTone);
-  const fill = Math.max(0, Math.min(100, cat.score));
-
-  return (
-    <div
-      className="track sc-overview-v2-track"
-      data-id={cat.id}
-      style={{ animationDelay: `${index * 0.08}s` }}
-    >
-      <div
-        className="track-header"
-        role="button"
-        tabIndex={0}
-        aria-label={`${cat.fullLabel}, ${fill} out of 100, ${cat.statusLabel}`}
-        onClick={onOpen}
-        onKeyDown={e => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onOpen();
-          }
-        }}
-      >
-        <div className="track-left">
-          <div className="track-icon" style={{ background: cat.colourDim, color: cat.colour, borderColor: cat.colourBorder }}>
-            {cat.icon}
-          </div>
-          <div>
-            <div className="track-name">
-              {cat.label} · {cat.fullLabel} <span className="track-expand-icon" aria-hidden>›</span>
-            </div>
-            <div className="track-sub">{cat.description}</div>
-          </div>
-        </div>
-        <div className="track-right">
-          <div className="track-stat">
-            <span>Score</span>&nbsp;<strong>{fill}</strong>
-          </div>
-          <div className={`track-health ${health}`}>{cat.statusLabel}</div>
-        </div>
-      </div>
-      <div className="bar-container">
-        <div
-          className={`bar-fill ${health}`}
-          style={{ width: `${fill}%` }}
-          role="meter"
-          aria-valuenow={fill}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`${cat.fullLabel} health ${fill} percent`}
-        />
-      </div>
-    </div>
-  );
-}
-
-function OverviewBarsPanel({
-  categories,
-  onOpenTrack,
-}: {
-  categories: CategoryData[];
-  onOpenTrack: (id: ScorecardCategory) => void;
-}) {
-  return (
-    <div className="sc-overview-v2-panel">
-      <div className="tracks sc-overview-v2-tracks">
-        {categories.map((cat, index) => (
-          <OverviewTrackBarRow
-            key={cat.id}
-            cat={cat}
-            index={index}
-            onOpen={() => onOpenTrack(cat.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function GlanceInsightsWrap({
   strengths,
   weaknesses,
@@ -1952,92 +1808,6 @@ function truncateAdvisorLine(text: string, max = 120): string {
 function lowercaseLead(text: string): string {
   if (!text) return text;
   return text.charAt(0).toLowerCase() + text.slice(1);
-}
-
-function buildTrackAdvisorSummary(cat: CategoryData, runway: number | null): string {
-  const urgency = categoryUrgency(cat, runway);
-  const topWeak = cat.glanceWeaknessItems[0];
-  const topStrong = cat.glanceStrengthItems[0];
-
-  if (topWeak && urgency === "urgent") {
-    const detail = stripInsightSourceSuffix(topWeak.detail);
-    return founderPlainCopy(truncateAdvisorLine(
-      `Priority: ${topWeak.label} — ${lowercaseLead(detail)}`,
-    ));
-  }
-
-  const focus = pickFounderFocusLine(cat.scoreContributors);
-  if (focus) return founderPlainCopy(truncateAdvisorLine(focus));
-
-  if (cat.detailSnippets[0]) {
-    return founderPlainCopy(truncateAdvisorLine(cat.detailSnippets[0]));
-  }
-
-  if (topWeak && urgency === "watch") {
-    const detail = stripInsightSourceSuffix(topWeak.detail);
-    return founderPlainCopy(truncateAdvisorLine(
-      `Watch ${topWeak.label.toLowerCase()} — ${lowercaseLead(detail)}`,
-    ));
-  }
-
-  const initiative = cat.openInitiatives[0];
-  if (initiative && urgency !== "ok") {
-    return founderPlainCopy(truncateAdvisorLine(`Next move: ${initiative.title}`));
-  }
-
-  if (topStrong && urgency === "ok") {
-    const detail = stripInsightSourceSuffix(topStrong.detail);
-    return founderPlainCopy(truncateAdvisorLine(
-      `Lead with ${topStrong.label.toLowerCase()} — ${lowercaseLead(detail)}`,
-    ));
-  }
-
-  if (topWeak) {
-    const detail = stripInsightSourceSuffix(topWeak.detail);
-    return founderPlainCopy(truncateAdvisorLine(
-      `Next gap: ${topWeak.label.toLowerCase()} — ${lowercaseLead(detail)}`,
-    ));
-  }
-
-  if (cat.glanceNeedsWork && !cat.glanceNeedsWork.includes("No major gaps")) {
-    return founderPlainCopy(truncateAdvisorLine(cat.glanceNeedsWork));
-  }
-
-  return founderPlainCopy(truncateAdvisorLine(cat.glanceStrength));
-}
-
-function buildAdvisorCompactSummary(
-  companyName: string,
-  categories: CategoryData[],
-  runway: number | null,
-  ctx: CategoryBuildContext,
-): React.ReactNode {
-  const urgentCount = categories.filter(c => categoryUrgency(c, runway) === "urgent").length;
-  const watchCount = categories.filter(c => categoryUrgency(c, runway) === "watch").length;
-  const contextPct = computeOverallContextPct(ctx.benchmark, ctx.detailAnswers, ctx.benchmarkContext);
-  const urgentLabels = categories
-    .filter(c => categoryUrgency(c, runway) === "urgent")
-    .map(c => c.label);
-
-  if (urgentCount > 0) {
-    return (
-      <>
-        <strong>{urgentCount} urgent gap{urgentCount > 1 ? "s" : ""}</strong> vs cohort
-        {urgentLabels.length ? ` — start with ${urgentLabels.join(" and ")}` : ""}.
-        {contextPct < 80 ? " Finish benchmark and details to sharpen scores." : ""}
-      </>
-    );
-  }
-
-  if (watchCount > 0) {
-    return `Mostly on pace — ${watchCount} area${watchCount > 1 ? "s" : ""} to watch.${contextPct < 80 ? " Complete profile context for sharper reads." : ""}`;
-  }
-
-  if (contextPct < 80) {
-    return `${companyName} — complete benchmark and View details to unlock sharper track reads.`;
-  }
-
-  return `${companyName} is tracking with peers. Track summaries below show where to invest next.`;
 }
 
 function insightDetail(detail: string, source: keyof typeof TRACK_INSIGHT_SOURCE): string {
@@ -2847,7 +2617,6 @@ function OverviewAdvisorPanel({
   runway,
   companyName,
   buildContext,
-  overviewLayout = "v1",
   benchmarkSaved = false,
   onOpenIntelligence,
   onEditBenchmark,
@@ -2859,7 +2628,6 @@ function OverviewAdvisorPanel({
   runway: number | null;
   companyName: string;
   buildContext: CategoryBuildContext;
-  overviewLayout?: OverviewLayoutVersion;
   benchmarkSaved?: boolean;
   onOpenIntelligence?: () => void;
   onEditBenchmark?: () => void;
@@ -2885,24 +2653,9 @@ function OverviewAdvisorPanel({
             <span className="sc-adv-company">{companyName}</span>
           </div>
           <div className="sc-adv-rec-title">Summary</div>
-          <p className={`sc-adv-summary${overviewLayout === "v2" ? " sc-adv-summary-compact" : ""}`}>
-            {overviewLayout === "v2"
-              ? buildAdvisorCompactSummary(companyName, categories, runway, buildContext)
-              : buildAdvisorGenericSummary(companyName, categories, runway, buildContext)}
+          <p className="sc-adv-summary">
+            {buildAdvisorGenericSummary(companyName, categories, runway, buildContext)}
           </p>
-          {overviewLayout === "v2" ? (
-            <div className="overview-advisor-tracks">
-              {categories.map(cat => (
-                <div key={cat.id} className="overview-advisor-track-col">
-                  <div className="overview-advisor-track-head">
-                    <span className="overview-advisor-track-dot" style={{ background: cat.colour }} aria-hidden />
-                    {cat.label}
-                  </div>
-                  <p className="overview-advisor-track-copy">{buildTrackAdvisorSummary(cat, runway)}</p>
-                </div>
-              ))}
-            </div>
-          ) : null}
           <div className="sc-adv-tags-label">Recent signals</div>
           <div className="sc-adv-tags">
             {categories.map(cat => {
@@ -4008,7 +3761,6 @@ export default function ScorecardV2({
   const [drawerStep, setDrawerStep] = useState(0);
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const [advisorOpen, setAdvisorOpen] = useState(true);
-  const [overviewLayout, setOverviewLayout] = useState<OverviewLayoutVersion>(() => loadOverviewLayoutVersion(cName));
   const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(cName));
 
   const mergedDetailAnswers = useMemo(
@@ -4037,15 +3789,6 @@ export default function ScorecardV2({
   useEffect(() => {
     setDetailAnswers(loadDetailAnswers(cName));
   }, [cName]);
-
-  useEffect(() => {
-    setOverviewLayout(loadOverviewLayoutVersion(cName));
-  }, [cName]);
-
-  const setOverviewLayoutVersion = (version: OverviewLayoutVersion) => {
-    setOverviewLayout(version);
-    saveOverviewLayoutVersion(cName, version);
-  };
 
   const selectDetail = (qid: string, value: string) => {
     setDetailAnswers(prev => {
@@ -4101,13 +3844,6 @@ export default function ScorecardV2({
   return (
     <div className="scorecard-v2">
       {!isCategoryDetail ? (
-        <OverviewVersionToggle
-          version={overviewLayout}
-          onChange={setOverviewLayoutVersion}
-        />
-      ) : null}
-
-      {!isCategoryDetail ? (
       <div
         className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}`}
         data-tour-target="ai-advisor"
@@ -4151,7 +3887,6 @@ export default function ScorecardV2({
                 runway={runway}
                 companyName={cName}
                 buildContext={buildContext}
-                overviewLayout={overviewLayout}
                 benchmarkSaved={benchmarkSaved}
                 onOpenIntelligence={onOpenIntelligence}
                 onEditBenchmark={() => setEditBenchmarkOpen(true)}
@@ -4178,11 +3913,6 @@ export default function ScorecardV2({
           onOpenIntelligence={onOpenIntelligence}
           onOpenInitiatives={onOpenInitiatives}
           onRunPlaybook={onRunPlaybook}
-        />
-      ) : overviewLayout === "v2" ? (
-        <OverviewBarsPanel
-          categories={categoryData}
-          onOpenTrack={id => setActiveView(id)}
         />
       ) : (
         <div className="sc-overview-tracks sc-overview-tracks-glance">
