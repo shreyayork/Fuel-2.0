@@ -14,6 +14,7 @@ import {
   type MetricPlaybookOption,
 } from "./FuelOnboardingChat";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney";
+import { mapOnboardingToDetailAnswers, OnboardingBenchmarkFieldList, type OnboardingFlowAnswers } from "./OnboardingFlow.tsx";
 import { BriefAdvisorCard } from "./AskFuelChat.tsx";
 import "./PatriotPayJourney.css";
 
@@ -97,6 +98,10 @@ type CategoryData = {
   detailQuestionCount: number;
   glanceSummary: string;
   glanceFocus: string;
+  glanceStrength: string;
+  glanceNeedsWork: string;
+  glanceStrengthItems: TrackInsightItem[];
+  glanceWeaknessItems: TrackInsightItem[];
   intelDisplayCount: number;
   scoreContributors: ScoreContributor[];
 };
@@ -113,6 +118,23 @@ type ScoreContributor = {
   contribution: number;
   impact: string;
 };
+
+type TrackInsightItem = {
+  id: string;
+  label: string;
+  detail: string;
+  sortKey: number;
+};
+
+const TRACK_INSIGHT_SOURCE: Record<ScoreContributorSource | "intelligence", string> = {
+  benchmark: "Benchmark",
+  profile: "Profile",
+  detail: "Your answers",
+  intelligence: "Intelligence",
+};
+
+const INTEL_WEAK_HINTS = /\b(gap|risk|delay|churn|miss|weak|concern|stall|behind|below|lack|without|guesswork|spreadsheet|founder-led|ad hoc|exploring|fuzzy|not yet|not tracked|manual)\b/i;
+const INTEL_STRONG_HINTS = /\b(strong|top quartile|validated|crisp|automated|high confidence|ahead|momentum|landed|closed|expansion|efficient|weekly|dedicated hire|hubspot|salesforce)\b/i;
 
 export type ScorecardIntelligenceItem = {
   id: string;
@@ -144,6 +166,7 @@ type CategoryBuildContext = {
   benchmarkContext?: ScorecardBenchmarkContext;
   journeyStage: string;
   benchmark: OnboardingBenchmarkInput;
+  onboardingAnswers?: OnboardingFlowAnswers | null;
 };
 
 export type ScorecardDocumentSlot = {
@@ -175,6 +198,7 @@ export type ScorecardV2Props = {
   activeTourTarget?: string;
   lastPlaybook?: { name: string; kind: string; description: string; category: string } | null;
   onDismissPlaybook?: () => void;
+  onboardingAnswers?: OnboardingFlowAnswers | null;
 };
 
 // ─── Cohort data ──────────────────────────────────────────────────────────────
@@ -191,6 +215,9 @@ const METRIC_COHORTS: MetricCohort[] = [
 ];
 
 const COHORT_BY_KEY = Object.fromEntries(METRIC_COHORTS.map(c => [c.key, c])) as Record<MetricKey, MetricCohort>;
+
+/** Same benchmark list on every track detail view — not split by R&D / GTM / G&A. */
+const ALL_BENCHMARK_METRIC_KEYS: MetricKey[] = METRIC_COHORTS.map(c => c.key);
 
 const CATEGORY_METRIC_KEYS: Record<ScorecardCategory, MetricKey[]> = {
   dev: ["headcount", "grossMargin"],
@@ -582,6 +609,10 @@ function buildCategoryData(category: ScorecardCategory, metricMap: Record<Metric
     detailQuestionCount: 0,
     glanceSummary: "",
     glanceFocus: "",
+    glanceStrength: "",
+    glanceNeedsWork: "",
+    glanceStrengthItems: [],
+    glanceWeaknessItems: [],
     intelDisplayCount: 0,
     scoreContributors: [],
   };
@@ -808,27 +839,26 @@ function GlanceScoreRing({
   isOpen,
   onRequestOpen,
   onRequestClose,
+  className,
 }: {
   cat: CategoryData;
   score: number;
   isOpen: boolean;
   onRequestOpen: () => void;
   onRequestClose: () => void;
+  className?: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties | undefined>();
   const [placement, setPlacement] = useState<"above" | "below">("below");
-  const size = 76;
-  const stroke = 6;
+  const size = 88;
+  const stroke = 7;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
 
-  const updatePopoverPosition = useCallback((event?: Event) => {
-    const scrollTarget = event?.target;
-    if (scrollTarget instanceof Node && popoverRef.current?.contains(scrollTarget)) return;
-
+  const positionPopover = useCallback(() => {
     const trigger = triggerRef.current;
     if (!trigger) return;
 
@@ -839,9 +869,11 @@ function GlanceScoreRing({
     setPopoverStyle(style);
   }, []);
 
-  const openPopover = useCallback(() => {
-    onRequestOpen();
-  }, [onRequestOpen]);
+  const togglePopover = useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation();
+    if (isOpen) onRequestClose();
+    else onRequestOpen();
+  }, [isOpen, onRequestClose, onRequestOpen]);
 
   useLayoutEffect(() => {
     if (!isOpen) {
@@ -850,26 +882,22 @@ function GlanceScoreRing({
       return;
     }
 
-    const trigger = triggerRef.current;
-    if (trigger) {
-      const { style, placement: nextPlacement } = computeGlancePopoverLayout(trigger.getBoundingClientRect(), 300);
-      setPopoverStyle(style);
-      setPlacement(nextPlacement);
-    }
-
-    updatePopoverPosition();
-    const onScroll = (event: Event) => updatePopoverPosition(event);
-    const onResize = () => updatePopoverPosition();
-    window.addEventListener("scroll", onScroll, true);
+    positionPopover();
+    const onResize = () => positionPopover();
     window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [isOpen, updatePopoverPosition, cat.scoreContributors.length]);
+    return () => window.removeEventListener("resize", onResize);
+  }, [isOpen, positionPopover, cat.scoreContributors.length]);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    const closeOnScroll = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && popoverRef.current?.contains(target)) return;
+      onRequestClose();
+    };
+    window.addEventListener("scroll", closeOnScroll, true);
+
     const onDocPointer = (event: MouseEvent) => {
       const target = event.target as Node;
       if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
@@ -881,6 +909,7 @@ function GlanceScoreRing({
     document.addEventListener("mousedown", onDocPointer);
     document.addEventListener("keydown", onKey);
     return () => {
+      window.removeEventListener("scroll", closeOnScroll, true);
       document.removeEventListener("mousedown", onDocPointer);
       document.removeEventListener("keydown", onKey);
     };
@@ -899,22 +928,18 @@ function GlanceScoreRing({
   ) : null;
 
   return (
-    <div className="sc-glance-ring-wrap">
+    <div className={`sc-glance-ring-wrap${className ? ` ${className}` : ""}`}>
       <div
         ref={triggerRef}
-        className="sc-glance-ring-trigger"
+        className={`sc-glance-ring-trigger${isOpen ? " is-open" : ""}`}
         role="button"
         tabIndex={0}
         aria-expanded={isOpen}
-        aria-label={`Track health ${score}, ${cat.statusLabel}. Show how this score is calculated.`}
-        onMouseEnter={openPopover}
-        onClick={e => e.stopPropagation()}
+        aria-label={`Track health ${score}, ${cat.statusLabel}. Click to ${isOpen ? "hide" : "show"} score breakdown.`}
+        title="Click for score breakdown"
+        onClick={togglePopover}
         onKeyDown={e => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            e.stopPropagation();
-            openPopover();
-          }
+          if (e.key === "Enter" || e.key === " ") togglePopover(e);
         }}
       >
         <div
@@ -967,28 +992,28 @@ function buildGlanceAnswersCta(
   const remaining = Math.max(0, total - answered);
 
   if (total === 0) {
-    return { label: `Update ${trackLabel} answers`, meta: "", tone: "empty" };
+    return { label: `Update ${trackLabel} details`, meta: "", tone: "empty" };
   }
 
   if (answered === 0) {
     return {
-      label: `Add ${trackLabel} context`,
-      meta: `${total} quick questions · sharpens this score`,
+      label: `Complete ${trackLabel} details`,
+      meta: `${total} questions · unlocks a sharper score`,
       tone: "empty",
     };
   }
 
   if (remaining === 0) {
     return {
-      label: `${trackLabel} context on file`,
-      meta: "update anytime",
+      label: `Review ${trackLabel} details`,
+      meta: "All answered · update anytime",
       tone: "complete",
     };
   }
 
   if (remaining === 1) {
     return {
-      label: `Finish ${trackLabel} context`,
+      label: `Finish ${trackLabel} details`,
       meta: "1 question left · biggest score lift now",
       tone: "almost",
     };
@@ -996,7 +1021,7 @@ function buildGlanceAnswersCta(
 
   if (remaining <= 2) {
     return {
-      label: `Almost done with ${trackLabel}`,
+      label: `Finish ${trackLabel} details`,
       meta: `${remaining} questions left`,
       tone: "almost",
     };
@@ -1004,17 +1029,262 @@ function buildGlanceAnswersCta(
 
   if (answered >= Math.ceil(total / 2)) {
     return {
-      label: `${answered} of ${total} ${trackLabel} answers in`,
-      meta: `${remaining} more unlocks a sharper score`,
+      label: `Finish ${trackLabel} details`,
+      meta: `${answered} of ${total} answered · ${remaining} to go`,
       tone: "partial",
     };
   }
 
   return {
-    label: `Add ${trackLabel} context`,
-    meta: `${answered} of ${total} done · ${remaining} to go`,
+    label: `Complete ${trackLabel} details`,
+    meta: `${answered} of ${total} answered · ${remaining} remaining`,
     tone: "partial",
   };
+}
+
+type OverviewLayoutVersion = "v1" | "v2";
+
+function loadOverviewLayoutVersion(companyName: string): OverviewLayoutVersion {
+  try {
+    const stored = window.localStorage.getItem(`fuel-overview-layout-${companyName}`);
+    return stored === "v1" ? "v1" : "v2";
+  } catch {
+    return "v2";
+  }
+}
+
+function saveOverviewLayoutVersion(companyName: string, version: OverviewLayoutVersion) {
+  try {
+    window.localStorage.setItem(`fuel-overview-layout-${companyName}`, version);
+  } catch { /* ignore */ }
+}
+
+function trackHealthFromTone(tone: CategoryData["statusTone"]): "green" | "amber" | "red" {
+  if (tone === "strong" || tone === "above") return "green";
+  if (tone === "weak") return "red";
+  return "amber";
+}
+
+function OverviewVersionToggle({
+  version,
+  onChange,
+}: {
+  version: OverviewLayoutVersion;
+  onChange: (version: OverviewLayoutVersion) => void;
+}) {
+  return (
+    <div className="sc-overview-version-switch" onClick={e => e.stopPropagation()}>
+      <span className="sc-overview-version-label">Overview layout</span>
+      <div className="sc-overview-version-segment" role="tablist" aria-label="Overview layout version">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={version === "v2"}
+          className={`sc-overview-version-btn${version === "v2" ? " is-active" : ""}`}
+          onClick={() => onChange("v2")}
+        >
+          Progress bars
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={version === "v1"}
+          className={`sc-overview-version-btn${version === "v1" ? " is-active" : ""}`}
+          onClick={() => onChange("v1")}
+        >
+          Detailed view
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OverviewTrackBarRow({
+  cat,
+  index,
+  onOpen,
+}: {
+  cat: CategoryData;
+  index: number;
+  onOpen: () => void;
+}) {
+  const health = trackHealthFromTone(cat.statusTone);
+  const fill = Math.max(0, Math.min(100, cat.score));
+
+  return (
+    <div
+      className="track sc-overview-v2-track"
+      data-id={cat.id}
+      style={{ animationDelay: `${index * 0.08}s` }}
+    >
+      <div
+        className="track-header"
+        role="button"
+        tabIndex={0}
+        aria-label={`${cat.fullLabel}, ${fill} out of 100, ${cat.statusLabel}`}
+        onClick={onOpen}
+        onKeyDown={e => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+      >
+        <div className="track-left">
+          <div className="track-icon" style={{ background: cat.colourDim, color: cat.colour, borderColor: cat.colourBorder }}>
+            {cat.icon}
+          </div>
+          <div>
+            <div className="track-name">
+              {cat.label} · {cat.fullLabel} <span className="track-expand-icon" aria-hidden>›</span>
+            </div>
+            <div className="track-sub">{cat.description}</div>
+          </div>
+        </div>
+        <div className="track-right">
+          <div className="track-stat">
+            <span>Score</span>&nbsp;<strong>{fill}</strong>
+          </div>
+          <div className={`track-health ${health}`}>{cat.statusLabel}</div>
+        </div>
+      </div>
+      <div className="bar-container">
+        <div
+          className={`bar-fill ${health}`}
+          style={{ width: `${fill}%` }}
+          role="meter"
+          aria-valuenow={fill}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${cat.fullLabel} health ${fill} percent`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function OverviewBarsPanel({
+  categories,
+  onOpenTrack,
+}: {
+  categories: CategoryData[];
+  onOpenTrack: (id: ScorecardCategory) => void;
+}) {
+  return (
+    <div className="sc-overview-v2-panel">
+      <div className="tracks sc-overview-v2-tracks">
+        {categories.map((cat, index) => (
+          <OverviewTrackBarRow
+            key={cat.id}
+            cat={cat}
+            index={index}
+            onOpen={() => onOpenTrack(cat.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GlanceInsightsWrap({
+  strengths,
+  weaknesses,
+  previewLimit = 2,
+}: {
+  strengths: TrackInsightItem[];
+  weaknesses: TrackInsightItem[];
+  previewLimit?: number;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  const hiddenCount = expanded
+    ? 0
+    : Math.max(0, strengths.length - previewLimit) + Math.max(0, weaknesses.length - previewLimit);
+  const visibleStrengths = expanded ? strengths : strengths.slice(0, previewLimit);
+  const visibleWeaknesses = expanded ? weaknesses : weaknesses.slice(0, previewLimit);
+
+  return (
+    <div className="sc-glance-insights-wrap">
+      <div className="sc-glance-strength-col">
+        <TrackInsightPanel
+          tone="strong"
+          title="Primary strengths"
+          items={visibleStrengths}
+          empty="No strengths flagged yet."
+          compact
+        />
+      </div>
+      <div className="sc-glance-needs-col">
+        <TrackInsightPanel
+          tone="weak"
+          title="Needs improvement"
+          items={visibleWeaknesses}
+          empty="No gaps flagged yet."
+          compact
+        />
+      </div>
+      {hiddenCount > 0 ? (
+        <button
+          type="button"
+          className="sc-glance-insight-more-btn"
+          onClick={e => { e.stopPropagation(); setExpanded(true); }}
+        >
+          View more <span aria-hidden="true">→</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function CategoryGlanceHeaderBar({
+  cat,
+  answersCta,
+  onUpdateDetails,
+  onOpenIntelligence,
+  onOpenInitiatives,
+  onRunPlaybook,
+}: {
+  cat: CategoryData;
+  answersCta: ReturnType<typeof buildGlanceAnswersCta>;
+  onUpdateDetails?: () => void;
+  onOpenIntelligence?: () => void;
+  onOpenInitiatives?: () => void;
+  onRunPlaybook?: (id: string) => void;
+}) {
+  return (
+    <div className="sc-glance-header-bar" onClick={e => e.stopPropagation()}>
+      <div className="sc-glance-header-bar-start">
+        <div className="sc-glance-header-bar-links">
+          {cat.openInitiatives.length > 0 ? (
+            <button type="button" className="sc-cat-header-btn" onClick={() => onOpenInitiatives?.()}>
+              {cat.openInitiatives.length} initiative{cat.openInitiatives.length === 1 ? "" : "s"} <span aria-hidden="true">→</span>
+            </button>
+          ) : null}
+          <button type="button" className="sc-cat-header-btn" onClick={() => onOpenIntelligence?.()}>
+            {cat.intelDisplayCount > 0 ? `${cat.intelDisplayCount} intelligence` : "Intelligence"} <span aria-hidden="true">→</span>
+          </button>
+          {cat.suggestedPlaybooks.length > 0 ? (
+            <button type="button" className="sc-cat-header-btn" onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}>
+              {cat.suggestedPlaybooks.length} playbook{cat.suggestedPlaybooks.length === 1 ? "" : "s"} <span aria-hidden="true">→</span>
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {onUpdateDetails ? (
+        <div className="sc-glance-header-bar-end">
+          {answersCta.meta ? (
+            <p className="sc-glance-header-bar-hint">{answersCta.meta}</p>
+          ) : null}
+          <button
+            type="button"
+            className={`sc-cat-header-btn sc-glance-details-btn${answersCta.tone !== "complete" ? " is-priority" : ""}`}
+            onClick={e => { e.stopPropagation(); onUpdateDetails(); }}
+          >
+            {answersCta.label} <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function CategoryGlanceRow({
@@ -1056,10 +1326,25 @@ function CategoryGlanceRow({
       tabIndex={0}
       aria-label={`${cat.fullLabel}, ${score} out of 100, ${cat.statusLabel}`}
     >
+      <CategoryGlanceHeaderBar
+        cat={cat}
+        answersCta={answersCta}
+        onUpdateDetails={onUpdateDetails}
+        onOpenIntelligence={onOpenIntelligence}
+        onOpenInitiatives={onOpenInitiatives}
+        onRunPlaybook={onRunPlaybook}
+      />
       <div className="sc-glance-layout">
-        <div className="sc-glance-main">
+        <div className="sc-glance-brief-col">
           <div className="sc-glance-id">
-            <span className="sc-glance-icon" style={{ background: cat.colourDim, color: cat.colour, borderColor: cat.colourBorder }} aria-hidden>{cat.icon}</span>
+            <GlanceScoreRing
+              cat={cat}
+              score={score}
+              isOpen={glancePopoverOpen}
+              onRequestOpen={onGlancePopoverOpen}
+              onRequestClose={onGlancePopoverClose}
+              className="sc-glance-ring-wrap--lead"
+            />
             <div className="sc-glance-copy">
               <h3 className="sc-glance-name">
                 <span>{cat.label}</span>
@@ -1068,51 +1353,13 @@ function CategoryGlanceRow({
                 <span className="sc-glance-name-arrow" aria-hidden>→</span>
               </h3>
               {focusLine ? <p className="sc-glance-focus">{focusLine}</p> : null}
-              {onUpdateDetails ? (
-                <button
-                  type="button"
-                  className={`sc-glance-answers-btn is-${answersCta.tone}`}
-                  onClick={e => { e.stopPropagation(); onUpdateDetails(); }}
-                >
-                  {answersCta.label}
-                  {answersCta.meta ? (
-                    <>
-                      {" · "}
-                      <span className="sc-glance-answers-btn-meta">{answersCta.meta}</span>
-                    </>
-                  ) : null}
-                </button>
-              ) : null}
-            </div>
-          </div>
-          <div className="sc-glance-foot">
-            <div className="sc-glance-meta-badges" onClick={e => e.stopPropagation()}>
-              {cat.openInitiatives.length > 0 ? (
-                <button type="button" className="sc-glance-meta-badge" onClick={() => onOpenInitiatives?.()}>
-                  {cat.openInitiatives.length} initiative{cat.openInitiatives.length === 1 ? "" : "s"}
-                </button>
-              ) : null}
-              <button type="button" className="sc-glance-meta-badge is-intel" onClick={() => onOpenIntelligence?.()}>
-                {cat.intelDisplayCount > 0 ? `${cat.intelDisplayCount} intel` : "Intelligence"}
-              </button>
-              {cat.suggestedPlaybooks.length > 0 ? (
-                <button
-                  type="button"
-                  className="sc-glance-meta-badge is-playbook"
-                  onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}
-                >
-                  {cat.suggestedPlaybooks.length} playbook{cat.suggestedPlaybooks.length === 1 ? "" : "s"}
-                </button>
-              ) : null}
             </div>
           </div>
         </div>
-        <GlanceScoreRing
-          cat={cat}
-          score={score}
-          isOpen={glancePopoverOpen}
-          onRequestOpen={onGlancePopoverOpen}
-          onRequestClose={onGlancePopoverClose}
+        <GlanceInsightsWrap
+          strengths={cat.glanceStrengthItems}
+          weaknesses={cat.glanceWeaknessItems}
+          previewLimit={2}
         />
       </div>
     </article>
@@ -1122,9 +1369,6 @@ function CategoryGlanceRow({
 function CategoryCard({ cat, onClick, onViewDetails, onViewBenchmark, expanded, updatedLabel, tourTarget }: { cat: CategoryData; onClick: () => void; onViewDetails?: () => void; onViewBenchmark?: () => void; expanded?: boolean; updatedLabel: string; tourTarget?: string }) {
   const [popoverOpen, setPopoverOpen] = React.useState(false);
   const score = Math.max(0, Math.min(100, cat.score));
-
-  const strengths  = cat.metricWeights.filter(m => m.tier === "top" || m.tier === "upper");
-  const weaknesses = cat.metricWeights.filter(m => m.tier === "bottom" || m.tier === "lower");
 
   return (
     <div
@@ -1214,26 +1458,18 @@ function CategoryCard({ cat, onClick, onViewDetails, onViewBenchmark, expanded, 
         </div>
 
         <div className="sc-cat-sw-col-wrap">
-          <div className="sc-cat-sw-block">
-            <span className="sc-cat-sw-label sc-cat-tone-strong">Primary strengths</span>
-            {strengths.length > 0 ? (
-              <ul className="sc-cat-sw-list">
-                {strengths.slice(0, 3).map(s => <li key={s.key}><strong>{s.label}</strong> <em>{s.positionLabel}</em></li>)}
-              </ul>
-            ) : (
-              <p className="sc-cat-sw-empty">No metrics in the top quartile yet.</p>
-            )}
-          </div>
-          <div className="sc-cat-sw-block">
-            <span className="sc-cat-sw-label sc-cat-tone-weak">Needs improvement</span>
-            {weaknesses.length > 0 ? (
-              <ul className="sc-cat-sw-list">
-                {weaknesses.slice(0, 3).map(s => <li key={s.key}><strong>{s.label}</strong> <em>{s.positionLabel}</em></li>)}
-              </ul>
-            ) : (
-              <p className="sc-cat-sw-empty">No metrics flagged below the cohort.</p>
-            )}
-          </div>
+          <TrackInsightPanel
+            tone="strong"
+            title="Primary strengths"
+            items={cat.glanceStrengthItems}
+            empty="No strengths flagged yet — add profile, answers, benchmark, or sources."
+          />
+          <TrackInsightPanel
+            tone="weak"
+            title="Needs improvement"
+            items={cat.glanceWeaknessItems}
+            empty="No gaps flagged — keep profile, benchmark, and intelligence current."
+          />
         </div>
       </div>
     </div>
@@ -1370,6 +1606,47 @@ function buildDetailSnippets(category: ScorecardCategory, answers: DetailAnswers
   });
 }
 
+type DetailFieldTone = "missing" | "concern" | "watch" | "ok";
+
+type DetailFieldRow = {
+  id: string;
+  label: string;
+  value: string | null;
+  tone: DetailFieldTone;
+  note?: string;
+};
+
+function detailFieldTone(score: number, answered: boolean): DetailFieldTone {
+  if (!answered) return "missing";
+  if (score < 58) return "concern";
+  if (score < 72) return "watch";
+  return "ok";
+}
+
+function buildDetailFieldRows(category: ScorecardCategory, answers: DetailAnswers): DetailFieldRow[] {
+  const section = DETAIL_SECTIONS.find(s => s.id === category);
+  if (!section) return [];
+
+  const toneRank: Record<DetailFieldTone, number> = { missing: 0, concern: 1, watch: 2, ok: 3 };
+
+  return section.questions
+    .map(q => {
+      const val = answers[q.id]?.trim() || null;
+      const score = val ? (DETAIL_ANSWER_SCORES[q.id]?.[val] ?? 58) : 30;
+      const tone = detailFieldTone(score, Boolean(val));
+      const label = DETAIL_QUESTION_LABEL[q.id] ?? q.prompt.replace(/\?$/, "");
+      const contributor = makeContributor(q.id, label, "detail", val ?? "Not answered", score, 1);
+      const note = !val
+        ? "Not answered — add this in View details to sharpen your score."
+        : DETAIL_ANSWER_IMPACT[q.id]?.[val]
+          ?? humanizeFounderFocus(contributor)
+          ?? undefined;
+
+      return { id: q.id, label, value: val, tone, note: note ?? undefined };
+    })
+    .sort((a, b) => toneRank[a.tone] - toneRank[b.tone] || a.label.localeCompare(b.label));
+}
+
 function buildCategoryBenchmarkInputs(
   category: ScorecardCategory,
   metricMap: Record<MetricKey, EvaluatedMetric>,
@@ -1488,62 +1765,489 @@ function humanizeWeakContributor(c: ScoreContributor): string | null {
   return null;
 }
 
-function joinNaturalList(items: string[]): string {
-  if (items.length === 0) return "";
-  if (items.length === 1) return items[0];
-  const normalize = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
-  if (items.length === 2) return `${items[0].replace(/\.$/, "")}, and ${normalize(items[1])}`;
-  return `${items.slice(0, -1).join(", ")}, and ${normalize(items[items.length - 1])}`;
+const METRIC_FRIENDLY: Record<string, string> = {
+  "ARR": "revenue",
+  "ARR growth (YoY)": "revenue growth",
+  "Net revenue retention": "net retention",
+  "Logo retention": "customer retention",
+  "Gross margin": "gross margin",
+  "Monthly net burn": "burn",
+  "Cash on hand": "cash",
+  "FTE headcount": "team size",
+  "Paying customers": "paying customers",
+};
+
+function friendlyMetricLabel(label: string): string {
+  return METRIC_FRIENDLY[label] ?? label.toLowerCase();
+}
+
+function insightTopicKey(label: string): string {
+  const base = label.split(":")[0]?.trim() ?? label;
+  return friendlyMetricLabel(base).toLowerCase();
+}
+
+function trackFocusName(category: ScorecardCategory): string {
+  if (category === "dev") return "Product & engineering";
+  if (category === "mkt") return "Go-to-market";
+  return "Ops & finance";
+}
+
+/** Plain-language guard for glance/advisor prose — see .cursor/skills/fuel-founder-copy */
+function founderPlainCopy(text: string): string {
+  return text
+    .replace(/\bDRI\b/g, "a clear owner")
+    .replace(/\bdemand gen\b/gi, "demand generation")
+    .replace(/\bICP\b/g, "ideal customer profile")
+    .replace(/\bNRR\b/g, "net revenue retention")
+    .replace(/\bCAC\b/g, "customer acquisition cost")
+    .replace(/\bLTV\b/g, "customer lifetime value")
+    .replace(/\bYoY\b/g, "year over year")
+    .replace(/\bFTE\b/g, "full-time employee")
+    .replace(/\bG&A\b/g, "finance and operations")
+    .replace(/\bGTM\b/g, "go-to-market")
+    .replace(/\bRevOps\b/g, "revenue operations")
+    .replace(/\bFinOps\b/g, "finance operations")
+    .replace(/\btop-of-funnel\b/gi, "top of the funnel");
+}
+
+function humanizeFounderFocus(c: ScoreContributor): string | null {
+  const val = c.display;
+  switch (c.id) {
+    case "dev_challenge":
+      return `Your top product bet right now: ${val.toLowerCase()}.`;
+    case "dev_team_shape":
+      if (val.includes("Solo") || val.includes("founder")) {
+        return "You're still founder-built — line up engineering capacity before the next growth push.";
+      }
+      if (val === "Outsourced") return "Engineering is outsourced — tighten ownership before scale.";
+      return null;
+    case "dev_ship_cadence":
+      if (val === "Ad hoc" || val === "Monthly") {
+        return "Shipping cadence is slow — faster releases usually unlock the next growth step.";
+      }
+      return null;
+    case "mkt_sales_motion":
+      if (val === "Founder-led" || val === "Not yet") {
+        return "Sales is still founder-led — document what works before you hire reps.";
+      }
+      return null;
+    case "mkt_funnel_gap":
+      return `The funnel breaks at ${val.toLowerCase()} — fix that stage before spending more at the top of the funnel.`;
+    case "mkt_marketing_owner":
+      if (val === "Founder-led" || val === "No one yet") {
+        return "Marketing isn't owned yet — put someone clearly in charge so demand generation doesn't stall.";
+      }
+      return null;
+    case "rev_crm":
+      if (val === "None yet" || val === "Spreadsheets") {
+        return "Pipeline still lives in spreadsheets — a real CRM will sharpen your forecast and planning.";
+      }
+      return null;
+    case "rev_forecast":
+      if (val !== "High confidence") {
+        return "Revenue forecast confidence is shaky — tighten pipeline hygiene first.";
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+function pickFounderFocusLine(contributors: ScoreContributor[]): string | null {
+  const missing = contributors.filter(isMissingContributor);
+  if (missing.length >= 2) {
+    return `Log ${missing[0].label.toLowerCase()} and ${missing[1].label.toLowerCase()} so Fuel can score this track properly.`;
+  }
+
+  const detailSignals = contributors
+    .filter(c => c.source === "detail" && !isMissingContributor(c))
+    .sort((a, b) => a.score - b.score);
+  for (const c of detailSignals) {
+    const line = humanizeFounderFocus(c);
+    if (line) return line;
+  }
+
+  const benchGap = contributors
+    .filter(c => c.source === "benchmark" && !isMissingContributor(c) && c.score < 58)
+    .sort((a, b) => a.score - b.score)[0];
+  if (benchGap) {
+    return `Next lever: ${friendlyMetricLabel(benchGap.label)} — you're behind similar companies on this input.`;
+  }
+
+  if (missing.length === 1) {
+    return `Add ${missing[0].label.toLowerCase()} to unlock a sharper read on this track.`;
+  }
+
+  return null;
+}
+
+function tierRank(tier: PositionTier): number {
+  return ({ top: 5, upper: 4, mid: 3, lower: 2, bottom: 1 } as const)[tier] ?? 0;
+}
+
+function buildGlanceStrengthLine(
+  metricWeights: CategoryData["metricWeights"],
+  contributors: ScoreContributor[],
+): string {
+  const strengths = metricWeights
+    .filter(m => (m.tier === "top" || m.tier === "upper") && m.display !== "—" && m.display !== "Not logged")
+    .sort((a, b) => tierRank(b.tier) - tierRank(a.tier));
+  const best = strengths[0];
+  if (best) {
+    const name = friendlyMetricLabel(best.label);
+    const peerLine = best.tier === "top"
+      ? "top of your cohort"
+      : "ahead of most peers at your stage";
+    return founderPlainCopy(`${name.charAt(0).toUpperCase() + name.slice(1)} is ${peerLine}${best.display !== "—" ? ` (${best.display})` : ""}.`);
+  }
+
+  const contributor = contributors
+    .filter(c => !isMissingContributor(c) && c.score >= 68)
+    .sort((a, b) => b.score - a.score)[0];
+  if (contributor) {
+    const name = friendlyMetricLabel(contributor.label);
+    return founderPlainCopy(`${name.charAt(0).toUpperCase() + name.slice(1)} is holding up well — keep investing here.`);
+  }
+
+  return "Log benchmark inputs to surface where you're ahead of peers.";
+}
+
+function buildGlanceNeedsWorkLine(
+  metricWeights: CategoryData["metricWeights"],
+  contributors: ScoreContributor[],
+): string {
+  const weak = metricWeights
+    .filter(m => (m.tier === "bottom" || m.tier === "lower") && m.display !== "—" && m.display !== "Not logged")
+    .sort((a, b) => tierRank(a.tier) - tierRank(b.tier))[0];
+  if (weak) {
+    const name = friendlyMetricLabel(weak.label);
+    return founderPlainCopy(`${name.charAt(0).toUpperCase() + name.slice(1)} is below cohort${weak.display !== "—" ? ` (${weak.display})` : ""} — closing this gap moves your score fastest.`);
+  }
+
+  const softGap = contributors
+    .filter(c => !isMissingContributor(c) && c.score < 62)
+    .sort((a, b) => a.score - b.score)[0];
+  if (softGap) {
+    const name = friendlyMetricLabel(softGap.label);
+    return founderPlainCopy(`${name.charAt(0).toUpperCase() + name.slice(1)} could use attention — peers are doing better here.`);
+  }
+
+  return "No major gaps flagged — keep benchmarks current each quarter.";
+}
+
+function stripInsightSourceSuffix(detail: string): string {
+  return detail.replace(/\s·\s(Benchmark|Profile|Your answers|Intelligence)$/, "").trim();
+}
+
+function filterImportantBenchmarks(metrics: EvaluatedMetric[]): EvaluatedMetric[] {
+  return metrics.filter(m => m.value == null || m.tier === "bottom" || m.tier === "lower");
+}
+
+function truncateAdvisorLine(text: string, max = 120): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1).replace(/\s+\S*$/, "");
+  return `${cut}…`;
+}
+
+function lowercaseLead(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function buildTrackAdvisorSummary(cat: CategoryData, runway: number | null): string {
+  const urgency = categoryUrgency(cat, runway);
+  const topWeak = cat.glanceWeaknessItems[0];
+  const topStrong = cat.glanceStrengthItems[0];
+
+  if (topWeak && urgency === "urgent") {
+    const detail = stripInsightSourceSuffix(topWeak.detail);
+    return founderPlainCopy(truncateAdvisorLine(
+      `Priority: ${topWeak.label} — ${lowercaseLead(detail)}`,
+    ));
+  }
+
+  const focus = pickFounderFocusLine(cat.scoreContributors);
+  if (focus) return founderPlainCopy(truncateAdvisorLine(focus));
+
+  if (cat.detailSnippets[0]) {
+    return founderPlainCopy(truncateAdvisorLine(cat.detailSnippets[0]));
+  }
+
+  if (topWeak && urgency === "watch") {
+    const detail = stripInsightSourceSuffix(topWeak.detail);
+    return founderPlainCopy(truncateAdvisorLine(
+      `Watch ${topWeak.label.toLowerCase()} — ${lowercaseLead(detail)}`,
+    ));
+  }
+
+  const initiative = cat.openInitiatives[0];
+  if (initiative && urgency !== "ok") {
+    return founderPlainCopy(truncateAdvisorLine(`Next move: ${initiative.title}`));
+  }
+
+  if (topStrong && urgency === "ok") {
+    const detail = stripInsightSourceSuffix(topStrong.detail);
+    return founderPlainCopy(truncateAdvisorLine(
+      `Lead with ${topStrong.label.toLowerCase()} — ${lowercaseLead(detail)}`,
+    ));
+  }
+
+  if (topWeak) {
+    const detail = stripInsightSourceSuffix(topWeak.detail);
+    return founderPlainCopy(truncateAdvisorLine(
+      `Next gap: ${topWeak.label.toLowerCase()} — ${lowercaseLead(detail)}`,
+    ));
+  }
+
+  if (cat.glanceNeedsWork && !cat.glanceNeedsWork.includes("No major gaps")) {
+    return founderPlainCopy(truncateAdvisorLine(cat.glanceNeedsWork));
+  }
+
+  return founderPlainCopy(truncateAdvisorLine(cat.glanceStrength));
+}
+
+function buildAdvisorCompactSummary(
+  companyName: string,
+  categories: CategoryData[],
+  runway: number | null,
+  ctx: CategoryBuildContext,
+): React.ReactNode {
+  const urgentCount = categories.filter(c => categoryUrgency(c, runway) === "urgent").length;
+  const watchCount = categories.filter(c => categoryUrgency(c, runway) === "watch").length;
+  const contextPct = computeOverallContextPct(ctx.benchmark, ctx.detailAnswers, ctx.benchmarkContext);
+  const urgentLabels = categories
+    .filter(c => categoryUrgency(c, runway) === "urgent")
+    .map(c => c.label);
+
+  if (urgentCount > 0) {
+    return (
+      <>
+        <strong>{urgentCount} urgent gap{urgentCount > 1 ? "s" : ""}</strong> vs cohort
+        {urgentLabels.length ? ` — start with ${urgentLabels.join(" and ")}` : ""}.
+        {contextPct < 80 ? " Finish benchmark and details to sharpen scores." : ""}
+      </>
+    );
+  }
+
+  if (watchCount > 0) {
+    return `Mostly on pace — ${watchCount} area${watchCount > 1 ? "s" : ""} to watch.${contextPct < 80 ? " Complete profile context for sharper reads." : ""}`;
+  }
+
+  if (contextPct < 80) {
+    return `${companyName} — complete benchmark and View details to unlock sharper track reads.`;
+  }
+
+  return `${companyName} is tracking with peers. Track summaries below show where to invest next.`;
+}
+
+function insightDetail(detail: string, source: keyof typeof TRACK_INSIGHT_SOURCE): string {
+  return founderPlainCopy(`${detail} · ${TRACK_INSIGHT_SOURCE[source]}`);
+}
+
+function classifyUserIntel(item: ScorecardIntelligenceItem): "strength" | "weakness" | "neutral" {
+  const blob = `${item.title} ${item.text} ${item.highlight ?? ""}`;
+  if (INTEL_WEAK_HINTS.test(blob)) return "weakness";
+  if (INTEL_STRONG_HINTS.test(blob)) return "strength";
+  return "neutral";
+}
+
+function intelBenchMetricKey(id: string): MetricKey | null {
+  if (!id.startsWith("intel-bench-")) return null;
+  const key = id.slice("intel-bench-".length) as MetricKey;
+  return key in COHORT_BY_KEY ? key : null;
+}
+
+function buildTrackInsightLists(
+  category: ScorecardCategory,
+  metricWeights: CategoryData["metricWeights"],
+  contributors: ScoreContributor[],
+  catIntel: ScorecardIntelligenceItem[],
+  ctx: CategoryBuildContext,
+  metricMap: Record<MetricKey, EvaluatedMetric>,
+): { strengths: TrackInsightItem[]; weaknesses: TrackInsightItem[] } {
+  const strengths: TrackInsightItem[] = [];
+  const weaknesses: TrackInsightItem[] = [];
+  const seen = new Set<string>();
+  const seenTopics = new Set<string>();
+
+  const addStrength = (id: string, label: string, detail: string, source: keyof typeof TRACK_INSIGHT_SOURCE, sortKey: number) => {
+    const topic = insightTopicKey(label);
+    if (seen.has(id) || seenTopics.has(topic)) return;
+    seen.add(id);
+    seenTopics.add(topic);
+    strengths.push({ id, label: founderPlainCopy(label), detail: insightDetail(detail, source), sortKey });
+  };
+
+  const addWeakness = (id: string, label: string, detail: string, source: keyof typeof TRACK_INSIGHT_SOURCE, sortKey: number) => {
+    const topic = insightTopicKey(label);
+    if (seen.has(id) || seenTopics.has(topic)) return;
+    seen.add(id);
+    seenTopics.add(topic);
+    weaknesses.push({ id, label: founderPlainCopy(label), detail: insightDetail(detail, source), sortKey });
+  };
+
+  metricWeights
+    .filter(m => (m.tier === "top" || m.tier === "upper") && m.display !== "—" && m.display !== "Not logged")
+    .forEach(m => {
+      addStrength(
+        `bench-${m.key}`,
+        friendlyMetricLabel(m.label),
+        m.positionLabel,
+        "benchmark",
+        m.tier === "top" ? 100 : 85,
+      );
+    });
+
+  metricWeights
+    .filter(m => (m.tier === "bottom" || m.tier === "lower") && m.display !== "—" && m.display !== "Not logged")
+    .forEach(m => {
+      addWeakness(
+        `bench-${m.key}`,
+        friendlyMetricLabel(m.label),
+        m.positionLabel,
+        "benchmark",
+        m.tier === "bottom" ? 10 : 25,
+      );
+    });
+
+  const profile = contributors.find(c => c.source === "profile");
+  if (profile) {
+    const profileInputs = buildProfileInputs(category, ctx);
+    if (!isMissingContributor(profile) && profile.score >= 55) {
+      addStrength(
+        "profile",
+        "Company profile",
+        profileInputs.slice(0, 2).join(" · ") || profile.display,
+        "profile",
+        profile.score,
+      );
+    } else if (isMissingContributor(profile) || profile.score < 50) {
+      addWeakness(
+        "profile",
+        "Company profile",
+        isMissingContributor(profile) ? "Add sector, team size, and context" : "Profile is still thin",
+        "profile",
+        isMissingContributor(profile) ? 15 : 30,
+      );
+    }
+  }
+
+  contributors
+    .filter(c => c.source === "detail")
+    .forEach(c => {
+      const label = friendlyMetricLabel(c.label);
+      if (isMissingContributor(c)) {
+        addWeakness(`detail-${c.id}`, label, "Not answered yet", "detail", 20);
+        return;
+      }
+      if (c.score >= 72) {
+        addStrength(`detail-${c.id}`, label, c.display, "detail", c.score);
+      } else if (c.score < 58) {
+        addWeakness(`detail-${c.id}`, label, c.display, "detail", c.score);
+      }
+    });
+
+  catIntel.forEach(item => {
+    const benchKey = intelBenchMetricKey(item.id);
+    if (benchKey) {
+      const m = metricMap[benchKey];
+      if (!m) return;
+      const topic = insightTopicKey(friendlyMetricLabel(m.label));
+      if (seenTopics.has(topic)) return;
+      if (m.value != null && (m.tier === "top" || m.tier === "upper")) {
+        addStrength(
+          item.id,
+          friendlyMetricLabel(m.label),
+          item.highlight ?? m.positionLabel,
+          "intelligence",
+          m.tier === "top" ? 90 : 75,
+        );
+      } else if (m?.value != null && (m.tier === "bottom" || m.tier === "lower")) {
+        addWeakness(
+          item.id,
+          friendlyMetricLabel(m.label),
+          item.highlight ?? m.positionLabel,
+          "intelligence",
+          m.tier === "bottom" ? 12 : 28,
+        );
+      }
+      return;
+    }
+
+    const sentiment = classifyUserIntel(item);
+    const label = item.title?.trim() || item.text?.trim() || "Intelligence signal";
+    const detail = (item.highlight ?? item.text ?? "").trim() || "Context captured from sources";
+    if (sentiment === "strength") {
+      addStrength(item.id, label, detail.length > 72 ? `${detail.slice(0, 72)}…` : detail, "intelligence", 65);
+    } else if (sentiment === "weakness") {
+      addWeakness(item.id, label, detail.length > 72 ? `${detail.slice(0, 72)}…` : detail, "intelligence", 35);
+    } else {
+      addStrength(item.id, label, detail.length > 72 ? `${detail.slice(0, 72)}…` : detail, "intelligence", 55);
+    }
+  });
+
+  strengths.sort((a, b) => b.sortKey - a.sortKey);
+  weaknesses.sort((a, b) => a.sortKey - b.sortKey);
+
+  return {
+    strengths,
+    weaknesses,
+  };
+}
+
+function TrackInsightPanel({
+  tone,
+  title,
+  items,
+  empty,
+  compact = false,
+}: {
+  tone: "strong" | "weak";
+  title: string;
+  items: TrackInsightItem[];
+  empty: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`sc-glance-insight-block${compact ? " is-compact" : ""}`}>
+      <span className={`sc-glance-insight-label sc-cat-tone-${tone}`}>{title}</span>
+      {items.length > 0 ? (
+        <ul className="sc-cat-sw-list">
+          {items.map(item => (
+            <li key={item.id}>
+              <strong>{item.label}</strong>
+              <em>{item.detail}</em>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="sc-cat-sw-empty">{empty}</p>
+      )}
+    </div>
+  );
 }
 
 function buildCategoryFocusNarrative(
   category: ScorecardCategory,
   score: number,
   contributors: ScoreContributor[],
-  catIntel: ScorecardIntelligenceItem[],
+  _catIntel: ScorecardIntelligenceItem[],
 ): string {
-  const track = CATEGORY_META[category].label;
-  const missing = contributors.filter(isMissingContributor);
-  const seen = new Set<string>();
-  const weakNotes = [...contributors]
-    .filter(c => !isMissingContributor(c))
-    .sort((a, b) => a.score - b.score)
-    .flatMap(c => {
-      const note = humanizeWeakContributor(c);
-      if (!note) return [];
-      const key = `${c.source}:${c.label}`;
-      if (seen.has(key)) return [];
-      seen.add(key);
-      return [note];
-    })
-    .slice(0, 2);
+  const trackName = trackFocusName(category);
 
-  let lead: string;
-  if (score >= 75) {
-    lead = `${track} is in good shape at ${score}.`;
-  } else if (score >= 55) {
-    lead = `${track} scores ${score} — a few inputs are holding it back.`;
+  let opener: string;
+  if (score >= 80) {
+    opener = `Strong ${trackName} (${score}/100) — you're in good shape vs peers.`;
+  } else if (score >= 65) {
+    opener = `Solid ${trackName} (${score}/100) with a few levers left to pull.`;
+  } else if (score >= 50) {
+    opener = `${trackName} is at ${score}/100 — fixable gaps if you focus now.`;
   } else {
-    lead = `${track} is at ${score} and needs attention.`;
+    opener = `${trackName} needs attention (${score}/100) — peers are pulling ahead.`;
   }
 
-  const sentences: string[] = [lead];
-
-  if (weakNotes.length) {
-    sentences.push(joinNaturalList(weakNotes) + ".");
-  }
-
-  if (missing.length) {
-    const names = missing.slice(0, 2).map(c => c.label.toLowerCase());
-    const tail = missing.length > 2 ? " and a few more fields" : "";
-    sentences.push(`Add ${names.join(" and ")}${tail} to sharpen this score.`);
-  }
-
-  if (catIntel.length && sentences.length < 3) {
-    sentences.push(catIntel[0].text.endsWith(".") ? catIntel[0].text : `${catIntel[0].text}.`);
-  }
-
-  return sentences.join(" ");
+  const focus = pickFounderFocusLine(contributors);
+  return founderPlainCopy(focus ? `${opener} ${focus}` : opener);
 }
 
 function buildCategoryGlanceSummary(
@@ -1622,6 +2326,7 @@ function enrichCategoryData(
 
   const { contributors, compositeScore } = buildCategoryScoreContributors(base.id, metricMap, runway, ctx);
   const compositeStatus = statusFromCompositeScore(compositeScore);
+  const insightLists = buildTrackInsightLists(base.id, base.metricWeights, contributors, catIntel, ctx, metricMap);
 
   return {
     ...base,
@@ -1642,6 +2347,10 @@ function enrichCategoryData(
     detailQuestionCount: sectionTotal,
     glanceSummary: buildCategoryGlanceSummary(base.id, metricMap, runway, ctx, detailSnippets),
     glanceFocus: buildCategoryFocusNarrative(base.id, compositeScore, contributors, catIntel),
+    glanceStrength: buildGlanceStrengthLine(base.metricWeights, contributors),
+    glanceNeedsWork: buildGlanceNeedsWorkLine(base.metricWeights, contributors),
+    glanceStrengthItems: insightLists.strengths,
+    glanceWeaknessItems: insightLists.weaknesses,
     intelDisplayCount: countCategoryIntelDisplay(base.id, ctx.intelligenceItems, metricMap),
   };
 }
@@ -1651,6 +2360,7 @@ function buildAdvisorSummary(
   categories: CategoryData[],
   runway: number | null,
   ctx: CategoryBuildContext,
+  includeTrackNotes = true,
 ): string {
   const contextPct = computeOverallContextPct(ctx.benchmark, ctx.detailAnswers, ctx.benchmarkContext);
   const urgentCount = categories.filter(c => categoryUrgency(c, runway) === "urgent").length;
@@ -1664,7 +2374,7 @@ function buildAdvisorSummary(
     if (cat.detailSnippets[0]) parts.push(cat.detailSnippets[0]);
     else if (cat.positionTier === "top" || cat.positionTier === "upper") parts.push(`${cat.label} on pace`);
     else if (categoryUrgency(cat, runway) === "urgent") parts.push(`${cat.label} needs attention`);
-    if (cat.intelligenceCount) parts.push(`${cat.intelligenceCount} intel`);
+    if (cat.intelligenceCount) parts.push(`${cat.intelligenceCount} intelligence`);
     if (cat.openInitiatives.length) parts.push(`${cat.openInitiatives.length} initiative${cat.openInitiatives.length > 1 ? "s" : ""}`);
     return parts.length ? `${cat.label}: ${parts.join(", ")}` : null;
   }).filter(Boolean);
@@ -1679,7 +2389,7 @@ function buildAdvisorSummary(
   } else if (watchCount > 0) {
     statusLine = `Mostly on pace — ${watchCount} area${watchCount > 1 ? "s" : ""} to watch.`;
   } else {
-    statusLine = "Tracking with your cohort across R&D, GTM, and G&A.";
+    statusLine = "Tracking with your cohort across product, go-to-market, and finance.";
   }
 
   const intelLine = totalIntel > 0
@@ -1690,9 +2400,230 @@ function buildAdvisorSummary(
     ? `${totalInitiatives} open initiative${totalInitiatives > 1 ? "s" : ""} suggested across tracks.`
     : "";
 
-  const trackLine = trackNotes.length ? ` ${trackNotes.join(" · ")}.` : "";
+  const trackLine = includeTrackNotes && trackNotes.length ? ` ${trackNotes.join(" · ")}.` : "";
 
   return `${companyName}${sector} — ${profileLine}. ${statusLine} ${intelLine}${initiativeLine ? ` ${initiativeLine}` : ""}${trackLine} Use the tracks below to drill in.`;
+}
+
+function buildAdvisorGenericSummary(
+  companyName: string,
+  categories: CategoryData[],
+  runway: number | null,
+  ctx: CategoryBuildContext,
+): React.ReactNode {
+  const contextPct = computeOverallContextPct(ctx.benchmark, ctx.detailAnswers, ctx.benchmarkContext);
+  const urgentCount = categories.filter(c => categoryUrgency(c, runway) === "urgent").length;
+  const watchCount = categories.filter(c => categoryUrgency(c, runway) === "watch").length;
+  const totalIntel = ctx.intelligenceItems.length;
+  const totalInitiatives = categories.reduce((n, c) => n + c.openInitiatives.length, 0);
+  const sector = ctx.profileMeta?.sector ? ` (${ctx.profileMeta.sector.split("·")[0]?.trim()})` : "";
+
+  const profileLine = contextPct >= 80
+    ? `Profile, benchmark, and detail forms are ${contextPct}% complete.`
+    : `Profile and benchmark context is ${contextPct}% complete — use recommended actions to sharpen summaries.`;
+
+  const intelLine = totalIntel > 0
+    ? `${totalIntel} intelligence signal${totalIntel > 1 ? "s" : ""} from profile, benchmark, and sources.`
+    : "Add sources or complete benchmark to generate intelligence.";
+
+  const initiativeLine = totalInitiatives > 0
+    ? `${totalInitiatives} open initiative${totalInitiatives > 1 ? "s" : ""} suggested across tracks.`
+    : "";
+
+  let statusLine = "";
+  if (urgentCount > 0) {
+    statusLine = watchCount > 0
+      ? `${watchCount} additional area${watchCount > 1 ? "s" : ""} to watch.`
+      : "Open a track below to act first.";
+  } else if (watchCount > 0) {
+    statusLine = `Mostly on pace — ${watchCount} area${watchCount > 1 ? "s" : ""} to watch.`;
+  } else {
+    statusLine = "Tracking with your cohort across product, go-to-market, and finance.";
+  }
+
+  const tail = [profileLine, intelLine, initiativeLine, statusLine].filter(Boolean).join(" ");
+
+  if (urgentCount > 0) {
+    return (
+      <>
+        {companyName}{sector} has{" "}
+        <strong>{urgentCount} urgent focus area{urgentCount > 1 ? "s" : ""}</strong>{" "}
+        versus your cohort. {tail}
+      </>
+    );
+  }
+
+  return `${companyName}${sector} — ${tail} Use the tracks below to drill in.`;
+}
+
+function countDetailAnswers(answers: DetailAnswers): number {
+  return DETAIL_SECTIONS.flatMap(s => s.questions).filter(q => answers[q.id]?.trim()).length;
+}
+
+function mergeDetailAnswers(stored: DetailAnswers, onboarding?: OnboardingFlowAnswers | null): DetailAnswers {
+  if (!onboarding) return stored;
+  return { ...mapOnboardingToDetailAnswers(onboarding), ...stored };
+}
+
+function getCurrentQuarterLabel(): string {
+  const now = new Date();
+  return `Q${Math.floor(now.getMonth() / 3) + 1} ${now.getFullYear()}`;
+}
+
+function loadStoredQuarter(key: string): string | null {
+  try { return window.localStorage.getItem(key); } catch { return null; }
+}
+
+function saveStoredQuarter(key: string, label = getCurrentQuarterLabel()) {
+  try { window.localStorage.setItem(key, label); } catch { /* ignore */ }
+}
+
+function isQuarterStale(stored: string | null): boolean {
+  return !!stored && stored !== getCurrentQuarterLabel();
+}
+
+type AdvisorRecAction = {
+  title: string;
+  sub: string;
+  cta: string;
+  done: boolean;
+};
+
+function buildAdvisorRecommendedActions(
+  buildContext: CategoryBuildContext,
+  mergedDetailAnswers: DetailAnswers,
+  documentSlots: ScorecardDocumentSlot[] | undefined,
+  benchmarkSaved: boolean,
+  companyName: string,
+): AdvisorRecAction[] {
+  const benchFilled = METRIC_COHORTS.filter(c => parseMetricValue(buildContext.benchmark[c.key] ?? "")).length;
+  const benchTotal = METRIC_COHORTS.length;
+  const benchMissing = benchFilled === 0;
+  const benchPartial = benchFilled > 0 && benchFilled < benchTotal;
+  const benchComplete = benchFilled === benchTotal || benchmarkSaved;
+
+  const benchQuarterKey = `fuel-benchmark-q-${companyName}`;
+  const detailsQuarterKey = `fuel-details-q-${companyName}`;
+  const savedBenchQuarter = loadStoredQuarter(benchQuarterKey);
+  const savedDetailsQuarter = loadStoredQuarter(detailsQuarterKey);
+  const benchQuarterStale = benchComplete && isQuarterStale(savedBenchQuarter);
+  const detailsQuarterStale = isQuarterStale(savedDetailsQuarter);
+
+  const detailAnswered = countDetailAnswers(mergedDetailAnswers);
+  const detailComplete = detailAnswered >= DETAIL_TOTAL_Q;
+  const detailRemaining = DETAIL_TOTAL_Q - detailAnswered;
+  const onboardingSeeded = countDetailAnswers(mapOnboardingToDetailAnswers(
+    buildContext.onboardingAnswers ?? {},
+  ));
+  const drawerAdded = Math.max(0, detailAnswered - onboardingSeeded);
+
+  const docCount = documentSlots?.filter(s => s.current).length ?? 0;
+  const userIntelCount = buildContext.intelligenceItems.filter(i => !i.id.startsWith("intel-bench-")).length;
+  const hasUserSources = docCount > 0 || userIntelCount > 0;
+
+  const sourcesNeedAction = !hasUserSources;
+  const detailsNeedAction = !detailComplete || detailsQuarterStale;
+
+  let benchmarkAction: AdvisorRecAction;
+  if (benchMissing) {
+    benchmarkAction = {
+      title: "Complete Benchmark",
+      sub: "Add cohort metrics to unlock comparisons.",
+      cta: "Edit Benchmark",
+      done: false,
+    };
+  } else if (benchPartial) {
+    benchmarkAction = {
+      title: "Complete Benchmark",
+      sub: `${benchFilled} of ${benchTotal} metrics entered.`,
+      cta: "Edit Benchmark",
+      done: false,
+    };
+  } else if (benchQuarterStale) {
+    benchmarkAction = {
+      title: "Add New Quarter Benchmark",
+      sub: `${getCurrentQuarterLabel()} numbers — refresh your cohort snapshot.`,
+      cta: "Add Benchmark",
+      done: false,
+    };
+  } else if (benchComplete && !sourcesNeedAction && !detailsNeedAction) {
+    benchmarkAction = {
+      title: "Update Benchmark",
+      sub: "Refresh numbers if anything shifted this quarter.",
+      cta: "Update Benchmark",
+      done: true,
+    };
+  } else {
+    benchmarkAction = {
+      title: "Review Benchmark",
+      sub: `${benchFilled} of ${benchTotal} cohort metrics on file.`,
+      cta: "Review Benchmark",
+      done: true,
+    };
+  }
+
+  let sourcesAction: AdvisorRecAction;
+  if (hasUserSources) {
+    const sourceBits = [
+      docCount > 0 ? `${docCount} in data room` : null,
+      userIntelCount > 0 ? `${userIntelCount} intelligence signal${userIntelCount === 1 ? "" : "s"}` : null,
+    ].filter(Boolean).join(" · ");
+    sourcesAction = {
+      title: "Review Intelligence Sources",
+      sub: sourceBits ? `${sourceBits} — add meetings, decks, or news.` : "Keep sources current for fresh intelligence.",
+      cta: "Review Sources",
+      done: true,
+    };
+  } else {
+    sourcesAction = {
+      title: "Add Intelligence Sources",
+      sub: "Meetings, decks, news — fuel intelligence, initiatives & playbooks.",
+      cta: "+ Add Sources",
+      done: false,
+    };
+  }
+
+  let detailsAction: AdvisorRecAction;
+  if (detailsQuarterStale && detailComplete) {
+    detailsAction = {
+      title: "Update Company Details",
+      sub: `New quarter — refresh product, go-to-market, and finance context.`,
+      cta: "Update Details",
+      done: false,
+    };
+  } else if (detailComplete) {
+    detailsAction = {
+      title: "Review Company Details",
+      sub: "All 21 answered — keep details current each quarter.",
+      cta: "Review Details",
+      done: true,
+    };
+  } else if (onboardingSeeded > 0 && drawerAdded === 0) {
+    detailsAction = {
+      title: "Complete Missing Details",
+      sub: `${onboardingSeeded} from onboarding · ${detailRemaining} more across tracks.`,
+      cta: "+ Add Details",
+      done: false,
+    };
+  } else if (detailAnswered >= Math.ceil(DETAIL_TOTAL_Q / 2)) {
+    detailsAction = {
+      title: "Complete Missing Details",
+      sub: `${detailAnswered} of ${DETAIL_TOTAL_Q} · ${detailRemaining} left to sharpen tracks.`,
+      cta: "+ Add Details",
+      done: false,
+    };
+  } else {
+    detailsAction = {
+      title: "Complete Missing Details",
+      sub: onboardingSeeded > 0
+        ? `${onboardingSeeded} from onboarding · ${detailRemaining} remaining.`
+        : `${detailAnswered} of ${DETAIL_TOTAL_Q} details added.`,
+      cta: "+ Add Details",
+      done: false,
+    };
+  }
+
+  return [benchmarkAction, sourcesAction, detailsAction];
 }
 
 // ─── UI: Detail-enrichment drawer ─────────────────────────────────────────────
@@ -1876,70 +2807,140 @@ function buildFocusIntelTags(
   });
 }
 
-// ─── UI: Advisor panel (summary + intelligence focus tags only) ───────────────
+function trackSignalTag(cat: CategoryData, runway: number | null): {
+  suffix: string;
+  suffixColour: string;
+  dotColour: string;
+  urgent: boolean;
+  borderColour?: string;
+} {
+  const urgency = categoryUrgency(cat, runway);
+  if (urgency === "ok") {
+    return {
+      suffix: "Stable",
+      suffixColour: COLOUR_STRONG,
+      dotColour: COLOUR_STRONG,
+      urgent: false,
+      borderColour: "rgba(0, 180, 138, 0.22)",
+    };
+  }
+  if (urgency === "urgent") {
+    const n = Math.max(1, cat.openInitiatives.length || cat.intelligenceCount || 1);
+    return {
+      suffix: `${n} new risk${n > 1 ? "s" : ""}`,
+      suffixColour: COLOUR_WEAK,
+      dotColour: COLOUR_WEAK,
+      urgent: true,
+    };
+  }
+  return {
+    suffix: "Watch",
+    suffixColour: COLOUR_AROUND,
+    dotColour: COLOUR_AROUND,
+    urgent: false,
+  };
+}
+
+// ─── UI: Advisor panel (sc-adv split layout + existing scorecard content) ───
 function OverviewAdvisorPanel({
   categories,
   runway,
   companyName,
-  metricMap,
   buildContext,
+  overviewLayout = "v1",
+  benchmarkSaved = false,
   onOpenIntelligence,
-  onOpenInitiatives,
-  onRunPlaybook,
+  onEditBenchmark,
+  onAddSources,
+  onViewDetails,
+  documentSlots,
 }: {
   categories: CategoryData[];
   runway: number | null;
   companyName: string;
-  metricMap: Record<MetricKey, EvaluatedMetric>;
   buildContext: CategoryBuildContext;
+  overviewLayout?: OverviewLayoutVersion;
+  benchmarkSaved?: boolean;
   onOpenIntelligence?: () => void;
-  onOpenInitiatives?: () => void;
-  onRunPlaybook?: (id: string) => void;
+  onEditBenchmark?: () => void;
+  onAddSources?: () => void;
+  onViewDetails?: () => void;
+  documentSlots?: ScorecardDocumentSlot[];
 }) {
-  const focusTags = buildFocusIntelTags(categories, metricMap, runway, buildContext.intelligenceItems);
-  const summary = buildAdvisorSummary(companyName, categories, runway, buildContext);
-  const totalInitiatives = categories.reduce((n, c) => n + c.openInitiatives.length, 0);
-  const totalPlaybooks = categories.reduce((n, c) => n + c.suggestedPlaybooks.length, 0);
+  const actions = buildAdvisorRecommendedActions(
+    buildContext,
+    buildContext.detailAnswers,
+    documentSlots,
+    benchmarkSaved,
+    companyName,
+  );
+  const actionHandlers = [onEditBenchmark, onAddSources, onViewDetails];
 
   return (
-    <div className="overview-advisor-body">
-      <p className="overview-advisor-summary">{summary}</p>
-      <div className="overview-advisor-stats">
-        {buildContext.intelligenceItems.length > 0 ? (
-          <button type="button" className="sc-glance-meta-badge is-intel" onClick={() => onOpenIntelligence?.()}>
-            {buildContext.intelligenceItems.length} intelligence
-          </button>
-        ) : null}
-        {totalInitiatives > 0 ? (
-          <button type="button" className="sc-glance-meta-badge" onClick={() => onOpenInitiatives?.()}>
-            {totalInitiatives} initiatives
-          </button>
-        ) : null}
-        {totalPlaybooks > 0 ? (
-          <button type="button" className="sc-glance-meta-badge is-playbook" onClick={() => onRunPlaybook?.(categories[0]?.suggestedPlaybooks[0]?.id ?? "")}>
-            {totalPlaybooks} playbooks
-          </button>
-        ) : null}
-      </div>
-      {focusTags.length > 0 ? (
-        <>
-          <span className="overview-advisor-label">Intelligence focus</span>
-          <div className="signals-filter-row overview-advisor-tags">
-            {focusTags.map(tag => (
-              <button
-                key={tag.id}
-                type="button"
-                className={tag.urgency === "urgent" ? "is-focus-urgent" : "is-focus-watch"}
-                onClick={() => onOpenIntelligence?.()}
-              >
-                {tag.label}
-              </button>
-            ))}
+    <div className="sc-adv-featured sc-adv-featured-split">
+      <div className="sc-adv-featured-brief-col">
+        <div className="sc-adv">
+          <div className="sc-adv-head">
+            <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
+            <span className="sc-adv-company">{companyName}</span>
           </div>
-        </>
-      ) : (
-        <p className="overview-advisor-note">Complete benchmark and View details to unlock intelligence focus tags.</p>
-      )}
+          <div className="sc-adv-rec-title">Summary</div>
+          <p className={`sc-adv-summary${overviewLayout === "v2" ? " sc-adv-summary-compact" : ""}`}>
+            {overviewLayout === "v2"
+              ? buildAdvisorCompactSummary(companyName, categories, runway, buildContext)
+              : buildAdvisorGenericSummary(companyName, categories, runway, buildContext)}
+          </p>
+          {overviewLayout === "v2" ? (
+            <div className="overview-advisor-tracks">
+              {categories.map(cat => (
+                <div key={cat.id} className="overview-advisor-track-col">
+                  <div className="overview-advisor-track-head">
+                    <span className="overview-advisor-track-dot" style={{ background: cat.colour }} aria-hidden />
+                    {cat.label}
+                  </div>
+                  <p className="overview-advisor-track-copy">{buildTrackAdvisorSummary(cat, runway)}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="sc-adv-tags-label">Recent signals</div>
+          <div className="sc-adv-tags">
+            {categories.map(cat => {
+              const tag = trackSignalTag(cat, runway);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`sc-adv-tag${tag.urgent ? " is-urgent" : ""}`}
+                  style={tag.borderColour ? { borderColor: tag.borderColour } : undefined}
+                  onClick={() => onOpenIntelligence?.()}
+                >
+                  <span className="sc-adv-tag-dot" style={{ background: tag.dotColour }} />
+                  {cat.label}
+                  <i style={{ color: tag.suffixColour }}>{tag.suffix}</i>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="sc-adv-featured-rec-col">
+        <div className="sc-adv-rec-title">Recommended Actions</div>
+        <ol className="sc-adv-rec-list">
+          {actions.map((action, i) => (
+            <li key={action.title} className="sc-adv-rec-item">
+              <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
+              <div className="sc-adv-rec-body">
+                <strong className="sc-adv-rec-name">{action.title}</strong>
+                <p className="sc-adv-rec-sub">{action.sub}</p>
+              </div>
+              <button type="button" className="sc-adv-rec-cta" onClick={actionHandlers[i]}>
+                {action.cta} <span aria-hidden="true">→</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }
@@ -1947,7 +2948,7 @@ function OverviewAdvisorPanel({
 // ─── UI: Premium metric card (in drilldown) ───────────────────────────────────
 // Uses the shared BenchmarkCohortTrack + BenchmarkPercentileScale from FuelOnboardingChat
 // for visual consistency with the onboarding benchmark bars.
-function MetricCard({ metric, catColour }: { metric: EvaluatedMetric; catColour: string }) {
+function MetricCard({ metric, catColour, compactBar = false }: { metric: EvaluatedMetric; catColour: string; compactBar?: boolean }) {
   const field      = WIZARD_FIELD_BY_KEY[metric.key];
   const marker     = metric.value != null && field ? valueToMarkerPercent(metric.value, field) : null;
   const tierStyle  = metric.value != null ? getBenchmarkTierStyle(metric.tier) : null;
@@ -1979,47 +2980,363 @@ function MetricCard({ metric, catColour }: { metric: EvaluatedMetric; catColour:
         )}
       </div>
 
-      {vs && <div className="scorecard-drill-mcard-vs">{vs}</div>}
+      {vs && metric.value != null ? <div className="scorecard-drill-mcard-vs">{vs}</div> : null}
 
       {field ? (
-        <div style={{ marginTop: 14 }}>
-          {/* Full-size bar — identical to onboarding chat bars */}
-          <BenchmarkCohortTrack field={field} marker={marker} value={metric.value} />
-          <BenchmarkPercentileScale field={field} value={metric.value} />
+        <div className="scorecard-drill-mcard-bars">
+          <BenchmarkCohortTrack compact={compactBar} field={field} marker={marker} value={metric.value} />
+          <BenchmarkPercentileScale compact={compactBar} field={field} value={metric.value} />
         </div>
       ) : null}
     </div>
   );
 }
 
-// ─── UI: Development detail (rich) ────────────────────────────────────────────
-const DEV_HISTORY = {
-  shipVelocity:   [{ q: "Q1·25", us: 12, peer: 14 }, { q: "Q2·25", us: 14, peer: 14 }, { q: "Q3·25", us: 16, peer: 15 }, { q: "Q4·25", us: 19, peer: 15 }, { q: "Q1·26", us: 22, peer: 16 }, { q: "Q2·26", us: 26, peer: 17 }],
-  qualityScore:   [{ q: "Q1·25", us: 64, peer: 70 }, { q: "Q2·25", us: 68, peer: 71 }, { q: "Q3·25", us: 72, peer: 72 }, { q: "Q4·25", us: 78, peer: 72 }, { q: "Q1·26", us: 84, peer: 73 }, { q: "Q2·26", us: 88, peer: 74 }],
-  fteHeadcount:   [55, 62, 70, 80, 92, 100],
-  grossMargin:    [78, 82, 86, 90, 96, 100],
-};
+function DetailDashboardWidget({
+  title,
+  meta,
+  span = 6,
+  children,
+  footer,
+  headerAction,
+}: {
+  title: string;
+  meta?: string;
+  span?: 6 | 8 | 12;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  headerAction?: React.ReactNode;
+}) {
+  return (
+    <section className={`sc-detail-widget sc-detail-widget--span-${span}`}>
+      <div className="sc-detail-widget-head">
+        <div className="sc-detail-widget-head-main">
+          <strong className="sc-detail-widget-title">{title}</strong>
+          {meta ? <span className="sc-detail-widget-meta">{meta}</span> : null}
+        </div>
+        {headerAction ? <div className="sc-detail-widget-head-action">{headerAction}</div> : null}
+      </div>
+      <div className="sc-detail-widget-body">{children}</div>
+      {footer ? <div className="sc-detail-widget-foot">{footer}</div> : null}
+    </section>
+  );
+}
 
-const DEV_KPIS: { key: string; label: string; value: string; delta: string; deltaUp: boolean; series: number[] }[] = [
-  { key: "fte",     label: "FTE headcount",      value: "100",  delta: "+8 QoQ",      deltaUp: true,  series: DEV_HISTORY.fteHeadcount },
-  { key: "margin",  label: "Gross margin",       value: "100%", delta: "+4 pts",      deltaUp: true,  series: DEV_HISTORY.grossMargin },
-  { key: "ship",    label: "Releases / quarter", value: "26",   delta: "+4 vs Q1",    deltaUp: true,  series: DEV_HISTORY.shipVelocity.map(d => d.us) },
-  { key: "quality", label: "Quality score",      value: "88",   delta: "+4 vs Q1",    deltaUp: true,  series: DEV_HISTORY.qualityScore.map(d => d.us) },
-];
+function initiativeMatchesWeakness(
+  init: CategoryInitiative,
+  weaknesses: TrackInsightItem[],
+): TrackInsightItem | null {
+  for (const item of weaknesses) {
+    const labelWords = item.label.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    const blob = `${init.title} ${init.description}`.toLowerCase();
+    if (labelWords.some(w => blob.includes(w))) return item;
+  }
+  return null;
+}
 
-const DEV_INTEL: { id: string; flag: "good" | "warn" | "crit"; tag: string; text: string; when: string }[] = [
-  { id: "i1", flag: "good", tag: "Shipping",  text: "Patriot Pay's ship velocity now beats cohort median by 53% — the gap widened again in Q2.", when: "2h ago" },
-  { id: "i2", flag: "good", tag: "Quality",   text: "Regression suite passes at 98%. Two non-critical flaky tests isolated this sprint.",         when: "Yesterday" },
-  { id: "i3", flag: "warn", tag: "Roadmap",   text: "Mobile intake queued behind active regression work — engineering capacity decision needed.", when: "2 days ago" },
-  { id: "i4", flag: "good", tag: "AI Leverage", text: "Prompt reuse across the Operator Thread Module unlocked ~31% engineering throughput.",     when: "5 days ago" },
-];
+function formatInitiativeReason(gap: TrackInsightItem): string {
+  const detail = stripInsightSourceSuffix(gap.detail);
+  if (detail) return `${gap.label} — ${founderPlainCopy(detail)}`;
+  return gap.label;
+}
 
-const DEV_INITIATIVES: { id: string; title: string; owner: string; progress: number; status: "On track" | "At risk" | "Done"; due: string }[] = [
-  { id: "n1", title: "Operator Thread Module — build & ship sprint 3",  owner: "Matt L.", progress: 72, status: "On track", due: "Nov 22" },
-  { id: "n2", title: "Mobile intake — design handoff to engineering",   owner: "Priya R.", progress: 28, status: "At risk",  due: "Dec 6" },
-  { id: "n3", title: "Postgres tuning — burn down P95 latency",         owner: "Jake S.", progress: 100, status: "Done",     due: "Oct 22" },
-];
+function CategoryDetailInsightsPanel({
+  strengths,
+}: {
+  strengths: TrackInsightItem[];
+}) {
+  return (
+    <div className="sc-detail-insights-action">
+      {strengths.length > 0 ? (
+        <div className="sc-detail-strengths-strip">
+          <span className="sc-detail-insights-section-label">What&apos;s working</span>
+          <div className="sc-detail-strength-chips">
+            {strengths.map(item => (
+              <span
+                key={item.id}
+                className="sc-detail-strength-chip"
+                title={stripInsightSourceSuffix(item.detail)}
+              >
+                {item.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="sc-cat-sw-empty sc-detail-insights-empty">No strengths flagged yet.</p>
+      )}
+    </div>
+  );
+}
 
+function BenchmarkCompactRow({ metric, gapOnly = false }: { metric: EvaluatedMetric; gapOnly?: boolean }) {
+  const field = WIZARD_FIELD_BY_KEY[metric.key];
+  const marker = metric.value != null && field ? valueToMarkerPercent(metric.value, field) : null;
+  const tierStyle = metric.value != null ? getBenchmarkTierStyle(metric.tier) : null;
+
+  return (
+    <div className={`sc-detail-bench-row${metric.value == null ? " is-empty" : ""}${gapOnly ? " is-gap" : ""}`}>
+      <div className="sc-detail-bench-row-head">
+        <span className="sc-detail-bench-label">{metric.label}</span>
+        <div className="sc-detail-bench-meta">
+          <strong className="sc-detail-bench-val" style={{ color: metric.value != null ? metric.colour : undefined }}>
+            {metric.value != null ? metric.display : "Not logged"}
+          </strong>
+          {tierStyle ? (
+            <span
+              className="sc-detail-bench-pill"
+              style={{
+                color: tierStyle.marker,
+                background: tierStyle.badgeBg,
+                borderColor: tierStyle.badgeBorder,
+              }}
+            >
+              {metric.positionLabel}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {!gapOnly && field ? (
+        <BenchmarkCohortTrack compact field={field} marker={marker} value={metric.value} />
+      ) : null}
+    </div>
+  );
+}
+
+function CategoryDetailContextPanel({
+  cat,
+  allBenchmarkMetrics,
+  formRows,
+  onEditDetails,
+  onEditBenchmark,
+}: {
+  cat: CategoryData;
+  allBenchmarkMetrics: EvaluatedMetric[];
+  formRows: DetailFieldRow[];
+  onEditDetails?: () => void;
+  onEditBenchmark?: () => void;
+}) {
+  const detailSection = DETAIL_SECTIONS.find(s => s.id === cat.id);
+  const importantBenchmarks = useMemo(
+    () => filterImportantBenchmarks(allBenchmarkMetrics),
+    [allBenchmarkMetrics],
+  );
+  const loggedCount = allBenchmarkMetrics.filter(m => m.value != null).length;
+
+  return (
+    <section className="sc-detail-context-panel">
+      <div className="sc-detail-context-head">
+        <div>
+          <h3 className="sc-detail-context-title">Your inputs</h3>
+          <p className="sc-detail-context-sub">
+            {detailSection?.title ?? cat.label} answers and benchmark gaps — edit either side to sharpen this track.
+          </p>
+        </div>
+      </div>
+
+      <div className="sc-detail-context-split">
+        <div className="sc-detail-context-form-block">
+          <div className="sc-detail-context-col-head">
+            <div className="sc-detail-context-col-head-main">
+              <span className="sc-detail-context-col-label">{detailSection?.title ?? cat.label} details</span>
+              <span className="sc-detail-context-col-meta">{cat.detailAnsweredCount} of {cat.detailQuestionCount} answered</span>
+            </div>
+            {onEditDetails ? (
+              <button type="button" className="sc-cat-header-btn sc-detail-context-col-btn" onClick={onEditDetails}>
+                Edit answers <span aria-hidden="true">→</span>
+              </button>
+            ) : null}
+          </div>
+          <CategoryDetailFormWidget rows={formRows} />
+        </div>
+
+        <div className="sc-detail-context-bench-block">
+          <div className="sc-detail-context-col-head">
+            <div className="sc-detail-context-col-head-main">
+              <span className="sc-detail-context-col-label">Benchmark gaps</span>
+              <span className="sc-detail-context-col-meta">
+                {importantBenchmarks.length} to review · {loggedCount} of {allBenchmarkMetrics.length} logged
+              </span>
+            </div>
+            {onEditBenchmark ? (
+              <button type="button" className="sc-cat-header-btn sc-detail-context-col-btn" onClick={onEditBenchmark}>
+                Edit benchmark <span aria-hidden="true">→</span>
+              </button>
+            ) : null}
+          </div>
+          {importantBenchmarks.length > 0 ? (
+            <div className="sc-detail-bench-gap-list">
+              {importantBenchmarks.map(metric => (
+                <BenchmarkCompactRow key={metric.key} metric={metric} gapOnly />
+              ))}
+            </div>
+          ) : (
+            <p className="sc-detail-bench-ok">
+              No benchmark gaps flagged — logged metrics are on pace vs cohort.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CategoryDetailFormWidget({
+  rows,
+}: {
+  rows: DetailFieldRow[];
+}) {
+  const flaggedRows = rows.filter(r => r.tone !== "ok");
+  const okRows = rows.filter(r => r.tone === "ok");
+
+  return (
+    <div className="sc-detail-form-widget">
+      {flaggedRows.length > 0 ? (
+        <div className="sc-detail-form-flagged">
+          <span className="sc-detail-form-section-label">Needs review</span>
+          <div className="sc-detail-form-flagged-list">
+            {flaggedRows.map(row => (
+              <div key={row.id} className={`sc-detail-form-row is-${row.tone}`}>
+                <div className="sc-detail-form-row-head">
+                  <span className="sc-detail-form-label">{row.label}</span>
+                  {row.tone === "missing" ? (
+                    <span className="sc-detail-form-flag">Missing</span>
+                  ) : row.tone === "concern" ? (
+                    <span className="sc-detail-form-flag">Needs attention</span>
+                  ) : row.tone === "watch" ? (
+                    <span className="sc-detail-form-flag is-watch">Watch</span>
+                  ) : null}
+                </div>
+                <div className="sc-detail-form-value">{row.value ?? "Not answered"}</div>
+                {row.note ? (
+                  <p className="sc-detail-form-note">{founderPlainCopy(row.note)}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {okRows.length > 0 ? (
+        <div className="sc-detail-form-ok-block">
+          <span className="sc-detail-form-section-label">On track</span>
+          <div className="sc-detail-form-ok-grid">
+            {okRows.map(row => (
+              <div key={row.id} className="sc-detail-form-ok-row">
+                <span className="sc-detail-form-ok-label">{row.label}</span>
+                <span className="sc-detail-form-ok-value">{row.value ?? "—"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CategoryDetailInitiativesWidget({
+  suggested,
+  weaknesses = [],
+  onOpenInitiatives,
+}: {
+  suggested: CategoryInitiative[];
+  weaknesses?: TrackInsightItem[];
+  onOpenInitiatives?: () => void;
+}) {
+  const active: CategoryInitiative[] = [];
+  const hasActive = active.length > 0;
+  const [view, setView] = useState<"active" | "suggested">("active");
+  const showView = hasActive ? view : "suggested";
+
+  const sortedSuggested = useMemo(() => {
+    const scored = suggested.map(init => ({
+      init,
+      gap: initiativeMatchesWeakness(init, weaknesses),
+    }));
+    return scored.sort((a, b) => Number(Boolean(b.gap)) - Number(Boolean(a.gap)));
+  }, [suggested, weaknesses]);
+
+  const suggestedList = sortedSuggested.length > 0 ? (
+    <div className="scorecard-drill-init-list sc-detail-init-list">
+      {sortedSuggested.map(({ init, gap }) => (
+        <div
+          key={init.id}
+          className="scorecard-drill-init-row"
+          style={{ "--init-col": init.colour } as React.CSSProperties}
+        >
+          <div className="scorecard-drill-init-body">
+            <div className="scorecard-drill-init-title">{init.title}</div>
+            <div className="scorecard-drill-init-desc">
+              {gap ? (
+                <>
+                  <span className="sc-detail-init-reason-label">Why: </span>
+                  {truncateAdvisorLine(formatInitiativeReason(gap), 140)}
+                </>
+              ) : (
+                init.description
+              )}
+            </div>
+          </div>
+          <div className="scorecard-drill-init-action">
+            <button type="button" className="scorecard-drill-init-btn" onClick={() => onOpenInitiatives?.()}>
+              Add <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <p className="sc-detail-init-empty">No suggested initiatives for this track yet.</p>
+  );
+
+  return (
+    <div className="sc-detail-init-stack">
+      {hasActive ? (
+        <div className="sc-detail-init-seg" role="tablist" aria-label="Initiative view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={showView === "active"}
+            className={`sc-detail-init-seg-btn${showView === "active" ? " is-active" : ""}`}
+            onClick={() => setView("active")}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={showView === "suggested"}
+            className={`sc-detail-init-seg-btn${showView === "suggested" ? " is-active" : ""}${suggested.length > 0 ? " has-recs" : ""}`}
+            onClick={() => setView("suggested")}
+          >
+            Suggested{suggested.length > 0 ? ` · ${suggested.length}` : ""}
+          </button>
+        </div>
+      ) : null}
+
+      {showView === "active" && hasActive ? (
+        <div className="sc-detail-init-group">
+          <span className="sc-detail-init-group-label">Active</span>
+          {active.map(init => (
+            <div key={init.id} className="scorecard-drill-init-row" style={{ "--init-col": init.colour } as React.CSSProperties}>
+              <div className="scorecard-drill-init-body">
+                <div className="scorecard-drill-init-title">{init.title}</div>
+                <div className="scorecard-drill-init-desc">{init.description}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="sc-detail-init-group">
+          {!hasActive ? <span className="sc-detail-init-group-label">Suggested</span> : null}
+          {suggestedList}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── UI: Category detail (extended overview glance) ───────────────────────────
 const DEV_TEAM = [
   { role: "Engineering", count: 58, lead: "Matt L." },
   { role: "AI / ML",     count: 12, lead: "Priya R." },
@@ -2027,341 +3344,6 @@ const DEV_TEAM = [
   { role: "QA",          count: 11, lead: "Dana T." },
   { role: "DevOps",      count: 10, lead: "Jake S." },
 ];
-
-const DEV_ACTIVITY = [
-  { icon: "✓", text: "Patient Billing Agent v1 launched to all 12 customers",  date: "Nov 10" },
-  { icon: "→", text: "Operator Thread Module — build in progress (sprint 3)", date: "Nov 8" },
-  { icon: "✓", text: "PostgreSQL migration complete · 35% infra cost reduction", date: "Oct 22" },
-  { icon: "✓", text: "UX sprint 2 — flow redesign approved",                  date: "Oct 14" },
-];
-
-const FLAG_FILL = { good: "#3FE0A4", warn: "#E5B544", crit: "#E56B6B" } as const;
-
-function CategoryExpandedPanel({
-  cat,
-  onOpenIntelligence,
-  onOpenInitiatives,
-  onRunPlaybook,
-}: {
-  cat: CategoryData;
-  onOpenIntelligence?: () => void;
-  onOpenInitiatives?: () => void;
-  onRunPlaybook?: (id: string) => void;
-}) {
-  const playbooks = CATEGORY_PLAYBOOKS[cat.id];
-  const accent = cat.barColour;
-
-  const cardStyle: React.CSSProperties = {
-    background: "var(--surface-2)",
-    border: "1px solid var(--surface-4)",
-    borderRadius: 12,
-    padding: 18,
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-  };
-  const sectionLbl: React.CSSProperties = {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color: "var(--text-3)",
-  };
-  const cardHeader: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  };
-  const primaryBtn: React.CSSProperties = {
-    background: "transparent",
-    color: "var(--text-1)",
-    border: "1px solid var(--surface-4)",
-    borderRadius: 8,
-    padding: "7px 12px",
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-  };
-  const ctaGreen = FLAG_FILL.good;
-  const linkBtn: React.CSSProperties = {
-    background: "transparent",
-    color: ctaGreen,
-    border: "none",
-    padding: "8px 0 0",
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    borderTop: "1px solid var(--surface-4)",
-    marginTop: "auto",
-    paddingTop: 12,
-    width: "100%",
-    justifyContent: "space-between",
-  };
-  const chipStyle: React.CSSProperties = {
-    background: "var(--surface-3)",
-    border: "1px solid var(--surface-4)",
-    borderRadius: 999,
-    padding: "3px 10px",
-    fontSize: 11,
-    color: "var(--text-2)",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-  };
-
-  const sources = ["GitHub", "Linear", "HubSpot", "Notes"];
-  const suggested = { title: `Ship velocity report for ${cat.label}`, desc: "Auto-drafted from cohort delta + last 4 sprints." };
-
-  return (
-    <div style={{ margin: "-4px 0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* Row 1: 2-col layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        {/* Col 1: Latest AI Intelligence */}
-        <div style={cardStyle}>
-          <div style={cardHeader}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={sectionLbl}>Latest AI Intelligence</span>
-            </div>
-            <span style={{ fontSize: 11, color: "var(--text-3)" }}>Updated 2h ago</span>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6 }}>Sources</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {sources.map(s => (
-                <span key={s} style={chipStyle}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--text-3)" }} />
-                  {s}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {DEV_INTEL.slice(0, 3).map(i => (
-              <div key={i.id} style={{ display: "grid", gridTemplateColumns: "4px 1fr auto", gap: 10, alignItems: "start" }}>
-                <span style={{ width: 4, height: "100%", minHeight: 34, borderRadius: 2, background: FLAG_FILL[i.flag] }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <span style={{ fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 600 }}>{i.tag}</span>
-                  <span style={{ fontSize: 13, color: "var(--text-1)", lineHeight: 1.4 }}>{i.text}</span>
-                </div>
-                <span style={{ fontSize: 11, color: "var(--text-3)", whiteSpace: "nowrap" }}>{i.when}</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ background: "var(--surface-3)", border: "1px dashed var(--surface-4)", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <span style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-3)", fontWeight: 700 }}>Suggested Initiative</span>
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text-1)", fontWeight: 600 }}>{suggested.title}</div>
-            <div style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.45 }}>{suggested.desc}</div>
-            <button type="button" style={{ background: "transparent", color: "var(--text-1)", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }} onClick={() => onOpenInitiatives?.()}>+ Create Initiative</button>
-          </div>
-
-          <button type="button" style={linkBtn} onClick={() => onOpenIntelligence?.()}>
-            View Detail in Intelligence <span aria-hidden="true">→</span>
-          </button>
-        </div>
-
-        {/* Col 2: Active Initiatives */}
-        <div style={cardStyle}>
-          <div style={cardHeader}>
-            <span style={sectionLbl}>Active Initiatives</span>
-            <button type="button" style={primaryBtn} onClick={() => onOpenInitiatives?.()}>+ Create New</button>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {DEV_INITIATIVES.map(init => {
-              const statusColour = init.status === "Done" ? accent : init.status === "At risk" ? FLAG_FILL.warn : accent;
-              return (
-                <div key={init.id} style={{ background: "var(--surface-3)", border: "1px solid var(--surface-4)", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ fontSize: 13, color: "var(--text-1)", fontWeight: 600, lineHeight: 1.35 }}>{init.title}</div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: statusColour, background: `${statusColour}22`, border: `1px solid ${statusColour}55`, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>{init.status}</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "var(--text-3)" }}>
-                    <span>{init.owner}</span>
-                    <span>Due {init.due}</span>
-                    <span style={{ marginLeft: "auto", color: "var(--text-1)", fontWeight: 600 }}>{init.progress}%</span>
-                  </div>
-                  <div style={{ height: 4, background: "var(--surface-4)", borderRadius: 999, overflow: "hidden" }}>
-                    <div style={{ width: `${init.progress}%`, height: "100%", background: statusColour, borderRadius: 999 }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <button type="button" style={linkBtn} onClick={() => onOpenInitiatives?.()}>
-            View All in Initiatives <span aria-hidden="true">→</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Row 2: Playbooks + Recent Activity */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <div style={cardStyle}>
-          <div style={cardHeader}>
-            <span style={sectionLbl}>Suggested Playbooks</span>
-            <span style={{ fontSize: 11, color: "var(--text-3)" }}>{playbooks.length} available</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {playbooks.map(pb => (
-              <button
-                key={pb.id}
-                type="button"
-                onClick={() => onRunPlaybook?.(pb.id)}
-                style={{
-                  background: "var(--surface-3)",
-                  border: "1px solid var(--surface-4)",
-                  borderLeft: `3px solid ${accent}`,
-                  borderRadius: 10,
-                  padding: 12,
-                  textAlign: "left",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                }}
-              >
-                <div style={{ fontSize: 13, color: "var(--text-1)", fontWeight: 600 }}>{pb.title}</div>
-                <div style={{ fontSize: 12, color: "var(--text-3)", lineHeight: 1.45 }}>{pb.description}</div>
-                <div style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600, marginTop: 4 }}>Run playbook →</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={cardStyle}>
-          <div style={cardHeader}>
-            <span style={sectionLbl}>Recent Activity</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {DEV_ACTIVITY.map((a, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "22px 1fr auto", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: i < DEV_ACTIVITY.length - 1 ? "1px solid var(--surface-4)" : "none" }}>
-                <span style={{ color: "var(--text-3)", fontSize: 14, textAlign: "center" }}>{a.icon}</span>
-                <span style={{ fontSize: 13, color: "var(--text-1)", lineHeight: 1.4 }}>{a.text}</span>
-                <span style={{ fontSize: 11, color: "var(--text-3)", whiteSpace: "nowrap" }}>{a.date}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MiniSparkline({ data, colour }: { data: number[]; colour: string }) {
-  if (!data.length) return null;
-  const w = 96, h = 28, pad = 2;
-  const min = Math.min(...data), max = Math.max(...data);
-  const range = max - min || 1;
-  const xs = data.map((_, i) => pad + (i * (w - pad * 2)) / (data.length - 1));
-  const ys = data.map(v => h - pad - ((v - min) / range) * (h - pad * 2));
-  const path = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
-  const area = `${path} L${xs[xs.length - 1]},${h} L${xs[0]},${h} Z`;
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="dev-spark" preserveAspectRatio="none">
-      <path d={area} fill={colour} opacity="0.16" />
-      <path d={path} fill="none" stroke={colour} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r="2.5" fill={colour} />
-    </svg>
-  );
-}
-
-function CompareLineChart({ data, colour, label, peerLabel }: { data: { q: string; us: number; peer: number }[]; colour: string; label: string; peerLabel: string }) {
-  const w = 720, h = 360, padX = 56, padTop = 28, padBot = 52;
-  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
-  const svgRef = React.useRef<SVGSVGElement | null>(null);
-  const allValues = data.flatMap(d => [d.us, d.peer]);
-  const min = Math.min(...allValues) * 0.9;
-  const max = Math.max(...allValues) * 1.05;
-  const range = max - min || 1;
-  const xAt = (i: number) => padX + (i * (w - padX * 2)) / (data.length - 1);
-  const yAt = (v: number) => h - padBot - ((v - min) / range) * (h - padTop - padBot);
-  const pathUs   = data.map((d, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)},${yAt(d.us).toFixed(1)}`).join(" ");
-  const areaUs   = `${pathUs} L${xAt(data.length - 1)},${h - padBot} L${xAt(0)},${h - padBot} Z`;
-  const pathPeer = data.map((d, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)},${yAt(d.peer).toFixed(1)}`).join(" ");
-  const ticks = 4;
-  const gridYs = Array.from({ length: ticks + 1 }, (_, i) => padTop + (i * (h - padTop - padBot)) / ticks);
-  const yLabels = Array.from({ length: ticks + 1 }, (_, i) => Math.round(max - (i * range) / ticks));
-
-  function handleMove(e: React.MouseEvent<SVGSVGElement>) {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const xRatio = (e.clientX - rect.left) / rect.width;
-    const xPx = xRatio * w;
-    let best = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < data.length; i++) {
-      const d = Math.abs(xAt(i) - xPx);
-      if (d < bestDist) { bestDist = d; best = i; }
-    }
-    setHoverIdx(best);
-  }
-
-  const hover = hoverIdx != null ? data[hoverIdx] : null;
-  const hoverX = hoverIdx != null ? xAt(hoverIdx) : 0;
-  const tipW = 200;
-  const tipH = 78;
-  const tipLeft = Math.max(padX, Math.min(hoverX - tipW / 2, w - padX - tipW));
-  const tipBelow = hoverIdx != null && yAt(data[hoverIdx].us) < padTop + tipH + 20;
-  const tipTop = tipBelow
-    ? Math.min(yAt(data[hoverIdx!].us) + 18, h - padBot - tipH - 4)
-    : Math.max(padTop, yAt(data[hoverIdx!]?.us ?? 0) - tipH - 14);
-
-  return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${w} ${h}`}
-      className="dev-chart-svg"
-      preserveAspectRatio="xMidYMid meet"
-      onMouseMove={handleMove}
-      onMouseLeave={() => setHoverIdx(null)}
-    >
-      {gridYs.map((y, i) => (
-        <g key={i}>
-          <line x1={padX} x2={w - padX} y1={y} y2={y} stroke="var(--border)" strokeWidth="1.2" strokeDasharray={i === ticks ? "0" : "4 4"} />
-          <text x={padX - 12} y={y + 5} textAnchor="end" fontSize="15" fill="var(--text-3)" fontFamily="inherit">{yLabels[i]}</text>
-        </g>
-      ))}
-      <path d={areaUs} fill={colour} opacity="0.14" />
-      <path d={pathPeer} fill="none" stroke="var(--text-3)" strokeWidth="2.2" strokeDasharray="7 5" />
-      <path d={pathUs}   fill="none" stroke={colour} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      {data.map((d, i) => (
-        <g key={d.q}>
-          <circle cx={xAt(i)} cy={yAt(d.peer)} r={hoverIdx === i ? 5 : 3} fill="var(--text-3)" stroke="var(--bg)" strokeWidth="2" />
-          <circle cx={xAt(i)} cy={yAt(d.us)} r={hoverIdx === i ? 7.5 : 5} fill={colour} stroke="var(--bg)" strokeWidth="2.2" />
-          <text x={xAt(i)} y={h - 16} textAnchor="middle" fontSize="15" fill={hoverIdx === i ? "var(--text-1)" : "var(--text-3)"} fontFamily="inherit" fontWeight={hoverIdx === i ? 600 : 400}>{d.q}</text>
-        </g>
-      ))}
-      {hover != null && hoverIdx != null ? (
-        <g pointerEvents="none">
-          <line x1={hoverX} x2={hoverX} y1={padTop} y2={h - padBot} stroke={colour} strokeOpacity="0.5" strokeWidth="1.2" strokeDasharray="5 5" />
-          <g transform={`translate(${tipLeft},${tipTop})`}>
-            <rect width={tipW} height={tipH} rx="9" fill="var(--surface-3)" stroke={colour} strokeOpacity="0.55" strokeWidth="1.2" />
-            <text x="14" y="22" fontSize="13" fontWeight="700" fill="var(--text-3)" letterSpacing="1" fontFamily="inherit">{hover.q.toUpperCase()}</text>
-            <circle cx="18" cy="44" r="5" fill={colour} />
-            <text x="30" y="48" fontSize="14" fill="var(--text-2)" fontFamily="inherit">{label}</text>
-            <text x={tipW - 14} y="48" textAnchor="end" fontSize="15" fontWeight="700" fill="var(--text-1)" fontFamily="inherit" fontVariantNumeric="tabular-nums">{hover.us}</text>
-            <circle cx="18" cy="64" r="5" fill="none" stroke="var(--text-3)" strokeWidth="1.6" strokeDasharray="3 2" />
-            <text x="30" y="68" fontSize="14" fill="var(--text-3)" fontFamily="inherit">{peerLabel}</text>
-            <text x={tipW - 14} y="68" textAnchor="end" fontSize="15" fontWeight="600" fill="var(--text-2)" fontFamily="inherit" fontVariantNumeric="tabular-nums">{hover.peer}</text>
-          </g>
-        </g>
-      ) : null}
-    </svg>
-  );
-}
 
 function DevTeamCluster({ team, catColour }: { team: typeof DEV_TEAM; catColour: string }) {
   // Build a small set of avatars from the named leads
@@ -2418,178 +3400,188 @@ function DevTeamCluster({ team, catColour }: { team: typeof DEV_TEAM; catColour:
 }
 
 function CategoryDetailView({
-  category, metricMap, runway, onBack, onRunPlaybook, onOpenInitiatives, companyName,
+  cat,
+  metricMap,
+  detailAnswers,
+  runway,
+  intelligenceItems,
+  onBack,
+  onUpdateDetails,
+  onEditBenchmark,
+  onOpenIntelligence,
+  onOpenInitiatives,
+  onRunPlaybook,
 }: {
-  category: ScorecardCategory;
+  cat: CategoryData;
   metricMap: Record<MetricKey, EvaluatedMetric>;
+  detailAnswers: DetailAnswers;
   runway: number | null;
+  intelligenceItems: ScorecardIntelligenceItem[];
   onBack: () => void;
-  onRunPlaybook?: (id: string) => void;
+  onUpdateDetails?: () => void;
+  onEditBenchmark?: () => void;
+  onOpenIntelligence?: () => void;
   onOpenInitiatives?: () => void;
-  companyName: string;
+  onRunPlaybook?: (id: string) => void;
 }) {
-  const meta = CATEGORY_META[category];
-  const catData = buildCategoryData(category, metricMap, runway);
-  const playbooks = CATEGORY_PLAYBOOKS[category];
-  const healthScore = Math.round(catData.barWidth);
-  const positionLabel = catData.signals[0]?.text ?? "Around median";
-
-  // Hide tabs + company header while in detail view
-  useEffect(() => {
-    document.body.classList.add("scorecard-detail-open");
-    return () => { document.body.classList.remove("scorecard-detail-open"); };
-  }, []);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [intelExpanded, setIntelExpanded] = useState(false);
+  const score = Math.max(0, Math.min(100, cat.score));
+  const answersCta = buildGlanceAnswersCta(cat.label, cat.detailAnsweredCount, cat.detailQuestionCount);
+  const formRows = useMemo(
+    () => buildDetailFieldRows(cat.id, detailAnswers),
+    [cat.id, detailAnswers],
+  );
+  const catIntel = useMemo(
+    () => intelligenceForCategory(cat.id, intelligenceItems),
+    [cat.id, intelligenceItems],
+  );
+  const visibleIntel = intelExpanded ? catIntel : catIntel.slice(0, 5);
+  const hiddenIntelCount = Math.max(0, catIntel.length - 5);
+  const playbooks = cat.suggestedPlaybooks.length ? cat.suggestedPlaybooks : CATEGORY_PLAYBOOKS[cat.id];
+  const allBenchmarkMetrics = useMemo(
+    () => ALL_BENCHMARK_METRIC_KEYS.map(k => metricMap[k]).filter(Boolean),
+    [metricMap],
+  );
 
   return (
-    <div className="scorecard-v2 dev-detail">
-      <div className="dev-detail-header">
-        <button type="button" className="dev-detail-close" onClick={onBack} aria-label="Close">
-          <span>Close</span><span aria-hidden="true">✕</span>
-        </button>
-      </div>
+    <div className="sc-category-detail sc-detail-dashboard">
+      <button type="button" className="scorecard-drill-back-btn sc-category-detail-back" onClick={onBack}>
+        ← Overview
+      </button>
 
-      <div className="dev-hero-row">
-      <div className="dev-hero" style={{ "--cat-col": meta.colour } as React.CSSProperties}>
-        <div className="dev-hero-top">
-          <div className="dev-hero-top-left">
-            <div className="dev-hero-badge" style={{ background: meta.colourDim, borderColor: meta.colourBorder, color: meta.colour }}>
-              {meta.icon} {meta.label.toUpperCase()}
+      <article className="sc-glance-row sc-glance-row-detail sc-detail-hero-widget">
+        <CategoryGlanceHeaderBar
+          cat={cat}
+          answersCta={answersCta}
+          onUpdateDetails={onUpdateDetails}
+          onOpenIntelligence={onOpenIntelligence}
+          onOpenInitiatives={onOpenInitiatives}
+          onRunPlaybook={onRunPlaybook}
+        />
+        <div className="sc-detail-hero">
+          <div className="sc-detail-hero-main">
+            <GlanceScoreRing
+              cat={cat}
+              score={score}
+              isOpen={popoverOpen}
+              onRequestOpen={() => setPopoverOpen(true)}
+              onRequestClose={() => setPopoverOpen(false)}
+              className="sc-glance-ring-wrap--lead"
+            />
+            <div className="sc-glance-copy">
+              <h3 className="sc-glance-name sc-glance-name-static">
+                <span>{cat.label}</span>
+                <span className="sc-glance-name-sep" aria-hidden>·</span>
+                <span>{cat.fullLabel}</span>
+              </h3>
+              {cat.glanceFocus ? <p className="sc-glance-focus">{cat.glanceFocus}</p> : null}
+              {cat.glanceSummary ? <p className="sc-detail-context">{cat.glanceSummary}</p> : null}
             </div>
-            <span className="dev-hero-meta">2026-Q2 · Updated 2h ago</span>
           </div>
-          <DevTeamCluster team={DEV_TEAM} catColour={meta.colour} />
+          <DevTeamCluster team={DEV_TEAM} catColour={cat.colour} />
         </div>
+      </article>
 
-        <div className="dev-hero-body">
-          <div className="dev-hero-info">
-            <h2 className="dev-hero-title">{meta.drillTitle}</h2>
-            <p className="dev-hero-insight">{catData.insight}</p>
-          </div>
+      <div className="sc-detail-widgets-grid">
+        <DetailDashboardWidget title="Track insights" span={6}>
+          <CategoryDetailInsightsPanel
+            strengths={cat.glanceStrengthItems}
+          />
+        </DetailDashboardWidget>
 
-          <div className="dev-hero-score">
-            <span className="dev-hero-score-label">Health score</span>
-            <div className="dev-hero-score-num">
-              <strong style={{ color: meta.colour }}>{healthScore}</strong>
-              <span>/ 100</span>
-            </div>
-            <span className="dev-hero-score-tag" style={{ background: meta.colourDim, color: meta.colour, borderColor: meta.colourBorder }}>
-              Top quartile
-            </span>
-          </div>
-        </div>
+        <DetailDashboardWidget
+          title="Initiatives"
+          meta={cat.openInitiatives.length ? `${cat.openInitiatives.length} suggested` : undefined}
+          span={6}
+          headerAction={onOpenInitiatives ? (
+            <button type="button" className="sc-detail-widget-head-link" onClick={() => onOpenInitiatives()}>
+              Open initiatives <span aria-hidden="true">→</span>
+            </button>
+          ) : null}
+        >
+          <CategoryDetailInitiativesWidget
+            suggested={cat.openInitiatives}
+            weaknesses={cat.glanceWeaknessItems}
+            onOpenInitiatives={onOpenInitiatives}
+          />
+        </DetailDashboardWidget>
 
-        <div className="dev-hero-quartile">
-          <div className="dev-hero-quartile-track">
-            <div className="dev-hero-quartile-seg q1" />
-            <div className="dev-hero-quartile-seg q2" />
-            <div className="dev-hero-quartile-seg q3" />
-            <div className="dev-hero-quartile-seg q4" style={{ background: meta.colour }} />
-            <div className="dev-hero-quartile-marker" style={{ left: `${healthScore}%`, background: meta.colour, boxShadow: `0 0 0 4px var(--bg), 0 0 12px ${meta.colour}` }} />
-          </div>
-          <div className="dev-hero-quartile-labels">
-            <span>P25</span>
-            <span>P50</span>
-            <span>P75</span>
-            <span style={{ color: meta.colour, fontWeight: 600 }}>{positionLabel}</span>
-            <span>P90</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 1: Hero (left) + Key metrics (right) */}
-      <div className="dev-row-card dev-hero-metrics">
-          <div className="scorecard-section-lbl" style={{ marginTop: 0 }}>Key metrics</div>
-          <div className="dev-kpi-grid">
-            {DEV_KPIS.map(k => (
-              <div key={k.key} className="dev-kpi-card">
-                <div className="dev-kpi-label">{k.label}</div>
-                <div className="dev-kpi-value-row">
-                  <strong>{k.value}</strong>
-                  <span className={`dev-kpi-delta ${k.deltaUp ? "up" : "down"}`}>{k.deltaUp ? "↑" : "↓"} {k.delta}</span>
-                </div>
-                <MiniSparkline data={k.series} colour={meta.colour} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Row 2: Intelligence + Initiatives + Playbooks side-by-side */}
-      <div className="dev-row-3col">
-        <div className="dev-row-card">
-          <div className="scorecard-section-lbl" style={{ marginTop: 0 }}>Latest AI intelligence</div>
-          <div className="dev-intel-grid">
-            {DEV_INTEL.map(i => (
-              <div key={i.id} className="dev-intel-row">
-                <span className="dev-intel-flag" style={{ background: FLAG_FILL[i.flag] }} />
-                <div className="dev-intel-body">
-                  <span className="dev-intel-tag">{i.tag}</span>
-                  <span className="dev-intel-text">{i.text}</span>
-                </div>
-                <span className="dev-intel-when">{i.when}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="dev-row-card">
-          <div className="scorecard-drill-init-header" style={{ marginTop: 0 }}>
-            <div className="scorecard-section-lbl" style={{ margin: 0 }}>Active initiatives</div>
-            <button type="button" className="scorecard-drill-init-create" onClick={() => onOpenInitiatives?.()}>+ New</button>
-          </div>
-          <div className="dev-initiatives">
-            {DEV_INITIATIVES.map(init => {
-              const colour = init.status === "Done" ? meta.colour : init.status === "At risk" ? FLAG_FILL.warn : meta.colour;
-              return (
-                <div key={init.id} className="dev-initiative-row">
-                  <div className="dev-initiative-info">
-                    <div className="dev-initiative-title">{init.title}</div>
-                    <div className="dev-initiative-meta">{init.owner} · due {init.due}</div>
+        <DetailDashboardWidget
+          title="Intelligence"
+          meta={catIntel.length ? `${catIntel.length} signal${catIntel.length === 1 ? "" : "s"}` : undefined}
+          span={6}
+          footer={(
+            <button type="button" className="sc-category-detail-tab-link" onClick={() => onOpenIntelligence?.()}>
+              Open in Intelligence <span aria-hidden="true">→</span>
+            </button>
+          )}
+        >
+          {catIntel.length > 0 ? (
+            <>
+              <div className="scorecard-drill-intel">
+                {visibleIntel.map(item => (
+                  <div key={item.id} className="scorecard-drill-intel-row">
+                    <span className="scorecard-drill-intel-cat">{item.type}</span>
+                    <span className="scorecard-drill-intel-text">
+                      {item.title || item.text}
+                      {item.highlight ? ` — ${item.highlight}` : ""}
+                    </span>
                   </div>
-                  <div className="dev-initiative-progress">
-                    <div className="dev-initiative-bar">
-                      <div className="dev-initiative-bar-fill" style={{ width: `${init.progress}%`, background: colour }} />
-                    </div>
-                    <span>{init.progress}%</span>
+                ))}
+              </div>
+              {!intelExpanded && hiddenIntelCount > 0 ? (
+                <button
+                  type="button"
+                  className="sc-glance-insight-more-btn sc-category-detail-more"
+                  onClick={() => setIntelExpanded(true)}
+                >
+                  View more ({hiddenIntelCount}) <span aria-hidden="true">→</span>
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <p className="sc-cat-sw-empty">No intelligence tagged to this track yet.</p>
+          )}
+        </DetailDashboardWidget>
+
+        <DetailDashboardWidget
+          title="Playbooks"
+          meta={playbooks.length ? `${playbooks.length} available` : undefined}
+          span={6}
+        >
+          {playbooks.length > 0 ? (
+            <div className="sc-detail-playbook-stack">
+              {playbooks.map(pb => (
+                <button
+                  key={pb.id}
+                  type="button"
+                  className="scorecard-drill-pb-card"
+                  onClick={() => onRunPlaybook?.(pb.id)}
+                  style={{ "--cat-col": cat.colour } as React.CSSProperties}
+                >
+                  <div className="scorecard-drill-pb-track-strip" style={{ background: cat.colour }} />
+                  <div className="scorecard-drill-pb-content">
+                    <div className="scorecard-drill-pb-title">{pb.title}</div>
+                    <div className="scorecard-drill-pb-desc">{pb.description}</div>
+                    <div className="scorecard-drill-pb-cta" style={{ color: cat.colour }}>Run playbook →</div>
                   </div>
-                  <span className={`dev-initiative-status status-${init.status.toLowerCase().replace(/\s/g, "-")}`}>{init.status}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="dev-row-card">
-          <div className="scorecard-section-lbl" style={{ marginTop: 0 }}>Recommended playbooks</div>
-          <div className="scorecard-drill-pb-grid">
-            {playbooks.map(pb => (
-              <button key={pb.id} type="button" className="scorecard-drill-pb-card" onClick={() => onRunPlaybook?.(pb.id)}
-                style={{ "--cat-col": meta.colour } as React.CSSProperties}>
-                <div className="scorecard-drill-pb-track-strip" style={{ background: meta.colour }} />
-                <div className="scorecard-drill-pb-content">
-                  <div className="scorecard-drill-pb-title">{pb.title}</div>
-                  <div className="scorecard-drill-pb-desc">{pb.description}</div>
-                  <div className="scorecard-drill-pb-cta" style={{ color: meta.colour }}>Run playbook →</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent activity (compact, full width) */}
-      <div className="dev-row-card" style={{ marginTop: 16 }}>
-        <div className="scorecard-section-lbl" style={{ marginTop: 0 }}>Recent activity</div>
-        <div className="dev-activity-list">
-          {DEV_ACTIVITY.map((a, i) => (
-            <div key={i} className="dev-activity-row">
-              <span className="dev-activity-icon" style={{ color: meta.colour }}>{a.icon}</span>
-              <span className="dev-activity-text">{a.text}</span>
-              <span className="dev-activity-date">{a.date}</span>
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          ) : (
+            <p className="sc-cat-sw-empty">No playbooks suggested for this track yet.</p>
+          )}
+        </DetailDashboardWidget>
       </div>
+
+      <CategoryDetailContextPanel
+        cat={cat}
+        allBenchmarkMetrics={allBenchmarkMetrics}
+        formRows={formRows}
+        onEditDetails={onUpdateDetails}
+        onEditBenchmark={onEditBenchmark}
+      />
     </div>
   );
 }
@@ -2764,40 +3756,6 @@ function BenchmarkDrilldownView({
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-const BENCHMARK_DRAWER_FIELDS: {
-  key: keyof OnboardingBenchmarkInput;
-  label: string;
-  unit: "percent" | "usd" | "count";
-  p25: number; p75: number; p90: number;
-}[] = [
-  { key: "arrGrowth",       label: "ARR Growth (YoY)",       unit: "percent", p25: 18,      p75: 80,        p90: 140 },
-  { key: "nrr",             label: "Net Revenue Retention", unit: "percent", p25: 88,      p75: 118,       p90: 130 },
-  { key: "grossMargin",     label: "Gross Margin",          unit: "percent", p25: 48,      p75: 74,        p90: 82 },
-  { key: "logoRetention",   label: "Logo Retention",        unit: "percent", p25: 72,      p75: 91,        p90: 96 },
-  { key: "monthlyBurn",     label: "Monthly Net Burn",      unit: "usd",     p25: 40000,   p75: 160000,    p90: 280000 },
-  { key: "cashOnHand",      label: "Cash on Hand",          unit: "usd",     p25: 800000,  p75: 4000000,   p90: 8000000 },
-  { key: "headcount",       label: "Headcount (FTE)",       unit: "count",   p25: 8,       p75: 28,        p90: 50 },
-  { key: "payingCustomers", label: "Paying Customers",      unit: "count",   p25: 18,      p75: 90,        p90: 180 },
-];
-
-function formatBenchmarkDrawerValue(value: number, unit: "percent" | "usd" | "count") {
-  if (unit === "percent") return `${value}%`;
-  if (unit === "usd") {
-    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
-    if (value >= 1_000) return `$${(value / 1000).toFixed(0)}K`;
-    return `$${value.toLocaleString()}`;
-  }
-  return String(value);
-}
-
-function valueToBarPercent(v: number, p25: number, p75: number, p90: number) {
-  if (v <= 0 || !Number.isFinite(v)) return 0;
-  if (v <= p25) return (v / p25) * 20;
-  if (v <= p75) return 20 + ((v - p25) / (p75 - p25)) * 40;
-  if (v <= p90) return 60 + ((v - p75) / (p90 - p75)) * 25;
-  return Math.min(100, 85 + ((v - p90) / p90) * 15);
-}
-
 function BenchmarkEditDrawer({
   open, onClose, benchmark, companyName, onSave,
 }: {
@@ -2805,24 +3763,24 @@ function BenchmarkEditDrawer({
   onClose: () => void;
   benchmark: OnboardingBenchmarkInput;
   companyName: string;
-  onSave: (next: Partial<OnboardingBenchmarkInput>) => void;
+  onSave: (next: OnboardingBenchmarkInput) => void;
 }) {
-  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [draft, setDraft] = useState<OnboardingBenchmarkInput>(benchmark);
   const lastOpen = useRef(false);
 
   useEffect(() => {
     if (open && !lastOpen.current) {
-      const next: Record<string, string> = {};
-      BENCHMARK_DRAWER_FIELDS.forEach(f => { next[f.key] = (benchmark as any)[f.key] ?? ""; });
-      setDraft(next);
+      setDraft({ ...benchmark });
     }
     lastOpen.current = open;
   }, [open, benchmark]);
 
   if (!open) return null;
 
-  const update = (key: string, val: string) => setDraft(d => ({ ...d, [key]: val.replace(/[^0-9.]/g, "") }));
-  const save = () => { onSave(draft as Partial<OnboardingBenchmarkInput>); onClose(); };
+  const update = (key: keyof OnboardingBenchmarkInput, val: string) => {
+    setDraft(prev => ({ ...prev, [key]: val }));
+  };
+  const save = () => { onSave(draft); onClose(); };
 
   return (
     <div className="bench-drawer-scrim" onClick={onClose}>
@@ -2841,38 +3799,11 @@ function BenchmarkEditDrawer({
             <p>Every number narrows your cohort. Once metrics are entered, Fuel rebuilds {companyName}&rsquo;s intelligence, suggested initiatives, and playbooks. This step is optional.</p>
           </div>
 
-          {BENCHMARK_DRAWER_FIELDS.map(field => {
-            const raw = draft[field.key] ?? "";
-            const num = parseFloat(raw);
-            const hasValue = !isNaN(num) && raw !== "";
-            const pctValue = hasValue ? valueToBarPercent(num, field.p25, field.p75, field.p90) : 0;
-            const p25Pct = valueToBarPercent(field.p25, field.p25, field.p75, field.p90);
-            const p75Pct = valueToBarPercent(field.p75, field.p25, field.p75, field.p90);
-            const p90Pct = valueToBarPercent(field.p90, field.p25, field.p75, field.p90);
-            return (
-              <div key={field.key} className="bench-field">
-                <label className="bench-field-label">{field.label.toUpperCase()}</label>
-                <input
-                  className="bench-field-input"
-                  inputMode="decimal"
-                  value={raw}
-                  onChange={e => update(field.key, e.target.value)}
-                  placeholder="—"
-                />
-                <div className="bench-field-bar">
-                  <div className="bench-bar-track">
-                    <div className="bench-bar-fill" style={{ width: `${pctValue}%` }} />
-                    {hasValue ? <div className="bench-bar-dot" style={{ left: `${pctValue}%` }} /> : null}
-                  </div>
-                  <div className="bench-bar-ticks">
-                    <span style={{ left: `${p25Pct}%` }}>P25 {formatBenchmarkDrawerValue(field.p25, field.unit)}</span>
-                    <span style={{ left: `${p75Pct}%` }}>P75 {formatBenchmarkDrawerValue(field.p75, field.unit)}</span>
-                    <span style={{ left: `${p90Pct}%` }}>P90 {formatBenchmarkDrawerValue(field.p90, field.unit)}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          <OnboardingBenchmarkFieldList
+            values={draft}
+            onChange={update}
+            inputClassName="bench-field-input"
+          />
 
           <p className="bench-drawer-foot">Numbers stay in your workspace and are never shared externally.</p>
         </div>
@@ -3064,22 +3995,57 @@ export default function ScorecardV2({
   lastPlaybook = null,
   onDismissPlaybook,
   activeTourTarget,
+  onboardingAnswers = null,
+  documentSlots,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
   const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
+  const [benchmarkValues, setBenchmarkValues] = useState<OnboardingBenchmarkInput>(benchmark);
   const [addSourcesOpen, setAddSourcesOpen] = useState(false);
   const cName = companyName ?? "This company";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerStep, setDrawerStep] = useState(0);
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const [advisorOpen, setAdvisorOpen] = useState(true);
+  const [overviewLayout, setOverviewLayout] = useState<OverviewLayoutVersion>(() => loadOverviewLayoutVersion(cName));
   const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(cName));
+
+  const mergedDetailAnswers = useMemo(
+    () => mergeDetailAnswers(detailAnswers, onboardingAnswers),
+    [detailAnswers, onboardingAnswers],
+  );
+
+  useEffect(() => {
+    setBenchmarkValues(benchmark);
+  }, [benchmark]);
+
+  useEffect(() => {
+    const filled = METRIC_COHORTS.filter(c => parseMetricValue(benchmarkValues[c.key] ?? "")).length;
+    if (filled > 0 && !loadStoredQuarter(`fuel-benchmark-q-${cName}`)) {
+      saveStoredQuarter(`fuel-benchmark-q-${cName}`);
+    }
+  }, [cName, benchmarkValues]);
+
+  useEffect(() => {
+    if (onboardingAnswers && !loadStoredQuarter(`fuel-details-q-${cName}`)) {
+      saveStoredQuarter(`fuel-details-q-${cName}`);
+    }
+  }, [cName, onboardingAnswers]);
 
   // Re-hydrate saved answers once the company name resolves (prop may arrive after mount).
   useEffect(() => {
     setDetailAnswers(loadDetailAnswers(cName));
   }, [cName]);
+
+  useEffect(() => {
+    setOverviewLayout(loadOverviewLayoutVersion(cName));
+  }, [cName]);
+
+  const setOverviewLayoutVersion = (version: OverviewLayoutVersion) => {
+    setOverviewLayout(version);
+    saveOverviewLayoutVersion(cName, version);
+  };
 
   const selectDetail = (qid: string, value: string) => {
     setDetailAnswers(prev => {
@@ -3096,56 +4062,33 @@ export default function ScorecardV2({
     setDrawerOpen(true);
   };
 
-  const metrics   = useMemo(() => evaluateMetrics(benchmark), [benchmark]);
+  const metrics   = useMemo(() => evaluateMetrics(benchmarkValues), [benchmarkValues]);
   const metricMap = useMemo(() => getMetricMap(metrics), [metrics]);
   const runway    = useMemo(() => estimateRunwayMonths(metricMap.cashOnHand, metricMap.monthlyBurn), [metricMap]);
 
   const categoryIds: ScorecardCategory[] = ["dev", "mkt", "rev"];
   const buildContext = useMemo<CategoryBuildContext>(() => ({
-    detailAnswers,
+    detailAnswers: mergedDetailAnswers,
     intelligenceItems,
     profileMeta,
     benchmarkContext,
     journeyStage,
-    benchmark,
-  }), [detailAnswers, intelligenceItems, profileMeta, benchmarkContext, journeyStage, benchmark]);
+    benchmark: benchmarkValues,
+    onboardingAnswers,
+  }), [mergedDetailAnswers, intelligenceItems, profileMeta, benchmarkContext, journeyStage, benchmarkValues, onboardingAnswers]);
 
   const categoryData = useMemo(
     () => categoryIds.map(id => enrichCategoryData(buildCategoryData(id, metricMap, runway), metricMap, runway, buildContext)),
     [metricMap, runway, buildContext],
   );
 
-  if (activeView === "dev" || activeView === "mkt" || activeView === "rev") {
-    return (
-      <CategoryDetailView
-        category={activeView}
-        metricMap={metricMap}
-        runway={runway}
-        onBack={() => setActiveView("overview")}
-        onRunPlaybook={onRunPlaybook}
-        onOpenInitiatives={onOpenInitiatives}
-        companyName={cName}
-      />
-    );
-  }
-
-  if (false && (activeView === "dev" || activeView === "mkt" || activeView === "rev")) {
-    return (
-      <CategoryDrilldownView
-        category={activeView}
-        metricMap={metricMap}
-        runway={runway}
-        onBack={() => setActiveView("overview")}
-        onRunPlaybook={onRunPlaybook}
-        onOpenInitiatives={onOpenInitiatives}
-      />
-    );
-  }
+  const isCategoryDetail = activeView === "dev" || activeView === "mkt" || activeView === "rev";
+  const activeCategory = isCategoryDetail ? categoryData.find(c => c.id === activeView) : undefined;
 
   if (activeView === "benchmark") {
     return (
       <BenchmarkDrilldownView
-        benchmark={benchmark}
+        benchmark={benchmarkValues}
         cohortLabel={cohortLabel}
         journeyStage={journeyStage}
         onBack={() => setActiveView("overview")}
@@ -3157,23 +4100,19 @@ export default function ScorecardV2({
 
   return (
     <div className="scorecard-v2">
-      <div className="data-room-head sc-overview-head">
-        <div>
-          <span>Benchmark overview</span>
-          <h2>Overview</h2>
-          <p>Three focus areas vs your cohort — open a track for metrics, intelligence, and next steps.</p>
-        </div>
-        <div className="data-room-head-actions">
-          <button type="button" className="signals-private-btn secondary" onClick={() => setActiveView("benchmark")}>
-            Full benchmark →
-          </button>
-        </div>
-      </div>
+      {!isCategoryDetail ? (
+        <OverviewVersionToggle
+          version={overviewLayout}
+          onChange={setOverviewLayoutVersion}
+        />
+      ) : null}
 
+      {!isCategoryDetail ? (
       <div
-        className={`sc-adv-featured-wrap sc-adv-featured-wrap-simple${advisorOpen ? "" : " is-collapsed"}`}
+        className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}`}
         data-tour-target="ai-advisor"
       >
+        <div className="sc-adv-featured-border" aria-hidden="true" />
         <div
           className="sc-adv-featured-toggle"
           onClick={() => setAdvisorOpen(o => !o)}
@@ -3184,94 +4123,98 @@ export default function ScorecardV2({
         >
           <span className="sc-adv-featured-toggle-label">✦ Fuel AI · Advisor</span>
           <span className="sc-adv-featured-toggle-meta">{cName}</span>
-          <div className="sc-adv-featured-header-actions" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="sc-adv-header-btn"
-              onClick={() => setEditBenchmarkOpen(true)}
-            >
-              <span className="sc-adv-header-btn-icon">+</span>
-              {benchmarkSaved ? "View Benchmark" : "Add / Edit Benchmark"}
-            </button>
-            <button
-              type="button"
-              className="sc-adv-header-btn"
-              onClick={() => setAddSourcesOpen(true)}
-            >
-              <span className="sc-adv-header-btn-icon">+</span>
-              Add Sources
-            </button>
-            <button
-              type="button"
-              className="sc-adv-header-btn"
-              onClick={() => openDetailsDrawer()}
-            >
-              View details
-              <span className="sc-adv-header-btn-info" aria-hidden="true">ⓘ</span>
-            </button>
-          </div>
           <span className="sc-adv-featured-chev" aria-hidden="true">▾</span>
         </div>
         {advisorOpen ? (
-          lastPlaybook ? (
-            <div className="sc-playbook-card sc-adv-featured sc-adv-featured-simple">
-              <div className="sc-playbook-head">
-                <div>
-                  <span className="sc-playbook-eyebrow">▤ Playbook · {lastPlaybook.kind}</span>
-                  <strong className="sc-playbook-title">{lastPlaybook.name}</strong>
+          <>
+            {lastPlaybook ? (
+              <div className="sc-playbook-card sc-adv-featured">
+                <div className="sc-playbook-head">
+                  <div>
+                    <span className="sc-playbook-eyebrow">▤ Playbook · {lastPlaybook.kind}</span>
+                    <strong className="sc-playbook-title">{lastPlaybook.name}</strong>
+                  </div>
+                  <button type="button" className="sc-playbook-x" onClick={() => onDismissPlaybook?.()} aria-label="Dismiss">✕</button>
                 </div>
-                <button type="button" className="sc-playbook-x" onClick={() => onDismissPlaybook?.()} aria-label="Dismiss">✕</button>
+                <p className="sc-playbook-desc">{lastPlaybook.description}</p>
+                <button type="button" className="sc-playbook-cta" onClick={() => onAskFuel?.()}>Open in Ask Fuel AI →</button>
               </div>
-              <p className="sc-playbook-desc">{lastPlaybook.description}</p>
-              <button type="button" className="sc-playbook-cta" onClick={() => onAskFuel?.()}>Open in Ask Fuel AI →</button>
-            </div>
-          ) : brief ? (
-            <div className="sc-adv-featured sc-adv-featured-simple">
-              <BriefAdvisorCard brief={brief} onViewDetails={() => openDetailsDrawer()} />
-            </div>
-          ) : (
-            <div className="overview-advisor-panel">
+            ) : brief ? (
+              <div className="sc-adv-featured sc-adv-featured-split">
+                <div className="sc-adv-featured-brief-col">
+                  <BriefAdvisorCard brief={brief} onViewDetails={() => openDetailsDrawer()} />
+                </div>
+              </div>
+            ) : (
               <OverviewAdvisorPanel
                 categories={categoryData}
                 runway={runway}
                 companyName={cName}
-                metricMap={metricMap}
                 buildContext={buildContext}
+                overviewLayout={overviewLayout}
+                benchmarkSaved={benchmarkSaved}
                 onOpenIntelligence={onOpenIntelligence}
-                onOpenInitiatives={onOpenInitiatives}
-                onRunPlaybook={onRunPlaybook}
+                onEditBenchmark={() => setEditBenchmarkOpen(true)}
+                onAddSources={() => setAddSourcesOpen(true)}
+                onViewDetails={() => openDetailsDrawer()}
+                documentSlots={documentSlots}
               />
-            </div>
-          )
+            )}
+          </>
         ) : null}
       </div>
+      ) : null}
 
-      <div className="sc-overview-tracks sc-overview-tracks-glance">
-        {categoryData.map(cat => (
-          <CategoryGlanceRow
-            key={cat.id}
-            cat={cat}
-            runway={runway}
-            onOpen={() => setActiveView(cat.id)}
-            onUpdateDetails={() => openDetailsDrawer(cat.id)}
-            onOpenIntelligence={onOpenIntelligence}
-            onOpenInitiatives={onOpenInitiatives}
-            onRunPlaybook={onRunPlaybook}
-            glancePopoverOpen={openGlancePopover === cat.id}
-            onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
-            onGlancePopoverClose={() => setOpenGlancePopover(null)}
-            tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
-          />
-        ))}
-      </div>
+      {isCategoryDetail && activeCategory ? (
+        <CategoryDetailView
+          cat={activeCategory}
+          metricMap={metricMap}
+          detailAnswers={mergedDetailAnswers}
+          runway={runway}
+          intelligenceItems={intelligenceItems}
+          onBack={() => setActiveView("overview")}
+          onUpdateDetails={() => openDetailsDrawer(activeCategory.id)}
+          onEditBenchmark={() => setEditBenchmarkOpen(true)}
+          onOpenIntelligence={onOpenIntelligence}
+          onOpenInitiatives={onOpenInitiatives}
+          onRunPlaybook={onRunPlaybook}
+        />
+      ) : overviewLayout === "v2" ? (
+        <OverviewBarsPanel
+          categories={categoryData}
+          onOpenTrack={id => setActiveView(id)}
+        />
+      ) : (
+        <div className="sc-overview-tracks sc-overview-tracks-glance">
+          {categoryData.map(cat => (
+            <CategoryGlanceRow
+              key={cat.id}
+              cat={cat}
+              runway={runway}
+              onOpen={() => setActiveView(cat.id)}
+              onUpdateDetails={() => openDetailsDrawer(cat.id)}
+              onOpenIntelligence={onOpenIntelligence}
+              onOpenInitiatives={onOpenInitiatives}
+              onRunPlaybook={onRunPlaybook}
+              glancePopoverOpen={openGlancePopover === cat.id}
+              onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
+              onGlancePopoverClose={() => setOpenGlancePopover(null)}
+              tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
+            />
+          ))}
+        </div>
+      )}
 
       {drawerOpen && (
         <DetailsDrawer
           companyName={cName}
-          answers={detailAnswers}
+          answers={mergedDetailAnswers}
           initialStep={drawerStep}
           onSelect={selectDetail}
-          onSaveClose={() => setDrawerOpen(false)}
+          onSaveClose={() => {
+            setDrawerOpen(false);
+            saveStoredQuarter(`fuel-details-q-${cName}`);
+          }}
           onClose={() => setDrawerOpen(false)}
         />
       )}
@@ -3279,9 +4222,13 @@ export default function ScorecardV2({
       <BenchmarkEditDrawer
         open={editBenchmarkOpen}
         onClose={() => setEditBenchmarkOpen(false)}
-        benchmark={benchmark}
+        benchmark={benchmarkValues}
         companyName={cName}
-        onSave={() => setBenchmarkSaved(true)}
+        onSave={next => {
+          setBenchmarkValues(next);
+          setBenchmarkSaved(true);
+          saveStoredQuarter(`fuel-benchmark-q-${cName}`);
+        }}
       />
 
       <AddSourcesDrawer

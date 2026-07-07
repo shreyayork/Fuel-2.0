@@ -46,6 +46,19 @@ interface Answers {
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 const EASE_ENTER = { duration: 0.45, ease: EASE_OUT } as const;
 
+/** Typography inside motion cards — relative to --of-motion-root on .of-motion-scale-inner (15px design base) */
+const MOTION_ROOT = "var(--of-motion-root, 15px)";
+const M = {
+  xs: "0.667em",    // ~10px — eyebrows, badges
+  sm: "0.733em",    // ~11px — secondary copy
+  md: "0.8em",      // ~12px
+  base: "0.867em",  // ~13px
+  lg: "0.933em",    // ~14px
+  xl: "1em",        // ~15px
+  xxl: "1.133em",   // ~17px
+  display: "1.267em", // ~19px
+} as const;
+
 /** GTM funnel — 1:1 with the funnel breakdown question and motion graphic */
 export const GTM_FUNNEL_STAGES = [
   { label: "Awareness", pct: 100, desc: "People don't know we exist" },
@@ -261,7 +274,7 @@ function deriveRevopsIntelligence(answers: Partial<Answers>) {
   };
 }
 
-function SignalValue({ children, color = "#1A2B26", fontSize = 12 }: { children: React.ReactNode; color?: string; fontSize?: number }) {
+function SignalValue({ children, color = "#1A2B26", fontSize = M.base }: { children: React.ReactNode; color?: string; fontSize?: string | number }) {
   return (
     <span style={{ fontSize, fontWeight: 700, color, textAlign: "right" as const, lineHeight: 1.3 }}>
       {children}
@@ -271,20 +284,23 @@ function SignalValue({ children, color = "#1A2B26", fontSize = 12 }: { children:
 
 // ─── Shell & primitives ──────────────────────────────────────────────────────
 
-function MotionShell({ children, accent = "#00B48A" }: { children: React.ReactNode; accent?: string }) {
+function MotionShell({ children, accent = "#00B48A", clipOverflow = true }: { children: React.ReactNode; accent?: string; clipOverflow?: boolean }) {
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: clipOverflow ? "hidden" : "visible" }}>
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.8, ease: EASE_OUT }}
         style={{
-          position: "absolute", width: 520, height: 520, borderRadius: "50%",
+          position: "absolute",
+          width: "var(--of-motion-glow, 520px)",
+          height: "var(--of-motion-glow, 520px)",
+          borderRadius: "50%",
           background: `radial-gradient(circle, ${accent}18 0%, transparent 68%)`,
           top: "50%", left: "50%", x: "-50%", y: "-58%", pointerEvents: "none",
         }}
       />
-      <div style={{ width: "100%", maxWidth: 420, padding: "0 28px", position: "relative", zIndex: 1 }}>
+      <div style={{ width: "100%", maxWidth: "var(--of-motion-card-max, 420px)", padding: "0 var(--of-motion-pad-x, 28px)", position: "relative", zIndex: 1 }}>
         {children}
       </div>
     </div>
@@ -292,8 +308,8 @@ function MotionShell({ children, accent = "#00B48A" }: { children: React.ReactNo
 }
 
 function FuelProductCard({
-  title, subtitle, children, delay = 0,
-}: { title: string; subtitle?: string; children: React.ReactNode; delay?: number }) {
+  title, subtitle, children, delay = 0, clipContent = true,
+}: { title: string; subtitle?: string; children: React.ReactNode; delay?: number; clipContent?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 28, scale: 0.94 }}
@@ -303,28 +319,30 @@ function FuelProductCard({
         background: "#FFFFFF",
         borderRadius: 16,
         boxShadow: "0 24px 64px rgba(8, 40, 32, 0.12), 0 4px 16px rgba(8, 40, 32, 0.06)",
-        overflow: "hidden",
+        overflow: clipContent ? "hidden" : "visible",
+        fontSize: MOTION_ROOT,
       }}
+      className="of-motion-card"
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderBottom: "1px solid #EEF2F0" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "15px 20px", borderBottom: "1px solid #EEF2F0" }}>
         <div style={{
-          width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+          width: 24, height: 24, borderRadius: 6, flexShrink: 0,
           background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 9, fontWeight: 900, color: "#0a1a12",
+          fontSize: M.sm, fontWeight: 900, color: "#0a1a12",
         }}>F</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#1A2B26", letterSpacing: "-0.2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
-          {subtitle && <div style={{ fontSize: 10.5, color: "#8A9E96", marginTop: 1 }}>{subtitle}</div>}
+          <div style={{ fontSize: M.lg, fontWeight: 700, color: "#1A2B26", letterSpacing: "-0.2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
+          {subtitle && <div style={{ fontSize: M.md, color: "#8A9E96", marginTop: 1 }}>{subtitle}</div>}
         </div>
         <div style={{
-          width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+          width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
           background: "linear-gradient(135deg, #00B48A, #2BB8A0)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 10, fontWeight: 800, color: "#fff",
+          fontSize: M.sm, fontWeight: 800, color: "#fff",
         }}>{title[0]?.toUpperCase() || "F"}</div>
       </div>
-      <div style={{ padding: "22px 20px 24px", minHeight: 220, position: "relative", background: "#FAFCFB" }}>
+      <div style={{ padding: "24px 22px 26px", minHeight: 240, position: "relative", background: "#FAFCFB" }}>
         {children}
       </div>
     </motion.div>
@@ -360,7 +378,7 @@ function InsightCursor({ label, color = "#F24E1E", path }: { label: string; colo
         style={{
           position: "absolute", left: 16, top: 14,
           background: color, color: "#fff",
-          fontSize: 11, fontWeight: 700, padding: "4px 10px",
+          fontSize: M.md, fontWeight: 700, padding: "4px 10px",
           borderRadius: 4, whiteSpace: "nowrap",
           boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
         }}
@@ -371,13 +389,13 @@ function InsightCursor({ label, color = "#F24E1E", path }: { label: string; colo
   );
 }
 
-function SceneDots({ count, active }: { count: number; active: number }) {
+function SceneDots({ count, active, compact }: { count: number; active: number; compact?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5, duration: 0.4 }}
-      style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 22 }}
+      style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: compact ? 0 : 22 }}
     >
       {Array.from({ length: count }).map((_, i) => (
         <motion.div
@@ -421,7 +439,7 @@ function PulseRing({ color = "#00B48A" }: { color?: string }) {
         position: "absolute", inset: 8, borderRadius: "50%",
         background: `${color}14`, border: `2px solid ${color}44`,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 26,
+        fontSize: "1.5em",
       }}>◎</div>
     </div>
   );
@@ -449,8 +467,8 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
             <FuelProductCard title={`${displayName}'s workspace`} subtitle="Select a company to begin">
               <div style={{ textAlign: "center", paddingTop: 12 }}>
                 <PulseRing />
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1A2B26", marginBottom: 6 }}>{displayName}</div>
-                <div style={{ fontSize: 12, color: "#8A9E96", lineHeight: 1.6, maxWidth: 260, margin: "0 auto" }}>
+                <div style={{ fontSize: M.xl, fontWeight: 700, color: "#1A2B26", marginBottom: 6 }}>{displayName}</div>
+                <div style={{ fontSize: M.base, color: "#8A9E96", lineHeight: 1.6, maxWidth: 260, margin: "0 auto" }}>
                   {isInvestor
                     ? "Fuel will build your fund profile — portfolio benchmarks, deal suggestions, and pipeline intelligence."
                     : "Fuel will build your operating profile from funding, industry, and cohort signals."}
@@ -463,7 +481,7 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.4 + i * 0.12, duration: 0.4, ease: EASE_OUT }}
                       style={{
-                        fontSize: 11, fontWeight: 600, color: "#5A7A70",
+                        fontSize: M.md, fontWeight: 600, color: "#5A7A70",
                         background: "#EEF6F3", border: "1px solid #D4E8E0",
                         borderRadius: 20, padding: "5px 12px",
                       }}
@@ -513,7 +531,7 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                           style={{ height: "100%", background: "linear-gradient(90deg, #00B48A, #7EDFC4)", borderRadius: 4 }}
                         />
                       </div>
-                      <span style={{ fontSize: 11, color: "#8A9E96", width: 90, flexShrink: 0 }}>{item}</span>
+                      <span style={{ fontSize: M.md, color: "#8A9E96", width: 90, flexShrink: 0 }}>{item}</span>
                     </motion.div>
                   ))}
                 </div>
@@ -543,8 +561,8 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                     padding: "10px 12px", marginBottom: 6,
                     background: "#fff", borderRadius: 10, border: "1px solid #E8F0ED",
                   }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px" }}>{row.k}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26" }}>{row.v}</span>
+                    <span style={{ fontSize: M.md, fontWeight: 600, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px" }}>{row.k}</span>
+                    <span style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>{row.v}</span>
                   </div>
                 </StaggerItem>
               ))}
@@ -555,8 +573,8 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                 style={{ marginTop: 10, padding: "10px 12px", background: "#E8F8F3", borderRadius: 10, border: "1px solid #B8E8D8" }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#00B48A" }}>Profile completeness</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#00B48A" }}>82%</span>
+                  <span style={{ fontSize: M.md, fontWeight: 700, color: "#00B48A" }}>Profile completeness</span>
+                  <span style={{ fontSize: M.lg, fontWeight: 800, color: "#00B48A" }}>82%</span>
                 </div>
                 <div style={{ height: 5, background: "#C8E8DC", borderRadius: 3, overflow: "hidden" }}>
                   <motion.div
@@ -590,20 +608,20 @@ export function DevMotion({ answers, companyName = "Your company" }: { answers: 
             transition={{ delay: 0.15 }}
             style={{ marginBottom: 14, padding: "10px 12px", background: "#E8F8F3", borderRadius: 8, border: "1px solid #B8E8D8" }}
           >
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#00B48A", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
+            <div style={{ fontSize: M.xs, fontWeight: 700, color: "#00B48A", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
               Development focus
             </div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#1A2B26", marginBottom: 4 }}>{intel.focus.label}</div>
-            <div style={{ fontSize: 11, color: "#5A7A70", lineHeight: 1.55 }}>{intel.focus.summary}</div>
+            <div style={{ fontSize: M.lg, fontWeight: 800, color: "#1A2B26", marginBottom: 4 }}>{intel.focus.label}</div>
+            <div style={{ fontSize: M.md, color: "#5A7A70", lineHeight: 1.55 }}>{intel.focus.summary}</div>
           </motion.div>
         ) : (
-          <div style={{ fontSize: 11, color: "#8A9E96", lineHeight: 1.6, marginBottom: 14 }}>
+          <div style={{ fontSize: M.md, color: "#8A9E96", lineHeight: 1.6, marginBottom: 14 }}>
             Answer the Development questions — Fuel will map your selections to intelligence.
           </div>
         )}
         {intel.selections.length > 0 ? (
           <div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>
+            <div style={{ fontSize: M.xs, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>
               From your answers
             </div>
             {intel.selections.map((row, i) => (
@@ -618,15 +636,15 @@ export function DevMotion({ answers, companyName = "Your company" }: { answers: 
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: "#8A9E96" }}>{row.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26", textAlign: "right" }}>{row.value}</span>
+                  <span style={{ fontSize: M.sm, color: "#8A9E96" }}>{row.label}</span>
+                  <span style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26", textAlign: "right" }}>{row.value}</span>
                 </div>
-                <div style={{ fontSize: 10, color: "#5A7A70", lineHeight: 1.5 }}>{row.meaning}</div>
+                <div style={{ fontSize: M.sm, color: "#5A7A70", lineHeight: 1.5 }}>{row.meaning}</div>
               </motion.div>
             ))}
           </div>
         ) : (
-          <div style={{ fontSize: 11, color: "#8A9E96", lineHeight: 1.6 }}>
+          <div style={{ fontSize: M.md, color: "#8A9E96", lineHeight: 1.6 }}>
             Selections appear here as you complete each question.
           </div>
         )}
@@ -678,10 +696,10 @@ export function GtmMotion({ answers, companyName = "Your company" }: { answers: 
                     padding: "8px 12px", gap: 8, minHeight: 34,
                   }}>
                     <div style={{ minWidth: 0 }}>
-                      <span style={{ fontSize: 11, color: "#5A7A70", whiteSpace: "nowrap" }}>{stage.label}</span>
-                      <div style={{ fontSize: 9, color: "#8A9E96", marginTop: 1 }}>{stage.desc}</div>
+                      <span style={{ fontSize: M.md, color: "#5A7A70", whiteSpace: "nowrap" }}>{stage.label}</span>
+                      <div style={{ fontSize: M.sm, color: "#8A9E96", marginTop: 1 }}>{stage.desc}</div>
                     </div>
-                    <SignalValue color={stage.isHot ? "#D4924A" : "#1A2B26"} fontSize={11}>{stage.signal}</SignalValue>
+                    <SignalValue color={stage.isHot ? "#D4924A" : "#1A2B26"} fontSize={M.md}>{stage.signal}</SignalValue>
                   </div>
                 </motion.div>
               </motion.div>
@@ -697,8 +715,8 @@ export function GtmMotion({ answers, companyName = "Your company" }: { answers: 
               transition={{ delay: 0.6 + i * 0.1, duration: 0.4, ease: EASE_OUT }}
               style={{ background: "#fff", border: "1px solid #E8F0ED", borderRadius: 8, padding: "10px 12px" }}
             >
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px" }}>{m.label}</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#1A2B26", marginTop: 4, lineHeight: 1.3 }}>{m.value}</div>
+              <div style={{ fontSize: M.xs, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px" }}>{m.label}</div>
+              <div style={{ fontSize: M.lg, fontWeight: 800, color: "#1A2B26", marginTop: 4, lineHeight: 1.3 }}>{m.value}</div>
             </motion.div>
           ))}
         </div>
@@ -706,7 +724,7 @@ export function GtmMotion({ answers, companyName = "Your company" }: { answers: 
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, ...EASE_ENTER }}
-          style={{ marginTop: 12, padding: "8px 12px", background: "#FFF8EE", borderRadius: 8, border: "1px solid #F0DFC0", fontSize: 11, color: "#A07030", fontWeight: 600, lineHeight: 1.5 }}
+          style={{ marginTop: 12, padding: "8px 12px", background: "#FFF8EE", borderRadius: 8, border: "1px solid #F0DFC0", fontSize: M.md, color: "#A07030", fontWeight: 600, lineHeight: 1.5 }}
         >
           {intel.callout}
         </motion.div>
@@ -715,7 +733,7 @@ export function GtmMotion({ answers, companyName = "Your company" }: { answers: 
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.45, ...EASE_ENTER }}
-            style={{ marginTop: 8, padding: "7px 12px", background: "#F4FAF8", borderRadius: 8, border: "1px solid #D4EDE6", fontSize: 10, color: "#5A7A70", fontWeight: 600 }}
+            style={{ marginTop: 8, padding: "7px 12px", background: "#F4FAF8", borderRadius: 8, border: "1px solid #D4EDE6", fontSize: M.sm, color: "#5A7A70", fontWeight: 600 }}
           >
             {intel.introsLine}
           </motion.div>
@@ -735,24 +753,24 @@ export function RevopsMotion({ answers, companyName = "Your company" }: { answer
       <FuelProductCard title={`${companyName}`} subtitle={intel.stackLine}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase" }}>Runway</div>
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} style={{ fontSize: intel.runway.length > 14 ? 15 : 18, fontWeight: 800, color: intel.runwayInfo?.color ?? "#1A2B26", marginTop: 2, lineHeight: 1.25 }}>
+            <div style={{ fontSize: M.xs, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase" }}>Runway</div>
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} style={{ fontSize: intel.runway.length > 14 ? M.xl : M.display, fontWeight: 800, color: intel.runwayInfo?.color ?? "#1A2B26", marginTop: 2, lineHeight: 1.25 }}>
               {intel.runway}
             </motion.div>
             {intel.runwayInfo && (
-              <div style={{ fontSize: 10, color: intel.runwayInfo.color, fontWeight: 600, marginTop: 4 }}>{intel.runwayInfo.tag}</div>
+              <div style={{ fontSize: M.sm, color: intel.runwayInfo.color, fontWeight: 600, marginTop: 4 }}>{intel.runwayInfo.tag}</div>
             )}
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase" }}>Ops maturity</div>
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ fontSize: 16, fontWeight: 800, color: "#1A2B26", marginTop: 2 }}>
+            <div style={{ fontSize: M.xs, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase" }}>Ops maturity</div>
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ fontSize: M.xxl, fontWeight: 800, color: "#1A2B26", marginTop: 2 }}>
               {intel.maturityLabel}
             </motion.div>
           </div>
         </div>
         {intel.stackSignals.length > 0 && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>
+            <div style={{ fontSize: M.xs, fontWeight: 700, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>
               From your answers
             </div>
             {intel.stackSignals.map((row, i) => (
@@ -767,8 +785,8 @@ export function RevopsMotion({ answers, companyName = "Your company" }: { answer
                   background: "#fff", borderRadius: 8, border: "1px solid #E8F0ED",
                 }}
               >
-                <span style={{ fontSize: 10, color: "#8A9E96" }}>{row.label}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26" }}>{row.value}</span>
+                <span style={{ fontSize: M.sm, color: "#8A9E96" }}>{row.label}</span>
+                <span style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>{row.value}</span>
               </motion.div>
             ))}
           </div>
@@ -777,7 +795,7 @@ export function RevopsMotion({ answers, companyName = "Your company" }: { answer
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, ...EASE_ENTER }}
-          style={{ marginTop: 10, padding: "8px 12px", background: "#F5F0FA", borderRadius: 8, border: "1px solid #E0D4F0", fontSize: 11, color: "#6B5A8A", fontWeight: 600, lineHeight: 1.5 }}
+          style={{ marginTop: 10, padding: "8px 12px", background: "#F5F0FA", borderRadius: 8, border: "1px solid #E0D4F0", fontSize: M.md, color: "#6B5A8A", fontWeight: 600, lineHeight: 1.5 }}
         >
           {intel.insight}
         </motion.div>
@@ -839,16 +857,16 @@ function SuggestionCard({ deal, i }: { deal: DealSuggestion; i: number }) {
         width: 36, height: 36, borderRadius: 9, flexShrink: 0,
         background: "linear-gradient(135deg, #8B76D4, #B8A0E8)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 13, fontWeight: 800, color: "#fff",
+        fontSize: M.lg, fontWeight: 800, color: "#fff",
       }}>
         {deal.name[0]}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26" }}>{deal.name}</div>
-        <div style={{ fontSize: 10, color: "#8A9E96", marginTop: 2 }}>{deal.stage} · {deal.growth}</div>
+        <div style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>{deal.name}</div>
+        <div style={{ fontSize: M.sm, color: "#8A9E96", marginTop: 2 }}>{deal.stage} · {deal.growth}</div>
       </div>
       <div style={{
-        fontSize: 11, fontWeight: 800, color: "#8B76D4",
+        fontSize: M.md, fontWeight: 800, color: "#8B76D4",
         background: "#F3EFFE", borderRadius: 8, padding: "3px 8px", flexShrink: 0,
       }}>
         {deal.score}%
@@ -903,14 +921,14 @@ export function InvestmentMotion({
         <AnimatePresence mode="wait">
           {investQ === 0 && (
             <motion.div key="stages" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Stage-matched deal flow
               </div>
               {stageBars.map((s, i) => (
                 <div key={s.stage} style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, color: "#5A7A70" }}>{s.stage}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4" }}>{s.deals} deals</span>
+                    <span style={{ fontSize: M.md, color: "#5A7A70" }}>{s.stage}</span>
+                    <span style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4" }}>{s.deals} deals</span>
                   </div>
                   <div style={{ height: 5, background: "#E8F0ED", borderRadius: 3, overflow: "hidden" }}>
                     <motion.div
@@ -925,7 +943,7 @@ export function InvestmentMotion({
               {stages.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
                   {stages.map(s => (
-                    <span key={s} style={{ fontSize: 10, fontWeight: 600, color: "#8B76D4", background: "#F3EFFE", border: "1px solid #DDD0F5", borderRadius: 12, padding: "4px 10px" }}>{s}</span>
+                    <span key={s} style={{ fontSize: M.sm, fontWeight: 600, color: "#8B76D4", background: "#F3EFFE", border: "1px solid #DDD0F5", borderRadius: 12, padding: "4px 10px" }}>{s}</span>
                   ))}
                 </div>
               )}
@@ -935,7 +953,7 @@ export function InvestmentMotion({
 
           {investQ === 1 && (
             <motion.div key="sectors" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Smart company suggestions
               </div>
               {(suggestions.length ? suggestions : DEAL_SUGGESTIONS.slice(0, 3)).map((d, i) => (
@@ -944,7 +962,7 @@ export function InvestmentMotion({
               {sectors.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
                   {sectors.map(s => (
-                    <span key={s} style={{ fontSize: 10, fontWeight: 600, color: "#8B76D4", background: "#F3EFFE", border: "1px solid #DDD0F5", borderRadius: 12, padding: "4px 10px" }}>{s}</span>
+                    <span key={s} style={{ fontSize: M.sm, fontWeight: 600, color: "#8B76D4", background: "#F3EFFE", border: "1px solid #DDD0F5", borderRadius: 12, padding: "4px 10px" }}>{s}</span>
                   ))}
                 </div>
               )}
@@ -954,7 +972,7 @@ export function InvestmentMotion({
 
           {investQ === 2 && (
             <motion.div key="check" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Portfolio · deal sizing
               </div>
               {[
@@ -964,8 +982,8 @@ export function InvestmentMotion({
               ].map((b, i) => (
                 <div key={b.label} style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, color: "#5A7A70" }}>{b.label}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4" }}>{b.pct}%</span>
+                    <span style={{ fontSize: M.md, color: "#5A7A70" }}>{b.label}</span>
+                    <span style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4" }}>{b.pct}%</span>
                   </div>
                   <div style={{ height: 5, background: "#E8F0ED", borderRadius: 3, overflow: "hidden" }}>
                     <motion.div
@@ -978,7 +996,7 @@ export function InvestmentMotion({
                 </div>
               ))}
               {checkSize && (
-                <div style={{ marginTop: 10, padding: "10px 12px", background: "#F3EFFE", borderRadius: 10, border: "1px solid #DDD0F5", fontSize: 11, color: "#5A4A78", lineHeight: 1.55 }}>
+                <div style={{ marginTop: 10, padding: "10px 12px", background: "#F3EFFE", borderRadius: 10, border: "1px solid #DDD0F5", fontSize: M.md, color: "#5A4A78", lineHeight: 1.55 }}>
                   Sweet spot: <strong>{checkSize}</strong> — {(suggestions.length ? suggestions : DEAL_SUGGESTIONS.slice(0, 2)).map(d => d.name).join(", ")} fit your range.
                 </div>
               )}
@@ -988,14 +1006,14 @@ export function InvestmentMotion({
 
           {investQ === 3 && (
             <motion.div key="geo" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 {geography || "Geo-matched"} opportunities
               </div>
               {(suggestions.length ? suggestions : DEAL_SUGGESTIONS.filter(d => !geography || d.geo === geography || geography === "Global").slice(0, 3)).map((d, i) => (
                 <SuggestionCard key={d.name} deal={d} i={i} />
               ))}
               {geography && (
-                <div style={{ marginTop: 8, fontSize: 11, color: "#8A9E96", lineHeight: 1.55 }}>
+                <div style={{ marginTop: 8, fontSize: M.md, color: "#8A9E96", lineHeight: 1.55 }}>
                   Prioritizing {geography} companies raising in your stage and sector focus.
                 </div>
               )}
@@ -1005,7 +1023,7 @@ export function InvestmentMotion({
 
           {investQ === 4 && (
             <motion.div key="pipeline" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 {pipeline === "HubSpot" ? "HubSpot · connecting" : "Deal pipeline"}
               </div>
               {[
@@ -1022,8 +1040,8 @@ export function InvestmentMotion({
                   style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}
                 >
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, color: "#5A7A70", flex: 1 }}>{s.stage}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.count}</span>
+                  <span style={{ fontSize: M.md, color: "#5A7A70", flex: 1 }}>{s.stage}</span>
+                  <span style={{ fontSize: M.base, fontWeight: 700, color: s.color }}>{s.count}</span>
                 </motion.div>
               ))}
               {pipeline && (
@@ -1031,7 +1049,7 @@ export function InvestmentMotion({
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.4, ...EASE_ENTER }}
-                  style={{ marginTop: 10, padding: "10px 12px", background: "#E8F8F3", borderRadius: 10, border: "1px solid #B8E8D8", fontSize: 11, color: "#2A6B58", lineHeight: 1.55 }}
+                  style={{ marginTop: 10, padding: "10px 12px", background: "#E8F8F3", borderRadius: 10, border: "1px solid #B8E8D8", fontSize: M.md, color: "#2A6B58", lineHeight: 1.55 }}
                 >
                   {pipeline === "HubSpot"
                     ? "✓ HubSpot connection queued — deals, contacts, and notes will sync on setup."
@@ -1072,10 +1090,10 @@ export function HubSpotMotion({ status, companyName = "Your fund" }: { status: H
                   width: 56, height: 56, borderRadius: 14, margin: "0 auto 16px",
                   background: "#FFF0EB", border: "1px solid #FFD4C4",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 18, fontWeight: 800, color: "#FF7A59",
+                  fontSize: M.display, fontWeight: 800, color: "#FF7A59",
                 }}>HS</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1A2B26", marginBottom: 6 }}>Your pipeline, ready to load</div>
-                <div style={{ fontSize: 12, color: "#8A9E96", lineHeight: 1.65, maxWidth: 280, margin: "0 auto" }}>
+                <div style={{ fontSize: M.xl, fontWeight: 700, color: "#1A2B26", marginBottom: 6 }}>Your pipeline, ready to load</div>
+                <div style={{ fontSize: M.base, color: "#8A9E96", lineHeight: 1.65, maxWidth: 280, margin: "0 auto" }}>
                   Connect HubSpot and Fuel will import deals, contacts, and stages into your workspace.
                 </div>
               </div>
@@ -1084,7 +1102,7 @@ export function HubSpotMotion({ status, companyName = "Your fund" }: { status: H
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: i < 3 ? 8 : 0, opacity: 0.45 }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#E8D0C8" }} />
                     <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#F5EBE8" }} />
-                    <span style={{ fontSize: 10, color: "#B8A8A0", width: 72, textAlign: "right" }}>{label}</span>
+                    <span style={{ fontSize: M.sm, color: "#B8A8A0", width: 72, textAlign: "right" }}>{label}</span>
                   </div>
                 ))}
               </div>
@@ -1093,7 +1111,7 @@ export function HubSpotMotion({ status, companyName = "Your fund" }: { status: H
 
           {(status === "connecting" || status === "connected") && (
             <motion.div key="sync" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#FF7A59", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: "#FF7A59", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 {status === "connecting" ? "Syncing pipeline…" : "Pipeline loaded"}
               </div>
               {PIPELINE_DEALS.slice(0, visibleDeals).map((deal, i) => (
@@ -1110,17 +1128,17 @@ export function HubSpotMotion({ status, companyName = "Your fund" }: { status: H
                 >
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: deal.color, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26" }}>{deal.name}</div>
-                    <div style={{ fontSize: 10, color: "#8A9E96", marginTop: 1 }}>{deal.stage}</div>
+                    <div style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>{deal.name}</div>
+                    <div style={{ fontSize: M.sm, color: "#8A9E96", marginTop: 1 }}>{deal.stage}</div>
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: deal.color }}>{deal.value}</span>
+                  <span style={{ fontSize: M.md, fontWeight: 700, color: deal.color }}>{deal.value}</span>
                 </motion.div>
               ))}
               {status === "connecting" && (
                 <motion.div
                   animate={{ opacity: [0.4, 1, 0.4] }}
                   transition={{ duration: 1.2, repeat: Infinity }}
-                  style={{ fontSize: 11, color: "#8A9E96", textAlign: "center", marginTop: 8 }}
+                  style={{ fontSize: M.md, color: "#8A9E96", textAlign: "center", marginTop: 8 }}
                 >
                   Importing deals & contacts from HubSpot…
                 </motion.div>
@@ -1130,7 +1148,7 @@ export function HubSpotMotion({ status, companyName = "Your fund" }: { status: H
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
-                  style={{ marginTop: 12, padding: "10px 12px", background: "#E8F8F3", borderRadius: 10, border: "1px solid #B8E8D8", fontSize: 11, color: "#2A6B58", lineHeight: 1.55 }}
+                  style={{ marginTop: 12, padding: "10px 12px", background: "#E8F8F3", borderRadius: 10, border: "1px solid #B8E8D8", fontSize: M.md, color: "#2A6B58", lineHeight: 1.55 }}
                 >
                   ✓ 24 deals · 156 contacts synced. Fuel AI is ready to surface insights from your pipeline.
                 </motion.div>
@@ -1176,7 +1194,7 @@ export function SourcesMotion({
         title={companyName}
         subtitle={anyConnected ? "Sources · intelligence active" : "Sources · meetings & updates"}
       >
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#00B48A", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+        <div style={{ fontSize: M.md, fontWeight: 700, color: "#00B48A", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.5px" }}>
           Private sources → signal catalog
         </div>
 
@@ -1191,17 +1209,17 @@ export function SourcesMotion({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: "#D4924A22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#D4924A" }}>G</div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26" }}>Granola</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#D4924A", background: "#D4924A14", borderRadius: 4, padding: "1px 6px" }}>meetings</span>
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: "#D4924A22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: M.sm, fontWeight: 800, color: "#D4924A" }}>G</div>
+            <span style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>Granola</span>
+            <span style={{ fontSize: M.xs, fontWeight: 700, color: "#D4924A", background: "#D4924A14", borderRadius: 4, padding: "1px 6px" }}>meetings</span>
           </div>
           {granolaStatus === "pending" && (
-            <div style={{ fontSize: 11, color: "#8A9E96", lineHeight: 1.55 }}>Meeting summaries sync to watchlist & portfolio company sources.</div>
+            <div style={{ fontSize: M.md, color: "#8A9E96", lineHeight: 1.55 }}>Meeting summaries sync to watchlist & portfolio company sources.</div>
           )}
           {(granolaStatus === "connecting" || granolaStatus === "connected") && (
             <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }}>
-              <div style={{ fontSize: 11, color: "#5A7A70", marginBottom: 6 }}>Q4 board prep · {companyName}</div>
-              <div style={{ fontSize: 11.5, color: "#1A2B26", lineHeight: 1.55, padding: "8px 10px", background: "#fff", borderRadius: 8, border: "1px solid #F0E4D0" }}>
+              <div style={{ fontSize: M.md, color: "#5A7A70", marginBottom: 6 }}>Q4 board prep · {companyName}</div>
+              <div style={{ fontSize: M.base, color: "#1A2B26", lineHeight: 1.55, padding: "8px 10px", background: "#fff", borderRadius: 8, border: "1px solid #F0E4D0" }}>
                 {granolaStatus === "connected"
                   ? "✓ Summary synced to private sources — investor sentiment and runway discussed."
                   : "Importing meeting summary…"}
@@ -1221,12 +1239,12 @@ export function SourcesMotion({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: `${SLACK_ACCENT}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: SLACK_ACCENT }}>S</div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26" }}>Slack</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: SLACK_ACCENT, background: `${SLACK_ACCENT}14`, borderRadius: 4, padding: "1px 6px" }}>chat</span>
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: `${SLACK_ACCENT}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: M.sm, fontWeight: 800, color: SLACK_ACCENT }}>S</div>
+            <span style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>Slack</span>
+            <span style={{ fontSize: M.xs, fontWeight: 700, color: SLACK_ACCENT, background: `${SLACK_ACCENT}14`, borderRadius: 4, padding: "1px 6px" }}>chat</span>
           </div>
           {slackStatus === "pending" && (
-            <div style={{ fontSize: 11, color: "#8A9E96", lineHeight: 1.55 }}>Investor update channels feed the signal catalog.</div>
+            <div style={{ fontSize: M.md, color: "#8A9E96", lineHeight: 1.55 }}>Investor update channels feed the signal catalog.</div>
           )}
           {(slackStatus === "connecting" || slackStatus === "connected") && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1236,7 +1254,7 @@ export function SourcesMotion({
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.15, duration: 0.35 }}
-                  style={{ fontSize: 11, color: "#5A7A70", padding: "6px 10px", background: "#fff", borderRadius: 8, border: "1px solid #D8E8F4" }}
+                  style={{ fontSize: M.md, color: "#5A7A70", padding: "6px 10px", background: "#fff", borderRadius: 8, border: "1px solid #D8E8F4" }}
                 >
                   <span style={{ fontWeight: 700, color: SLACK_ACCENT }}>{ch}</span>
                   {slackStatus === "connected" ? " · 12 messages indexed" : " · monitoring…"}
@@ -1257,17 +1275,17 @@ export function SourcesMotion({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 22, height: 22, borderRadius: 6, background: "#FF7A5922", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#FF7A59" }}>HS</div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26" }}>HubSpot CRM</span>
-              <span style={{ fontSize: 9, fontWeight: 700, color: "#FF7A59", background: "#FF7A5914", borderRadius: 4, padding: "1px 6px" }}>crm</span>
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: "#FF7A5922", display: "flex", alignItems: "center", justifyContent: "center", fontSize: M.sm, fontWeight: 800, color: "#FF7A59" }}>HS</div>
+              <span style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>HubSpot CRM</span>
+              <span style={{ fontSize: M.xs, fontWeight: 700, color: "#FF7A59", background: "#FF7A5914", borderRadius: 4, padding: "1px 6px" }}>crm</span>
             </div>
             {hubspotStatus === "pending" && (
-              <div style={{ fontSize: 11, color: "#8A9E96", lineHeight: 1.55 }}>Deal pipeline, contacts, and companies sync into Fuel.</div>
+              <div style={{ fontSize: M.md, color: "#8A9E96", lineHeight: 1.55 }}>Deal pipeline, contacts, and companies sync into Fuel.</div>
             )}
             {(hubspotStatus === "connecting" || hubspotStatus === "connected") && (
               <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }}>
-                <div style={{ fontSize: 11, color: "#5A7A70", marginBottom: 6 }}>Pipeline · {companyName}</div>
-                <div style={{ fontSize: 11.5, color: "#1A2B26", lineHeight: 1.55, padding: "8px 10px", background: "#fff", borderRadius: 8, border: "1px solid #FFD4C8" }}>
+                <div style={{ fontSize: M.md, color: "#5A7A70", marginBottom: 6 }}>Pipeline · {companyName}</div>
+                <div style={{ fontSize: M.base, color: "#1A2B26", lineHeight: 1.55, padding: "8px 10px", background: "#fff", borderRadius: 8, border: "1px solid #FFD4C8" }}>
                   {hubspotStatus === "connected"
                     ? "✓ 24 deals and 156 contacts synced — pipeline health indexed."
                     : "Syncing deal pipeline…"}
@@ -1287,7 +1305,7 @@ export function SourcesMotion({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#8A9E96", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.4px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8A9E96", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.4px" }}>
                 {anyConnected ? `Fuel generated ${signalCount || 1} signal${signalCount !== 1 ? "s" : ""}` : "Extracting signals…"}
               </div>
               {SIGNAL_ITEMS.slice(0, anyConnected ? Math.max(signalCount, 1) : 1).map((item, i) => (
@@ -1302,10 +1320,10 @@ export function SourcesMotion({
                     background: "#fff", borderRadius: 10, border: `1px solid ${item.color}33`,
                   }}
                 >
-                  <span style={{ fontSize: 9, fontWeight: 700, color: item.color, textTransform: "uppercase", width: 88, flexShrink: 0 }}>
+                  <span style={{ fontSize: M.xs, fontWeight: 700, color: item.color, textTransform: "uppercase", width: 88, flexShrink: 0 }}>
                     {item.cat}{item.cat !== "Intelligence" ? " · suggested" : ""}
                   </span>
-                  <span style={{ fontSize: 11, color: "#1A2B26", lineHeight: 1.4 }}>{item.label}</span>
+                  <span style={{ fontSize: M.md, color: "#1A2B26", lineHeight: 1.4 }}>{item.label}</span>
                 </motion.div>
               ))}
             </motion.div>
@@ -1313,7 +1331,7 @@ export function SourcesMotion({
         </AnimatePresence>
 
         {!anyConnecting && !anyConnected && (
-          <div style={{ textAlign: "center", padding: "8px 0 4px", fontSize: 11, color: "#8A9E96", lineHeight: 1.6 }}>
+          <div style={{ textAlign: "center", padding: "8px 0 4px", fontSize: M.md, color: "#8A9E96", lineHeight: 1.6 }}>
             {hubspotStatus !== undefined
               ? "Connect Granola, Slack, or HubSpot to start building intelligence from real signals."
               : "Connect Granola or Slack to start building intelligence, initiatives, and playbooks from real signals."}
@@ -1708,13 +1726,13 @@ function BenchmarkEmptyState({ variant = "company" }: { variant?: "company" | "i
           background: "linear-gradient(135deg, #E8F8F3, #D4EDE6)",
           border: "1px solid #B8E8D8",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 22,
+          fontSize: "1.3em",
         }}
       >
         ✦
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: "#1A2B26", marginBottom: 6 }}>Enter a number to begin</div>
-      <div style={{ fontSize: 12, color: "#8A9E96", lineHeight: 1.65, maxWidth: 280, margin: "0 auto" }}>
+      <div style={{ fontSize: M.xl, fontWeight: 700, color: "#1A2B26", marginBottom: 6 }}>Enter a number to begin</div>
+      <div style={{ fontSize: M.base, color: "#8A9E96", lineHeight: 1.65, maxWidth: 280, margin: "0 auto" }}>
         {variant === "investor"
           ? "Each metric first generates intelligence in its signal category — then suggested initiatives and playbooks link back to that signal."
           : "The graph shows where you sit. Fuel suggests what to do next — intelligence, initiatives, and playbooks to improve."}
@@ -1722,7 +1740,7 @@ function BenchmarkEmptyState({ variant = "company" }: { variant?: "company" | "i
       <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
         {(["Intelligence", "Initiative", "Playbook"] as InsightCat[]).map(cat => (
           <span key={cat} style={{
-            fontSize: 10, fontWeight: 600, color: CAT_STYLE[cat].color,
+            fontSize: M.sm, fontWeight: 600, color: CAT_STYLE[cat].color,
             background: `${CAT_STYLE[cat].color}12`, border: `1px solid ${CAT_STYLE[cat].color}28`,
             borderRadius: 20, padding: "4px 11px",
           }}>
@@ -1734,73 +1752,313 @@ function BenchmarkEmptyState({ variant = "company" }: { variant?: "company" | "i
   );
 }
 
-function InsightCardCompact({ card }: { card: InsightCard }) {
-  const isLinkedChild = Boolean(card.linkedIntelligenceId);
+type BenchmarkTeaserPhase = "collecting" | "generating" | "ready";
+
+const STACK_LANES = [
+  {
+    cat: "Intelligence",
+    color: "#2BB8A0",
+    icon: "◎",
+    readyCount: 12,
+    hook: "Where you lead — and where peers pull ahead",
+    payoff: "Cohort gaps ranked on every metric.",
+  },
+  {
+    cat: "Initiatives",
+    color: "#00B48A",
+    icon: "→",
+    readyCount: 5,
+    hook: "Moves ranked by impact — not noise",
+    payoff: "90-day priorities sequenced for your runway.",
+  },
+  {
+    cat: "Playbooks",
+    color: "#D4924A",
+    icon: "▣",
+    readyCount: 4,
+    hook: "Runbooks built for your stage",
+    payoff: "Execution paths ready to run in Fuel.",
+  },
+];
+
+function StackPipelineVisual({
+  phase,
+  filled,
+  total,
+  activeLane,
+  laneCounts,
+}: {
+  phase: BenchmarkTeaserPhase;
+  filled: number;
+  total: number;
+  activeLane: number;
+  laneCounts: number[];
+}) {
+  const showCounts = phase === "generating" || phase === "ready";
+  const cohortPct = total > 0 ? filled / total : 0;
+  const segFill = (i: number) => {
+    if (phase === "ready") return 1;
+    if (phase === "generating") return 0.55 + (i * 0.18);
+    const threshold = (i + 1) / STACK_LANES.length;
+    return Math.min(1, cohortPct / threshold);
+  };
+
   return (
-    <div style={{
-      background: "#fff",
-      border: `1px solid ${card.color}33`,
-      borderRadius: 12,
-      padding: isLinkedChild ? "10px 12px 10px 18px" : "12px 14px",
-      marginBottom: 8,
-      borderLeft: isLinkedChild ? `2px solid ${card.color}44` : undefined,
-      boxShadow: "0 2px 8px rgba(8,40,32,0.05)",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: card.color, textTransform: "uppercase" }}>
-          {card.icon} {card.cat}{CAT_STYLE[card.cat].suggested ? " · suggested" : ""}
-        </span>
-        <span style={{ fontSize: 9, color: "#8A9E96" }}>{card.metricLabel} · {card.displayVal}</span>
+    <div style={{ margin: "8px auto 26px", maxWidth: 300 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {STACK_LANES.map((lane, i) => {
+          const lit = phase === "ready" || activeLane === i || segFill(i) > 0.4;
+          const count = laneCounts[i];
+          return (
+            <React.Fragment key={lane.cat}>
+              {i > 0 && (
+                <div style={{ flex: "1 1 36px", maxWidth: 52, height: 3, background: "#E8F0ED", borderRadius: 2, position: "relative", overflow: "hidden", margin: "0 2px" }}>
+                  <motion.div
+                    animate={{ width: `${segFill(i) * 100}%` }}
+                    transition={{ duration: 0.7, ease: EASE_OUT }}
+                    style={{
+                      height: "100%",
+                      background: `linear-gradient(90deg, ${STACK_LANES[i - 1].color}, ${lane.color})`,
+                      borderRadius: 2,
+                    }}
+                  />
+                  {phase === "generating" && (
+                    <motion.div
+                      animate={{ left: ["0%", "100%"], opacity: [0, 1, 0] }}
+                      transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.35, ease: "easeInOut" }}
+                      style={{
+                        position: "absolute", top: -2, width: 6, height: 6, borderRadius: "50%",
+                        background: lane.color, boxShadow: `0 0 6px ${lane.color}`,
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+              <motion.div
+                animate={{
+                  scale: activeLane === i ? 1.1 : phase === "ready" ? 1.04 : 1,
+                  opacity: lit ? 1 : 0.45,
+                }}
+                transition={{ duration: 0.45, ease: EASE_OUT }}
+                style={{ textAlign: "center", flexShrink: 0, width: 72 }}
+              >
+                <div style={{ position: "relative", width: 44, height: 44, margin: "0 auto" }}>
+                  {phase !== "ready" && activeLane === i && (
+                    <motion.div
+                      animate={{ scale: [1, 1.35], opacity: [0.4, 0] }}
+                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
+                      style={{
+                        position: "absolute", inset: -4, borderRadius: "50%",
+                        border: `2px solid ${lane.color}`,
+                      }}
+                    />
+                  )}
+                  <div style={{
+                    width: 44, height: 44, borderRadius: "50%",
+                    background: `${lane.color}${lit ? "18" : "0c"}`,
+                    border: `2px solid ${lane.color}${lit ? "55" : "28"}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: M.lg, fontWeight: 800, color: lane.color,
+                  }}>
+                    {lane.icon}
+                  </div>
+                  {showCounts && count > 0 && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      style={{
+                        position: "absolute", top: -4, right: -6,
+                        minWidth: 18, height: 18, borderRadius: 9, padding: "0 4px",
+                        background: lane.color, color: "#fff",
+                        fontSize: M.xs, fontWeight: 800,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >
+                      {count}
+                    </motion.div>
+                  )}
+                </div>
+                <div style={{ fontSize: M.xs, fontWeight: 700, color: lit ? lane.color : "#8A9E96", textTransform: "uppercase", letterSpacing: "0.3px", marginTop: 8 }}>
+                  {lane.cat}
+                </div>
+              </motion.div>
+            </React.Fragment>
+          );
+        })}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#1A2B26", marginBottom: 4, lineHeight: 1.35 }}>{card.title}</div>
-      <div style={{ fontSize: 11, color: "#8A9E96", lineHeight: 1.55 }}>{card.body}</div>
     </div>
   );
 }
 
-function BenchmarkProgressPanel({ filled, total, companyName }: { filled: number; total: number; companyName: string }) {
-  const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
-  return (
-    <MotionShell accent="#2BB8A0">
-      <FuelProductCard title={companyName} subtitle="Benchmark · cohort position">
-        <div style={{ textAlign: "center", padding: "20px 8px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>
-            Enter all metrics to begin
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "#1A2B26", marginBottom: 6 }}>{filled} / {total}</div>
-          <div style={{ fontSize: 12, color: "#8A9E96", lineHeight: 1.6, maxWidth: 260, margin: "0 auto 20px" }}>
-            The graph on the left shows where you sit. Once every metric is in, Fuel generates your action plan here.
-          </div>
-          <div style={{ height: 6, background: "#E8F0ED", borderRadius: 3, overflow: "hidden", maxWidth: 240, margin: "0 auto" }}>
-            <motion.div
-              animate={{ width: `${pct}%` }}
-              transition={{ duration: 0.5, ease: EASE_OUT }}
-              style={{ height: "100%", background: "linear-gradient(90deg, #2BB8A0, #00B48A)", borderRadius: 3 }}
-            />
-          </div>
-        </div>
-      </FuelProductCard>
-    </MotionShell>
-  );
+function useTickCount(target: number, active: boolean, duration = 1100) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setVal(0);
+      return;
+    }
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / duration);
+      setVal(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, active, duration]);
+  return val;
 }
 
-function BenchmarkGeneratingPanel({ companyName }: { companyName: string }) {
+function BenchmarkExcitementPanel({
+  companyName,
+  filled,
+  total,
+  phase,
+}: {
+  companyName: string;
+  filled: number;
+  total: number;
+  phase: BenchmarkTeaserPhase;
+}) {
+  const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+  const showCounts = phase === "generating" || phase === "ready";
+  const [laneIdx, setLaneIdx] = useState(0);
+
+  const intelCount = useTickCount(STACK_LANES[0].readyCount, showCounts);
+  const initCount = useTickCount(STACK_LANES[1].readyCount, showCounts, 1200);
+  const playCount = useTickCount(STACK_LANES[2].readyCount, showCounts, 1400);
+  const laneCounts = [intelCount, initCount, playCount];
+  const totalQueued = intelCount + initCount + playCount;
+  const focusLane = STACK_LANES[laneIdx];
+
+  useEffect(() => {
+    if (phase === "ready") return;
+    const ms = phase === "generating" ? 4000 : 5500;
+    const t = setInterval(() => setLaneIdx(i => (i + 1) % STACK_LANES.length), ms);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  const eyebrow =
+    phase === "ready"
+      ? "Built for you"
+      : phase === "generating"
+        ? "Assembling stack"
+        : filled === 0
+          ? "What unlocks next"
+          : `${filled} / ${total} in`;
+
+  const headline =
+    phase === "ready"
+      ? `${companyName} is about to run on a different level`
+      : phase === "generating"
+        ? "Building what your board wants to see"
+        : filled === 0
+          ? "Most founders guess. You're about to know."
+          : "Fuel sees what your spreadsheet can't";
+
+  const subtitle =
+    phase === "ready"
+      ? `${totalQueued} items queued · unlock in scorecard`
+      : phase === "generating"
+        ? "Generating…"
+        : "Benchmark · cohort position";
+
   return (
     <MotionShell accent="#2BB8A0">
-      <FuelProductCard title={companyName} subtitle="Generating your benchmark summary">
-        <div style={{ textAlign: "center", padding: "32px 12px" }}>
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
-            style={{
-              width: 44, height: 44, borderRadius: "50%", margin: "0 auto 20px",
-              border: "3px solid #E8F0ED", borderTopColor: "#2BB8A0",
-            }}
+      <FuelProductCard title={companyName} subtitle={subtitle}>
+        <div style={{ textAlign: "center", paddingTop: 6 }}>
+          <StackPipelineVisual
+            phase={phase}
+            filled={filled}
+            total={total}
+            activeLane={phase === "ready" ? 1 : laneIdx}
+            laneCounts={laneCounts}
           />
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1A2B26", marginBottom: 8 }}>Building your action plan…</div>
-          <div style={{ fontSize: 12, color: "#8A9E96", lineHeight: 1.65, maxWidth: 280, margin: "0 auto" }}>
-            Fuel is turning your cohort position into intelligence, suggested initiatives, and playbooks to improve.
+
+          <div style={{ fontSize: M.md, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+            {eyebrow}
           </div>
+          <div style={{ fontSize: M.xl, fontWeight: 700, color: "#1A2B26", marginBottom: 20, lineHeight: 1.4, padding: "0 8px" }}>
+            {headline}
+          </div>
+
+          {phase === "ready" ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={{ fontSize: M.base, color: "#8A9E96", lineHeight: 1.6, maxWidth: 280, margin: "0 auto 20px", padding: "0 4px" }}
+            >
+              Intelligence, initiatives, and playbooks — built from your cohort. Continue to unlock.
+            </motion.div>
+          ) : (
+            <div style={{ minHeight: 84, marginBottom: 18, padding: "0 4px" }}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={laneIdx}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.5, ease: EASE_OUT }}
+                >
+                  <div style={{ fontSize: M.sm, fontWeight: 700, color: focusLane.color, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 10 }}>
+                    {focusLane.icon} {focusLane.cat}
+                  </div>
+                  <div style={{ fontSize: M.lg, fontWeight: 700, color: "#1A2B26", lineHeight: 1.4, marginBottom: 10 }}>
+                    {focusLane.hook}
+                  </div>
+                  <div style={{ fontSize: M.base, color: "#8A9E96", lineHeight: 1.6 }}>
+                    {focusLane.payoff}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+              <div style={{ marginTop: 18 }}>
+                <SceneDots count={STACK_LANES.length} active={laneIdx} compact />
+              </div>
+            </div>
+          )}
+
+          {phase === "generating" && (
+            <div style={{ textAlign: "left", maxWidth: 280, margin: "8px auto 0" }}>
+              <div style={{ height: 7, borderRadius: 4, background: "#E8F0ED", overflow: "hidden" }}>
+                <motion.div
+                  animate={{ width: ["30%", "90%", "30%"] }}
+                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ height: "100%", background: "linear-gradient(90deg, #2BB8A0, #00B48A, #D4924A)", borderRadius: 4 }}
+                />
+              </div>
+            </div>
+          )}
+
+          {phase === "collecting" && (
+            <div style={{ textAlign: "left", maxWidth: 280, margin: "16px auto 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: M.sm, fontWeight: 600, color: "#8A9E96", textTransform: "uppercase", letterSpacing: "0.4px" }}>Cohort map</span>
+                <span style={{ fontSize: M.md, fontWeight: 700, color: "#1A2B26" }}>{filled} / {total}</span>
+              </div>
+              <div style={{ height: 7, borderRadius: 4, background: "#E8F0ED", overflow: "hidden" }}>
+                <motion.div
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.5, ease: EASE_OUT }}
+                  style={{ height: "100%", background: "linear-gradient(90deg, #2BB8A0, #00B48A, #D4924A)", borderRadius: 4 }}
+                />
+              </div>
+            </div>
+          )}
+
+          {phase === "ready" && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.4 }}
+              style={{
+                marginTop: 16, padding: "12px 14px",
+                background: "#E8F8F3", borderRadius: 8, border: "1px solid #B8E8D8",
+              }}
+            >
+              <div style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>Continue → unlock your scorecard</div>
+            </motion.div>
+          )}
         </div>
       </FuelProductCard>
     </MotionShell>
@@ -1809,7 +2067,7 @@ function BenchmarkGeneratingPanel({ companyName }: { companyName: string }) {
 
 export function BenchmarkMotion({
   answers, cohortLabel, companyName = "Your company", variant = "company",
-  allMetricsFilled = false, filledCount = 0, totalCount = 8,
+  filledCount = 0, totalCount = 8,
   isGenerating = false, summaryReady = false,
 }: {
   answers: Partial<Answers>; cohortLabel?: string; companyName?: string; variant?: "company" | "investor";
@@ -1820,19 +2078,6 @@ export function BenchmarkMotion({
   const metrics = variant === "investor" ? INVESTOR_BENCHMARK_METRICS : BENCHMARK_METRICS;
   const metricGroups = useMemo(() => buildMetricGroups(answers, cohort, variant), [answers, cohort, variant]);
   const cards = useMemo(() => metricGroups.flatMap(g => g.cards), [metricGroups]);
-  const [scene, setScene] = useState(0);
-  const scenes = 3;
-
-  const initiativeCards = useMemo(() => cards.filter(c => c.cat === "Initiative"), [cards]);
-  const intelligenceCards = useMemo(() => cards.filter(c => c.cat === "Intelligence"), [cards]);
-  const playbookCards = useMemo(() => cards.filter(c => c.cat === "Playbook"), [cards]);
-
-  useEffect(() => {
-    if (variant !== "company" || !summaryReady) return;
-    setScene(0);
-    const t = setInterval(() => setScene(s => (s + 1) % scenes), 4000);
-    return () => clearInterval(t);
-  }, [summaryReady, variant, scenes]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -1879,79 +2124,16 @@ export function BenchmarkMotion({
   }, [answers, metrics, variant]);
 
   if (variant === "company") {
-    if (!allMetricsFilled) {
-      return <BenchmarkProgressPanel filled={filledCount} total={totalCount} companyName={companyName} />;
-    }
-    if (isGenerating) {
-      return <BenchmarkGeneratingPanel companyName={companyName} />;
-    }
-    if (summaryReady) {
-      return (
-        <MotionShell accent="#2BB8A0">
-          <FuelProductCard title={companyName} subtitle="Where you sit → what to run next">
-            <AnimatePresence mode="wait">
-              {scene === 0 && (
-                <motion.div key="summary" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.4, ease: EASE_OUT }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#2BB8A0", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Here's how to think about what to do next
-                  </div>
-                  <div style={{ fontSize: 12, color: "#8A9E96", lineHeight: 1.6, marginBottom: 14 }}>
-                    Your cohort position across {metricGroups.length} metrics — and the moves Fuel recommends to improve.
-                  </div>
-                  <div style={{ maxHeight: 300, overflowY: "auto", paddingRight: 2 }}>
-                    {metricGroups.map((group, i) => (
-                      <motion.div
-                        key={group.metricKey}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.06, duration: 0.35 }}
-                        style={{
-                          background: "#F4FAF8", border: "1px solid rgba(43,184,160,0.2)",
-                          borderRadius: 10, padding: "10px 12px", marginBottom: 8,
-                        }}
-                      >
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
-                          {group.metricLabel}
-                        </div>
-                        <div style={{ fontSize: 11, color: "#5A7A70", lineHeight: 1.45, marginBottom: 5 }}>{group.position}</div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "#1A2B26", lineHeight: 1.45 }}>{group.nextStep}</div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-              {scene === 1 && (
-                <motion.div key="initiatives" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.4, ease: EASE_OUT }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#00B48A", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Suggested initiatives · from your benchmarks
-                  </div>
-                  {initiativeCards.length > 0 ? initiativeCards.map(card => (
-                    <InsightCardCompact key={card.id} card={card} />
-                  )) : (
-                    <div style={{ fontSize: 12, color: "#8A9E96", lineHeight: 1.6, padding: "12px 0" }}>
-                      No initiatives needed — your metrics are at or above cohort median across the board.
-                    </div>
-                  )}
-                </motion.div>
-              )}
-              {scene === 2 && (
-                <motion.div key="intel-playbooks" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.4, ease: EASE_OUT }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#2BB8A0", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Intelligence & playbooks
-                  </div>
-                  <div style={{ maxHeight: 300, overflowY: "auto", paddingRight: 2 }}>
-                    {intelligenceCards.map(card => <InsightCardCompact key={card.id} card={card} />)}
-                    {playbookCards.map(card => <InsightCardCompact key={card.id} card={card} />)}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <SceneDots count={scenes} active={scene} />
-          </FuelProductCard>
-        </MotionShell>
-      );
-    }
-    return <BenchmarkGeneratingPanel companyName={companyName} />;
+    const phase: BenchmarkTeaserPhase =
+      summaryReady ? "ready" : isGenerating ? "generating" : "collecting";
+    return (
+      <BenchmarkExcitementPanel
+        companyName={companyName}
+        filled={filledCount}
+        total={totalCount}
+        phase={phase}
+      />
+    );
   }
 
   // Investor / fallback: scrollable insight list
@@ -1961,21 +2143,21 @@ export function BenchmarkMotion({
         .of-insight-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .of-insight-scroll::-webkit-scrollbar { display: none; }
       `}</style>
-      <div style={{ width: "100%", maxWidth: 400 }}>
+      <div style={{ width: "100%", maxWidth: "var(--of-motion-card-max, 400px)" }}>
         <div style={{ marginBottom: 14 }}>
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ fontSize: 11, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ fontSize: M.md, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             {cards.length > 0
               ? (variant === "company" ? "Here's how to think about what to do next" : `Fuel generated ${cards.length} insight${cards.length > 1 ? "s" : ""}`)
               : "What Fuel generates"}
           </motion.div>
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ fontSize: 16, fontWeight: 800, color: "#1A2B26", marginTop: 4 }}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ fontSize: M.xxl, fontWeight: 800, color: "#1A2B26", marginTop: 4 }}>
             {companyName} · {variant === "investor" ? "Portfolio benchmarks · Deal suggestions · Fuel AI" : "Where you sit → what to run next"}
           </motion.div>
           {cards.length > 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-              {counts.intelligence > 0 && <span style={{ fontSize: 10, fontWeight: 600, color: "#2BB8A0" }}>{counts.intelligence} intelligence</span>}
-              {counts.initiative > 0 && <span style={{ fontSize: 10, fontWeight: 600, color: "#00B48A" }}>{counts.initiative} suggested initiative{counts.initiative > 1 ? "s" : ""}</span>}
-              {counts.playbook > 0 && <span style={{ fontSize: 10, fontWeight: 600, color: "#D4924A" }}>{counts.playbook} suggested playbook{counts.playbook > 1 ? "s" : ""}</span>}
+              {counts.intelligence > 0 && <span style={{ fontSize: M.sm, fontWeight: 600, color: "#2BB8A0" }}>{counts.intelligence} intelligence</span>}
+              {counts.initiative > 0 && <span style={{ fontSize: M.sm, fontWeight: 600, color: "#00B48A" }}>{counts.initiative} suggested initiative{counts.initiative > 1 ? "s" : ""}</span>}
+              {counts.playbook > 0 && <span style={{ fontSize: M.sm, fontWeight: 600, color: "#D4924A" }}>{counts.playbook} suggested playbook{counts.playbook > 1 ? "s" : ""}</span>}
             </motion.div>
           )}
         </div>
@@ -2017,17 +2199,17 @@ export function BenchmarkMotion({
                         boxShadow: "0 8px 24px rgba(8,40,32,0.06)",
                       }}
                     >
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>
+                      <div style={{ fontSize: M.sm, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>
                         {group.metricLabel}
                       </div>
-                      <div style={{ fontSize: 11.5, color: "#5A7A70", lineHeight: 1.5, marginBottom: 8 }}>
+                      <div style={{ fontSize: M.base, color: "#5A7A70", lineHeight: 1.5, marginBottom: 8 }}>
                         {group.position}
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1A2B26", lineHeight: 1.45, marginBottom: group.fuelActions ? 8 : 0 }}>
+                      <div style={{ fontSize: M.lg, fontWeight: 700, color: "#1A2B26", lineHeight: 1.45, marginBottom: group.fuelActions ? 8 : 0 }}>
                         {group.nextStep}
                       </div>
                       {group.fuelActions && (
-                        <div style={{ fontSize: 11, color: "#8A9E96", lineHeight: 1.55 }}>
+                        <div style={{ fontSize: M.md, color: "#8A9E96", lineHeight: 1.55 }}>
                           {group.fuelActions}
                         </div>
                       )}
@@ -2062,15 +2244,15 @@ export function BenchmarkMotion({
                         width: 26, height: 26, borderRadius: 8, flexShrink: 0,
                         background: `${card.color}18`,
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 12, color: card.color, fontWeight: 800,
+                        fontSize: M.base, color: card.color, fontWeight: 800,
                       }}>
                         {card.icon}
                       </div>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: card.color, textTransform: "uppercase", letterSpacing: "0.4px" }}>
+                      <span style={{ fontSize: M.sm, fontWeight: 700, color: card.color, textTransform: "uppercase", letterSpacing: "0.4px" }}>
                         {card.cat}{CAT_STYLE[card.cat].suggested ? " · suggested" : ""}
                       </span>
                       <span style={{
-                        fontSize: 9, fontWeight: 600, color: "#284256",
+                        fontSize: M.xs, fontWeight: 600, color: "#284256",
                         background: "#F1F3F6", border: "1px solid #E4E8EC",
                         borderRadius: 4, padding: "2px 7px",
                         fontFamily: '"JetBrains Mono", ui-monospace, monospace',
@@ -2085,7 +2267,7 @@ export function BenchmarkMotion({
                       animate={{ opacity: 1, scale: 1 }}
                       transition={EASE_ENTER}
                       style={{
-                        fontSize: 10, fontWeight: 700, color: "#5A7A70",
+                        fontSize: M.sm, fontWeight: 700, color: "#5A7A70",
                         background: "#F4F8F6", border: "1px solid #E0EBE6",
                         borderRadius: 8, padding: "2px 8px",
                       }}
@@ -2099,8 +2281,8 @@ export function BenchmarkMotion({
                       marginBottom: 8, padding: "6px 8px",
                       background: "#F4FAF8", borderRadius: 8, border: "1px solid #D4EDE6",
                     }}>
-                      <span style={{ fontSize: 10, color: "#2BB8A0", fontWeight: 800, flexShrink: 0 }}>◎</span>
-                      <span style={{ fontSize: 10, color: "#5A7A70", lineHeight: 1.45 }}>
+                      <span style={{ fontSize: M.sm, color: "#2BB8A0", fontWeight: 800, flexShrink: 0 }}>◎</span>
+                      <span style={{ fontSize: M.sm, color: "#5A7A70", lineHeight: 1.45 }}>
                         Linked to intelligence · <span style={{ fontFamily: '"JetBrains Mono", ui-monospace, monospace', color: "#284256" }}>{card.signalId}</span>
                         <span style={{ color: "#8A9E96" }}> — {card.linkedIntelligenceTitle}</span>
                       </span>
@@ -2111,7 +2293,7 @@ export function BenchmarkMotion({
                     initial={{ opacity: 0.6 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3 }}
-                    style={{ fontSize: 13, fontWeight: 800, color: "#1A2B26", marginBottom: 5, lineHeight: 1.35 }}
+                    style={{ fontSize: M.lg, fontWeight: 800, color: "#1A2B26", marginBottom: 5, lineHeight: 1.35 }}
                   >
                     {card.title}
                   </motion.div>
@@ -2120,7 +2302,7 @@ export function BenchmarkMotion({
                     initial={{ opacity: 0.5 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.35, delay: 0.05 }}
-                    style={{ fontSize: 11.5, color: "#8A9E96", lineHeight: 1.6 }}
+                    style={{ fontSize: M.base, color: "#8A9E96", lineHeight: 1.6 }}
                   >
                     {card.body}
                   </motion.div>

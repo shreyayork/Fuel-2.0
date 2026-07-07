@@ -3886,7 +3886,7 @@ function DataRoomPage({
         <div className="data-room-empty">
           <strong>No documents yet</strong>
           <p>Choose a document type from Upload document — the same list as Intelligence — to add your first file.</p>
-        </div>
+              </div>
       ) : (
         <div className="data-room-list">
           <div className="data-room-row data-room-row-head">
@@ -3920,7 +3920,7 @@ function DataRoomPage({
                 onUpload={onUploadDocument}
                 onOpenHistory={onOpenDocumentHistory}
               />
-            </div>
+        </div>
           ))}
         </div>
       )}
@@ -5488,8 +5488,8 @@ function ContextFeedPage({
                 rows={2}
               />
             </label>
-              </div>
-        ) : null}
+      </div>
+      ) : null}
 
       </div>
 
@@ -5683,7 +5683,7 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
           <button type="button" className="ai-dropdown-item" onClick={() => { onGenerateBrief?.(); closeAll(); }}>
             ≡ Generate brief
           </button>
-        </div>
+                  </div>
       ) : null}
       {showPicker ? (
         <div className="ai-pb-panel">
@@ -5705,7 +5705,7 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
                     <div className="afc-pb-item-head">
                       <span className="afc-pb-name">{pb.name}</span>
                       <span className="afc-pb-kind"> · {pb.kind}</span>
-                    </div>
+                </div>
                     <div className="afc-pb-desc">{pb.description}</div>
                   </button>
                 ))}
@@ -5779,13 +5779,19 @@ function SidebarProfileFooter({
 export default function PatriotPayJourney({
   initialPage = "journey",
   initialBenchmark = null,
+  initialOnboardingAnswers = null,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
+  initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
 }) {
   return (
     <CreditProvider>
-      <PatriotPayJourneyInner initialPage={initialPage} initialBenchmark={initialBenchmark} />
+      <PatriotPayJourneyInner
+        initialPage={initialPage}
+        initialBenchmark={initialBenchmark}
+        initialOnboardingAnswers={initialOnboardingAnswers}
+      />
       <UpgradeModal />
       <CreditToastHost />
     </CreditProvider>
@@ -5795,9 +5801,11 @@ export default function PatriotPayJourney({
 function PatriotPayJourneyInner({
   initialPage = "journey",
   initialBenchmark = null,
+  initialOnboardingAnswers = null,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
+  initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
 }) {
   const startsWithTour = initialPage === "guided-tour";
   const startsWithTourAfterSignals = initialPage === "signals-loading-tour";
@@ -6010,7 +6018,7 @@ function PatriotPayJourneyInner({
       }
       if (startsWithTourAfterSignals) {
         setActivePage("signals");
-        setShowTourPrompt(true);
+          setShowTourPrompt(true);
         return;
       }
       setActivePage("signals");
@@ -6507,6 +6515,7 @@ function PatriotPayJourneyInner({
               }}
               onAddSources={() => setActivePage("signals")}
               onAddDetails={() => setActivePage("overview")}
+              onboardingAnswers={initialOnboardingAnswers}
               brief={generatedBrief}
               lastPlaybook={lastPlaybook}
               onDismissPlaybook={() => setLastPlaybook(null)}

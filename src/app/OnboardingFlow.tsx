@@ -51,16 +51,29 @@ const BUSINESS_MODELS = [
   { id: "both",      label: "Operating + investment firm", desc: "Both running a product or service and actively investing." },
 ];
 
-const COMPANY_BENCHMARK_METRICS = [
-  { label: "ARR growth (YoY)", key: "arrGrowth" as keyof Answers, ph: "e.g. 85%", p25: 18, p50: 42, p75: 80, p90: 140, unit: "%" },
-  { label: "Net revenue retention", key: "nrr" as keyof Answers, ph: "e.g. 108%", p25: 88, p50: 104, p75: 118, p90: 130, unit: "%" },
-  { label: "Gross margin", key: "grossMargin" as keyof Answers, ph: "e.g. 72%", p25: 48, p50: 62, p75: 74, p90: 82, unit: "%" },
-  { label: "Logo retention", key: "logoRetention" as keyof Answers, ph: "e.g. 92%", p25: 72, p50: 84, p75: 91, p90: 96, unit: "%" },
-  { label: "Monthly net burn", key: "monthlyBurn" as keyof Answers, ph: "e.g. $85,000", p25: 40000, p50: 85000, p75: 160000, p90: 280000, unit: "usd" },
-  { label: "Cash on hand", key: "cashOnHand" as keyof Answers, ph: "e.g. $3,200,000", p25: 800000, p50: 2000000, p75: 4000000, p90: 8000000, unit: "usd" },
-  { label: "Headcount (FTE)", key: "headcount" as keyof Answers, ph: "e.g. 18", p25: 8, p50: 15, p75: 28, p90: 50, unit: "" },
-  { label: "Paying customers", key: "payingCustomers" as keyof Answers, ph: "e.g. 40", p25: 18, p50: 45, p75: 90, p90: 180, unit: "" },
+const ONBOARDING_BENCHMARK_FIELDS: {
+  label: string;
+  key: keyof OnboardingBenchmarkInput;
+  ph: string;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  unit: "%" | "usd" | "";
+  lowerIsBetter?: boolean;
+}[] = [
+  { label: "ARR", key: "arr", ph: "e.g. $1,200,000", p25: 150_000, p50: 500_000, p75: 1_200_000, p90: 2_500_000, unit: "usd" },
+  { label: "ARR growth (YoY)", key: "arrGrowth", ph: "e.g. 85%", p25: 18, p50: 42, p75: 80, p90: 140, unit: "%" },
+  { label: "Net revenue retention", key: "nrr", ph: "e.g. 108%", p25: 88, p50: 104, p75: 118, p90: 130, unit: "%" },
+  { label: "Gross margin", key: "grossMargin", ph: "e.g. 72%", p25: 48, p50: 62, p75: 74, p90: 82, unit: "%" },
+  { label: "Logo retention", key: "logoRetention", ph: "e.g. 92%", p25: 72, p50: 84, p75: 91, p90: 96, unit: "%" },
+  { label: "Monthly net burn", key: "monthlyBurn", ph: "e.g. $85,000", p25: 40000, p50: 85000, p75: 160000, p90: 280000, unit: "usd", lowerIsBetter: true },
+  { label: "Cash on hand", key: "cashOnHand", ph: "e.g. $3,200,000", p25: 800000, p50: 2000000, p75: 4000000, p90: 8000000, unit: "usd" },
+  { label: "Headcount (FTE)", key: "headcount", ph: "e.g. 18", p25: 8, p50: 15, p75: 28, p90: 50, unit: "" },
+  { label: "Paying customers", key: "payingCustomers", ph: "e.g. 40", p25: 18, p50: 45, p75: 90, p90: 180, unit: "" },
 ];
+
+export { ONBOARDING_BENCHMARK_FIELDS };
 
 const STEP_META: Record<StepId, { label: string; sub: string }> = {
   profile:      { label: "Profile",       sub: "Review your details" },
@@ -318,7 +331,19 @@ const css = `
   .of-pulse { animation: ofPulse 2s ease infinite; }
   .of-glow  { animation: ofGlow 2.5s ease infinite; }
 
-  .of-input { transition: border-color 0.2s; }
+  .of-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #1A2D3F;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #F2F5F2;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
   .of-input:focus { border-color: rgba(61,214,140,0.4) !important; outline: none; }
 
   .of-chip { transition: all 0.15s; }
@@ -328,17 +353,151 @@ const css = `
   .of-figma-opt:hover { border-color: rgba(255,255,255,0.22) !important; color: #F2F5F2 !important; background: rgba(255,255,255,0.03) !important; }
   .of-figma-opt--on:hover { border-color: #3DD68C !important; background: rgba(61,214,140,0.08) !important; color: #F2F5F2 !important; }
 
-  .of-figma-q-title { font-size: clamp(26px, 3.2vw, 38px); font-weight: 800; color: #F2F5F2; margin: 0; letter-spacing: -0.5px; line-height: 1.12; }
-  .of-figma-q-grouped { font-size: clamp(15px, 2.2vw, 17px); font-weight: 500; color: #8FA99A; margin: 0; line-height: 1.5; }
-  .of-figma-q-sub { font-size: clamp(14px, 2vw, 16px); color: #556878; margin: 12px 0 0; line-height: 1.55; }
-  .of-step-heading h2 { font-size: clamp(28px, 3.5vw, 38px); }
-  .of-step-heading p { font-size: clamp(14px, 2vw, 16px); }
+  .of-figma-q-title { font-size: clamp(26px, 2.8vw, 36px); font-weight: 800; color: #F2F5F2; margin: 0; letter-spacing: -0.5px; line-height: 1.12; }
+  .of-figma-q-grouped { font-size: clamp(15px, 2vw, 16px); font-weight: 500; color: #8FA99A; margin: 0; line-height: 1.5; }
+  .of-figma-q-sub { font-size: clamp(13px, 1.8vw, 15px); color: #556878; margin: 12px 0 0; line-height: 1.55; }
+  .of-step-heading h2 { font-size: clamp(28px, 3vw, 36px); }
+  .of-step-heading p { font-size: clamp(13px, 1.8vw, 15px); }
 
   .of-add-round:hover { border-color: rgba(255,255,255,0.2) !important; color: #8FA99A !important; }
 
   .of-back:hover { color: #8FA99A !important; }
 
   .of-suggest-item:hover { background: rgba(61,214,140,0.08) !important; }
+
+  .of-left-col { width: 50%; min-width: 0; }
+  .of-form-col {
+    width: 100%;
+    max-width: 520px;
+    padding: 88px 72px 100px;
+    box-sizing: border-box;
+  }
+  .of-form-col--centered { padding: 40px 72px 96px; }
+
+  .of-motion-scale-inner {
+    --of-motion-scale: 1;
+    --of-motion-card-max: clamp(360px, 88%, 440px);
+    --of-motion-pad-x: clamp(24px, 2.5vw, 32px);
+    --of-motion-glow: clamp(480px, 42vw, 560px);
+    --of-motion-root: clamp(13.5px, 0.38vw + 11.8px, 14.75px);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: scale(var(--of-motion-scale));
+    transform-origin: center center;
+    font-size: var(--of-motion-root);
+  }
+
+  .of-field-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #8FA99A;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 7px;
+  }
+  .of-field-hint { font-size: 11px; color: #3A4F5E; margin-top: 5px; }
+  .of-opt-title { font-size: 14px; line-height: 1.3; }
+  .of-opt-desc { font-size: 12px; margin-top: 3px; line-height: 1.5; }
+  .of-figma-hint {
+    margin-top: 18px;
+    padding: 12px 16px;
+    background: rgba(61,214,140,0.04);
+    border: 1px solid rgba(61,214,140,0.12);
+    border-radius: 10px;
+    font-size: 13px;
+    color: #8FA99A;
+    line-height: 1.65;
+    font-style: italic;
+  }
+
+  .of-form-col .of-figma-opt { font-size: 14px; }
+
+  @media (min-width: 1280px) {
+    .of-left-col { width: 48%; }
+    .of-form-col { max-width: 560px; padding: 92px 80px 104px; }
+    .of-form-col--centered { padding: 44px 80px 100px; }
+    .of-figma-q-title { font-size: clamp(28px, 2.9vw, 38px); }
+    .of-figma-q-grouped { font-size: 16px; }
+    .of-figma-q-sub { font-size: 15px; }
+    .of-step-heading h2 { font-size: clamp(30px, 3.1vw, 38px); }
+    .of-step-heading p { font-size: 15px; }
+    .of-field-label { font-size: 11px; margin-bottom: 8px; }
+    .of-field-hint { font-size: 11px; }
+    .of-input { font-size: 14px; padding: 11px 15px; border-radius: 9px; }
+    .of-form-col .of-figma-opt { font-size: 14px !important; padding: 14px 17px !important; }
+    .of-opt-title { font-size: 14px; }
+    .of-opt-desc { font-size: 12px; }
+    .of-figma-hint { font-size: 13px; padding: 12px 16px; }
+    .of-motion-scale-inner {
+      --of-motion-scale: 1.08;
+      --of-motion-card-max: clamp(420px, 38vw, 480px);
+      --of-motion-pad-x: clamp(28px, 2.4vw, 34px);
+      --of-motion-glow: clamp(540px, 40vw, 600px);
+      --of-motion-root: clamp(14px, 0.34vw + 12px, 15.25px);
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .of-left-col { width: 47%; }
+    .of-form-col { max-width: 600px; padding: 96px 84px 108px; }
+    .of-form-col--centered { padding: 48px 84px 104px; }
+    .of-step-heading { margin-bottom: 40px !important; }
+    .of-figma-q-title { font-size: clamp(29px, 3vw, 40px); }
+    .of-figma-q-grouped { font-size: 16px; }
+    .of-figma-q-sub { font-size: 15px; }
+    .of-step-heading h2 { font-size: clamp(31px, 3.2vw, 40px); }
+    .of-step-heading p { font-size: 15px; }
+    .of-field-label { font-size: 11px; letter-spacing: 0.5px; }
+    .of-input { font-size: 14px; padding: 11px 16px; border-radius: 9px; }
+    .of-form-col .of-figma-opt { font-size: 14px !important; padding: 14px 18px !important; border-radius: 10px !important; }
+    .of-opt-title { font-size: 14px; }
+    .of-opt-desc { font-size: 13px; }
+    .of-figma-hint { font-size: 13px; padding: 12px 16px; }
+    .of-motion-scale-inner {
+      --of-motion-scale: 1.12;
+      --of-motion-card-max: clamp(440px, 36vw, 500px);
+      --of-motion-pad-x: clamp(30px, 2.2vw, 36px);
+      --of-motion-glow: clamp(580px, 38vw, 640px);
+      --of-motion-root: clamp(14.25px, 0.3vw + 12.2px, 15.75px);
+    }
+  }
+
+  @media (min-width: 1600px) {
+    .of-form-col { max-width: 620px; padding: 100px 88px 112px; }
+    .of-form-col--centered { padding: 52px 88px 108px; }
+    .of-figma-q-title { font-size: clamp(30px, 3.1vw, 42px); }
+    .of-figma-q-grouped { font-size: 17px; }
+    .of-figma-q-sub { font-size: 15px; }
+    .of-step-heading h2 { font-size: clamp(32px, 3.3vw, 42px); }
+    .of-step-heading p { font-size: 15px; }
+    .of-input { font-size: 15px; padding: 12px 16px; }
+    .of-form-col .of-figma-opt { font-size: 15px !important; padding: 15px 18px !important; }
+    .of-opt-title { font-size: 15px; }
+    .of-opt-desc { font-size: 13px; }
+    .of-motion-scale-inner {
+      --of-motion-scale: 1.16;
+      --of-motion-card-max: clamp(460px, 34vw, 520px);
+      --of-motion-pad-x: clamp(32px, 2vw, 38px);
+      --of-motion-glow: clamp(620px, 36vw, 680px);
+      --of-motion-root: clamp(14.5px, 0.27vw + 12.5px, 16.25px);
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .of-form-col { max-width: 640px; padding: 104px 92px 116px; }
+    .of-form-col .of-figma-opt { font-size: 15px !important; }
+    .of-motion-scale-inner {
+      --of-motion-scale: 1.2;
+      --of-motion-card-max: clamp(480px, 32vw, 540px);
+      --of-motion-pad-x: clamp(34px, 1.8vw, 40px);
+      --of-motion-glow: clamp(660px, 34vw, 720px);
+      --of-motion-root: clamp(14.75px, 0.24vw + 12.8px, 16.75px);
+    }
+  }
 
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -348,10 +507,7 @@ const css = `
 // ─── Left-panel field helpers ────────────────────────────────────────────────
 
 const inp: React.CSSProperties = {
-  width:"100%", boxSizing:"border-box",
-  background:"#1A2D3F", border:"1px solid rgba(255,255,255,0.1)",
-  borderRadius:8, padding:"10px 14px",
-  fontSize:13, color:"#F2F5F2", fontFamily:"inherit", outline:"none",
+  /* base styles in .of-input CSS — keep only overrides here if needed */
 };
 
 function Field({ label, required, hint, children }: {
@@ -359,11 +515,11 @@ function Field({ label, required, hint, children }: {
 }) {
   return (
     <div style={{ marginBottom:20 }}>
-      <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:7 }}>
+      <label className="of-field-label">
         {label}{required && <span style={{ color:"#E56B6B", marginLeft:3 }}>*</span>}
       </label>
       {children}
-      {hint && <div style={{ fontSize:11, color:"#3A4F5E", marginTop:5 }}>• {hint}</div>}
+      {hint && <div className="of-field-hint">• {hint}</div>}
     </div>
   );
 }
@@ -397,7 +553,6 @@ function FigmaQuestion({
               style={{
                 padding: "15px 18px",
                 borderRadius: 10,
-                fontSize: 14,
                 fontWeight: on ? 600 : 400,
                 cursor: "pointer",
                 fontFamily: "inherit",
@@ -413,7 +568,7 @@ function FigmaQuestion({
         })}
       </div>
       {hint && value && (
-        <div style={{ marginTop: 18, padding: "12px 16px", background: "rgba(61,214,140,0.04)", border: "1px solid rgba(61,214,140,0.12)", borderRadius: 10, fontSize: 13, color: "#8FA99A", lineHeight: 1.65, fontStyle: "italic" }}>
+        <div className="of-figma-hint">
           {hint}
         </div>
       )}
@@ -459,8 +614,8 @@ function FigmaDescQuestion({
                 {on && <div style={{ width: 7, height: 7, borderRadius: "50%", background: accent }} />}
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: on ? 600 : 500, color: on ? "#F2F5F2" : "#C8D4CE", lineHeight: 1.3 }}>{opt.label}</div>
-                <div style={{ fontSize: 12, color: on ? "#8FA99A" : "#556878", marginTop: 3, lineHeight: 1.5 }}>{opt.desc}</div>
+                <div className="of-opt-title" style={{ fontWeight: on ? 600 : 500, color: on ? "#F2F5F2" : "#C8D4CE" }}>{opt.label}</div>
+                <div className="of-opt-desc" style={{ color: on ? "#8FA99A" : "#556878" }}>{opt.desc}</div>
               </div>
             </button>
           );
@@ -496,7 +651,6 @@ function FigmaMultiSelect({
               style={{
                 padding: "15px 18px",
                 borderRadius: 10,
-                fontSize: 14,
                 fontWeight: on ? 600 : 400,
                 cursor: disabled ? "default" : "pointer",
                 fontFamily: "inherit",
@@ -539,17 +693,88 @@ function parseVal(s: string): number | null {
   return null;
 }
 
-function dotColor(val: number, p25: number, p50: number, p75: number): string {
+function dotColor(val: number, p25: number, p50: number, p75: number, lowerIsBetter = false): string {
+  if (lowerIsBetter) {
+    if (val > p75) return "#E56B6B";
+    if (val > p50) return "#D4924A";
+    return "#3DD68C";
+  }
   if (val < p25) return "#E56B6B";
   if (val < p50) return "#D4924A";
   return "#3DD68C";
 }
 
-function dotGlow(val: number, p25: number, p50: number, p75: number): string {
+function dotGlow(val: number, p25: number, p50: number, p75: number, lowerIsBetter = false): string {
+  if (lowerIsBetter) {
+    if (val > p75) return "0 0 10px rgba(229,107,107,0.7)";
+    if (val > p50) return "0 0 10px rgba(212,146,74,0.6)";
+    if (val <= p25) return "0 0 14px rgba(61,214,140,0.8)";
+    return "0 0 10px rgba(61,214,140,0.55)";
+  }
   if (val < p25) return "0 0 10px rgba(229,107,107,0.7)";
   if (val < p50) return "0 0 10px rgba(212,146,74,0.6)";
   if (val >= p75) return "0 0 14px rgba(61,214,140,0.8)";
   return "0 0 10px rgba(61,214,140,0.55)";
+}
+
+export function OnboardingBenchmarkFieldList({
+  values,
+  onChange,
+  inputClassName = "of-input",
+}: {
+  values: Partial<Record<keyof OnboardingBenchmarkInput, string>>;
+  onChange: (key: keyof OnboardingBenchmarkInput, value: string) => void;
+  inputClassName?: string;
+}) {
+  return (
+    <>
+      {ONBOARDING_BENCHMARK_FIELDS.map(m => {
+        const raw = values[m.key] ?? "";
+        const val = parseVal(raw);
+        const hasVal = val !== null;
+        const lowerIsBetter = m.lowerIsBetter === true;
+        const displayMax = m.p90 * 1.3;
+        const p25pct = (m.p25 / displayMax) * 100;
+        const p75pct = (m.p75 / displayMax) * 100;
+        const dotPct = hasVal ? Math.min(Math.max((val! / displayMax) * 100, 1), 99) : null;
+        const dc = hasVal ? dotColor(val!, m.p25, m.p50, m.p75, lowerIsBetter) : "#3A4F5E";
+        return (
+          <div key={m.key} style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.4px" }}>{m.label}</label>
+            </div>
+            <input
+              className={inputClassName}
+              value={raw}
+              onChange={e => onChange(m.key, e.target.value)}
+              placeholder={m.ph}
+              style={{ ...inp, padding: "8px 12px", fontSize: 13, marginBottom: 7, borderColor: hasVal ? `${dc}55` : undefined, transition: "border-color 0.3s" }}
+            />
+            <div style={{ position: "relative", height: 7, background: "rgba(255,255,255,0.04)", borderRadius: 4 }}>
+              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: `${p75pct - p25pct}%`, height: "100%", background: "rgba(61,214,140,0.28)", borderRadius: 2 }} />
+              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: 1, height: "100%", background: "rgba(61,214,140,0.3)" }} />
+              <div style={{ position: "absolute", left: `${p75pct}%`, top: 0, width: 1, height: "100%", background: "rgba(61,214,140,0.45)" }} />
+              {dotPct !== null ? (
+                <div style={{
+                  position: "absolute", top: -5, zIndex: 2,
+                  left: `calc(${dotPct}% - 8px)`,
+                  width: 17, height: 17, borderRadius: "50%",
+                  background: dc, border: "2px solid #0F1E2B",
+                  boxShadow: dotGlow(val!, m.p25, m.p50, m.p75, lowerIsBetter),
+                  transition: "left 0.5s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, box-shadow 0.3s",
+                }} />
+              ) : null}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
+              {[{ l: "P25", v: m.p25 }, { l: "P75", v: m.p75 }, { l: "P90", v: m.p90 }].map(p => (
+                <span key={p.l} style={{ fontSize: 9, color: "#3A4F5E" }}>{p.l} {formatBenchmarkP(p.v, m.unit)}</span>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
 }
 
 const SUB_Q_COUNT: Partial<Record<StepId, number>> = {
@@ -585,6 +810,65 @@ export function answersToOnboardingBenchmark(answers: Answers): OnboardingBenchm
   };
 }
 
+/** Maps the 3 onboarding qual questions per track into View-details drawer IDs. */
+export function mapOnboardingToDetailAnswers(answers: Answers): Record<string, string> {
+  const out: Record<string, string> = {};
+  const put = (detailId: string, value: string) => {
+    if (value?.trim()) out[detailId] = value.trim();
+  };
+  const map = (raw: string, table?: Record<string, string>) => table?.[raw] ?? raw;
+
+  if (answers.productType) {
+    put("dev_product_type", map(answers.productType, {
+      "SaaS / web app": "SaaS / web app",
+      Marketplace: "Marketplace",
+      "API or developer platform": "API / platform",
+      Other: "SaaS / web app",
+    }));
+  }
+  if (answers.productChallenge) {
+    put("dev_challenge", map(answers.productChallenge, {
+      "Speed of execution": "Speed",
+      "Quality and reliability": "Quality",
+      "Roadmap clarity": "Roadmap clarity",
+      "Not enough engineers": "Speed",
+    }));
+  }
+  if (answers.buildStage) {
+    put("dev_stack_maturity", map(answers.buildStage, {
+      "Pre-launch — still building": "Works for now",
+      "Launched — early users or customers": "Works for now",
+      "Scaling — product is proven, growing fast": "Built to scale",
+    }));
+  }
+  if (answers.salesMotion) put("mkt_sales_motion", answers.salesMotion);
+  if (answers.funnelBreakdown) put("mkt_funnel_gap", answers.funnelBreakdown);
+  if (answers.investorIntros) put("mkt_investor_intros", answers.investorIntros);
+  if (answers.pipelineTool) {
+    put("rev_crm", map(answers.pipelineTool, {
+      CRM: "HubSpot",
+      Spreadsheet: "Spreadsheets",
+      "Nothing yet": "None yet",
+    }));
+  }
+  if (answers.salesProcess) {
+    put("rev_biggest_gap", map(answers.salesProcess, {
+      Documented: "Pipeline hygiene",
+      Informal: "Reporting",
+      "Not yet": "Forecasting",
+    }));
+  }
+  if (answers.runway) {
+    put("rev_runway_visibility", map(answers.runway, {
+      "Under 6 months": "Rough estimate",
+      "6–12 months": "Tracked monthly",
+      "12–18 months": "Tracked monthly",
+      "Over 18 months": "Tracked monthly",
+    }));
+  }
+  return out;
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function OnboardingFlow({ onComplete }: { onComplete: (answers: Answers) => void }) {
@@ -615,10 +899,10 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   const [benchmarkSummaryReady, setBenchmarkSummaryReady] = useState(false);
 
   const filledBenchmarkCount = useMemo(
-    () => COMPANY_BENCHMARK_METRICS.filter(m => parseVal(answers[m.key] || "") !== null).length,
+    () => ONBOARDING_BENCHMARK_FIELDS.filter(m => parseVal(answers[m.key as keyof Answers] || "") !== null).length,
     [answers],
   );
-  const allBenchmarkFilled = filledBenchmarkCount === COMPANY_BENCHMARK_METRICS.length;
+  const allBenchmarkFilled = filledBenchmarkCount === ONBOARDING_BENCHMARK_FIELDS.length;
 
   const isInvestor = INVESTOR_MODELS.includes(profileForm.businessModel);
   const activeSteps: StepId[] = isInvestor ? STEPS_INVESTOR : STEPS_DEFAULT;
@@ -777,7 +1061,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
       companyName={companyName}
       allMetricsFilled={allBenchmarkFilled}
       filledCount={filledBenchmarkCount}
-      totalCount={COMPANY_BENCHMARK_METRICS.length}
+      totalCount={ONBOARDING_BENCHMARK_FIELDS.length}
       isGenerating={benchmarkGenerating}
       summaryReady={benchmarkSummaryReady}
     />,
@@ -798,7 +1082,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
         <div style={{ width:"100vw", height:"100vh", background:"#0C1A25", display:"flex", fontFamily:"Inter, -apple-system, sans-serif" }}>
 
           {/* ── LEFT ── */}
-          <div style={{ width:"50%", minWidth:0, display:"flex", flexDirection:"column", position:"relative" }}>
+          <div className="of-left-col" style={{ display:"flex", flexDirection:"column", position:"relative" }}>
 
             {/* Logo — top left */}
             <div style={{ position:"absolute", top:28, left:48, display:"flex", alignItems:"center", gap:8, zIndex:2 }}>
@@ -816,11 +1100,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                 justifyContent: "center", minHeight: 0,
               }}
             >
-              <div style={{
-                width: "100%",
-                padding: isCenteredView ? "40px 72px 96px" : "88px 72px 100px",
-                maxWidth: 520,
-              }}>
+              <div className={`of-form-col${isCenteredView ? " of-form-col--centered" : ""}`}>
                 <div className="of-step" key={`${stepId}-${currentSubQ}-${searchState}`}>
 
                   {/* PROFILE */}
@@ -1058,64 +1338,18 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                     <div>
                       <div style={{ marginBottom:20 }}>
                         <h2 style={{ fontSize:38, fontWeight:800, color:"#F2F5F2", margin:"0 0 10px", letterSpacing:"-0.5px", lineHeight:1.1 }}>How do you stack up?</h2>
-                        <p style={{ fontSize:16, color:"#556878", margin:0, lineHeight:1.55 }}>Enter your numbers — the graph shows where you sit. Fuel generates your action plan on the right once all metrics are in.</p>
+                        <p style={{ fontSize:16, color:"#556878", margin:0, lineHeight:1.55 }}>Enter your numbers — the graph shows where you sit. Fuel builds your intelligence, initiatives, and playbooks behind the scenes. You unlock everything in your scorecard.</p>
                       </div>
 
                       <div style={{ background:"linear-gradient(135deg, rgba(43,184,160,0.1) 0%, rgba(61,214,140,0.06) 100%)", border:"1px solid rgba(43,184,160,0.25)", borderRadius:12, padding:"14px 18px", marginBottom:22 }}>
                         <div style={{ fontSize:12, fontWeight:700, color:"#2BB8A0", marginBottom:4 }}>✦ The more you share, the sharper your intelligence</div>
-                        <div style={{ fontSize:12, color:"#8FA99A", lineHeight:1.6 }}>Every number narrows your cohort. Once all metrics are entered, Fuel builds your <strong style={{ color:"#F2F5F2" }}>intelligence</strong>, suggested <strong style={{ color:"#F2F5F2" }}>initiatives</strong>, and <strong style={{ color:"#F2F5F2" }}>playbooks</strong> on the right. This step is optional.</div>
+                        <div style={{ fontSize:12, color:"#8FA99A", lineHeight:1.6 }}>Every number narrows your cohort. Fuel queues your <strong style={{ color:"#F2F5F2" }}>intelligence</strong>, <strong style={{ color:"#F2F5F2" }}>initiatives</strong>, and <strong style={{ color:"#F2F5F2" }}>playbooks</strong> — you see the full stack when you launch. This step is optional.</div>
                       </div>
 
-                      {COMPANY_BENCHMARK_METRICS.map(m => {
-                        const val = parseVal(answers[m.key] || "");
-                        const hasVal = val !== null;
-                        const displayMax = m.p90 * 1.3;
-                        const p25pct = (m.p25 / displayMax) * 100;
-                        const p75pct = (m.p75 / displayMax) * 100;
-                        const p90pct = (m.p90 / displayMax) * 100;
-                        const dotPct = hasVal ? Math.min(Math.max((val! / displayMax) * 100, 1), 99) : null;
-                        const dc = hasVal ? dotColor(val!, m.p25, m.p50, m.p75) : "#3A4F5E";
-                        return (
-                          <div key={m.key} style={{ marginBottom:14 }}>
-                            {/* Label row */}
-                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
-                              <label style={{ fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.4px" }}>{m.label}</label>
-                            </div>
-                            {/* Input */}
-                            <input
-                              className="of-input"
-                              value={answers[m.key]}
-                              onChange={e => setAns(m.key, e.target.value)}
-                              placeholder={m.ph}
-                              style={{ ...inp, padding:"8px 12px", fontSize:13, marginBottom:7, borderColor: hasVal ? `${dc}55` : undefined, transition:"border-color 0.3s" }}
-                            />
-                            {/* Bar */}
-                            <div style={{ position:"relative", height:7, background:"rgba(255,255,255,0.04)", borderRadius:4 }}>
-                              <div style={{ position:"absolute", left:`${p25pct}%`, top:0, width:`${p75pct-p25pct}%`, height:"100%", background:"rgba(61,214,140,0.2)" }} />
-                              <div style={{ position:"absolute", left:`${p75pct}%`, top:0, width:`${p90pct-p75pct}%`, height:"100%", background:"rgba(61,214,140,0.35)" }} />
-                              <div style={{ position:"absolute", left:`${p90pct}%`, top:0, right:0, height:"100%", background:"rgba(61,214,140,0.12)", borderRadius:"0 4px 4px 0" }} />
-                              <div style={{ position:"absolute", left:`${p25pct}%`, top:0, width:1, height:"100%", background:"rgba(61,214,140,0.3)" }} />
-                              <div style={{ position:"absolute", left:`${p75pct}%`, top:0, width:1, height:"100%", background:"rgba(61,214,140,0.45)" }} />
-                              {dotPct !== null && (
-                                <div style={{
-                                  position:"absolute", top:-5, zIndex:2,
-                                  left:`calc(${dotPct}% - 8px)`,
-                                  width:17, height:17, borderRadius:"50%",
-                                  background:dc, border:"2px solid #0F1E2B",
-                                  boxShadow: dotGlow(val!, m.p25, m.p50, m.p75),
-                                  transition:"left 0.5s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, box-shadow 0.3s",
-                                }} />
-                              )}
-                            </div>
-                            {/* P labels */}
-                            <div style={{ display:"flex", justifyContent:"space-between", marginTop:3 }}>
-                              {[{l:"P25",v:m.p25},{l:"P75",v:m.p75},{l:"P90",v:m.p90}].map(p=>(
-                                <span key={p.l} style={{ fontSize:9, color:"#3A4F5E" }}>{p.l} {formatBenchmarkP(p.v, m.unit)}</span>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
+                      <OnboardingBenchmarkFieldList
+                        values={answers}
+                        onChange={(key, value) => setAns(key as keyof Answers, value)}
+                      />
                       <div style={{ marginTop:8, fontSize:11, color:"#3A4F5E" }}>Numbers stay in your workspace and are never shared externally.</div>
                     </div>
                   )}
@@ -1257,7 +1491,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
 
           {/* ── RIGHT ── */}
           <div style={{ flex:1, background:"linear-gradient(175deg, #EEF8F5 0%, #D8F0EA 45%, #C8E8DF 100%)", overflow:"hidden", position:"relative" }}>
-            <div className="of-step" key={`g-${stepId}-${searchState}-${currentSubQ}-${hubspotStatus}-${benchmarkGenerating}-${benchmarkSummaryReady}`} style={{ width:"100%", height:"100%", display:"flex" }}>
+            <div className="of-motion-scale-inner of-step" key={`g-${stepId}-${searchState}-${currentSubQ}-${hubspotStatus}-${benchmarkGenerating}-${benchmarkSummaryReady}`}>
               {rightPanel[stepId]}
             </div>
           </div>

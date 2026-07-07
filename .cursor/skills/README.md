@@ -5,6 +5,7 @@ Project skills live under `.cursor/skills/<skill-name>/SKILL.md`. Load the relev
 | Skill | Path | Use when |
 |-------|------|----------|
 | **Fuel onboarding voice** | [fuel-onboarding-voice/SKILL.md](./fuel-onboarding-voice/SKILL.md) | Writing or editing onboarding chat copy, CTAs, Fuel help bubbles, empty states, or any user-facing Fuel message |
+| **Fuel founder copy** | [fuel-founder-copy/SKILL.md](./fuel-founder-copy/SKILL.md) | Scorecard glance focus, advisor summaries, track insights — plain language, no unexplained acronyms (DRI, ICP, etc.) |
 | **Fuel design system** | [fuel-design-system/SKILL.md](./fuel-design-system/SKILL.md) | Colors, typography, cards, bubbles, credits UI styling |
 
 ## Adding a skill
