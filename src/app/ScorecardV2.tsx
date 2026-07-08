@@ -29,7 +29,6 @@ import {
   toggleMultiSelectAnswer,
   type DetailAnswers,
 } from "./trackQuestions.ts";
-import { BriefAdvisorCard } from "./AskFuelChat.tsx";
 import "./PatriotPayJourney.css";
 
 // Single source of truth for field definitions (P-values, band positions, units)
@@ -3992,40 +3991,18 @@ export default function ScorecardV2({
           <span className="sc-adv-featured-chev" aria-hidden="true">▾</span>
         </div>
         {advisorOpen ? (
-          <>
-            {lastPlaybook ? (
-              <div className="sc-playbook-card sc-adv-featured">
-                <div className="sc-playbook-head">
-                  <div>
-                    <span className="sc-playbook-eyebrow">▤ Playbook · {lastPlaybook.kind}</span>
-                    <strong className="sc-playbook-title">{lastPlaybook.name}</strong>
-                  </div>
-                  <button type="button" className="sc-playbook-x" onClick={() => onDismissPlaybook?.()} aria-label="Dismiss">✕</button>
-                </div>
-                <p className="sc-playbook-desc">{lastPlaybook.description}</p>
-                <button type="button" className="sc-playbook-cta" onClick={() => onAskFuel?.()}>Open in Ask Fuel AI →</button>
-              </div>
-            ) : brief ? (
-              <div className="sc-adv-featured sc-adv-featured-split">
-                <div className="sc-adv-featured-brief-col">
-                  <BriefAdvisorCard brief={brief} onViewDetails={() => openDetailsDrawer()} />
-                </div>
-              </div>
-            ) : (
-              <OverviewAdvisorPanel
-                categories={categoryData}
-                runway={runway}
-                companyName={cName}
-                buildContext={buildContext}
-                benchmarkSaved={benchmarkSaved}
-                onOpenIntelligence={onOpenIntelligence}
-                onEditBenchmark={() => setEditBenchmarkOpen(true)}
-                onAddSources={() => setAddSourcesOpen(true)}
-                onViewDetails={() => openDetailsDrawer()}
-                documentSlots={documentSlots}
-              />
-            )}
-          </>
+          <OverviewAdvisorPanel
+            categories={categoryData}
+            runway={runway}
+            companyName={cName}
+            buildContext={buildContext}
+            benchmarkSaved={benchmarkSaved}
+            onOpenIntelligence={onOpenIntelligence}
+            onEditBenchmark={() => setEditBenchmarkOpen(true)}
+            onAddSources={() => setAddSourcesOpen(true)}
+            onViewDetails={() => openDetailsDrawer()}
+            documentSlots={documentSlots}
+          />
         ) : null}
       </div>
       ) : null}
