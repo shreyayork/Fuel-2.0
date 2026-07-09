@@ -12,11 +12,16 @@ import {
   useCredits,
   useCreditsOptional,
 } from "./credits";
-import { totalRemaining, dailyRemaining, monthlyRemainingRatio } from "./credits/creditLogic";
-import type { CreditSnapshot } from "./credits/types";
+import { totalRemaining, dailyRemaining } from "./credits/creditLogic";
 import ScorecardV2 from "./ScorecardV2";
 import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
+import { AccountSettings } from "./account/AccountSettings.tsx";
+import {
+  AccountSettingsNavProvider,
+  accountTabLabel,
+  type AccountSettingsTab,
+} from "./account/AccountSettingsNav.tsx";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -5533,73 +5538,6 @@ function ContextFeedPage({
   );
 }
 
-function ProfileUsagePanel({
-  snapshot,
-  userName,
-  userEmail,
-  onClose,
-  onUpgrade,
-  onTopUp,
-}: {
-  snapshot: CreditSnapshot;
-  userName: string;
-  userEmail: string;
-  onClose: () => void;
-  onUpgrade: () => void;
-  onTopUp?: () => void;
-}) {
-  const remaining = totalRemaining(snapshot);
-  const usedPercent = Math.round((1 - monthlyRemainingRatio(snapshot)) * 100);
-  const dailyLeft = dailyRemaining(snapshot);
-
-  return (
-    <div className="profile-usage-panel" role="dialog" aria-label="Profile and credits">
-      <div className="profile-usage-head">
-        <div>
-          <strong>{userName}</strong>
-          <span>{userEmail}</span>
-        </div>
-        <button type="button" className="profile-usage-close" aria-label="Close profile menu" onClick={onClose}>×</button>
-      </div>
-      {snapshot.plan === "free" ? (
-        <>
-          <p className="profile-usage-advisor-copy">An AI advisor that doesn&apos;t take percentage points of your company.</p>
-          <button type="button" className="profile-usage-upgrade-link" onClick={onUpgrade}>
-            Go Pro · from $25/mo →
-          </button>
-        </>
-      ) : onTopUp ? (
-        <button type="button" className="profile-usage-upgrade-link" onClick={onTopUp}>
-          Top up credits →
-        </button>
-      ) : null}
-      <div className="profile-usage-plan">
-        <span className={`profile-usage-plan-badge ${snapshot.plan}`}>{snapshot.plan === "pro" ? "Pro" : "Free"}</span>
-        <em>Resets {snapshot.monthlyResetLabel}</em>
-          </div>
-      <div className="profile-usage-section">
-        <div className="profile-usage-section-head">
-          <span>Credits this month</span>
-          <strong>{remaining.toLocaleString()} left</strong>
-                  </div>
-        <div className="profile-usage-meter" aria-hidden="true">
-          <span
-            className={`profile-usage-meter-fill${remaining <= snapshot.monthlyLimit * 0.1 ? " low" : ""}`}
-            style={{ width: `${Math.max(4, Math.round(monthlyRemainingRatio(snapshot) * 100))}%` }}
-          />
-                </div>
-        <p className="profile-usage-status">{dailyLeft} daily credits left today · {usedPercent}% used</p>
-              </div>
-      <div className="profile-usage-breakdown">
-        <span className="profile-usage-breakdown-label">This month</span>
-        <div className="profile-usage-breakdown-row"><span>Signals</span><strong>{snapshot.stats.signals}</strong></div>
-        <div className="profile-usage-breakdown-row"><span>Docs</span><strong>{snapshot.stats.docs}</strong></div>
-        <div className="profile-usage-breakdown-row"><span>AI messages</span><strong>{snapshot.stats.messages}</strong></div>
-          </div>
-    </div>
-  );
-}
-
 function AskFuelAiButton({ onOpen }: { onOpen: () => void }) {
   const { snapshot, generationBlocked, setPopoverOpen } = useCredits();
   const remaining = totalRemaining(snapshot);
@@ -5723,42 +5661,21 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
 }
 
 function SidebarProfileFooter({
-  profileMenuOpen,
-  setProfileMenuOpen,
-  profileMenuRef,
+  onOpenAccountSettings,
 }: {
-  profileMenuOpen: boolean;
-  setProfileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  profileMenuRef: React.RefObject<HTMLDivElement | null>;
+  onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
 }) {
-  const { snapshot, openUpgrade } = useCredits();
+  const { snapshot } = useCredits();
 
   return (
     <>
       <CreditIndicator />
-      <div className="sidebar-foot-wrap" ref={profileMenuRef}>
-        {profileMenuOpen ? (
-          <ProfileUsagePanel
-            snapshot={snapshot}
-            userName="Shreya Gokani"
-            userEmail="shreya.g@york.ie"
-            onClose={() => setProfileMenuOpen(false)}
-            onUpgrade={() => {
-              setProfileMenuOpen(false);
-              openUpgrade("pro");
-            }}
-            onTopUp={() => {
-              setProfileMenuOpen(false);
-              openUpgrade("topup");
-            }}
-          />
-      ) : null}
+      <div className="sidebar-foot-wrap">
         <button
           type="button"
-          className={`sidebar-foot${profileMenuOpen ? " open" : ""}`}
-          aria-expanded={profileMenuOpen}
-          aria-label="Open profile and usage"
-          onClick={() => setProfileMenuOpen(current => !current)}
+          className="sidebar-foot"
+          aria-label="Open account settings"
+          onClick={() => onOpenAccountSettings("overview")}
         >
           <div className="sidebar-foot-avatar">SG</div>
           <div className="sidebar-foot-copy">
@@ -5827,6 +5744,7 @@ function PatriotPayJourneyInner({
   const [profileComplete, setProfileComplete] = useState(
     initialPage === "signals-loading" || startsWithTourAfterSignals || startsWithOverview || startsWithScorecard,
   );
+  const [accountTab, setAccountTab] = useState<AccountSettingsTab>("overview");
   const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
   const [processingDocumentTypeId, setProcessingDocumentTypeId] = useState<string | null>(null);
   const [documentHistorySlot, setDocumentHistorySlot] = useState<DataRoomDocumentSlot | null>(null);
@@ -5840,13 +5758,15 @@ function PatriotPayJourneyInner({
   );
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [askFuelOpen, setAskFuelOpen] = useState(false);
+  const openAccountSettings = useCallback((tab: AccountSettingsTab = "overview") => {
+    setAccountTab(tab);
+    setActivePage("account");
+  }, []);
   const [generatedBrief, setGeneratedBrief] = useState<Brief | null>(null);
   const [lastPlaybook, setLastPlaybook] = useState<{ name: string; kind: string; description: string; category: string } | null>(null);
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
   const { tryAction } = useCredits();
   const handleDocumentUpload = (typeId: string, typeLabel: string, file: File, source: string) => {
     tryAction("docUpload", () => {
@@ -6125,25 +6045,11 @@ function PatriotPayJourneyInner({
     setTourIndex(tourStep - 1);
   }
 
-  useEffect(() => {
-    if (!profileMenuOpen) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!profileMenuRef.current?.contains(event.target as Node)) {
-        setProfileMenuOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setProfileMenuOpen(false);
-    };
-    window.addEventListener("mousedown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("mousedown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [profileMenuOpen]);
+  const isAccountPage = activePage === "account";
+  const breadcrumbLabel = isAccountPage ? `Account · ${accountTabLabel(accountTab)}` : "Company";
 
   return (
+    <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
@@ -6153,7 +6059,7 @@ function PatriotPayJourneyInner({
             <div className="brand-sub">FUEL 2.0</div>
           </div>
         </div>
-        <div className="account-card">
+        <div className="account-card" onClick={() => openAccountSettings("overview")} role="button" tabIndex={0} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openAccountSettings("overview"); } }}>
           <div className="account-avatar">M</div>
           <div className="account-name">My Account</div>
         </div>
@@ -6258,20 +6164,35 @@ function PatriotPayJourneyInner({
             Winrate
           </div>
         </div>
-        <SidebarProfileFooter
-          profileMenuOpen={profileMenuOpen}
-          setProfileMenuOpen={setProfileMenuOpen}
-          profileMenuRef={profileMenuRef}
-        />
+        <SidebarProfileFooter onOpenAccountSettings={openAccountSettings} />
       </aside>
 
       <div className="main">
         {activePage === "connectors" ? (
           <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
+        ) : activePage === "account" ? (
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box">
+                  <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+                <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Q2 &apos;26 · Apr 17</span>
+              </div>
+            </div>
+            <div className="content">
+              <AccountSettings tab={accountTab} onTabChange={setAccountTab} />
+            </div>
+          </>
         ) : (<><div className="topbar">
           <div className="breadcrumb">
             Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-            <span className="current">Company</span>
+            <span className="current">{breadcrumbLabel}</span>
           </div>
           <div className="topbar-right">
             <div className="search-box">
@@ -6601,5 +6522,6 @@ function PatriotPayJourneyInner({
         focusPlaybookSignal={playbookFocusSignal}
       />
     </div>
+    </AccountSettingsNavProvider>
   );
 }

@@ -1,14 +1,21 @@
 import React from "react";
+import { useAccountSettingsNavOptional } from "../account/AccountSettingsNav";
 import { useCredits } from "./CreditProvider";
 import { totalRemaining, dailyRemaining } from "./creditLogic";
 import { CreditPopover } from "./CreditPopover";
 
 export function CreditIndicator() {
-  const { snapshot, barTone, barFill, togglePopover, popoverOpen } = useCredits();
+  const { snapshot, barTone, barFill, popoverOpen, setPopoverOpen } = useCredits();
+  const accountNav = useAccountSettingsNavOptional();
   const remaining = totalRemaining(snapshot);
   const dailyLeft = dailyRemaining(snapshot);
   const totalCap = snapshot.monthlyLimit + snapshot.topUpBalance;
   const planLabel = snapshot.plan === "pro" ? "Pro" : "Free";
+
+  const openUsage = () => {
+    setPopoverOpen(false);
+    accountNav?.openAccountSettings("usage");
+  };
 
   return (
     <div className="credit-indicator-wrap">
@@ -19,7 +26,7 @@ export function CreditIndicator() {
         aria-expanded={popoverOpen}
         aria-label={`${planLabel} plan · ${remaining.toLocaleString()} of ${totalCap.toLocaleString()} credits available`}
         title={`${remaining.toLocaleString()} / ${totalCap.toLocaleString()} credits · resets ${snapshot.monthlyResetLabel} · ${dailyLeft} daily left`}
-        onClick={togglePopover}
+        onClick={openUsage}
       >
         <div className="credit-indicator-summary">
           <span className={`credit-plan-badge ${snapshot.plan}`}>{planLabel}</span>

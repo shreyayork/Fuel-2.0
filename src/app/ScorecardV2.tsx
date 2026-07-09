@@ -2789,6 +2789,7 @@ function OverviewAdvisorPanel({
           <div className="sc-adv-tags">
             {categories.map(cat => {
               const tag = trackSignalTag(cat, runway);
+              const totalCount = cat.intelDisplayCount + cat.openInitiatives.length + cat.suggestedPlaybooks.length;
               return (
                 <button
                   key={cat.id}
@@ -2796,10 +2797,12 @@ function OverviewAdvisorPanel({
                   className={`sc-adv-tag${tag.urgent ? " is-urgent" : ""}`}
                   style={tag.borderColour ? { borderColor: tag.borderColour } : undefined}
                   onClick={() => onOpenIntelligence?.()}
+                  aria-label={`${cat.label} ${tag.suffix} — ${totalCount} total`}
                 >
                   <span className="sc-adv-tag-dot" style={{ background: tag.dotColour }} />
                   {cat.label}
                   <i style={{ color: tag.suffixColour }}>{tag.suffix}</i>
+                  <i className="sc-adv-tag-total">{totalCount}</i>
                 </button>
               );
             })}

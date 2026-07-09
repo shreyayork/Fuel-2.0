@@ -15463,8 +15463,9 @@ body {
   font-size: 12px;
   font-weight: 600;
   gap: 7px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   transition: border-color 0.14s, background 0.14s;
+  white-space: nowrap;
 }
 
 .sc-adv-tag:hover { background: var(--surface-2); }
@@ -15472,6 +15473,11 @@ body {
 .sc-adv-tag-dot { border-radius: 50%; height: 7px; width: 7px; }
 
 .sc-adv-tag i { font-style: normal; font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.sc-adv-tag-total {
+  color: var(--text-2);
+  margin-left: 2px;
+}
 
 .sc-adv-tag.is-urgent {
   background: rgba(207,138,138,0.08);
