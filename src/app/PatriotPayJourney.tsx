@@ -5397,8 +5397,22 @@ function IntelligenceLogForm({
 
 type InitiativePillar = "dev" | "mkt" | "rev";
 type InitiativeKind = "continuous" | "one-time";
-type InitiativeStatus = "Active" | "Paused" | "Done";
+type InitiativeStatus = "Suggested" | "Active" | "Completed";
 type InitiativeProgressRole = "baseline" | "current" | "target";
+
+type InitiativeListStatus = "Active" | "Completed";
+
+function normalizeInitiativeStatus(status?: string): InitiativeStatus {
+  const value = (status ?? "Active").trim().toLowerCase();
+  if (value === "suggested" || value === "draft") return "Suggested";
+  if (value === "completed" || value === "done") return "Completed";
+  if (value === "paused") return "Active";
+  return "Active";
+}
+
+function normalizeInitiativeListStatus(status?: string): InitiativeListStatus {
+  return normalizeInitiativeStatus(status) === "Completed" ? "Completed" : "Active";
+}
 
 type InitiativeMilestone = {
   id: string;
@@ -5417,6 +5431,12 @@ type InitiativeIntelligenceLink = {
   date: string;
 };
 
+type InitiativeAdvisor = {
+  id: string;
+  name: string;
+  title?: string;
+};
+
 type InitiativeRecord = {
   id: string;
   title: string;
@@ -5424,13 +5444,101 @@ type InitiativeRecord = {
   pillar: InitiativePillar;
   kind: InitiativeKind;
   status: InitiativeStatus;
+  /** @deprecated Prefer assignees — kept for summary compatibility. */
   owner: string;
+  assignees: string[];
+  advisors: InitiativeAdvisor[];
   due?: string;
   milestones: InitiativeMilestone[];
   intelligenceLinks: InitiativeIntelligenceLink[];
 };
 
-const DEFAULT_INITIATIVE_OWNER = "shreya.g@york.ie";
+const DEFAULT_INITIATIVE_ASSIGNEE = "Shreya G";
+const DEFAULT_INITIATIVE_OWNER = DEFAULT_INITIATIVE_ASSIGNEE;
+
+const INITIATIVE_TEAM_SUGGESTIONS = [
+  "Shreya G",
+  "Matt L.",
+  "Priya R.",
+  "Jess K.",
+  "Dana T.",
+  "Jake S.",
+  "Ryan K.",
+  "Amy M.",
+];
+
+const INITIATIVE_ADVISOR_DIRECTORY: InitiativeAdvisor[] = [
+  { id: "adv-matt", name: "Matt L.", title: "Operating partner" },
+  { id: "adv-priya", name: "Priya R.", title: "Go-to-market advisor" },
+  { id: "adv-jess", name: "Jess K.", title: "Product advisor" },
+  { id: "adv-ryan", name: "Ryan K.", title: "Finance advisor" },
+  { id: "adv-amy", name: "Amy M.", title: "Growth advisor" },
+];
+
+const INITIATIVE_QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
+
+function initiativeDueYearOptions(now = new Date()): number[] {
+  const start = now.getFullYear();
+  return [start, start + 1, start + 2, start + 3];
+}
+
+function parseInitiativeDue(due?: string): { quarter: string; year: string } {
+  if (!due) return { quarter: "", year: "" };
+  const normalized = due.trim().toUpperCase().replace(/\s+/g, "");
+  const yearFirst = normalized.match(/^(20\d{2})-?Q([1-4])$/);
+  if (yearFirst) return { quarter: `Q${yearFirst[2]}`, year: yearFirst[1] };
+  const quarterFirst = normalized.match(/^Q([1-4])-?(20\d{2})$/);
+  if (quarterFirst) return { quarter: `Q${quarterFirst[1]}`, year: quarterFirst[2] };
+  return { quarter: "", year: "" };
+}
+
+function formatInitiativeDue(quarter: string, year: string): string | undefined {
+  if (!quarter || !year) return undefined;
+  return `${year}-${quarter}`;
+}
+
+function displayInitiativeDue(due?: string): string {
+  const parsed = parseInitiativeDue(due);
+  if (parsed.quarter && parsed.year) return `${parsed.quarter} ${parsed.year}`;
+  return due?.trim() || "—";
+}
+
+function isoToDisplayDate(value?: string): string {
+  if (!value) return "";
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) return value;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value;
+  return `${match[2]}/${match[3]}/${match[1]}`;
+}
+
+/** Digits-only typing → MM/DD/YYYY as the user types. */
+function formatMilestoneDueInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function isValidMilestoneDue(value: string): boolean {
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return false;
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 2000 || year > 2100) return false;
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function normalizeAssignees(owner?: string, assignees?: string[]): string[] {
+  if (assignees?.length) {
+    return Array.from(new Set(assignees.map(name => name.trim()).filter(Boolean)));
+  }
+  const raw = owner?.trim();
+  if (!raw) return [DEFAULT_INITIATIVE_ASSIGNEE];
+  if (raw.includes("@")) return [DEFAULT_INITIATIVE_ASSIGNEE];
+  return [raw];
+}
 
 function initiativePillarLabel(pillar: InitiativePillar): string {
   return pillar === "dev" ? "R&D" : pillar === "mkt" ? "GTM" : "G&A";
@@ -5455,6 +5563,554 @@ function nextProgressRole(links: InitiativeIntelligenceLink[]): InitiativeProgre
   return roles.find(role => !links.some(link => link.role === role)) ?? "current";
 }
 
+function InitiativeDetailDrawer({
+  item,
+  availableIntelligence,
+  onClose,
+  onPatch,
+  onDelete,
+  onLogIntelligence,
+  onStatusTabChange,
+}: {
+  item: InitiativeRecord;
+  availableIntelligence: IntelligenceItem[];
+  onClose: () => void;
+  onPatch: (patch: Partial<InitiativeRecord>) => void;
+  onDelete: () => void;
+  onLogIntelligence?: (item: IntelligenceItem) => void;
+  onStatusTabChange: (status: InitiativeListStatus) => void;
+}) {
+  const status = normalizeInitiativeStatus(item.status);
+  const assignees = normalizeAssignees(item.owner, item.assignees);
+  const advisors = item.advisors ?? [];
+  const milestonesDone = item.milestones.filter(m => m.done).length;
+  const milestonesTotal = item.milestones.length;
+  const milestonesPct = milestonesTotal > 0 ? Math.round((milestonesDone / milestonesTotal) * 100) : 0;
+  const roleOrder: InitiativeProgressRole[] = ["baseline", "current", "target"];
+
+  const [milestoneDraft, setMilestoneDraft] = useState({ title: "", due: "" });
+  const [showMilestoneForm, setShowMilestoneForm] = useState(false);
+  const [intelPanel, setIntelPanel] = useState<"log" | "link" | null>(null);
+  const [linkDraft, setLinkDraft] = useState<{ role: InitiativeProgressRole; intelligenceId: string }>({
+    role: nextProgressRole(item.intelligenceLinks),
+    intelligenceId: "",
+  });
+  const [advisorDraftId, setAdvisorDraftId] = useState("");
+  const [showAdvisorForm, setShowAdvisorForm] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+
+  const availableAdvisors = INITIATIVE_ADVISOR_DIRECTORY.filter(
+    advisor => !advisors.some(linked => linked.id === advisor.id),
+  );
+
+  const listStatus: InitiativeListStatus = status === "Completed" ? "Completed" : "Active";
+
+  const setListStatus = (nextStatus: InitiativeListStatus) => {
+    onPatch({ status: nextStatus });
+    onStatusTabChange(nextStatus);
+  };
+
+  const attachIntelligence = (logged: IntelligenceItem, role: InitiativeProgressRole) => {
+    const withoutRole = item.intelligenceLinks.filter(link => link.role !== role);
+    onPatch({
+      intelligenceLinks: [
+        ...withoutRole,
+        {
+          id: `ilink-${Date.now()}`,
+          role,
+          intelligenceId: logged.id,
+          title: logged.title || logged.text,
+          highlight: logged.highlight,
+          type: logged.type,
+          date: logged.date,
+        },
+      ],
+    });
+  };
+
+  const addMilestone = () => {
+    if (!milestoneDraft.title.trim()) return;
+    const dueRaw = milestoneDraft.due.trim();
+    if (dueRaw && !isValidMilestoneDue(dueRaw)) return;
+    onPatch({
+      milestones: [
+        ...item.milestones,
+        {
+          id: `ms-${Date.now()}`,
+          title: milestoneDraft.title.trim(),
+          due: dueRaw || undefined,
+          done: false,
+        },
+      ],
+    });
+    setMilestoneDraft({ title: "", due: "" });
+    setShowMilestoneForm(false);
+  };
+
+  return (
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside
+        className="bench-drawer initiative-drawer"
+        onClick={event => event.stopPropagation()}
+        role="dialog"
+        aria-label={item.title || "Initiative"}
+      >
+        <header className="bench-drawer-head initiative-drawer-head">
+          <div className="initiative-drawer-head-copy">
+            <div className="initiative-drawer-eyebrow">Initiative</div>
+            <h2 className="bench-drawer-title">{item.title || "Untitled initiative"}</h2>
+            <p className="bench-drawer-sub">
+              {initiativeKindLabel(item.kind)}
+              {" · "}
+              {initiativePillarLabel(item.pillar)}
+              {" · "}
+              {displayInitiativeDue(item.due)}
+            </p>
+          </div>
+          <div className="initiative-drawer-head-actions">
+            <div className="initiative-drawer-status" role="group" aria-label="Status">
+              <button
+                type="button"
+                className={`initiative-drawer-status-btn${listStatus === "Active" ? " is-active" : ""}`}
+                aria-pressed={listStatus === "Active"}
+                onClick={() => setListStatus("Active")}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                className={`initiative-drawer-status-btn${listStatus === "Completed" ? " is-active" : ""}`}
+                aria-pressed={listStatus === "Completed"}
+                onClick={() => setListStatus("Completed")}
+              >
+                Completed
+              </button>
+            </div>
+            <button
+              type="button"
+              className="initiative-drawer-delete"
+              onClick={onDelete}
+            >
+              Delete
+            </button>
+            <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
+          </div>
+        </header>
+
+        <div className="initiative-drawer-progress">
+          <div className="initiative-drawer-progress-meta">
+            <span>Milestone progress</span>
+            <strong>
+              {milestonesTotal === 0
+                ? "No milestones yet"
+                : `${milestonesDone} of ${milestonesTotal} done`}
+            </strong>
+          </div>
+          <div
+            className="initiative-drawer-progress-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={milestonesPct}
+            aria-label="Milestone completion"
+          >
+            <div className="initiative-drawer-progress-bar" style={{ width: `${milestonesPct}%` }} />
+          </div>
+        </div>
+
+        <div className="bench-drawer-body initiative-drawer-body">
+          <div className="initiative-card-section">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Details</span>
+              <button
+                type="button"
+                className="initiative-edit-btn"
+                onClick={() => setIsEditingDetails(previous => !previous)}
+              >
+                {isEditingDetails ? "Done" : "Edit details"}
+              </button>
+            </div>
+
+            {isEditingDetails ? (
+              <div className="initiative-form-card initiative-edit-form">
+                <div className="initiative-form-row">
+                  <input
+                    value={item.title}
+                    onChange={event => onPatch({ title: event.target.value })}
+                    placeholder="Initiative name"
+                  />
+                  <select
+                    value={item.kind}
+                    onChange={event => onPatch({ kind: event.target.value as InitiativeKind })}
+                  >
+                    <option value="continuous">Continuous</option>
+                    <option value="one-time">One-time</option>
+                  </select>
+                  <select
+                    value={item.pillar}
+                    onChange={event => onPatch({ pillar: event.target.value as InitiativePillar })}
+                  >
+                    <option value="mkt">GTM</option>
+                    <option value="dev">R&D</option>
+                    <option value="rev">G&A</option>
+                  </select>
+                </div>
+                <textarea
+                  value={item.description}
+                  onChange={event => onPatch({ description: event.target.value })}
+                  placeholder="What's the goal and why now? (optional)"
+                />
+                <div className="initiative-form-row initiative-form-row--owner">
+                  <InitiativeAssigneesField
+                    assignees={assignees}
+                    onChange={next => onPatch({ assignees: next })}
+                  />
+                  <InitiativeDueQuarterField
+                    due={item.due}
+                    onChange={next => onPatch({ due: next })}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="initiative-view-details">
+                {item.description.trim() ? (
+                  <p className="initiative-card-description">{item.description}</p>
+                ) : (
+                  <p className="initiative-card-section-empty">No description yet.</p>
+                )}
+                <dl className="initiative-view-meta">
+                  <div>
+                    <dt>Kind</dt>
+                    <dd>{initiativeKindLabel(item.kind)}</dd>
+                  </div>
+                  <div>
+                    <dt>Pillar</dt>
+                    <dd>{initiativePillarLabel(item.pillar)}</dd>
+                  </div>
+                  <div>
+                    <dt>Assigned to</dt>
+                    <dd>{assignees.join(", ")}</dd>
+                  </div>
+                  <div>
+                    <dt>Target</dt>
+                    <dd>{displayInitiativeDue(item.due)}</dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{listStatus}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+          </div>
+
+          <div className="initiative-card-section">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Advisors</span>
+              <div className="initiative-card-section-actions">
+                {showAdvisorForm ? (
+                  <button
+                    type="button"
+                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    onClick={() => {
+                      setShowAdvisorForm(false);
+                      setAdvisorDraftId("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    onClick={() => setShowAdvisorForm(true)}
+                  >
+                    + Link advisor
+                  </button>
+                )}
+              </div>
+            </div>
+            {advisors.length > 0 ? (
+              <div className="initiative-advisor-list">
+                {advisors.map(advisor => (
+                  <div key={advisor.id} className="initiative-advisor-row">
+                    <div className="initiative-advisor-copy">
+                      <strong>{advisor.name}</strong>
+                      {advisor.title ? <em>{advisor.title}</em> : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="initiative-milestone-remove"
+                      aria-label={`Remove ${advisor.name}`}
+                      onClick={() => onPatch({
+                        advisors: advisors.filter(entry => entry.id !== advisor.id),
+                      })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="initiative-card-section-empty">No advisors linked.</p>
+            )}
+            {showAdvisorForm ? (
+              <div className="initiative-link-advisor-row">
+                <select
+                  value={advisorDraftId}
+                  aria-label="Advisor"
+                  onChange={event => setAdvisorDraftId(event.target.value)}
+                >
+                  <option value="">Pick an advisor…</option>
+                  {availableAdvisors.map(advisor => (
+                    <option key={advisor.id} value={advisor.id}>
+                      {advisor.name}{advisor.title ? ` · ${advisor.title}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="initiatives-primary-btn"
+                  disabled={!advisorDraftId}
+                  onClick={() => {
+                    const selected = INITIATIVE_ADVISOR_DIRECTORY.find(advisor => advisor.id === advisorDraftId);
+                    if (!selected) return;
+                    onPatch({ advisors: [...advisors, selected] });
+                    setAdvisorDraftId("");
+                    setShowAdvisorForm(false);
+                  }}
+                >
+                  Link
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="initiative-card-section">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Progress — baseline · current · target</span>
+              <div className="initiative-card-section-actions">
+                <button
+                  type="button"
+                  className="initiatives-secondary-btn initiative-card-mini-btn"
+                  onClick={() => setIntelPanel(intelPanel === "log" ? null : "log")}
+                >
+                  + Log intelligence
+                </button>
+                <button
+                  type="button"
+                  className="initiatives-secondary-btn initiative-card-mini-btn"
+                  onClick={() => setIntelPanel(intelPanel === "link" ? null : "link")}
+                >
+                  + Link intelligence
+                </button>
+              </div>
+            </div>
+
+            {item.intelligenceLinks.length > 0 ? (
+              <div className="initiative-intel-links">
+                {roleOrder.map(role => {
+                  const link = item.intelligenceLinks.find(entry => entry.role === role);
+                  if (!link) return null;
+                  return (
+                    <div key={link.id} className="initiative-intel-link-row">
+                      <span className="initiative-intel-role">{role}</span>
+                      <div className="initiative-intel-link-copy">
+                        <strong>{link.title}</strong>
+                        <em>{link.type} · {link.date}{link.highlight ? ` · ${link.highlight}` : ""}</em>
+                      </div>
+                      <button
+                        type="button"
+                        className="initiative-milestone-remove"
+                        aria-label={`Remove ${role} intelligence`}
+                        onClick={() => onPatch({
+                          intelligenceLinks: item.intelligenceLinks.filter(entry => entry.id !== link.id),
+                        })}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="initiative-card-progress-empty">
+                No intelligence tracked yet. Log or link a baseline and a target so progress can be narrated from the timeline.
+              </div>
+            )}
+
+            {intelPanel === "log" ? (
+              <IntelligenceLogForm
+                onCancel={() => setIntelPanel(null)}
+                onLog={logged => {
+                  onLogIntelligence?.(logged);
+                  attachIntelligence(logged, nextProgressRole(item.intelligenceLinks));
+                  setIntelPanel(null);
+                }}
+              />
+            ) : null}
+
+            {intelPanel === "link" ? (
+              <div className="initiative-link-intel-row">
+                <select
+                  value={linkDraft.role}
+                  onChange={event => setLinkDraft(previous => ({
+                    ...previous,
+                    role: event.target.value as InitiativeProgressRole,
+                  }))}
+                  aria-label="Progress role"
+                >
+                  <option value="baseline">Baseline</option>
+                  <option value="current">Current</option>
+                  <option value="target">Target</option>
+                </select>
+                <select
+                  value={linkDraft.intelligenceId}
+                  onChange={event => setLinkDraft(previous => ({
+                    ...previous,
+                    intelligenceId: event.target.value,
+                  }))}
+                  aria-label="Intelligence item"
+                >
+                  <option value="">Pick intelligence…</option>
+                  {availableIntelligence.map(intel => (
+                    <option key={intel.id} value={intel.id}>
+                      {intel.title || intel.text}{intel.highlight ? ` · ${intel.highlight}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="initiatives-primary-btn"
+                  disabled={!linkDraft.intelligenceId}
+                  onClick={() => {
+                    const selected = availableIntelligence.find(intel => intel.id === linkDraft.intelligenceId);
+                    if (!selected) return;
+                    attachIntelligence(selected, linkDraft.role);
+                    setIntelPanel(null);
+                    setLinkDraft({ role: "current", intelligenceId: "" });
+                  }}
+                >
+                  Link
+                </button>
+                <button
+                  type="button"
+                  className="initiatives-secondary-btn"
+                  onClick={() => setIntelPanel(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="initiative-card-section">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Milestones</span>
+              <div className="initiative-card-section-actions">
+                {showMilestoneForm ? (
+                  <button
+                    type="button"
+                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    onClick={() => {
+                      setShowMilestoneForm(false);
+                      setMilestoneDraft({ title: "", due: "" });
+                    }}
+                  >
+                    Cancel
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    onClick={() => setShowMilestoneForm(true)}
+                  >
+                    + Add milestone
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="initiative-milestones">
+              {item.milestones.length === 0 ? (
+                <p className="initiative-card-section-empty">No milestones yet.</p>
+              ) : (
+                item.milestones.map(milestone => (
+                  <div key={milestone.id} className="initiative-milestone-row">
+                    <button
+                      type="button"
+                      className={`initiative-milestone-check${milestone.done ? " is-done" : ""}`}
+                      aria-label={milestone.done ? "Mark incomplete" : "Mark complete"}
+                      onClick={() => onPatch({
+                        milestones: item.milestones.map(entry => (
+                          entry.id === milestone.id ? { ...entry, done: !entry.done } : entry
+                        )),
+                      })}
+                    >
+                      {milestone.done ? "✓" : ""}
+                    </button>
+                    <span className={milestone.done ? "is-done" : ""}>{milestone.title}</span>
+                    {milestone.due ? <em>{isoToDisplayDate(milestone.due)}</em> : null}
+                    <button
+                      type="button"
+                      className="initiative-milestone-remove"
+                      aria-label="Remove milestone"
+                      onClick={() => onPatch({
+                        milestones: item.milestones.filter(entry => entry.id !== milestone.id),
+                      })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            {showMilestoneForm ? (
+              <div className="initiative-milestone-form">
+                <input
+                  value={milestoneDraft.title}
+                  onChange={event => setMilestoneDraft(previous => ({
+                    ...previous,
+                    title: event.target.value,
+                  }))}
+                  placeholder="Milestone"
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="MM/DD/YYYY"
+                  value={milestoneDraft.due}
+                  onChange={event => setMilestoneDraft(previous => ({
+                    ...previous,
+                    due: formatMilestoneDueInput(event.target.value),
+                  }))}
+                  aria-label="Milestone due date"
+                  aria-invalid={Boolean(milestoneDraft.due && !isValidMilestoneDue(milestoneDraft.due))}
+                />
+                <button
+                  type="button"
+                  className="initiatives-primary-btn"
+                  onClick={addMilestone}
+                  disabled={
+                    !milestoneDraft.title.trim()
+                    || Boolean(milestoneDraft.due && !isValidMilestoneDue(milestoneDraft.due))
+                  }
+                >
+                  Add
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <footer className="bench-drawer-actions">
+          <button type="button" className="bench-drawer-cancel" onClick={onClose}>Close</button>
+        </footer>
+      </aside>
+    </div>
+  );
+}
+
 function createInitiativeRecord(input: {
   id?: string;
   title: string;
@@ -5463,22 +6119,161 @@ function createInitiativeRecord(input: {
   kind?: InitiativeKind;
   status?: InitiativeStatus;
   owner?: string;
+  assignees?: string[];
+  advisors?: InitiativeAdvisor[];
   due?: string;
 }): InitiativeRecord {
   const title = input.title.trim();
   const pillar = input.pillar ?? "mkt";
+  const assignees = normalizeAssignees(input.owner, input.assignees);
   return {
     id: input.id ?? `init-${Date.now()}`,
     title,
     description: input.description?.trim() ?? "",
     pillar,
     kind: input.kind ?? "continuous",
-    status: input.status ?? "Active",
-    owner: input.owner?.trim() || DEFAULT_INITIATIVE_OWNER,
+    status: normalizeInitiativeStatus(input.status ?? "Active"),
+    assignees,
+    owner: assignees[0] ?? DEFAULT_INITIATIVE_ASSIGNEE,
+    advisors: input.advisors ?? [],
     due: input.due?.trim() || undefined,
     milestones: buildDefaultMilestones(title, pillar),
     intelligenceLinks: [],
   };
+}
+
+function buildDefaultRecommendedInitiatives(): InitiativeRecord[] {
+  return [
+    createInitiativeRecord({
+      id: "rec-gtm-icp",
+      title: "Tighten ICP messaging for enterprise deals",
+      description: "Rewrite homepage and outbound copy around the highest-converting ICP segment from recent intel.",
+      pillar: "mkt",
+      status: "Suggested",
+    }),
+    createInitiativeRecord({
+      id: "rec-dev-scale",
+      title: "Run a scale-readiness checklist",
+      description: "Audit ship cadence, critical debt, and on-call coverage before the next hiring wave.",
+      pillar: "dev",
+      status: "Suggested",
+    }),
+    createInitiativeRecord({
+      id: "rec-rev-runway",
+      title: "Build a 6-month cash runway plan",
+      description: "Model burn scenarios and decide which G&A levers to pull if pipeline slips a quarter.",
+      pillar: "rev",
+      status: "Suggested",
+    }),
+  ];
+}
+
+function InitiativeAssigneesField({
+  assignees,
+  onChange,
+}: {
+  assignees: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const suggestions = INITIATIVE_TEAM_SUGGESTIONS.filter(
+    name => !assignees.some(a => a.toLowerCase() === name.toLowerCase())
+      && name.toLowerCase().includes(draft.trim().toLowerCase()),
+  ).slice(0, 6);
+
+  const commitName = (raw: string) => {
+    const name = raw.trim().replace(/,$/, "");
+    if (!name) return;
+    if (assignees.some(a => a.toLowerCase() === name.toLowerCase())) {
+      setDraft("");
+      return;
+    }
+    onChange([...assignees, name]);
+    setDraft("");
+  };
+
+  return (
+    <div className="initiative-assignees-field">
+      <span className="initiative-field-label">Assigned to</span>
+      <div className="initiative-assignees-box">
+        {assignees.map(name => (
+          <span key={name} className="initiative-assignee-chip">
+            {name}
+            <button
+              type="button"
+              aria-label={`Remove ${name}`}
+              onClick={() => onChange(assignees.filter(entry => entry !== name))}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={event => setDraft(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === "Enter" || event.key === ",") {
+              event.preventDefault();
+              commitName(draft);
+            } else if (event.key === "Backspace" && !draft && assignees.length) {
+              onChange(assignees.slice(0, -1));
+            }
+          }}
+          onBlur={() => { if (draft.trim()) commitName(draft); }}
+          placeholder={assignees.length ? "Add another name" : "Add a name"}
+          aria-label="Assigned to"
+        />
+      </div>
+      {draft.trim() && suggestions.length > 0 ? (
+        <div className="initiative-assignee-suggestions" role="listbox">
+          {suggestions.map(name => (
+            <button key={name} type="button" onMouseDown={event => event.preventDefault()} onClick={() => commitName(name)}>
+              {name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function InitiativeDueQuarterField({
+  due,
+  onChange,
+}: {
+  due?: string;
+  onChange: (next?: string) => void;
+}) {
+  const parsed = parseInitiativeDue(due);
+  const years = initiativeDueYearOptions();
+
+  return (
+    <div className="initiative-due-field">
+      <span className="initiative-field-label">Due</span>
+      <div className="initiative-due-selects">
+        <select
+          value={parsed.quarter}
+          aria-label="Due quarter"
+          onChange={event => onChange(formatInitiativeDue(event.target.value, parsed.year || String(years[0])))}
+        >
+          <option value="">Quarter</option>
+          {INITIATIVE_QUARTERS.map(quarter => (
+            <option key={quarter} value={quarter}>{quarter}</option>
+          ))}
+        </select>
+        <select
+          value={parsed.year}
+          aria-label="Due year"
+          onChange={event => onChange(formatInitiativeDue(parsed.quarter || "Q1", event.target.value))}
+        >
+          <option value="">Year</option>
+          {years.map(year => (
+            <option key={year} value={String(year)}>{year}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
 }
 
 function InitiativesPage({
@@ -5501,32 +6296,72 @@ function InitiativesPage({
   onLogIntelligence?: (item: IntelligenceItem) => void;
 }) {
   const [isCreating, setIsCreating] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(focusInitiativeId);
+  const [statusTab, setStatusTab] = useState<InitiativeListStatus>("Active");
+  const [selectedId, setSelectedId] = useState<string | null>(focusInitiativeId);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftKind, setDraftKind] = useState<InitiativeKind>("continuous");
   const [draftPillar, setDraftPillar] = useState<InitiativePillar>("mkt");
   const [draftDescription, setDraftDescription] = useState("");
-  const [draftOwner, setDraftOwner] = useState(DEFAULT_INITIATIVE_OWNER);
+  const [draftAssignees, setDraftAssignees] = useState<string[]>([DEFAULT_INITIATIVE_ASSIGNEE]);
   const [draftDue, setDraftDue] = useState("");
-  const [milestoneDrafts, setMilestoneDrafts] = useState<Record<string, { title: string; due: string }>>({});
-  const [intelPanels, setIntelPanels] = useState<Record<string, "log" | "link" | null>>({});
-  const [linkDrafts, setLinkDrafts] = useState<Record<string, { role: InitiativeProgressRole; intelligenceId: string }>>({});
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [milestoneFormOpen, setMilestoneFormOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (focusInitiativeId) {
-      setExpandedId(focusInitiativeId);
-      setEditingId(null);
-    }
+    if (!focusInitiativeId) return;
+    setSelectedId(focusInitiativeId);
   }, [focusInitiativeId]);
+
+  useEffect(() => {
+    if (!focusInitiativeId) return;
+    const focused = items.find(item => item.id === focusInitiativeId);
+    if (!focused) return;
+    const status = normalizeInitiativeStatus(focused.status);
+    if (status === "Suggested") {
+      setStatusTab("Active");
+      setSelectedId(null);
+      return;
+    }
+    setStatusTab(status);
+  }, [focusInitiativeId, items]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<InitiativeListStatus, number> = {
+      Active: 0,
+      Completed: 0,
+    };
+    items.forEach(item => {
+      const status = normalizeInitiativeStatus(item.status);
+      if (status === "Suggested") return;
+      counts[status] += 1;
+    });
+    return counts;
+  }, [items]);
+
+  const recommendedItems = useMemo(
+    () => items.filter(item => normalizeInitiativeStatus(item.status) === "Suggested"),
+    [items],
+  );
+
+  const visibleItems = useMemo(
+    () => items.filter(item => (
+      normalizeInitiativeStatus(item.status) !== "Suggested"
+      && normalizeInitiativeListStatus(item.status) === statusTab
+    )),
+    [items, statusTab],
+  );
+
+  const selectedItem = useMemo(() => {
+    if (!selectedId) return null;
+    const found = items.find(item => item.id === selectedId);
+    if (!found || normalizeInitiativeStatus(found.status) === "Suggested") return null;
+    return found;
+  }, [items, selectedId]);
 
   const resetCreateForm = () => {
     setDraftTitle("");
     setDraftKind("continuous");
     setDraftPillar("mkt");
     setDraftDescription("");
-    setDraftOwner(DEFAULT_INITIATIVE_OWNER);
+    setDraftAssignees([DEFAULT_INITIATIVE_ASSIGNEE]);
     setDraftDue("");
     setIsCreating(false);
   };
@@ -5538,64 +6373,44 @@ function InitiativesPage({
       description: draftDescription,
       pillar: draftPillar,
       kind: draftKind,
-      owner: draftOwner,
+      assignees: draftAssignees,
       due: draftDue,
       status: "Active",
     });
     onCreate?.(created);
-    setExpandedId(created.id);
-    setEditingId(created.id);
+    setStatusTab("Active");
+    setSelectedId(created.id);
     resetCreateForm();
   };
 
   const patchInitiative = (id: string, patch: Partial<InitiativeRecord>) => {
     const current = items.find(item => item.id === id);
     if (!current || !onUpdate) return;
-    onUpdate({ ...current, ...patch });
-  };
-
-  const attachIntelligence = (
-    initiative: InitiativeRecord,
-    item: IntelligenceItem,
-    role: InitiativeProgressRole,
-  ) => {
-    const withoutRole = initiative.intelligenceLinks.filter(link => link.role !== role);
-    onUpdate?.({
-      ...initiative,
-      intelligenceLinks: [
-        ...withoutRole,
-        {
-          id: `ilink-${Date.now()}`,
-          role,
-          intelligenceId: item.id,
-          title: item.title || item.text,
-          highlight: item.highlight,
-          type: item.type,
-          date: item.date,
-        },
-      ],
-    });
-  };
-
-  const addMilestone = (initiativeId: string) => {
-    const draft = milestoneDrafts[initiativeId] ?? { title: "", due: "" };
-    if (!draft.title.trim()) return;
-    const current = items.find(item => item.id === initiativeId);
-    if (!current || !onUpdate) return;
+    const nextAssignees = normalizeAssignees(
+      patch.owner ?? current.owner,
+      patch.assignees ?? current.assignees,
+    );
     onUpdate({
       ...current,
-      milestones: [
-        ...current.milestones,
-        {
-          id: `ms-${Date.now()}`,
-          title: draft.title.trim(),
-          due: draft.due.trim() || undefined,
-          done: false,
-        },
-      ],
+      ...patch,
+      assignees: nextAssignees,
+      owner: nextAssignees[0] ?? DEFAULT_INITIATIVE_ASSIGNEE,
+      advisors: patch.advisors ?? current.advisors ?? [],
     });
-    setMilestoneDrafts(previous => ({ ...previous, [initiativeId]: { title: "", due: "" } }));
   };
+
+  const acceptRecommendation = (item: InitiativeRecord) => {
+    patchInitiative(item.id, { status: "Active" });
+    setStatusTab("Active");
+    setSelectedId(item.id);
+  };
+
+  const dismissRecommendation = (id: string) => {
+    onDelete?.(id);
+    if (selectedId === id) setSelectedId(null);
+  };
+
+  const closeDrawer = () => setSelectedId(null);
 
   return (
     <section className="initiatives-page">
@@ -5615,13 +6430,74 @@ function InitiativesPage({
         )}
       </div>
 
+      <div className="initiatives-status-toggle" role="tablist" aria-label="Initiative status">
+        {(["Active", "Completed"] as const).map(tab => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={statusTab === tab}
+            className={`initiatives-status-toggle-btn${statusTab === tab ? " is-active" : ""}`}
+            onClick={() => {
+              setStatusTab(tab);
+              setIsCreating(false);
+            }}
+          >
+            {tab}
+            <em>{statusCounts[tab]}</em>
+          </button>
+        ))}
+      </div>
+
+      {!investorMode && recommendedItems.length > 0 ? (
+        <div className="initiatives-recommended overview-panel">
+          <div className="initiatives-recommended-head">
+            <div>
+              <span className="initiatives-recommended-label">Recommended</span>
+              <p>Fuel ideas from your scorecard. Add one to Active, or dismiss it.</p>
+            </div>
+            <em>{recommendedItems.length}</em>
+          </div>
+          <ul className="initiatives-recommended-list">
+            {recommendedItems.map(item => (
+              <li key={item.id} className="initiatives-recommended-row">
+                <div className="initiatives-recommended-copy">
+                  <strong>{item.title}</strong>
+                  <span>
+                    {initiativePillarLabel(item.pillar)}
+                    {item.description.trim() ? ` · ${item.description}` : ""}
+                  </span>
+                </div>
+                <div className="initiatives-recommended-actions">
+                  <button
+                    type="button"
+                    className="initiatives-primary-btn"
+                    onClick={() => acceptRecommendation(item)}
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    className="initiatives-secondary-btn"
+                    onClick={() => dismissRecommendation(item.id)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {isCreating ? (
         <div className="initiative-form-card">
           <div className="initiative-form-row">
             <input
               value={draftTitle}
               onChange={event => setDraftTitle(event.target.value)}
-              placeholder="Initiative name (e.g. Enterprise GTM retool)"
+              placeholder="Initiative name"
+              autoFocus
             />
             <select value={draftKind} onChange={event => setDraftKind(event.target.value as InitiativeKind)}>
               <option value="continuous">Continuous</option>
@@ -5639,16 +6515,8 @@ function InitiativesPage({
             placeholder="What's the goal and why now? (optional)"
           />
           <div className="initiative-form-row initiative-form-row--owner">
-            <input
-              value={draftOwner}
-              onChange={event => setDraftOwner(event.target.value)}
-              placeholder="Owner email (defaults to you)"
-            />
-            <input
-              value={draftDue}
-              onChange={event => setDraftDue(event.target.value)}
-              placeholder="Due (e.g. 2026-q3)"
-            />
+            <InitiativeAssigneesField assignees={draftAssignees} onChange={setDraftAssignees} />
+            <InitiativeDueQuarterField due={draftDue} onChange={value => setDraftDue(value ?? "")} />
           </div>
           <div className="initiative-form-actions">
             <button type="button" className="initiatives-primary-btn" onClick={handleCreate} disabled={!draftTitle.trim()}>
@@ -5659,427 +6527,77 @@ function InitiativesPage({
         </div>
       ) : null}
 
-      {items.length === 0 && !isCreating ? (
+      {visibleItems.length === 0 && !isCreating ? (
         <div className="initiatives-empty-card">
-          <strong>No initiatives yet</strong>
+          <strong>{statusTab === "Completed" ? "No completed initiatives" : "No active initiatives"}</strong>
           <p>
-            {investorMode ? (
-              <>Create diligence or value-creation work with <span>+ New initiative</span> — kept private to your account.</>
-            ) : (
-              <>
-                Start one manually with <span>+ New initiative</span>, or add a suggested initiative from a track detail page.
-              </>
-            )}
+            {statusTab === "Completed"
+              ? "Mark an active initiative Completed when the work ships."
+              : recommendedItems.length > 0
+                ? "Add a recommendation above, or create one with + New initiative."
+                : investorMode
+                  ? <>Create diligence or value-creation work with <span>+ New initiative</span> — kept private to your account.</>
+                  : <>Start one with <span>+ New initiative</span>, or add ideas from a track detail page.</>}
           </p>
         </div>
       ) : null}
 
-      {items.length > 0 ? (
+      {visibleItems.length > 0 ? (
         <div className="initiatives-list">
-          {items.map(item => {
-            const expanded = expandedId === item.id;
-            const isEditing = editingId === item.id;
-            const milestoneDraft = milestoneDrafts[item.id] ?? { title: "", due: "" };
-            const intelPanel = intelPanels[item.id] ?? null;
-            const showMilestoneForm = Boolean(milestoneFormOpen[item.id]);
-            const linkDraft = linkDrafts[item.id] ?? {
-              role: nextProgressRole(item.intelligenceLinks),
-              intelligenceId: "",
-            };
-            const roleOrder: InitiativeProgressRole[] = ["baseline", "current", "target"];
+          {visibleItems.map(item => {
+            const status = normalizeInitiativeStatus(item.status);
+            const selected = selectedId === item.id;
+            const assignees = normalizeAssignees(item.owner, item.assignees);
+            const milestonesDone = item.milestones.filter(m => m.done).length;
+            const milestonesTotal = item.milestones.length;
             return (
-              <article key={item.id} className={`initiative-card${expanded ? " is-expanded" : ""}`}>
+              <article key={item.id} className={`initiative-card${selected ? " is-selected" : ""}`}>
                 <button
                   type="button"
                   className="initiative-card-summary"
-                  onClick={() => {
-                    if (expanded) {
-                      setExpandedId(null);
-                      setEditingId(null);
-                      setIntelPanels(previous => ({ ...previous, [item.id]: null }));
-                      setMilestoneFormOpen(previous => ({ ...previous, [item.id]: false }));
-                    } else {
-                      setExpandedId(item.id);
-                      setEditingId(null);
-                    }
-                  }}
-                  aria-expanded={expanded}
+                  onClick={() => setSelectedId(item.id)}
+                  aria-pressed={selected}
                 >
-                  <span className={`initiative-card-chevron${expanded ? " is-open" : ""}`} aria-hidden="true">▾</span>
                   <div className="initiative-card-summary-main">
                     <strong>{item.title}</strong>
                     <div className="initiative-card-meta">
-                      <span className={`initiative-status initiative-status--${item.status.toLowerCase()}`}>
-                        {item.status}
+                      <span className={`initiative-status initiative-status--${status.toLowerCase()}`}>
+                        {status}
                       </span>
                       <em>
                         {initiativeKindLabel(item.kind).toUpperCase()}
                         {" "}
                         {initiativePillarLabel(item.pillar)}
                         {" "}
-                        OWNER: {item.owner.toUpperCase()}
+                        ASSIGNED: {assignees.join(", ").toUpperCase()}
+                        {milestonesTotal > 0
+                          ? ` · ${milestonesDone}/${milestonesTotal} MILESTONES`
+                          : ""}
                       </em>
                     </div>
                   </div>
+                  <span className="initiative-card-open-hint" aria-hidden="true">Open →</span>
                 </button>
-
-                {expanded ? (
-                  <div className="initiative-card-body">
-                    <div className="initiative-card-section">
-                      <div className="initiative-card-section-head">
-                        <span className="initiative-card-section-label">Details</span>
-                        <button
-                          type="button"
-                          className="initiative-edit-btn"
-                          onClick={() => {
-                            if (isEditing) {
-                              setEditingId(null);
-                            } else {
-                              setEditingId(item.id);
-                            }
-                          }}
-                        >
-                          {isEditing ? "Done" : "Edit details"}
-                        </button>
-                      </div>
-
-                      {isEditing ? (
-                        <div className="initiative-form-card initiative-edit-form">
-                          <div className="initiative-form-row">
-                            <input
-                              value={item.title}
-                              onChange={event => patchInitiative(item.id, { title: event.target.value })}
-                              placeholder="Initiative name"
-                            />
-                            <select
-                              value={item.kind}
-                              onChange={event => patchInitiative(item.id, { kind: event.target.value as InitiativeKind })}
-                            >
-                              <option value="continuous">Continuous</option>
-                              <option value="one-time">One-time</option>
-                            </select>
-                            <select
-                              value={item.pillar}
-                              onChange={event => patchInitiative(item.id, { pillar: event.target.value as InitiativePillar })}
-                            >
-                              <option value="mkt">GTM</option>
-                              <option value="dev">R&D</option>
-                              <option value="rev">G&A</option>
-                            </select>
-                          </div>
-                          <textarea
-                            value={item.description}
-                            onChange={event => patchInitiative(item.id, { description: event.target.value })}
-                            placeholder="What's the goal and why now? (optional)"
-                          />
-                          <div className="initiative-form-row initiative-form-row--owner">
-                            <input
-                              value={item.owner}
-                              onChange={event => patchInitiative(item.id, { owner: event.target.value })}
-                              placeholder="Owner email"
-                            />
-                            <input
-                              value={item.due ?? ""}
-                              onChange={event => patchInitiative(item.id, { due: event.target.value })}
-                              placeholder="Due (e.g. 2026-q3)"
-                            />
-                          </div>
-                          <div className="initiative-form-row initiative-form-row--status">
-                            <select
-                              value={item.status}
-                              onChange={event => patchInitiative(item.id, { status: event.target.value as InitiativeStatus })}
-                              aria-label="Status"
-                            >
-                              <option value="Active">Active</option>
-                              <option value="Paused">Paused</option>
-                              <option value="Done">Done</option>
-                            </select>
-                          </div>
-                          <div className="initiative-edit-danger">
-                            <button
-                              type="button"
-                              className="initiatives-secondary-btn"
-                              onClick={() => {
-                                onDelete?.(item.id);
-                                if (expandedId === item.id) setExpandedId(null);
-                                setEditingId(null);
-                              }}
-                            >
-                              Delete initiative
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="initiative-view-details">
-                          {item.description.trim() ? (
-                            <p className="initiative-card-description">{item.description}</p>
-                          ) : (
-                            <p className="initiative-card-section-empty">No description yet.</p>
-                          )}
-                          <dl className="initiative-view-meta">
-                            <div>
-                              <dt>Kind</dt>
-                              <dd>{initiativeKindLabel(item.kind)}</dd>
-                            </div>
-                            <div>
-                              <dt>Pillar</dt>
-                              <dd>{initiativePillarLabel(item.pillar)}</dd>
-                            </div>
-                            <div>
-                              <dt>Owner</dt>
-                              <dd>{item.owner}</dd>
-                            </div>
-                            <div>
-                              <dt>Target</dt>
-                              <dd>{item.due?.trim() || "—"}</dd>
-                            </div>
-                            <div>
-                              <dt>Status</dt>
-                              <dd>{item.status}</dd>
-                            </div>
-                          </dl>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="initiative-card-section">
-                      <div className="initiative-card-section-head">
-                        <span className="initiative-card-section-label">Advisors</span>
-                      </div>
-                      <p className="initiative-card-section-empty">No advisors linked.</p>
-                    </div>
-
-                    <div className="initiative-card-section">
-                      <div className="initiative-card-section-head">
-                        <span className="initiative-card-section-label">Progress — baseline · current · target</span>
-                        <div className="initiative-card-section-actions">
-                          <button
-                            type="button"
-                            className="initiatives-secondary-btn initiative-card-mini-btn"
-                            onClick={() => setIntelPanels(previous => ({
-                              ...previous,
-                              [item.id]: intelPanel === "log" ? null : "log",
-                            }))}
-                          >
-                            + Log intelligence
-                          </button>
-                          <button
-                            type="button"
-                            className="initiatives-secondary-btn initiative-card-mini-btn"
-                            onClick={() => setIntelPanels(previous => ({
-                              ...previous,
-                              [item.id]: intelPanel === "link" ? null : "link",
-                            }))}
-                          >
-                            + Link intelligence
-                          </button>
-                        </div>
-                      </div>
-
-                      {item.intelligenceLinks.length > 0 ? (
-                        <div className="initiative-intel-links">
-                          {roleOrder.map(role => {
-                            const link = item.intelligenceLinks.find(entry => entry.role === role);
-                            if (!link) return null;
-                            return (
-                              <div key={link.id} className="initiative-intel-link-row">
-                                <span className="initiative-intel-role">{role}</span>
-                                <div className="initiative-intel-link-copy">
-                                  <strong>{link.title}</strong>
-                                  <em>{link.type} · {link.date}{link.highlight ? ` · ${link.highlight}` : ""}</em>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="initiative-milestone-remove"
-                                  aria-label={`Remove ${role} intelligence`}
-                                  onClick={() => patchInitiative(item.id, {
-                                    intelligenceLinks: item.intelligenceLinks.filter(entry => entry.id !== link.id),
-                                  })}
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="initiative-card-progress-empty">
-                          No intelligence tracked yet. Log or link a baseline and a target so progress can be narrated from the timeline.
-                        </div>
-                      )}
-
-                      {intelPanel === "log" ? (
-                        <IntelligenceLogForm
-                          onCancel={() => setIntelPanels(previous => ({ ...previous, [item.id]: null }))}
-                          onLog={logged => {
-                            onLogIntelligence?.(logged);
-                            attachIntelligence(item, logged, nextProgressRole(item.intelligenceLinks));
-                            setIntelPanels(previous => ({ ...previous, [item.id]: null }));
-                          }}
-                        />
-                      ) : null}
-
-                      {intelPanel === "link" ? (
-                        <div className="initiative-link-intel-row">
-                          <select
-                            value={linkDraft.role}
-                            onChange={event => setLinkDrafts(previous => ({
-                              ...previous,
-                              [item.id]: {
-                                ...linkDraft,
-                                role: event.target.value as InitiativeProgressRole,
-                              },
-                            }))}
-                            aria-label="Progress role"
-                          >
-                            <option value="baseline">Baseline</option>
-                            <option value="current">Current</option>
-                            <option value="target">Target</option>
-                          </select>
-                          <select
-                            value={linkDraft.intelligenceId}
-                            onChange={event => setLinkDrafts(previous => ({
-                              ...previous,
-                              [item.id]: {
-                                ...linkDraft,
-                                intelligenceId: event.target.value,
-                              },
-                            }))}
-                            aria-label="Intelligence item"
-                          >
-                            <option value="">Pick intelligence…</option>
-                            {availableIntelligence.map(intel => (
-                              <option key={intel.id} value={intel.id}>
-                                {intel.title || intel.text}{intel.highlight ? ` · ${intel.highlight}` : ""}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            className="initiatives-primary-btn"
-                            disabled={!linkDraft.intelligenceId}
-                            onClick={() => {
-                              const selected = availableIntelligence.find(intel => intel.id === linkDraft.intelligenceId);
-                              if (!selected) return;
-                              attachIntelligence(item, selected, linkDraft.role);
-                              setIntelPanels(previous => ({ ...previous, [item.id]: null }));
-                              setLinkDrafts(previous => ({
-                                ...previous,
-                                [item.id]: { role: "current", intelligenceId: "" },
-                              }));
-                            }}
-                          >
-                            Link
-                          </button>
-                          <button
-                            type="button"
-                            className="initiatives-secondary-btn"
-                            onClick={() => setIntelPanels(previous => ({ ...previous, [item.id]: null }))}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="initiative-card-section">
-                      <div className="initiative-card-section-head">
-                        <span className="initiative-card-section-label">Milestones</span>
-                        <div className="initiative-card-section-actions">
-                          {showMilestoneForm ? (
-                            <button
-                              type="button"
-                              className="initiatives-secondary-btn initiative-card-mini-btn"
-                              onClick={() => {
-                                setMilestoneFormOpen(previous => ({ ...previous, [item.id]: false }));
-                                setMilestoneDrafts(previous => ({ ...previous, [item.id]: { title: "", due: "" } }));
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="initiatives-secondary-btn initiative-card-mini-btn"
-                              onClick={() => setMilestoneFormOpen(previous => ({ ...previous, [item.id]: true }))}
-                            >
-                              + Add milestone
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="initiative-milestones">
-                        {item.milestones.length === 0 ? (
-                          <p className="initiative-card-section-empty">No milestones yet.</p>
-                        ) : (
-                          item.milestones.map(milestone => (
-                            <div key={milestone.id} className="initiative-milestone-row">
-                              <button
-                                type="button"
-                                className={`initiative-milestone-check${milestone.done ? " is-done" : ""}`}
-                                aria-label={milestone.done ? "Mark incomplete" : "Mark complete"}
-                                onClick={() => patchInitiative(item.id, {
-                                  milestones: item.milestones.map(entry => (
-                                    entry.id === milestone.id ? { ...entry, done: !entry.done } : entry
-                                  )),
-                                })}
-                              >
-                                {milestone.done ? "✓" : ""}
-                              </button>
-                              <span className={milestone.done ? "is-done" : ""}>{milestone.title}</span>
-                              {milestone.due ? <em>{milestone.due}</em> : null}
-                              <button
-                                type="button"
-                                className="initiative-milestone-remove"
-                                aria-label="Remove milestone"
-                                onClick={() => patchInitiative(item.id, {
-                                  milestones: item.milestones.filter(entry => entry.id !== milestone.id),
-                                })}
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                      {showMilestoneForm ? (
-                        <div className="initiative-milestone-form">
-                          <input
-                            value={milestoneDraft.title}
-                            onChange={event => setMilestoneDrafts(previous => ({
-                              ...previous,
-                              [item.id]: { ...milestoneDraft, title: event.target.value },
-                            }))}
-                            placeholder="Milestone"
-                          />
-                          <input
-                            value={milestoneDraft.due}
-                            onChange={event => setMilestoneDrafts(previous => ({
-                              ...previous,
-                              [item.id]: { ...milestoneDraft, due: event.target.value },
-                            }))}
-                            placeholder="Due (optional)"
-                          />
-                          <button
-                            type="button"
-                            className="initiatives-primary-btn"
-                            onClick={() => {
-                              addMilestone(item.id);
-                              setMilestoneFormOpen(previous => ({ ...previous, [item.id]: false }));
-                            }}
-                            disabled={!milestoneDraft.title.trim()}
-                          >
-                            Add
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
               </article>
             );
           })}
         </div>
+      ) : null}
+
+      {selectedItem ? (
+        <InitiativeDetailDrawer
+          key={selectedItem.id}
+          item={selectedItem}
+          availableIntelligence={availableIntelligence}
+          onClose={closeDrawer}
+          onPatch={patch => patchInitiative(selectedItem.id, patch)}
+          onDelete={() => {
+            onDelete?.(selectedItem.id);
+            closeDrawer();
+          }}
+          onLogIntelligence={onLogIntelligence}
+          onStatusTabChange={setStatusTab}
+        />
       ) : null}
     </section>
   );
@@ -7033,7 +7551,7 @@ function PatriotPayJourneyInner({
   const [manualPendingSources, setManualPendingSources] = useState<PendingSource[]>([]);
   const [investorIntelligenceByCompany, setInvestorIntelligenceByCompany] = useState<Record<string, IntelligenceItem[]>>({});
   const [investorInitiativesByCompany, setInvestorInitiativesByCompany] = useState<Record<string, InitiativeRecord[]>>({});
-  const [founderInitiatives, setFounderInitiatives] = useState<InitiativeRecord[]>([]);
+  const [founderInitiatives, setFounderInitiatives] = useState<InitiativeRecord[]>(() => buildDefaultRecommendedInitiatives());
   const [focusInitiativeId, setFocusInitiativeId] = useState<string | null>(null);
   const [investorBenchmarkByCompany, setInvestorBenchmarkByCompany] = useState<Record<string, BenchmarkSubmission | null>>({});
   const [investorOverviewIntroCompanyId, setInvestorOverviewIntroCompanyId] = useState<string | null>(null);
@@ -8238,7 +8756,7 @@ function PatriotPayJourneyInner({
                   pillar: initiative.pillar ?? "mkt",
                   kind: "continuous",
                   status: "Active",
-                  owner: DEFAULT_INITIATIVE_OWNER,
+                  assignees: [DEFAULT_INITIATIVE_ASSIGNEE],
                 });
                 if (usesPerCompanyWorkspace) {
                   setInvestorInitiativesByCompany(previous => {

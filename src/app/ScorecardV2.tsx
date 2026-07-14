@@ -3113,9 +3113,10 @@ function pillarCoverageMeta(count: number): { label: string; tone: "blind" | "th
 
 function initiativeStatusMeta(status?: string): { label: string; tone: "active" | "done" | "paused" } {
   const normalized = (status ?? "Active").trim().toLowerCase();
-  if (normalized === "done") return { label: "Shipped", tone: "done" };
+  if (normalized === "done" || normalized === "completed") return { label: "Completed", tone: "done" };
+  if (normalized === "suggested" || normalized === "draft") return { label: "Suggested", tone: "paused" };
   if (normalized === "paused") return { label: "Paused", tone: "paused" };
-  return { label: "In progress", tone: "active" };
+  return { label: "Active", tone: "active" };
 }
 
 function ScorecardBreadcrumb({
@@ -4184,6 +4185,7 @@ function OverviewAdvisorPanel({
   wikiSummary,
   onOpenWikiSummary,
   suggestionsReady = true,
+  overviewBuildPhase = null,
 }: {
   categories: CategoryData[];
   runway: number | null;
@@ -4199,6 +4201,7 @@ function OverviewAdvisorPanel({
   wikiSummary: WikiSummaryContent;
   onOpenWikiSummary: (highlightRefId?: number) => void;
   suggestionsReady?: boolean;
+  overviewBuildPhase?: OverviewBuildPhase | null;
 }) {
   const actions = buildAdvisorRecommendedActions(
     buildContext,
@@ -4245,23 +4248,33 @@ function OverviewAdvisorPanel({
           <div className="sc-adv-tags-label">Recent signals</div>
           <div className="sc-adv-tags">
             {categories.map(cat => {
-              const tag = trackSignalTag(cat, runway);
-              const totalCount = cat.intelDisplayCount
-                + (suggestionsReady ? cat.openInitiatives.length : 0)
-                + (suggestionsReady ? cat.suggestedPlaybooks.length : 0);
+              const signalReady = overviewTrackReady(cat.id, overviewBuildPhase);
+              const tag = signalReady ? trackSignalTag(cat, runway) : null;
+              const totalCount = signalReady
+                ? cat.intelDisplayCount
+                  + (suggestionsReady ? cat.openInitiatives.length : 0)
+                  + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
+                : null;
               return (
                 <button
                   key={cat.id}
                   type="button"
-                  className={`sc-adv-tag${tag.urgent ? " is-urgent" : ""}`}
-                  style={tag.borderColour ? { borderColor: tag.borderColour } : undefined}
+                  className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
+                  style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
                   onClick={() => onOpenIntelligence?.()}
-                  aria-label={`${cat.label} ${tag.suffix} — ${totalCount} total`}
+                  aria-label={
+                    tag && totalCount != null
+                      ? `${cat.label} ${tag.suffix} — ${totalCount} total`
+                      : `${cat.label} — loading`
+                  }
                 >
-                  <span className="sc-adv-tag-dot" style={{ background: tag.dotColour }} />
+                  <span
+                    className="sc-adv-tag-dot"
+                    style={tag ? { background: tag.dotColour } : undefined}
+                  />
                   {cat.label}
-                  <i style={{ color: tag.suffixColour }}>{tag.suffix}</i>
-                  <i className="sc-adv-tag-total">{totalCount}</i>
+                  {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
+                  {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
                 </button>
               );
             })}
@@ -4644,7 +4657,11 @@ function CategoryDetailInitiativesWidget({
   onOpenInitiatives?: () => void;
   onViewInitiative?: (id: string) => void;
 }) {
-  const activeForTrack = active.filter(item => !item.pillar || item.pillar === categoryId);
+  const activeForTrack = active.filter(item => {
+    if (item.pillar && item.pillar !== categoryId) return false;
+    const status = (item.status ?? "Active").trim().toLowerCase();
+    return status === "active" || status === "paused";
+  });
   const hasActive = activeForTrack.length > 0;
   const [view, setView] = useState<"active" | "suggested">("active");
   const [toast, setToast] = useState<{ message: string; initiativeId: string } | null>(null);
@@ -5795,6 +5812,7 @@ export default function ScorecardV2({
             wikiSummary={wikiSummary}
             onOpenWikiSummary={openWikiSummary}
             suggestionsReady={suggestionsReady}
+            overviewBuildPhase={overviewBuildPhase}
           />
           )
         ) : null}
