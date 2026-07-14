@@ -2,6 +2,7 @@ import { useState } from "react";
 import PatriotPayJourney, { type OnboardingBenchmarkInput } from "./PatriotPayJourney.tsx";
 import OnboardingFlow, {
   answersToOnboardingBenchmark,
+  isInvestorPersona,
   type OnboardingFlowAnswers,
 } from "./OnboardingFlow.tsx";
 import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
@@ -14,11 +15,13 @@ export default function App() {
   const [onboardingAnswers, setOnboardingAnswers] = useState<OnboardingFlowAnswers | null>(null);
 
   if (view === "workspace") {
+    const isInvestor = isInvestorPersona(onboardingAnswers);
     return (
       <PatriotPayJourney
-        initialPage="scorecard-v2"
+        initialPage={isInvestor ? "investor-home" : "overview-building"}
         initialBenchmark={onboardingBenchmark}
         initialOnboardingAnswers={onboardingAnswers}
+        persona={isInvestor ? "investor" : "founder"}
       />
     );
   }

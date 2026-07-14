@@ -13,7 +13,7 @@ import {
   useCreditsOptional,
 } from "./credits";
 import { totalRemaining, dailyRemaining } from "./credits/creditLogic";
-import ScorecardV2 from "./ScorecardV2";
+import ScorecardV2, { type OverviewBuildPhase } from "./ScorecardV2";
 import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 import { AccountSettings } from "./account/AccountSettings.tsx";
@@ -22,6 +22,25 @@ import {
   accountTabLabel,
   type AccountSettingsTab,
 } from "./account/AccountSettingsNav.tsx";
+import InvestorDashboard, { type InvestorDashboardSection } from "./investor/InvestorDashboard.tsx";
+import {
+  INVESTOR_PORTFOLIO,
+  SUGGESTED_FOUNDERS,
+  investorCompanyToSelected,
+} from "./investor/investorData.ts";
+import type { InvestorCompanyRef } from "./investor/investorData.ts";
+import {
+  buildYearOptions,
+  filterIntelligenceByDate,
+  getIntelligenceDateRange,
+  groupIntelligenceItems,
+  INTELLIGENCE_DATE_PRESETS,
+  matchesIntelligenceSearch,
+  MONTH_OPTIONS,
+  type IntelligenceCustomRange,
+  type IntelligenceDatePreset,
+  type IntelligenceGroupMode,
+} from "./intelligenceFilters";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -2648,6 +2667,144 @@ type IntelligenceItem = {
   updatedAtMs?: number;
 };
 
+type SourceQueueStatus = "awaiting_generation" | "no_intelligence";
+
+type PendingSource = {
+  id: string;
+  title: string;
+  description: string;
+  kind: "note" | "document";
+  document?: { typeId: string; typeLabel: string; fileName: string };
+  addedAtMs: number;
+  addedAtLabel: string;
+  status: SourceQueueStatus;
+  emptyReason?: string;
+  processedAtLabel?: string;
+};
+
+function evaluateSourceIntelligenceGeneration({
+  title,
+  description,
+  document,
+}: {
+  title: string;
+  description: string;
+  document?: { typeId: string; typeLabel: string; fileName: string };
+}): { item: IntelligenceItem | null; emptyReason?: string } {
+  const trimmedTitle = title.trim();
+  const trimmedDescription = description.trim();
+  const hasDocument = Boolean(document);
+
+  if (/no.?signal|empty source|blank doc/i.test(`${trimmedTitle} ${trimmedDescription}`)) {
+    return {
+      item: null,
+      emptyReason: "Fuel reviewed this source but nothing met the confidence threshold for timeline intelligence.",
+    };
+  }
+
+  if (!hasDocument && trimmedDescription.length < 20) {
+    return {
+      item: null,
+      emptyReason: "Add more context — Fuel needs a clearer description to extract intelligence from a note.",
+    };
+  }
+
+  if (hasDocument && !trimmedDescription && trimmedTitle.length < 10) {
+    return {
+      item: null,
+      emptyReason: "Fuel couldn't identify structured signal in this file. Add a title and description of what to extract.",
+    };
+  }
+
+  return {
+    item: createSourceIntelligence({
+      title: trimmedTitle,
+      description: trimmedDescription,
+      document,
+    }),
+  };
+}
+
+function getPendingSources(
+  manualPending: PendingSource[],
+  documentSlots: DataRoomDocumentSlot[],
+): PendingSource[] {
+  const documentPending = getActiveDocumentSlots(documentSlots)
+    .filter(slot => slot.current && slot.current.intelligenceCount === 0)
+    .map(slot => ({
+      id: `pending-doc-${slot.typeId}`,
+      title: slot.current!.name,
+      description: slot.typeLabel,
+      kind: "document" as const,
+      document: {
+        typeId: slot.typeId,
+        typeLabel: slot.typeLabel,
+        fileName: slot.current!.name,
+      },
+      addedAtMs: slot.current!.uploadedAtMs,
+      addedAtLabel: slot.current!.uploadedAt,
+      status: slot.current!.generationAttemptedAtMs ? "no_intelligence" as const : "awaiting_generation" as const,
+      emptyReason: slot.current!.emptyReason,
+      processedAtLabel: slot.current!.generationAttemptedAtMs
+        ? new Date(slot.current!.generationAttemptedAtMs).toLocaleString("en-US")
+        : undefined,
+    }));
+
+  const manualDocumentTypeIds = new Set(
+    manualPending
+      .map(source => source.document?.typeId)
+      .filter((typeId): typeId is string => Boolean(typeId)),
+  );
+
+  return [
+    ...manualPending,
+    ...documentPending.filter(source => !manualDocumentTypeIds.has(source.document!.typeId)),
+  ].sort((left, right) => right.addedAtMs - left.addedAtMs);
+}
+
+function attachIntelligenceToDocumentSlot(
+  slots: DataRoomDocumentSlot[],
+  typeId: string,
+  intelligenceId: string,
+): DataRoomDocumentSlot[] {
+  return slots.map(slot => {
+    if (slot.typeId !== typeId || !slot.current) return slot;
+    const intelligenceIds = slot.current.intelligenceIds.includes(intelligenceId)
+      ? slot.current.intelligenceIds
+      : [intelligenceId, ...slot.current.intelligenceIds];
+    return {
+      ...slot,
+      current: {
+        ...slot.current,
+        intelligenceIds,
+        intelligenceCount: intelligenceIds.length,
+        generationAttemptedAtMs: Date.now(),
+        emptyReason: undefined,
+      },
+    };
+  });
+}
+
+function markDocumentSourceWithoutIntelligence(
+  slots: DataRoomDocumentSlot[],
+  typeId: string,
+  emptyReason: string,
+): DataRoomDocumentSlot[] {
+  return slots.map(slot => {
+    if (slot.typeId !== typeId || !slot.current) return slot;
+    return {
+      ...slot,
+      current: {
+        ...slot.current,
+        intelligenceIds: [],
+        intelligenceCount: 0,
+        generationAttemptedAtMs: Date.now(),
+        emptyReason,
+      },
+    };
+  });
+}
+
 const DATA_ROOM_DOCUMENT_TYPES = [
   { id: "pitch_deck", label: "Pitch deck" },
   { id: "investor_notes", label: "Investor notes" },
@@ -2674,6 +2831,8 @@ type DataRoomFileRecord = {
   source: string;
   intelligenceCount: number;
   intelligenceIds: string[];
+  generationAttemptedAtMs?: number;
+  emptyReason?: string;
   downloadUrl?: string;
 };
 
@@ -3851,19 +4010,150 @@ function PrivateDataCompactStrip({
   );
 }
 
+function getInvestorVisibleIntelligence(
+  companyIntelligence: IntelligenceItem[],
+  investorIntelligence: IntelligenceItem[],
+): IntelligenceItem[] {
+  const benchmarkItems = companyIntelligence.filter(item => item.id.startsWith("intel-bench-"));
+  return [...benchmarkItems, ...investorIntelligence];
+}
+
+const FOUNDER_CLAIMED_COMPANY_ID = "patriotpay";
+
+const FOUNDER_COMPANY = {
+  id: "patriotpay",
+  name: "patriotpay",
+  displayName: "Patriot Pay",
+  domain: "patriotpay.com",
+  logo: "P",
+  logoBg: "#1E4D8C",
+  meta: "Healthcare · Patient Billing · Seed",
+  headquarters: "Boston, MA, US",
+  employees: "11-50",
+  linkedin: "linkedin.com/company/patriotpay",
+};
+
+function hasInvestorWorkspaceOnCompany(
+  companyId: string,
+  intelligenceByCompany: Record<string, IntelligenceItem[]>,
+  initiativesByCompany: Record<string, { id: string; title: string; description: string }[]>,
+  benchmarkByCompany: Record<string, BenchmarkSubmission | null | undefined>,
+  workspaceStarted: Record<string, boolean> = {},
+): boolean {
+  if (workspaceStarted[companyId]) return true;
+  const investorIntel = (intelligenceByCompany[companyId] ?? []).filter(item => !item.id.startsWith("intel-bench-"));
+  if (investorIntel.length > 0) return true;
+  if ((initiativesByCompany[companyId]?.length ?? 0) > 0) return true;
+  if (benchmarkByCompany[companyId]) return true;
+  return false;
+}
+
+function canAccessPersonalOverview({
+  isInvestor,
+  companyId,
+  intelligenceByCompany,
+  initiativesByCompany,
+  benchmarkByCompany,
+}: {
+  isInvestor: boolean;
+  companyId: string;
+  intelligenceByCompany: Record<string, IntelligenceItem[]>;
+  initiativesByCompany: Record<string, { id: string; title: string; description: string }[]>;
+  benchmarkByCompany: Record<string, BenchmarkSubmission | null | undefined>;
+  workspaceStarted?: Record<string, boolean>;
+}): boolean {
+  if (!isInvestor) {
+    return companyId === FOUNDER_CLAIMED_COMPANY_ID;
+  }
+  if (companyId === FOUNDER_CLAIMED_COMPANY_ID) return false;
+  return hasInvestorWorkspaceOnCompany(
+    companyId,
+    intelligenceByCompany,
+    initiativesByCompany,
+    benchmarkByCompany,
+    workspaceStarted,
+  );
+}
+
+function getInvestorCompanyIntelligence(
+  investorIntelligence: IntelligenceItem[],
+  investorBenchmark: BenchmarkSubmission | null | undefined,
+): IntelligenceItem[] {
+  if (!investorBenchmark) return investorIntelligence;
+  const benchmarkItems = createBenchmarkIntelligence(investorBenchmark.formValues).items;
+  return [...benchmarkItems, ...investorIntelligence.filter(item => !item.id.startsWith("intel-bench-"))];
+}
+
+function isInvestorOwnedIntelligence(item: IntelligenceItem) {
+  return item.id.startsWith("intel-investor-");
+}
+
+function DataRoomInvestorGate({
+  companyName,
+  requested,
+  onRequestAccess,
+}: {
+  companyName: string;
+  requested: boolean;
+  onRequestAccess: () => void;
+}) {
+  return (
+    <section className="data-room-page">
+      <div className="data-room-head">
+        <div>
+          <span>Private documents</span>
+          <h2>Data Room</h2>
+          <p>
+            {companyName}&apos;s data room is private to the founding team. Request access to specific files —
+            you&apos;ll be notified when the company approves.
+          </p>
+        </div>
+      </div>
+      <div className="data-room-investor-gate">
+        <strong>Data room access restricted</strong>
+        <p>
+          You can still view benchmarks, run playbooks, and build your own intelligence on this company.
+          Founder-uploaded decks, models, and cap tables require an explicit access grant.
+        </p>
+        <button type="button" className={requested ? "is-sent" : ""} onClick={onRequestAccess} disabled={requested}>
+          {requested ? "Access request sent" : "Request data room access"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function DataRoomPage({
   documentSlots,
   processingDocumentTypeId = null,
   onUploadDocument,
   onViewIntelligence,
   onOpenDocumentHistory,
+  investorMode = false,
+  investorAccessRequested = false,
+  companyName = "This company",
+  onRequestDataRoomAccess,
 }: {
   documentSlots: DataRoomDocumentSlot[];
   processingDocumentTypeId?: string | null;
   onUploadDocument: (typeId: string, typeLabel: string, file: File) => void;
   onViewIntelligence: (record: DataRoomFileRecord) => void;
   onOpenDocumentHistory: (slot: DataRoomDocumentSlot) => void;
+  investorMode?: boolean;
+  investorAccessRequested?: boolean;
+  companyName?: string;
+  onRequestDataRoomAccess?: () => void;
 }) {
+  if (investorMode) {
+    return (
+      <DataRoomInvestorGate
+        companyName={companyName}
+        requested={investorAccessRequested}
+        onRequestAccess={() => onRequestDataRoomAccess?.()}
+      />
+    );
+  }
+
   const activeSlots = getActiveDocumentSlots(documentSlots);
   const activeCount = activeSlots.length;
 
@@ -3917,6 +4207,10 @@ function DataRoomPage({
                   >
                     {slot.current.intelligenceCount} generated →
                   </button>
+                ) : slot.current ? (
+                  <span className={`data-room-intelligence-pending${slot.current.generationAttemptedAtMs ? " data-room-intelligence-empty" : ""}`}>
+                    {slot.current.generationAttemptedAtMs ? "No intelligence identified" : "Awaiting generation"}
+                  </span>
                 ) : "—"}
               </span>
               <DocumentRowActions
@@ -3951,6 +4245,11 @@ function SignalsPage({
   onEditBenchmark,
   benchmarkBlinkIds = [],
   activeTourTarget,
+  manualPendingSources = [],
+  onSaveSource,
+  onGenerateFromPending,
+  onDismissPendingSource,
+  onAttemptSourceGeneration,
 }: {
   isProfileComplete: boolean;
   onLogBenchmarkData: () => void;
@@ -3969,30 +4268,102 @@ function SignalsPage({
   onEditBenchmark?: () => void;
   benchmarkBlinkIds?: string[];
   activeTourTarget?: string;
+  manualPendingSources?: PendingSource[];
+  onSaveSource?: (params: {
+    title: string;
+    description: string;
+    document?: { typeId: string; typeLabel: string; file: File };
+  }) => void;
+  onGenerateFromPending?: (pendingId: string) => void;
+  onDismissPendingSource?: (pendingId: string) => void;
+  onAttemptSourceGeneration?: (params: {
+    title: string;
+    description: string;
+    document?: { typeId: string; typeLabel: string; file: File };
+    documentMeta?: { typeId: string; typeLabel: string; fileName: string };
+    pendingId?: string;
+  }) => void;
 }) {
   const timelinePanelRef = useRef<HTMLDivElement>(null);
+  const now = useMemo(() => new Date(), []);
   const [selectedIntelligenceId, setSelectedIntelligenceId] = useState<string | null>(null);
   const [showLogForm, setShowLogForm] = useState(false);
-  const [logSignalType, setLogSignalType] = useState("");
-  const [logPeriod, setLogPeriod] = useState("2026-q2");
-  const [logValue, setLogValue] = useState("");
-  const [logNote, setLogNote] = useState("");
   const [documentNotice, setDocumentNotice] = useState<string | null>(null);
   const [blinkingIntelligenceIds, setBlinkingIntelligenceIds] = useState<string[]>([]);
   const [activeTimelineFilter, setActiveTimelineFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [datePreset, setDatePreset] = useState<IntelligenceDatePreset>("current-quarter");
+  const [customRange, setCustomRange] = useState<IntelligenceCustomRange>({
+    startMonth: now.getMonth(),
+    startYear: now.getFullYear(),
+    endMonth: now.getMonth(),
+    endYear: now.getFullYear(),
+  });
+  const [groupMode, setGroupMode] = useState<IntelligenceGroupMode>("none");
+  const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const intelligenceFocusActive = Boolean(intelligenceFocus?.ids.length);
   const timelineFilters = isProfileComplete
     ? BENCHMARK_TIMELINE_FILTERS
     : (["All", "fundraising", "gtm", "product", "strategic", "team"] as const);
-  const visibleIntelligenceItems = useMemo(
-    () => {
-      const scoped = intelligenceFocusActive
+  const yearOptions = useMemo(() => buildYearOptions(now), [now]);
+
+  const scopedIntelligenceItems = useMemo(
+    () => (
+      intelligenceFocusActive
         ? intelligenceItems.filter(item => intelligenceFocus!.ids.includes(item.id))
-        : intelligenceItems;
-      if (activeTimelineFilter === "All") return scoped;
-      return scoped.filter(item => item.type === activeTimelineFilter);
-    },
-    [activeTimelineFilter, intelligenceFocus, intelligenceFocusActive, intelligenceItems],
+        : intelligenceItems
+    ),
+    [intelligenceFocus, intelligenceFocusActive, intelligenceItems],
+  );
+
+  const typeFilteredItems = useMemo(() => {
+    if (activeTimelineFilter === "All") return scopedIntelligenceItems;
+    return scopedIntelligenceItems.filter(item => item.type === activeTimelineFilter);
+  }, [activeTimelineFilter, scopedIntelligenceItems]);
+
+  const searchFilteredItems = useMemo(
+    () => typeFilteredItems.filter(item => matchesIntelligenceSearch(item, searchQuery)),
+    [searchQuery, typeFilteredItems],
+  );
+
+  const dateRange = useMemo(
+    () => getIntelligenceDateRange(datePreset, customRange, now),
+    [customRange, datePreset, now],
+  );
+
+  const resolveUpdatedAt = useCallback(
+    (item: IntelligenceItem) => getIntelligenceUpdatedAtMs(item, benchmarkSubmission?.submittedAtMs),
+    [benchmarkSubmission?.submittedAtMs],
+  );
+
+  const filteredIntelligenceItems = useMemo(
+    () => filterIntelligenceByDate(searchFilteredItems, dateRange.start, dateRange.end, resolveUpdatedAt),
+    [dateRange, resolveUpdatedAt, searchFilteredItems],
+  );
+
+  const intelligenceGroups = useMemo(
+    () => groupIntelligenceItems(filteredIntelligenceItems, groupMode, resolveUpdatedAt),
+    [filteredIntelligenceItems, groupMode, resolveUpdatedAt],
+  );
+
+  const visibleIntelligenceItems = filteredIntelligenceItems;
+  const pendingSources = useMemo(
+    () => getPendingSources(manualPendingSources, documentSlots),
+    [documentSlots, manualPendingSources],
+  );
+  const awaitingSources = useMemo(
+    () => pendingSources.filter(source => source.status === "awaiting_generation"),
+    [pendingSources],
+  );
+  const emptySources = useMemo(
+    () => pendingSources.filter(source => source.status === "no_intelligence"),
+    [pendingSources],
+  );
+  const filtersActive = Boolean(
+    searchQuery.trim()
+    || activeTimelineFilter !== "All"
+    || datePreset !== "current-quarter"
+    || groupMode !== "none",
   );
   const benchmarkIntelligenceItems = useMemo(
     () => visibleIntelligenceItems.filter(item => item.id.startsWith("intel-bench-")),
@@ -4069,18 +4440,6 @@ function SignalsPage({
       window.clearTimeout(scrollTimer);
     };
   }, [benchmarkBlinkIds]);
-  const logSignalOptions = [
-    "Fundraising",
-    "GTM",
-    "Product",
-    "Strategic",
-    "Team",
-    "Finance",
-    "Growth",
-    "Retention",
-    "Efficiency",
-  ];
-
   const handleRemoveIntelligence = (id: string, event: React.MouseEvent) => {
     event.stopPropagation();
     if (id.startsWith("intel-bench-")) return;
@@ -4097,32 +4456,6 @@ function SignalsPage({
       const row = timelinePanelRef.current?.querySelector(`[data-intelligence-id="${item.id}"]`);
       row?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 100);
-  };
-
-  const resetLogForm = () => {
-    setLogSignalType("");
-    setLogPeriod("2026-q2");
-    setLogValue("");
-    setLogNote("");
-  };
-
-  const handleLogIntelligence = () => {
-    if (!logSignalType || !logValue.trim()) return;
-    const type = logSignalType.toLowerCase();
-    handleIntelligenceGenerated({
-      id: `intel-log-${Date.now()}`,
-      type,
-      text: logSignalType,
-      highlight: logValue.trim(),
-      date: logPeriod,
-      age: "Just now",
-      title: logNote.trim() || logValue.trim(),
-      confidence: "Manual",
-      sources: [],
-      updatedAtMs: Date.now(),
-    });
-    resetLogForm();
-    setShowLogForm(false);
   };
 
   const handleDocumentUpload = (typeId: string, typeLabel: string, file: File) => {
@@ -4249,95 +4582,223 @@ function SignalsPage({
               </div>
       ) : null}
       <div className="signals-timeline-head">
-        <strong>Intelligence timeline</strong>
-        {!showLogForm && isProfileComplete && !intelligenceFocusActive ? (
-          <button
-            type="button"
-            className="signals-log-intelligence-btn"
-            onClick={() => setShowLogForm(true)}
-          >
-            + Log intelligence
-          </button>
-        ) : (
-          <em className="signals-timeline-event-count">{visibleIntelligenceItems.length} events</em>
-        )}
-      </div>
-      <div className="signals-filter-row">
-        {intelligenceFocusActive ? (
-          <>
-            <span className="active">From pitch deck</span>
-            <em>{visibleIntelligenceItems.length} events</em>
-          </>
-        ) : (
-          <>
-            {timelineFilters.map(filter => (
+        <div className="signals-timeline-head-main">
+          <strong>Intelligence timeline</strong>
+          <em className="signals-timeline-event-count">
+            {visibleIntelligenceItems.length} events{!intelligenceFocusActive ? ` · ${dateRange.label}` : ""}
+          </em>
+        </div>
+        {!intelligenceFocusActive && isProfileComplete ? (
+          <div className="signals-timeline-head-actions">
+            {!sourceFormOpen ? (
               <button
                 type="button"
-                className={activeTimelineFilter === filter ? "active" : ""}
-                key={filter}
-                onClick={() => setActiveTimelineFilter(filter)}
+                className={`signals-timeline-cta${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
+                data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
+                onClick={() => setSourceFormOpen(true)}
               >
-                {filter}
+                + Add a source
               </button>
-            ))}
-            {showLogForm ? (
+            ) : null}
+            {!showLogForm ? (
               <button
                 type="button"
-                className="signals-log-cancel"
-                onClick={() => {
-                  setShowLogForm(false);
-                  resetLogForm();
-                }}
+                className={`signals-timeline-cta${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
+                data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
+                onClick={() => setShowLogForm(true)}
               >
-                Cancel
+                + Log intelligence
               </button>
-            ) : (
-              <em>{visibleIntelligenceItems.length} events</em>
-            )}
-          </>
-        )}
+            ) : null}
           </div>
-      {showLogForm && isProfileComplete && !intelligenceFocusActive ? (
-        <div className="signals-log-form-row">
+        ) : null}
+      </div>
+
+      {!intelligenceFocusActive ? (
+        <div className="signals-intel-toolbar">
           <select
-            value={logSignalType}
-            onChange={(event) => setLogSignalType(event.target.value)}
+            className="signals-intel-toolbar-select"
+            value={datePreset}
+            onChange={event => setDatePreset(event.target.value as IntelligenceDatePreset)}
+            aria-label="Intelligence date range"
           >
-            <option value="">Pick a category...</option>
-            {logSignalOptions.map(option => (
-              <option key={option} value={option}>{option}</option>
+            {INTELLIGENCE_DATE_PRESETS.map(preset => (
+              <option key={preset.id} value={preset.id}>{preset.label}</option>
             ))}
           </select>
-          <input
-            type="text"
-            value={logPeriod}
-            onChange={(event) => setLogPeriod(event.target.value)}
-            aria-label="Period"
-          />
-          <input
-            type="text"
-            value={logValue}
-            onChange={(event) => setLogValue(event.target.value)}
-            placeholder="Value (free text)"
-          />
-          <input
-            type="text"
-            value={logNote}
-            onChange={(event) => setLogNote(event.target.value)}
-            placeholder="Note (optional)"
-          />
-          <button
-            type="button"
-            className="signals-log-submit"
-            disabled={!logSignalType || !logValue.trim()}
-            onClick={handleLogIntelligence}
+
+          {datePreset === "custom" ? (
+            <div className="signals-intel-custom-range signals-intel-custom-range--inline">
+              <select
+                value={customRange.startMonth}
+                onChange={event => setCustomRange(current => ({ ...current, startMonth: Number(event.target.value) }))}
+                aria-label="Custom range start month"
+              >
+                {MONTH_OPTIONS.map((month, index) => (
+                  <option key={`start-${month}`} value={index}>{month.slice(0, 3)}</option>
+                ))}
+              </select>
+              <select
+                value={customRange.startYear}
+                onChange={event => setCustomRange(current => ({ ...current, startYear: Number(event.target.value) }))}
+                aria-label="Custom range start year"
+              >
+                {yearOptions.map(year => (
+                  <option key={`start-year-${year}`} value={year}>{year}</option>
+                ))}
+              </select>
+              <span className="signals-intel-custom-sep">–</span>
+              <select
+                value={customRange.endMonth}
+                onChange={event => setCustomRange(current => ({ ...current, endMonth: Number(event.target.value) }))}
+                aria-label="Custom range end month"
+              >
+                {MONTH_OPTIONS.map((month, index) => (
+                  <option key={`end-${month}`} value={index}>{month.slice(0, 3)}</option>
+                ))}
+              </select>
+              <select
+                value={customRange.endYear}
+                onChange={event => setCustomRange(current => ({ ...current, endYear: Number(event.target.value) }))}
+                aria-label="Custom range end year"
+              >
+                {yearOptions.map(year => (
+                  <option key={`end-year-${year}`} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <select
+            className="signals-intel-toolbar-select"
+            value={groupMode}
+            onChange={event => setGroupMode(event.target.value as IntelligenceGroupMode)}
+            aria-label="Group intelligence by"
           >
-            Log
-          </button>
+            <option value="none">Timeline</option>
+            <option value="intelligence">Intelligence</option>
+            <option value="source">Source</option>
+          </select>
+
+          <div className="signals-intel-search-cluster">
+            <select
+              className="signals-intel-category-select"
+              value={activeTimelineFilter}
+              onChange={event => setActiveTimelineFilter(event.target.value)}
+              aria-label="Filter intelligence by category"
+            >
+              {timelineFilters.map(filter => (
+                <option key={filter} value={filter}>
+                  {filter === "All" ? "All categories" : filter}
+                </option>
+              ))}
+            </select>
+            <label className="signals-intel-search">
+              <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder="Search intelligence"
+                aria-label="Search intelligence"
+              />
+            </label>
+          </div>
         </div>
       ) : null}
+
+      {showLogForm && isProfileComplete && !intelligenceFocusActive ? (
+        <IntelligenceLogForm
+          onLog={item => {
+            handleIntelligenceGenerated(item);
+            setShowLogForm(false);
+          }}
+          onCancel={() => setShowLogForm(false)}
+        />
+      ) : null}
       <div className="signals-timeline-list">
-        {timelineBlocks.map((block) => {
+        {!intelligenceFocusActive && (awaitingSources.length > 0 || emptySources.length > 0) ? (
+          <section className="signals-pending-sources">
+            {awaitingSources.length > 0 ? (
+              <>
+                <div className="signals-pending-sources-head">
+                  <strong>
+                    {awaitingSources.length} source{awaitingSources.length === 1 ? "" : "s"} awaiting intelligence
+                  </strong>
+                  <span>Saved context that hasn&apos;t been processed yet.</span>
+                </div>
+                {awaitingSources.map(source => (
+                  <div className="signals-pending-source-row" key={source.id}>
+                    <div className="signals-pending-source-copy">
+                      <strong>{source.title}</strong>
+                      <p>
+                        {source.kind === "document" ? `${source.document?.typeLabel} · ` : "Private note · "}
+                        {source.description || "Ready to generate"}
+                      </p>
+                      <em>{source.addedAtLabel}</em>
+                    </div>
+                    <div className="signals-pending-source-actions">
+                      {source.kind === "note" ? (
+                        <button
+                          type="button"
+                          className="signals-pending-dismiss"
+                          onClick={() => onDismissPendingSource?.(source.id)}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="signals-pending-generate"
+                        onClick={() => onGenerateFromPending?.(source.id)}
+                      >
+                        Generate intelligence
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : null}
+            {emptySources.length > 0 ? (
+              <>
+                <div className={`signals-pending-sources-head${awaitingSources.length > 0 ? " signals-pending-sources-head--spaced" : ""}`}>
+                  <strong>
+                    {emptySources.length} source{emptySources.length === 1 ? "" : "s"} with no intelligence identified
+                  </strong>
+                  <span>Fuel processed {emptySources.length === 1 ? "this source" : "these sources"} but didn&apos;t find timeline-ready signal.</span>
+                </div>
+                {emptySources.map(source => (
+                  <div className="signals-pending-source-row signals-pending-source-row--empty" key={source.id}>
+                    <div className="signals-pending-source-copy">
+                      <strong>{source.title}</strong>
+                      <p>{source.emptyReason || "No intelligence met Fuel's confidence threshold."}</p>
+                      <em>Processed {source.processedAtLabel || source.addedAtLabel}</em>
+                    </div>
+                    <div className="signals-pending-source-actions">
+                      {source.kind === "note" ? (
+                        <button
+                          type="button"
+                          className="signals-pending-dismiss"
+                          onClick={() => onDismissPendingSource?.(source.id)}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="signals-pending-generate"
+                        onClick={() => onGenerateFromPending?.(source.id)}
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : null}
+          </section>
+        ) : null}
+        {groupMode === "none" ? timelineBlocks.map((block) => {
           if (block.kind === "benchmark") {
             const benchmarkBlinking = block.items.some(item => (
               blinkingIntelligenceIds.includes(item.id) || benchmarkBlinkIds.includes(item.id)
@@ -4354,7 +4815,62 @@ function SignalsPage({
             );
           }
           return renderTimelineRow(block.item);
-        })}
+        }) : (
+          <>
+            {showQuarterlySubmission && benchmarkSubmission && benchmarkIntelligenceItems.length > 0 ? (
+              <QuarterlySubmissionPanel
+                submission={benchmarkSubmission}
+                onEdit={onEditBenchmark || (() => undefined)}
+                highlight={benchmarkIntelligenceItems.some(item => (
+                  blinkingIntelligenceIds.includes(item.id) || benchmarkBlinkIds.includes(item.id)
+                ))}
+              />
+            ) : null}
+            {intelligenceGroups.map(group => (
+              <section className="signals-intel-group" key={group.key}>
+                <div className="signals-intel-group-head">
+                  <div>
+                    <strong>{group.label}</strong>
+                    {group.meta ? <span>{group.meta}</span> : null}
+                  </div>
+                  <em>{group.items.length} item{group.items.length === 1 ? "" : "s"}</em>
+                </div>
+                {group.items.map(renderTimelineRow)}
+              </section>
+            ))}
+          </>
+        )}
+        {!visibleIntelligenceItems.length ? (
+          <div className="signals-intel-empty">
+            {emptySources.length > 0 && awaitingSources.length === 0 && !filtersActive ? (
+              <>
+                <strong>No intelligence identified from your sources</strong>
+                <p>
+                  Fuel processed {emptySources.length} source{emptySources.length === 1 ? "" : "s"} above but didn&apos;t extract timeline items.
+                  Add more context and try again, or log intelligence manually.
+                </p>
+              </>
+            ) : awaitingSources.length > 0 && !filtersActive ? (
+              <>
+                <strong>No intelligence generated yet</strong>
+                <p>
+                  {awaitingSources.length} source{awaitingSources.length === 1 ? " is" : "s are"} saved above.
+                  Generate intelligence to add {awaitingSources.length === 1 ? "it" : "them"} to your timeline.
+                </p>
+              </>
+            ) : filtersActive ? (
+              <>
+                <strong>No intelligence matches these filters</strong>
+                <p>Try widening the date range, clearing search, or switching the intelligence category.</p>
+              </>
+            ) : (
+              <>
+                <strong>No intelligence yet</strong>
+                <p>Add a source or log intelligence to start building your timeline.</p>
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
       {isProfileComplete && !benchmarkSubmission ? (
         <div className="signals-footnote">
@@ -4375,14 +4891,15 @@ function SignalsPage({
         <ContextFeedPage
           onOpenConnectors={onLinkConnectors}
           onIntelligenceGenerated={handleIntelligenceGenerated}
+          onAttemptSourceGeneration={onAttemptSourceGeneration}
           documentSlots={documentSlots}
           onPersistSourceDocument={onPersistSourceDocument}
-          highlightAddSource={activeTourTarget === "add-source"}
+          onSaveSource={onSaveSource}
+          sourceFormOpen={sourceFormOpen}
+          onSourceFormOpenChange={setSourceFormOpen}
         />
 
         {intelligenceTimelinePanel}
-
-        <SourcesConnectorsUpsell onOpenConnectors={onLinkConnectors} />
 
         {selectedIntelligence ? (
           <IntelligenceProvenanceSidebar
@@ -4448,15 +4965,16 @@ function SignalsPage({
       <ContextFeedPage
         onOpenConnectors={onLinkConnectors}
         onIntelligenceGenerated={handleIntelligenceGenerated}
+        onAttemptSourceGeneration={onAttemptSourceGeneration}
         documentSlots={documentSlots}
         processingDocumentTypeId={processingDocumentTypeId}
         onPersistSourceDocument={onPersistSourceDocument}
-        highlightAddSource={activeTourTarget === "add-source"}
+        onSaveSource={onSaveSource}
+        sourceFormOpen={sourceFormOpen}
+        onSourceFormOpenChange={setSourceFormOpen}
       />
 
       {showIntelligenceTimeline ? intelligenceTimelinePanel : null}
-
-      <SourcesConnectorsUpsell onOpenConnectors={onLinkConnectors} />
 
       {selectedIntelligence ? (
         <IntelligenceProvenanceSidebar
@@ -4745,83 +5263,824 @@ function BenchmarkGuide({ verifiedCount }: { verifiedCount: string }) {
   );
 }
 
-function TourPromptBanner({ onStartTour, onDismiss }: { onStartTour: () => void; onDismiss: () => void }) {
+function TourPromptBanner({
+  onStartTour,
+  onDismiss,
+  building = false,
+}: {
+  onStartTour: () => void;
+  onDismiss: () => void;
+  building?: boolean;
+}) {
   return (
-    <div className="tour-prompt-banner">
+    <div className={`tour-prompt-banner${building ? " is-building" : ""}`} role="status">
       <div>
-        <span>New workspace tour</span>
-        <strong>Want a quick walkthrough of Fuel?</strong>
+        <span>{building ? "Building intelligence" : "Workspace tour"}</span>
+        <strong>
+          {building
+            ? "Take a quick tour while Fuel builds your workspace"
+            : "Want a quick walkthrough of Fuel?"}
+        </strong>
         <p>
-          See how Overview, Intelligence, Initiatives, and Playbooks work together now that your profile is set up.
+          {building
+            ? "Overview scores, Intelligence, and Initiatives are being prepared from your onboarding. Explore the product now — you do not need to wait."
+            : "See how Overview, Intelligence, Initiatives, and Data Room work together now that your profile is set up."}
         </p>
       </div>
       <div className="tour-prompt-actions">
-        <button onClick={onStartTour}>Take tour</button>
-        <button className="secondary" onClick={onDismiss}>Maybe later</button>
+        <button type="button" onClick={onStartTour}>Start tour</button>
+        <button type="button" className="secondary" onClick={onDismiss}>
+          {building ? "Skip for now" : "Maybe later"}
+        </button>
       </div>
     </div>
   );
 }
 
-function InitiativesPage() {
+const MANUAL_INTELLIGENCE_CATEGORIES = [
+  "Fundraising",
+  "GTM",
+  "Product",
+  "Strategic",
+  "Team",
+  "Finance",
+  "Growth",
+  "Retention",
+  "Efficiency",
+] as const;
+
+function IntelligenceLogForm({
+  onLog,
+  onCancel,
+  submitLabel = "Log",
+  defaultPeriod = "2026-q2",
+}: {
+  onLog: (item: IntelligenceItem) => void;
+  onCancel: () => void;
+  submitLabel?: string;
+  defaultPeriod?: string;
+}) {
+  const [category, setCategory] = useState("");
+  const [period, setPeriod] = useState(defaultPeriod);
+  const [value, setValue] = useState("");
+  const [note, setNote] = useState("");
+
+  const reset = () => {
+    setCategory("");
+    setPeriod(defaultPeriod);
+    setValue("");
+    setNote("");
+  };
+
+  return (
+    <div className="signals-log-form-row">
+      <select value={category} onChange={event => setCategory(event.target.value)}>
+        <option value="">Pick a category...</option>
+        {MANUAL_INTELLIGENCE_CATEGORIES.map(option => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+      <input
+        type="text"
+        value={period}
+        onChange={event => setPeriod(event.target.value)}
+        aria-label="Period"
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={event => setValue(event.target.value)}
+        placeholder="Value (free text)"
+      />
+      <input
+        type="text"
+        value={note}
+        onChange={event => setNote(event.target.value)}
+        placeholder="Note (optional)"
+      />
+      <button
+        type="button"
+        className="signals-log-submit"
+        disabled={!category || !value.trim()}
+        onClick={() => {
+          if (!category || !value.trim()) return;
+          onLog({
+            id: `intel-log-${Date.now()}`,
+            type: category.toLowerCase(),
+            text: category,
+            highlight: value.trim(),
+            date: period,
+            age: "Just now",
+            title: note.trim() || value.trim(),
+            confidence: "Manual",
+            sources: [],
+            updatedAtMs: Date.now(),
+          });
+          reset();
+        }}
+      >
+        {submitLabel}
+      </button>
+      <button
+        type="button"
+        className="signals-log-cancel"
+        onClick={() => {
+          reset();
+          onCancel();
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+type InitiativePillar = "dev" | "mkt" | "rev";
+type InitiativeKind = "continuous" | "one-time";
+type InitiativeStatus = "Active" | "Paused" | "Done";
+type InitiativeProgressRole = "baseline" | "current" | "target";
+
+type InitiativeMilestone = {
+  id: string;
+  title: string;
+  due?: string;
+  done: boolean;
+};
+
+type InitiativeIntelligenceLink = {
+  id: string;
+  role: InitiativeProgressRole;
+  intelligenceId: string;
+  title: string;
+  highlight: string;
+  type: string;
+  date: string;
+};
+
+type InitiativeRecord = {
+  id: string;
+  title: string;
+  description: string;
+  pillar: InitiativePillar;
+  kind: InitiativeKind;
+  status: InitiativeStatus;
+  owner: string;
+  due?: string;
+  milestones: InitiativeMilestone[];
+  intelligenceLinks: InitiativeIntelligenceLink[];
+};
+
+const DEFAULT_INITIATIVE_OWNER = "shreya.g@york.ie";
+
+function initiativePillarLabel(pillar: InitiativePillar): string {
+  return pillar === "dev" ? "R&D" : pillar === "mkt" ? "GTM" : "G&A";
+}
+
+function initiativeKindLabel(kind: InitiativeKind): string {
+  return kind === "continuous" ? "Continuous" : "One-time";
+}
+
+function buildDefaultMilestones(title: string, pillar: InitiativePillar): InitiativeMilestone[] {
+  const stamp = Date.now();
+  const shortTitle = title.trim() || "initiative";
+  return [
+    { id: `ms-${stamp}-1`, title: `Define scope for ${shortTitle}`, done: false },
+    { id: `ms-${stamp}-2`, title: `Execute first ${initiativePillarLabel(pillar)} workstream`, done: false },
+    { id: `ms-${stamp}-3`, title: "Review progress vs target intelligence", done: false },
+  ];
+}
+
+function nextProgressRole(links: InitiativeIntelligenceLink[]): InitiativeProgressRole {
+  const roles: InitiativeProgressRole[] = ["baseline", "current", "target"];
+  return roles.find(role => !links.some(link => link.role === role)) ?? "current";
+}
+
+function createInitiativeRecord(input: {
+  id?: string;
+  title: string;
+  description?: string;
+  pillar?: InitiativePillar;
+  kind?: InitiativeKind;
+  status?: InitiativeStatus;
+  owner?: string;
+  due?: string;
+}): InitiativeRecord {
+  const title = input.title.trim();
+  const pillar = input.pillar ?? "mkt";
+  return {
+    id: input.id ?? `init-${Date.now()}`,
+    title,
+    description: input.description?.trim() ?? "",
+    pillar,
+    kind: input.kind ?? "continuous",
+    status: input.status ?? "Active",
+    owner: input.owner?.trim() || DEFAULT_INITIATIVE_OWNER,
+    due: input.due?.trim() || undefined,
+    milestones: buildDefaultMilestones(title, pillar),
+    intelligenceLinks: [],
+  };
+}
+
+function InitiativesPage({
+  investorMode = false,
+  items = [],
+  focusInitiativeId = null,
+  availableIntelligence = [],
+  onCreate,
+  onUpdate,
+  onDelete,
+  onLogIntelligence,
+}: {
+  investorMode?: boolean;
+  items?: InitiativeRecord[];
+  focusInitiativeId?: string | null;
+  availableIntelligence?: IntelligenceItem[];
+  onCreate?: (initiative: InitiativeRecord) => void;
+  onUpdate?: (initiative: InitiativeRecord) => void;
+  onDelete?: (id: string) => void;
+  onLogIntelligence?: (item: IntelligenceItem) => void;
+}) {
   const [isCreating, setIsCreating] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(focusInitiativeId);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftKind, setDraftKind] = useState<InitiativeKind>("continuous");
+  const [draftPillar, setDraftPillar] = useState<InitiativePillar>("mkt");
+  const [draftDescription, setDraftDescription] = useState("");
+  const [draftOwner, setDraftOwner] = useState(DEFAULT_INITIATIVE_OWNER);
+  const [draftDue, setDraftDue] = useState("");
+  const [milestoneDrafts, setMilestoneDrafts] = useState<Record<string, { title: string; due: string }>>({});
+  const [intelPanels, setIntelPanels] = useState<Record<string, "log" | "link" | null>>({});
+  const [linkDrafts, setLinkDrafts] = useState<Record<string, { role: InitiativeProgressRole; intelligenceId: string }>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [milestoneFormOpen, setMilestoneFormOpen] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (focusInitiativeId) {
+      setExpandedId(focusInitiativeId);
+      setEditingId(null);
+    }
+  }, [focusInitiativeId]);
+
+  const resetCreateForm = () => {
+    setDraftTitle("");
+    setDraftKind("continuous");
+    setDraftPillar("mkt");
+    setDraftDescription("");
+    setDraftOwner(DEFAULT_INITIATIVE_OWNER);
+    setDraftDue("");
+    setIsCreating(false);
+  };
+
+  const handleCreate = () => {
+    if (!draftTitle.trim()) return;
+    const created = createInitiativeRecord({
+      title: draftTitle,
+      description: draftDescription,
+      pillar: draftPillar,
+      kind: draftKind,
+      owner: draftOwner,
+      due: draftDue,
+      status: "Active",
+    });
+    onCreate?.(created);
+    setExpandedId(created.id);
+    setEditingId(created.id);
+    resetCreateForm();
+  };
+
+  const patchInitiative = (id: string, patch: Partial<InitiativeRecord>) => {
+    const current = items.find(item => item.id === id);
+    if (!current || !onUpdate) return;
+    onUpdate({ ...current, ...patch });
+  };
+
+  const attachIntelligence = (
+    initiative: InitiativeRecord,
+    item: IntelligenceItem,
+    role: InitiativeProgressRole,
+  ) => {
+    const withoutRole = initiative.intelligenceLinks.filter(link => link.role !== role);
+    onUpdate?.({
+      ...initiative,
+      intelligenceLinks: [
+        ...withoutRole,
+        {
+          id: `ilink-${Date.now()}`,
+          role,
+          intelligenceId: item.id,
+          title: item.title || item.text,
+          highlight: item.highlight,
+          type: item.type,
+          date: item.date,
+        },
+      ],
+    });
+  };
+
+  const addMilestone = (initiativeId: string) => {
+    const draft = milestoneDrafts[initiativeId] ?? { title: "", due: "" };
+    if (!draft.title.trim()) return;
+    const current = items.find(item => item.id === initiativeId);
+    if (!current || !onUpdate) return;
+    onUpdate({
+      ...current,
+      milestones: [
+        ...current.milestones,
+        {
+          id: `ms-${Date.now()}`,
+          title: draft.title.trim(),
+          due: draft.due.trim() || undefined,
+          done: false,
+        },
+      ],
+    });
+    setMilestoneDrafts(previous => ({ ...previous, [initiativeId]: { title: "", due: "" } }));
+  };
 
   return (
     <section className="initiatives-page">
       <div className="initiatives-head">
         <div>
           <h2>Initiatives</h2>
-          <p>Continuous and one-time work the operating team is running with this company.</p>
+          <p>
+            {investorMode
+              ? "Your private initiatives on this company — not visible to the founding team or other investors."
+              : "Continuous + one-time work the operating team is running with this company."}
+          </p>
         </div>
         {isCreating ? (
-          <button className="initiatives-secondary-btn" onClick={() => setIsCreating(false)}>Cancel</button>
+          <button type="button" className="initiatives-secondary-btn" onClick={resetCreateForm}>Cancel</button>
         ) : (
-          <button className="initiatives-primary-btn" onClick={() => setIsCreating(true)}>+ New initiative</button>
+          <button type="button" className="initiatives-primary-btn" onClick={() => setIsCreating(true)}>+ New initiative</button>
         )}
       </div>
 
       {isCreating ? (
         <div className="initiative-form-card">
           <div className="initiative-form-row">
-            <input placeholder="Initiative name (e.g. Enterprise GTM retool)" />
-            <select defaultValue="continuous">
+            <input
+              value={draftTitle}
+              onChange={event => setDraftTitle(event.target.value)}
+              placeholder="Initiative name (e.g. Enterprise GTM retool)"
+            />
+            <select value={draftKind} onChange={event => setDraftKind(event.target.value as InitiativeKind)}>
               <option value="continuous">Continuous</option>
               <option value="one-time">One-time</option>
             </select>
-            <select defaultValue="gtm">
-              <option value="gtm">GTM</option>
-              <option value="product">Product</option>
-              <option value="finance">Finance</option>
-              <option value="ops">Ops</option>
+            <select value={draftPillar} onChange={event => setDraftPillar(event.target.value as InitiativePillar)}>
+              <option value="mkt">GTM</option>
+              <option value="dev">R&D</option>
+              <option value="rev">G&A</option>
             </select>
           </div>
-          <textarea placeholder="What's the goal and why now? (optional)" />
-          <div className="initiative-form-row">
-            <input placeholder="Owner email (defaults to you)" />
-            <input placeholder="Due (e.g. 2026-q3)" />
+          <textarea
+            value={draftDescription}
+            onChange={event => setDraftDescription(event.target.value)}
+            placeholder="What's the goal and why now? (optional)"
+          />
+          <div className="initiative-form-row initiative-form-row--owner">
+            <input
+              value={draftOwner}
+              onChange={event => setDraftOwner(event.target.value)}
+              placeholder="Owner email (defaults to you)"
+            />
+            <input
+              value={draftDue}
+              onChange={event => setDraftDue(event.target.value)}
+              placeholder="Due (e.g. 2026-q3)"
+            />
           </div>
           <div className="initiative-form-actions">
-            <button className="initiatives-primary-btn">Create initiative</button>
-            <button className="initiatives-secondary-btn" onClick={() => setIsCreating(false)}>Cancel</button>
+            <button type="button" className="initiatives-primary-btn" onClick={handleCreate} disabled={!draftTitle.trim()}>
+              Create initiative
+            </button>
+            <button type="button" className="initiatives-secondary-btn" onClick={resetCreateForm}>Cancel</button>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {items.length === 0 && !isCreating ? (
         <div className="initiatives-empty-card">
           <strong>No initiatives yet</strong>
           <p>
-            Start one manually with <span>+ New initiative</span>, or let Fuel generate suggested initiatives from Intelligence
-            once the company profile and context are complete.
+            {investorMode ? (
+              <>Create diligence or value-creation work with <span>+ New initiative</span> — kept private to your account.</>
+            ) : (
+              <>
+                Start one manually with <span>+ New initiative</span>, or add a suggested initiative from a track detail page.
+              </>
+            )}
           </p>
         </div>
-      )}
+      ) : null}
 
-      <div className="initiatives-signal-note">
-        <span>Generated from Intelligence</span>
-        <p>
-          When Fuel has enough profile, benchmark, and context data, intelligence patterns can become recommended initiatives
-          for GTM, product, finance, and operating priorities.
-        </p>
-      </div>
+      {items.length > 0 ? (
+        <div className="initiatives-list">
+          {items.map(item => {
+            const expanded = expandedId === item.id;
+            const isEditing = editingId === item.id;
+            const milestoneDraft = milestoneDrafts[item.id] ?? { title: "", due: "" };
+            const intelPanel = intelPanels[item.id] ?? null;
+            const showMilestoneForm = Boolean(milestoneFormOpen[item.id]);
+            const linkDraft = linkDrafts[item.id] ?? {
+              role: nextProgressRole(item.intelligenceLinks),
+              intelligenceId: "",
+            };
+            const roleOrder: InitiativeProgressRole[] = ["baseline", "current", "target"];
+            return (
+              <article key={item.id} className={`initiative-card${expanded ? " is-expanded" : ""}`}>
+                <button
+                  type="button"
+                  className="initiative-card-summary"
+                  onClick={() => {
+                    if (expanded) {
+                      setExpandedId(null);
+                      setEditingId(null);
+                      setIntelPanels(previous => ({ ...previous, [item.id]: null }));
+                      setMilestoneFormOpen(previous => ({ ...previous, [item.id]: false }));
+                    } else {
+                      setExpandedId(item.id);
+                      setEditingId(null);
+                    }
+                  }}
+                  aria-expanded={expanded}
+                >
+                  <span className={`initiative-card-chevron${expanded ? " is-open" : ""}`} aria-hidden="true">▾</span>
+                  <div className="initiative-card-summary-main">
+                    <strong>{item.title}</strong>
+                    <div className="initiative-card-meta">
+                      <span className={`initiative-status initiative-status--${item.status.toLowerCase()}`}>
+                        {item.status}
+                      </span>
+                      <em>
+                        {initiativeKindLabel(item.kind).toUpperCase()}
+                        {" "}
+                        {initiativePillarLabel(item.pillar)}
+                        {" "}
+                        OWNER: {item.owner.toUpperCase()}
+                      </em>
+                    </div>
+                  </div>
+                </button>
+
+                {expanded ? (
+                  <div className="initiative-card-body">
+                    <div className="initiative-card-section">
+                      <div className="initiative-card-section-head">
+                        <span className="initiative-card-section-label">Details</span>
+                        <button
+                          type="button"
+                          className="initiative-edit-btn"
+                          onClick={() => {
+                            if (isEditing) {
+                              setEditingId(null);
+                            } else {
+                              setEditingId(item.id);
+                            }
+                          }}
+                        >
+                          {isEditing ? "Done" : "Edit details"}
+                        </button>
+                      </div>
+
+                      {isEditing ? (
+                        <div className="initiative-form-card initiative-edit-form">
+                          <div className="initiative-form-row">
+                            <input
+                              value={item.title}
+                              onChange={event => patchInitiative(item.id, { title: event.target.value })}
+                              placeholder="Initiative name"
+                            />
+                            <select
+                              value={item.kind}
+                              onChange={event => patchInitiative(item.id, { kind: event.target.value as InitiativeKind })}
+                            >
+                              <option value="continuous">Continuous</option>
+                              <option value="one-time">One-time</option>
+                            </select>
+                            <select
+                              value={item.pillar}
+                              onChange={event => patchInitiative(item.id, { pillar: event.target.value as InitiativePillar })}
+                            >
+                              <option value="mkt">GTM</option>
+                              <option value="dev">R&D</option>
+                              <option value="rev">G&A</option>
+                            </select>
+                          </div>
+                          <textarea
+                            value={item.description}
+                            onChange={event => patchInitiative(item.id, { description: event.target.value })}
+                            placeholder="What's the goal and why now? (optional)"
+                          />
+                          <div className="initiative-form-row initiative-form-row--owner">
+                            <input
+                              value={item.owner}
+                              onChange={event => patchInitiative(item.id, { owner: event.target.value })}
+                              placeholder="Owner email"
+                            />
+                            <input
+                              value={item.due ?? ""}
+                              onChange={event => patchInitiative(item.id, { due: event.target.value })}
+                              placeholder="Due (e.g. 2026-q3)"
+                            />
+                          </div>
+                          <div className="initiative-form-row initiative-form-row--status">
+                            <select
+                              value={item.status}
+                              onChange={event => patchInitiative(item.id, { status: event.target.value as InitiativeStatus })}
+                              aria-label="Status"
+                            >
+                              <option value="Active">Active</option>
+                              <option value="Paused">Paused</option>
+                              <option value="Done">Done</option>
+                            </select>
+                          </div>
+                          <div className="initiative-edit-danger">
+                            <button
+                              type="button"
+                              className="initiatives-secondary-btn"
+                              onClick={() => {
+                                onDelete?.(item.id);
+                                if (expandedId === item.id) setExpandedId(null);
+                                setEditingId(null);
+                              }}
+                            >
+                              Delete initiative
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="initiative-view-details">
+                          {item.description.trim() ? (
+                            <p className="initiative-card-description">{item.description}</p>
+                          ) : (
+                            <p className="initiative-card-section-empty">No description yet.</p>
+                          )}
+                          <dl className="initiative-view-meta">
+                            <div>
+                              <dt>Kind</dt>
+                              <dd>{initiativeKindLabel(item.kind)}</dd>
+                            </div>
+                            <div>
+                              <dt>Pillar</dt>
+                              <dd>{initiativePillarLabel(item.pillar)}</dd>
+                            </div>
+                            <div>
+                              <dt>Owner</dt>
+                              <dd>{item.owner}</dd>
+                            </div>
+                            <div>
+                              <dt>Target</dt>
+                              <dd>{item.due?.trim() || "—"}</dd>
+                            </div>
+                            <div>
+                              <dt>Status</dt>
+                              <dd>{item.status}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="initiative-card-section">
+                      <div className="initiative-card-section-head">
+                        <span className="initiative-card-section-label">Advisors</span>
+                      </div>
+                      <p className="initiative-card-section-empty">No advisors linked.</p>
+                    </div>
+
+                    <div className="initiative-card-section">
+                      <div className="initiative-card-section-head">
+                        <span className="initiative-card-section-label">Progress — baseline · current · target</span>
+                        <div className="initiative-card-section-actions">
+                          <button
+                            type="button"
+                            className="initiatives-secondary-btn initiative-card-mini-btn"
+                            onClick={() => setIntelPanels(previous => ({
+                              ...previous,
+                              [item.id]: intelPanel === "log" ? null : "log",
+                            }))}
+                          >
+                            + Log intelligence
+                          </button>
+                          <button
+                            type="button"
+                            className="initiatives-secondary-btn initiative-card-mini-btn"
+                            onClick={() => setIntelPanels(previous => ({
+                              ...previous,
+                              [item.id]: intelPanel === "link" ? null : "link",
+                            }))}
+                          >
+                            + Link intelligence
+                          </button>
+                        </div>
+                      </div>
+
+                      {item.intelligenceLinks.length > 0 ? (
+                        <div className="initiative-intel-links">
+                          {roleOrder.map(role => {
+                            const link = item.intelligenceLinks.find(entry => entry.role === role);
+                            if (!link) return null;
+                            return (
+                              <div key={link.id} className="initiative-intel-link-row">
+                                <span className="initiative-intel-role">{role}</span>
+                                <div className="initiative-intel-link-copy">
+                                  <strong>{link.title}</strong>
+                                  <em>{link.type} · {link.date}{link.highlight ? ` · ${link.highlight}` : ""}</em>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="initiative-milestone-remove"
+                                  aria-label={`Remove ${role} intelligence`}
+                                  onClick={() => patchInitiative(item.id, {
+                                    intelligenceLinks: item.intelligenceLinks.filter(entry => entry.id !== link.id),
+                                  })}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="initiative-card-progress-empty">
+                          No intelligence tracked yet. Log or link a baseline and a target so progress can be narrated from the timeline.
+                        </div>
+                      )}
+
+                      {intelPanel === "log" ? (
+                        <IntelligenceLogForm
+                          onCancel={() => setIntelPanels(previous => ({ ...previous, [item.id]: null }))}
+                          onLog={logged => {
+                            onLogIntelligence?.(logged);
+                            attachIntelligence(item, logged, nextProgressRole(item.intelligenceLinks));
+                            setIntelPanels(previous => ({ ...previous, [item.id]: null }));
+                          }}
+                        />
+                      ) : null}
+
+                      {intelPanel === "link" ? (
+                        <div className="initiative-link-intel-row">
+                          <select
+                            value={linkDraft.role}
+                            onChange={event => setLinkDrafts(previous => ({
+                              ...previous,
+                              [item.id]: {
+                                ...linkDraft,
+                                role: event.target.value as InitiativeProgressRole,
+                              },
+                            }))}
+                            aria-label="Progress role"
+                          >
+                            <option value="baseline">Baseline</option>
+                            <option value="current">Current</option>
+                            <option value="target">Target</option>
+                          </select>
+                          <select
+                            value={linkDraft.intelligenceId}
+                            onChange={event => setLinkDrafts(previous => ({
+                              ...previous,
+                              [item.id]: {
+                                ...linkDraft,
+                                intelligenceId: event.target.value,
+                              },
+                            }))}
+                            aria-label="Intelligence item"
+                          >
+                            <option value="">Pick intelligence…</option>
+                            {availableIntelligence.map(intel => (
+                              <option key={intel.id} value={intel.id}>
+                                {intel.title || intel.text}{intel.highlight ? ` · ${intel.highlight}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="initiatives-primary-btn"
+                            disabled={!linkDraft.intelligenceId}
+                            onClick={() => {
+                              const selected = availableIntelligence.find(intel => intel.id === linkDraft.intelligenceId);
+                              if (!selected) return;
+                              attachIntelligence(item, selected, linkDraft.role);
+                              setIntelPanels(previous => ({ ...previous, [item.id]: null }));
+                              setLinkDrafts(previous => ({
+                                ...previous,
+                                [item.id]: { role: "current", intelligenceId: "" },
+                              }));
+                            }}
+                          >
+                            Link
+                          </button>
+                          <button
+                            type="button"
+                            className="initiatives-secondary-btn"
+                            onClick={() => setIntelPanels(previous => ({ ...previous, [item.id]: null }))}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="initiative-card-section">
+                      <div className="initiative-card-section-head">
+                        <span className="initiative-card-section-label">Milestones</span>
+                        <div className="initiative-card-section-actions">
+                          {showMilestoneForm ? (
+                            <button
+                              type="button"
+                              className="initiatives-secondary-btn initiative-card-mini-btn"
+                              onClick={() => {
+                                setMilestoneFormOpen(previous => ({ ...previous, [item.id]: false }));
+                                setMilestoneDrafts(previous => ({ ...previous, [item.id]: { title: "", due: "" } }));
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="initiatives-secondary-btn initiative-card-mini-btn"
+                              onClick={() => setMilestoneFormOpen(previous => ({ ...previous, [item.id]: true }))}
+                            >
+                              + Add milestone
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="initiative-milestones">
+                        {item.milestones.length === 0 ? (
+                          <p className="initiative-card-section-empty">No milestones yet.</p>
+                        ) : (
+                          item.milestones.map(milestone => (
+                            <div key={milestone.id} className="initiative-milestone-row">
+                              <button
+                                type="button"
+                                className={`initiative-milestone-check${milestone.done ? " is-done" : ""}`}
+                                aria-label={milestone.done ? "Mark incomplete" : "Mark complete"}
+                                onClick={() => patchInitiative(item.id, {
+                                  milestones: item.milestones.map(entry => (
+                                    entry.id === milestone.id ? { ...entry, done: !entry.done } : entry
+                                  )),
+                                })}
+                              >
+                                {milestone.done ? "✓" : ""}
+                              </button>
+                              <span className={milestone.done ? "is-done" : ""}>{milestone.title}</span>
+                              {milestone.due ? <em>{milestone.due}</em> : null}
+                              <button
+                                type="button"
+                                className="initiative-milestone-remove"
+                                aria-label="Remove milestone"
+                                onClick={() => patchInitiative(item.id, {
+                                  milestones: item.milestones.filter(entry => entry.id !== milestone.id),
+                                })}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      {showMilestoneForm ? (
+                        <div className="initiative-milestone-form">
+                          <input
+                            value={milestoneDraft.title}
+                            onChange={event => setMilestoneDrafts(previous => ({
+                              ...previous,
+                              [item.id]: { ...milestoneDraft, title: event.target.value },
+                            }))}
+                            placeholder="Milestone"
+                          />
+                          <input
+                            value={milestoneDraft.due}
+                            onChange={event => setMilestoneDrafts(previous => ({
+                              ...previous,
+                              [item.id]: { ...milestoneDraft, due: event.target.value },
+                            }))}
+                            placeholder="Due (optional)"
+                          />
+                          <button
+                            type="button"
+                            className="initiatives-primary-btn"
+                            onClick={() => {
+                              addMilestone(item.id);
+                              setMilestoneFormOpen(previous => ({ ...previous, [item.id]: false }));
+                            }}
+                            disabled={!milestoneDraft.title.trim()}
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -4831,11 +6090,13 @@ function OverviewPage({
   profileComplete,
   onEditProfile,
   company,
+  visitorMode = false,
 }: {
   activeTourTarget?: string;
   profileComplete: boolean;
   onEditProfile: () => void;
   company: { displayName: string; domain: string; headquarters: string; employees: string; linkedin: string };
+  visitorMode?: boolean;
 }) {
   const stats = [
     { label: "Total funding", value: profileComplete ? "$4.2M" : "-", hint: profileComplete ? "Seed stage" : "Finish profile", missing: !profileComplete },
@@ -4864,7 +6125,7 @@ function OverviewPage({
 
   return (
     <section className="overview-tour-page">
-      {!profileComplete ? (
+      {!visitorMode && !profileComplete ? (
         <div className="overview-finish-profile-panel">
           <div>
             <span>Profile setup required</span>
@@ -4900,7 +6161,7 @@ function OverviewPage({
               <button onClick={onEditProfile}>Edit profile →</button>
             </div>
             <p>
-              Patriot Pay is a healthcare payments company helping medical practices modernize patient billing, collections,
+              {company.displayName} is a healthcare payments company helping medical practices modernize patient billing, collections,
               and revenue operations through workflow automation and AI-assisted billing support.
             </p>
           </div>
@@ -4943,8 +6204,9 @@ function OverviewPage({
           <div className={`overview-panel ${activeTourTarget === "signals" ? "tour-highlight" : ""}`}>
             <span>Recent Intelligence</span>
             <p>
-              Detailed generated intelligence will appear after Patriot Pay finishes the profile and benchmark setup. Manual
-              intelligence can still be logged from Intelligence.
+              {visitorMode
+                ? `Generated intelligence from ${company.displayName}'s team is private. Add your own sources in Intelligence to build a personal view — your overview unlocks separately.`
+                : `Detailed generated intelligence will appear after ${company.displayName} finishes the profile and benchmark setup. Manual intelligence can still be logged from Intelligence.`}
             </p>
           </div>
 
@@ -5091,77 +6353,52 @@ function SignalsLoadingPage() {
           <span />
           <span />
         </div>
-        <span>Generating intelligence</span>
-        <h2>Generating intelligence based on your profile</h2>
+        <span>Preparing your workspace</span>
+        <h2>Building Overview, Intelligence, and Initiatives</h2>
         <p>
-          Fuel is combining your company profile, York account context, and benchmark cohort to prepare the first
-          intelligence view for patriotpay.
+          Fuel is combining your onboarding answers, company profile, and cohort context. Next we will open a short
+          product tour so you can learn the tabs while that work finishes in the background.
         </p>
         <div className="signals-loading-steps">
-          <div><i />Reading company profile</div>
-          <div><i />Linking York account context</div>
-          <div><i />Preparing benchmark and intelligence timeline</div>
+          <div><i />Reading onboarding answers</div>
+          <div><i />Scoring R&amp;D · GTM · G&amp;A</div>
+          <div><i />Drafting first intelligence</div>
+          <div><i />Preparing initiative suggestions</div>
         </div>
       </div>
     </section>
   );
 }
 
-const UPSELL_CONNECTORS = [
-  { id: "google-meet", name: "Google Meet", icon: "GM", color: "#00AC47" },
-  { id: "zoom", name: "Zoom", icon: "Z", color: "#2D8CFF", logoSrc: "/source-logos/zoom.svg" },
-  { id: "linkedin", name: "LinkedIn", icon: "in", color: "#0A66C2" },
-  { id: "salesforce-context", name: "Salesforce", icon: "SF", color: "#00A1E0" },
-  { id: "gmail", name: "Gmail", icon: "Gm", color: "#EA4335" },
-];
-
-function SourcesConnectorsUpsell({ onOpenConnectors }: { onOpenConnectors: () => void }) {
-  return (
-    <div className="signals-connectors-upsell">
-      <div className="sources-upsell">
-        <div className="sources-header-copy sources-upsell-copy">
-          <span>Connectors</span>
-          <strong>Connect more sources</strong>
-          <p>Link CRM, meetings, and email for richer intelligence generation.</p>
-        </div>
-        <div className="source-connector-strip">
-          {UPSELL_CONNECTORS.map(connector => (
-            <button
-              key={connector.id}
-              type="button"
-              className="source-connector-chip"
-              title={`Connect ${connector.name}`}
-              aria-label={`Connect ${connector.name}`}
-              onClick={onOpenConnectors}
-            >
-              <span className="source-connector-logo" style={{ background: connector.color + "22", color: connector.color }}>
-                {connector.logoSrc ? <img src={connector.logoSrc} alt="" /> : connector.icon}
-              </span>
-              <span className="source-connector-name">{connector.name}</span>
-              <span className="source-connector-add" aria-hidden="true">+</span>
-            </button>
-          ))}
-          <button type="button" className="source-all-connectors" onClick={onOpenConnectors}>All connectors</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ContextFeedPage({
   onOpenConnectors,
   onIntelligenceGenerated,
+  onAttemptSourceGeneration,
   documentSlots,
   processingDocumentTypeId = null,
   onPersistSourceDocument,
-  highlightAddSource = false,
+  onSaveSource,
+  sourceFormOpen,
+  onSourceFormOpenChange,
 }: {
   onOpenConnectors: () => void;
   onIntelligenceGenerated?: (item: IntelligenceItem) => void;
+  onAttemptSourceGeneration?: (params: {
+    title: string;
+    description: string;
+    document?: { typeId: string; typeLabel: string; file: File };
+    pendingId?: string;
+  }) => void;
   documentSlots?: DataRoomDocumentSlot[];
   processingDocumentTypeId?: string | null;
   onPersistSourceDocument?: (typeId: string, typeLabel: string, file: File, intelligenceIds: string[]) => void;
-  highlightAddSource?: boolean;
+  onSaveSource?: (params: {
+    title: string;
+    description: string;
+    document?: { typeId: string; typeLabel: string; file: File };
+  }) => void;
+  sourceFormOpen?: boolean;
+  onSourceFormOpenChange?: (open: boolean) => void;
 }) {
   const { tryAction, generationBlocked, setPopoverOpen } = useCredits();
   type ContextConnector = {
@@ -5180,7 +6417,13 @@ function ContextFeedPage({
   };
   const [connectorsOpen, setConnectorsOpen] = useState(false);
   const [selectedConnector, setSelectedConnector] = useState<ContextConnector | null>(null);
-  const [showSourceForm, setShowSourceForm] = useState(false);
+  const [internalShowSourceForm, setInternalShowSourceForm] = useState(false);
+  const sourceFormControlled = onSourceFormOpenChange != null;
+  const showSourceForm = sourceFormControlled ? Boolean(sourceFormOpen) : internalShowSourceForm;
+  const setShowSourceForm = (open: boolean) => {
+    if (sourceFormControlled) onSourceFormOpenChange(open);
+    else setInternalShowSourceForm(open);
+  };
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceDescription, setSourceDescription] = useState("");
   const [attachedDocument, setAttachedDocument] = useState<{ typeId: string; typeLabel: string; file: File } | null>(null);
@@ -5360,14 +6603,6 @@ function ContextFeedPage({
   const recommendedConnectors = contextConnectors.filter(connector => connector.tone !== "connected");
   const activeConnector = selectedConnector || recommendedConnectors[0];
 
-  const startAddSource = () => {
-    setShowSourceForm(true);
-    setSignalsGenerated(false);
-    setSourceTitle("");
-    setSourceDescription("");
-    setAttachedDocument(null);
-  };
-
   const cancelAddSource = () => {
     setShowSourceForm(false);
     setSourceTitle("");
@@ -5379,8 +6614,52 @@ function ContextFeedPage({
     setAttachedDocument({ typeId, typeLabel, file });
   };
 
+  const handleSaveSource = () => {
+    if (!sourceTitle.trim()) return;
+    onSaveSource?.({
+      title: sourceTitle,
+      description: sourceDescription,
+      document: attachedDocument
+        ? {
+            typeId: attachedDocument.typeId,
+            typeLabel: attachedDocument.typeLabel,
+            file: attachedDocument.file,
+          }
+        : undefined,
+    });
+    setShowSourceForm(false);
+    setSourceTitle("");
+    setSourceDescription("");
+    setAttachedDocument(null);
+  };
+
   const handleGenerateIntelligence = () => {
     if (!sourceTitle.trim()) return;
+    if (generationBlocked) {
+      setPopoverOpen(true);
+      return;
+    }
+
+    if (onAttemptSourceGeneration) {
+      onAttemptSourceGeneration({
+        title: sourceTitle,
+        description: sourceDescription,
+        document: attachedDocument
+          ? {
+              typeId: attachedDocument.typeId,
+              typeLabel: attachedDocument.typeLabel,
+              file: attachedDocument.file,
+            }
+          : undefined,
+      });
+      setSignalsGenerated(true);
+      setShowSourceForm(false);
+      setSourceTitle("");
+      setSourceDescription("");
+      setAttachedDocument(null);
+      return;
+    }
+
     tryAction("generateSource", () => {
       const item = createSourceIntelligence({
         title: sourceTitle,
@@ -5411,19 +6690,60 @@ function ContextFeedPage({
   };
 
   return (
-    <section className="context-feed-page">
-      <div className="sources-panel">
-        <div className="sources-header">
-          <div className="sources-header-copy">
-            <span>Sources</span>
-            <strong>Auto-generate sources from connected context</strong>
-            <p>Capture notes, connector activity, and meetings — then turn them into intelligence.</p>
-      </div>
-          <div className="sources-header-actions">
-            {showSourceForm ? (
-              <>
+    <>
+      {showSourceForm ? (
+        <section className="context-feed-page">
+          <div className="sources-panel">
+            <div className="source-add-form">
+              <label className="source-add-form-title-label">
+                <span>Title</span>
+                <div className="source-add-form-title-row">
+                  <input
+                    type="text"
+                    value={sourceTitle}
+                    onChange={(event) => setSourceTitle(event.target.value)}
+                    placeholder="e.g. Q3 enterprise pipeline risk"
+                    autoFocus
+                  />
+                  {onPersistSourceDocument ? (
+                    <DocumentUploadDropdown
+                      inline
+                      documentSlots={documentSlots}
+                      onUpload={handleAttachDocument}
+                      attachedFileName={attachedDocument?.file.name}
+                    />
+                  ) : null}
+                </div>
+              </label>
+              {attachedDocument ? (
+                <div className="source-attached-document">
+                  <span>
+                    <strong>{attachedDocument.typeLabel}</strong>
+                    <em>{attachedDocument.file.name}</em>
+                  </span>
+                  <button type="button" onClick={() => setAttachedDocument(null)}>Remove</button>
+                </div>
+              ) : null}
+              <label>
+                <span>Description</span>
+                <textarea
+                  value={sourceDescription}
+                  onChange={(event) => setSourceDescription(event.target.value)}
+                  placeholder="What should Fuel extract from this source?"
+                  rows={2}
+                />
+              </label>
+              <div className="source-add-form-actions">
                 <button type="button" className="ghost" onClick={cancelAddSource}>Cancel</button>
-            <button
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!sourceTitle.trim()}
+                  onClick={handleSaveSource}
+                >
+                  Save source
+                </button>
+                <button
                   type="button"
                   className={`primary${generationBlocked ? " credit-action-disabled" : ""}`}
                   disabled={!sourceTitle.trim() || signalsGenerated}
@@ -5437,66 +6757,11 @@ function ContextFeedPage({
                 >
                   {signalsGenerated ? "Generated" : "Generate intelligence"}
                 </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className={highlightAddSource ? "tour-highlight" : ""}
-                  data-tour-target={highlightAddSource ? "add-source" : undefined}
-                  onClick={startAddSource}
-                >
-                  + Add a source
-                </button>
-              </>
-            )}
               </div>
-                </div>
-
-        {showSourceForm ? (
-          <div className="source-add-form">
-            <label className="source-add-form-title-label">
-              <span>Title</span>
-              <div className="source-add-form-title-row">
-                <input
-                  type="text"
-                  value={sourceTitle}
-                  onChange={(event) => setSourceTitle(event.target.value)}
-                  placeholder="e.g. Q3 enterprise pipeline risk"
-                  autoFocus
-                />
-                {onPersistSourceDocument ? (
-                  <DocumentUploadDropdown
-                    inline
-                    documentSlots={documentSlots}
-                    onUpload={handleAttachDocument}
-                    attachedFileName={attachedDocument?.file.name}
-                  />
-                ) : null}
-                </div>
-            </label>
-            {attachedDocument ? (
-              <div className="source-attached-document">
-                <span>
-                  <strong>{attachedDocument.typeLabel}</strong>
-                  <em>{attachedDocument.file.name}</em>
-                  </span>
-                <button type="button" onClick={() => setAttachedDocument(null)}>Remove</button>
-                </div>
-            ) : null}
-            <label>
-              <span>Description</span>
-              <textarea
-                value={sourceDescription}
-                onChange={(event) => setSourceDescription(event.target.value)}
-                placeholder="What should Fuel extract from this source?"
-                rows={2}
-              />
-            </label>
-      </div>
+            </div>
+          </div>
+        </section>
       ) : null}
-
-      </div>
 
       {connectorsOpen ? (
         <>
@@ -5534,7 +6799,7 @@ function ContextFeedPage({
           </div>
         </>
       ) : null}
-    </section>
+    </>
   );
 }
 
@@ -5697,10 +6962,12 @@ export default function PatriotPayJourney({
   initialPage = "journey",
   initialBenchmark = null,
   initialOnboardingAnswers = null,
+  persona = "founder",
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
+  persona?: "founder" | "investor";
 }) {
   return (
     <CreditProvider>
@@ -5708,6 +6975,7 @@ export default function PatriotPayJourney({
         initialPage={initialPage}
         initialBenchmark={initialBenchmark}
         initialOnboardingAnswers={initialOnboardingAnswers}
+        persona={persona}
       />
       <UpgradeModal />
       <CreditToastHost />
@@ -5719,22 +6987,28 @@ function PatriotPayJourneyInner({
   initialPage = "journey",
   initialBenchmark = null,
   initialOnboardingAnswers = null,
+  persona = "founder",
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
+  persona?: "founder" | "investor";
 }) {
+  const isInvestorPersona = persona === "investor";
   const startsWithTour = initialPage === "guided-tour";
-  const startsWithTourAfterSignals = initialPage === "signals-loading-tour";
+  const startsWithOverviewBuilding =
+    initialPage === "overview-building" || initialPage === "signals-loading-tour";
   const startsWithOverview = initialPage === "overview-loading";
   const startsWithScorecard = initialPage === "scorecard-v2";
+  const startsWithInvestorHome = initialPage === "investor-home";
   const [openTracks, setOpenTracks] = useState(() => new Set());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
   const [activePage, setActivePage] = useState(
-    startsWithTour ? "overview"
-      : startsWithScorecard ? "scorecard-v2"
-      : (startsWithTourAfterSignals || startsWithOverview) ? "signals-loading"
+    startsWithInvestorHome ? "investor-home"
+      : startsWithTour ? "overview"
+      : (startsWithScorecard || startsWithOverviewBuilding) ? "scorecard-v2"
+      : startsWithOverview ? "signals-loading"
       : initialPage,
   );
   const [tourOpen, setTourOpen] = useState(startsWithTour);
@@ -5742,7 +7016,11 @@ function PatriotPayJourneyInner({
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
   const [profileComplete, setProfileComplete] = useState(
-    initialPage === "signals-loading" || startsWithTourAfterSignals || startsWithOverview || startsWithScorecard,
+    initialPage === "signals-loading"
+      || startsWithOverviewBuilding
+      || startsWithOverview
+      || startsWithScorecard
+      || startsWithInvestorHome,
   );
   const [accountTab, setAccountTab] = useState<AccountSettingsTab>("overview");
   const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
@@ -5752,6 +7030,16 @@ function PatriotPayJourneyInner({
   const [intelligenceItems, setIntelligenceItems] = useState<IntelligenceItem[]>(
     () => initialBenchmarkSeed?.items ?? [],
   );
+  const [manualPendingSources, setManualPendingSources] = useState<PendingSource[]>([]);
+  const [investorIntelligenceByCompany, setInvestorIntelligenceByCompany] = useState<Record<string, IntelligenceItem[]>>({});
+  const [investorInitiativesByCompany, setInvestorInitiativesByCompany] = useState<Record<string, InitiativeRecord[]>>({});
+  const [founderInitiatives, setFounderInitiatives] = useState<InitiativeRecord[]>([]);
+  const [focusInitiativeId, setFocusInitiativeId] = useState<string | null>(null);
+  const [investorBenchmarkByCompany, setInvestorBenchmarkByCompany] = useState<Record<string, BenchmarkSubmission | null>>({});
+  const [investorOverviewIntroCompanyId, setInvestorOverviewIntroCompanyId] = useState<string | null>(null);
+  const [investorWorkspaceStarted, setInvestorWorkspaceStarted] = useState<Record<string, boolean>>({});
+  const [dataRoomAccessRequests, setDataRoomAccessRequests] = useState<Record<string, boolean>>({});
+  const [selectedCompany, setSelectedCompany] = useState(FOUNDER_COMPANY);
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
   const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(
     () => initialBenchmarkSeed?.submission ?? null,
@@ -5762,12 +7050,62 @@ function PatriotPayJourneyInner({
     setAccountTab(tab);
     setActivePage("account");
   }, []);
+  const openMyCompanyProfile = useCallback(() => {
+    setSelectedCompany(FOUNDER_COMPANY);
+    setActivePage("scorecard-v2");
+  }, []);
+  const openInvestorHome = useCallback(() => {
+    setActivePage("investor-home");
+  }, []);
+  const openAccountHome = useCallback(() => {
+    if (isInvestorPersona) openInvestorHome();
+    else openMyCompanyProfile();
+  }, [isInvestorPersona, openInvestorHome, openMyCompanyProfile]);
   const [generatedBrief, setGeneratedBrief] = useState<Brief | null>(null);
   const [lastPlaybook, setLastPlaybook] = useState<{ name: string; kind: string; description: string; category: string } | null>(null);
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
   const { tryAction } = useCredits();
+  const isOnCompanyWorkspace = activePage !== "investor-home"
+    && activePage !== "investor-portfolios"
+    && activePage !== "investor-pipeline"
+    && activePage !== "investor-watchlists"
+    && activePage !== "account"
+    && activePage !== "connectors";
+  const isClaimedFounderCompany = !isInvestorPersona && selectedCompany.id === FOUNDER_CLAIMED_COMPANY_ID;
+  const isInvestorCompanyView = isInvestorPersona && isOnCompanyWorkspace;
+  const usesPerCompanyWorkspace = isOnCompanyWorkspace && !isClaimedFounderCompany;
+  const markInvestorWorkspaceStarted = useCallback((companyId: string) => {
+    if (!usesPerCompanyWorkspace && companyId === FOUNDER_CLAIMED_COMPANY_ID) return;
+    if (isInvestorPersona && companyId === FOUNDER_CLAIMED_COMPANY_ID) return;
+    setInvestorWorkspaceStarted(previous => (
+      previous[companyId] ? previous : { ...previous, [companyId]: true }
+    ));
+  }, [isInvestorPersona, usesPerCompanyWorkspace]);
+  const tryUnlockInvestorOverview = useCallback((companyId: string) => {
+    if (isInvestorPersona && companyId === FOUNDER_CLAIMED_COMPANY_ID) return;
+    if (!isInvestorPersona && companyId === FOUNDER_CLAIMED_COMPANY_ID) return;
+    const hadWorkspace = hasInvestorWorkspaceOnCompany(
+      companyId,
+      investorIntelligenceByCompany,
+      investorInitiativesByCompany,
+      investorBenchmarkByCompany,
+      investorWorkspaceStarted,
+    );
+    markInvestorWorkspaceStarted(companyId);
+    if (!hadWorkspace) {
+      setInvestorOverviewIntroCompanyId(companyId);
+      setActivePage("scorecard-v2");
+    }
+  }, [
+    investorBenchmarkByCompany,
+    investorInitiativesByCompany,
+    investorIntelligenceByCompany,
+    investorWorkspaceStarted,
+    isInvestorPersona,
+    markInvestorWorkspaceStarted,
+  ]);
   const handleDocumentUpload = (typeId: string, typeLabel: string, file: File, source: string) => {
     tryAction("docUpload", () => {
       setProcessingDocumentTypeId(typeId);
@@ -5805,8 +7143,275 @@ function PatriotPayJourneyInner({
       intelligenceCount: intelligenceIds.length,
     }));
   };
-  const applyBenchmarkSubmission = (values: BenchmarkFormValues) => {
+  const handleSaveSource = (params: {
+    title: string;
+    description: string;
+    document?: { typeId: string; typeLabel: string; file: File };
+  }) => {
+    if (params.document) {
+      persistSourceDocument(
+        params.document.typeId,
+        params.document.typeLabel,
+        params.document.file,
+        [],
+        "Intelligence · Source staged",
+      );
+      return;
+    }
+
+    const now = Date.now();
+    setManualPendingSources(previous => [{
+      id: `pending-note-${now}`,
+      title: params.title.trim(),
+      description: params.description.trim(),
+      kind: "note",
+      addedAtMs: now,
+      addedAtLabel: new Date(now).toLocaleString("en-US"),
+      status: "awaiting_generation",
+    }, ...previous]);
+  };
+  const applySourceGenerationResult = useCallback(({
+    title,
+    description,
+    document,
+    documentFile,
+    pendingId,
+    result,
+  }: {
+    title: string;
+    description: string;
+    document?: { typeId: string; typeLabel: string; fileName: string };
+    documentFile?: File;
+    pendingId?: string;
+    result: { item: IntelligenceItem | null; emptyReason?: string };
+  }) => {
+    const processedAtMs = Date.now();
+    const processedAtLabel = new Date(processedAtMs).toLocaleString("en-US");
+
+    if (result.item) {
+      const hadInvestorWorkspace = usesPerCompanyWorkspace
+        ? hasInvestorWorkspaceOnCompany(
+            selectedCompany.id,
+            investorIntelligenceByCompany,
+            investorInitiativesByCompany,
+            investorBenchmarkByCompany,
+            investorWorkspaceStarted,
+          )
+        : false;
+      const item = usesPerCompanyWorkspace
+        ? { ...result.item, id: `intel-investor-${selectedCompany.id}-${processedAtMs}` }
+        : result.item;
+
+      if (usesPerCompanyWorkspace) {
+        setInvestorIntelligenceByCompany(previous => ({
+          ...previous,
+          [selectedCompany.id]: [item, ...(previous[selectedCompany.id] ?? [])],
+        }));
+        if (!hadInvestorWorkspace) {
+          markInvestorWorkspaceStarted(selectedCompany.id);
+          setInvestorOverviewIntroCompanyId(selectedCompany.id);
+          setActivePage("scorecard-v2");
+        }
+      } else {
+        setIntelligenceItems(previous => [item, ...previous]);
+        setBenchmarkBlinkIds([item.id]);
+        window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
+      }
+
+      if (document && !usesPerCompanyWorkspace) {
+        if (documentFile) {
+          persistSourceDocument(
+            document.typeId,
+            document.typeLabel,
+            documentFile,
+            [item.id],
+            "Intelligence · Source upload",
+          );
+        } else {
+          setDocumentSlots(previous => attachIntelligenceToDocumentSlot(
+            previous,
+            document.typeId,
+            item.id,
+          ));
+        }
+      }
+
+      if (pendingId?.startsWith("pending-note-")) {
+        setManualPendingSources(previous => previous.filter(source => source.id !== pendingId));
+      }
+      return;
+    }
+
+    if (pendingId?.startsWith("pending-note-")) {
+      setManualPendingSources(previous => previous.map(source => (
+        source.id === pendingId
+          ? {
+              ...source,
+              status: "no_intelligence",
+              emptyReason: result.emptyReason,
+              processedAtLabel,
+            }
+          : source
+      )));
+      return;
+    }
+
+    if (document) {
+      setDocumentSlots(previous => markDocumentSourceWithoutIntelligence(
+        previous,
+        document.typeId,
+        result.emptyReason || "No intelligence identified from this source.",
+      ));
+      return;
+    }
+
+    setManualPendingSources(previous => [{
+      id: `pending-note-${processedAtMs}`,
+      title: title.trim(),
+      description: description.trim(),
+      kind: "note",
+      addedAtMs: processedAtMs,
+      addedAtLabel: processedAtLabel,
+      processedAtLabel,
+      status: "no_intelligence",
+      emptyReason: result.emptyReason,
+    }, ...previous]);
+  }, [usesPerCompanyWorkspace, selectedCompany.id, investorIntelligenceByCompany, investorInitiativesByCompany, investorBenchmarkByCompany, investorWorkspaceStarted, markInvestorWorkspaceStarted]);
+  const handleAttemptSourceGeneration = useCallback((params: {
+    title: string;
+    description: string;
+    document?: { typeId: string; typeLabel: string; file: File };
+    documentMeta?: { typeId: string; typeLabel: string; fileName: string };
+    pendingId?: string;
+  }) => {
+    tryAction("generateSource", () => {
+      const documentForEval = params.document
+        ? {
+            typeId: params.document.typeId,
+            typeLabel: params.document.typeLabel,
+            fileName: params.document.file.name,
+          }
+        : params.documentMeta;
+
+      const result = evaluateSourceIntelligenceGeneration({
+        title: params.title,
+        description: params.description,
+        document: documentForEval,
+      });
+
+      if (params.document && !result.item && !params.pendingId) {
+        persistSourceDocument(
+          params.document.typeId,
+          params.document.typeLabel,
+          params.document.file,
+          [],
+          "Intelligence · Source processed",
+        );
+      }
+
+      applySourceGenerationResult({
+        title: params.title,
+        description: params.description,
+        document: documentForEval,
+        documentFile: params.document?.file,
+        pendingId: params.pendingId,
+        result,
+      });
+    });
+  }, [applySourceGenerationResult, tryAction]);
+  const handleGenerateFromPending = (pendingId: string) => {
+    const pending = getPendingSources(manualPendingSources, documentSlots).find(source => source.id === pendingId);
+    if (!pending) return;
+
+    handleAttemptSourceGeneration({
+      title: pending.title,
+      description: pending.kind === "document" ? "" : pending.description,
+      pendingId,
+      documentMeta: pending.document,
+    });
+  };
+  const handleDismissPendingSource = (pendingId: string) => {
+    setManualPendingSources(previous => previous.filter(source => source.id !== pendingId));
+  };
+  const investorScopedIntelligence = useMemo(() => {
+    if (!usesPerCompanyWorkspace) return intelligenceItems;
+    return getInvestorCompanyIntelligence(
+      investorIntelligenceByCompany[selectedCompany.id] ?? [],
+      investorBenchmarkByCompany[selectedCompany.id],
+    );
+  }, [
+    intelligenceItems,
+    investorBenchmarkByCompany,
+    investorIntelligenceByCompany,
+    usesPerCompanyWorkspace,
+    selectedCompany.id,
+  ]);
+  const setScopedIntelligenceItems = useCallback((
+    updater: React.SetStateAction<IntelligenceItem[]>,
+  ) => {
+    if (!usesPerCompanyWorkspace) {
+      setIntelligenceItems(updater);
+      return;
+    }
+    setInvestorIntelligenceByCompany(previous => {
+      const current = getInvestorCompanyIntelligence(
+        previous[selectedCompany.id] ?? [],
+        investorBenchmarkByCompany[selectedCompany.id],
+      );
+      const next = typeof updater === "function" ? updater(current) : updater;
+      const investorItems = next
+        .filter(item => !item.id.startsWith("intel-bench-"))
+        .map(item => (
+          isInvestorOwnedIntelligence(item)
+            ? item
+            : { ...item, id: `intel-investor-${selectedCompany.id}-${item.id}` }
+        ));
+      return { ...previous, [selectedCompany.id]: investorItems };
+    });
+  }, [investorBenchmarkByCompany, usesPerCompanyWorkspace, selectedCompany.id]);
+  const openInvestorCompany = useCallback((company: InvestorCompanyRef) => {
+    setSelectedCompany(investorCompanyToSelected(company));
+    setProfileComplete(true);
+    setActivePage("overview");
+  }, []);
+  const openRecentCompany = useCallback((companyId: string) => {
+    const company = INVESTOR_PORTFOLIO.find(item => item.id === companyId)
+      ?? SUGGESTED_FOUNDERS.find(item => item.id === companyId);
+    if (!company) return;
+    openInvestorCompany(company);
+  }, [openInvestorCompany]);
+  const recentCompanies = useMemo(() => {
+    const ids = ["patriotpay", "operator-ai", "sync-sports", "winrate"];
+    return ids
+      .map(id => INVESTOR_PORTFOLIO.find(item => item.id === id) ?? SUGGESTED_FOUNDERS.find(item => item.id === id))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  }, []);
+  const fundName = initialOnboardingAnswers?.profileCompany || "Your fund";
+  const applyBenchmarkSubmission = (values: BenchmarkFormValues, forCompanyId?: string) => {
     const { items, submission } = createBenchmarkIntelligence(values);
+    const usePerCompany = Boolean(
+      forCompanyId && (isInvestorPersona || forCompanyId !== FOUNDER_CLAIMED_COMPANY_ID),
+    );
+    if (usePerCompany && forCompanyId) {
+      const hadWorkspace = hasInvestorWorkspaceOnCompany(
+        forCompanyId,
+        investorIntelligenceByCompany,
+        investorInitiativesByCompany,
+        investorBenchmarkByCompany,
+        investorWorkspaceStarted,
+      );
+      setInvestorBenchmarkByCompany(previous => ({ ...previous, [forCompanyId]: submission }));
+      setInvestorIntelligenceByCompany(previous => ({
+        ...previous,
+        [forCompanyId]: [...items, ...(previous[forCompanyId] ?? []).filter(item => !item.id.startsWith("intel-bench-"))],
+      }));
+      if (!hadWorkspace) {
+        markInvestorWorkspaceStarted(forCompanyId);
+        setInvestorOverviewIntroCompanyId(forCompanyId);
+        setActivePage("scorecard-v2");
+      }
+      return;
+    }
     setIntelligenceItems(previous => {
       const nonBenchmark = previous.filter(item => !item.id.startsWith("intel-bench-"));
       return [...items, ...nonBenchmark];
@@ -5816,7 +7421,11 @@ function PatriotPayJourneyInner({
     window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
   };
   const handleBenchmarkSubmit = (values: BenchmarkFormValues) => {
-    applyBenchmarkSubmission(values);
+    if (usesPerCompanyWorkspace) {
+      applyBenchmarkSubmission(values, selectedCompany.id);
+    } else {
+      applyBenchmarkSubmission(values);
+    }
     setActivePage("signals");
   };
   const handleViewIntelligenceFromDataRoom = (record: DataRoomFileRecord) => {
@@ -5824,19 +7433,9 @@ function PatriotPayJourneyInner({
     setIntelligenceFocus({ ids: record.intelligenceIds, label: record.name });
     setActivePage("signals");
   };
-  const [selectedCompany, setSelectedCompany] = useState({
-    id: "patriotpay",
-    name: "patriotpay",
-    displayName: "Patriot Pay",
-    domain: "patriotpay.com",
-    logo: "P",
-    logoBg: "#1E4D8C",
-    meta: "Healthcare · Patient Billing · Seed",
-    headquarters: "Boston, MA, US",
-    employees: "11-50",
-    linkedin: "linkedin.com/company/patriotpay",
-  });
   const [showTourPrompt, setShowTourPrompt] = useState(false);
+  const [headerTourEnabled, setHeaderTourEnabled] = useState(!startsWithOverviewBuilding);
+  const [showTourCoachmark, setShowTourCoachmark] = useState(false);
   const [tourTaken, setTourTaken] = useState(() => {
     try {
       const lastTakenAt = Number(window.localStorage.getItem("fuelWorkspaceTourTakenAt") || 0);
@@ -5846,50 +7445,71 @@ function PatriotPayJourneyInner({
     }
   });
   const isProfileWizard = activePage === "profile-wizard" || activePage === "benchmark-form";
-  const tourSteps = [
+  const coreTourSteps = [
     {
-      page: "overview",
-      target: "overview",
+      page: "scorecard-v2",
+      target: "tab-overview",
       title: "Overview",
-      text: "This is the company home base. Use it to review the company snapshot, key details, funding history, related companies, and data sources Fuel has on file.",
+      text: "This is your operating home. R&D, GTM, and G&A track scores, the Fuel AI advisor, and company snapshot live here — they fill in as onboarding context finishes processing.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "ai-advisor",
+      title: "Fuel AI advisor",
+      text: "The advisor highlights what matters across tracks and points you to details, sources, and initiatives. Open About for the full company summary when you are ready.",
     },
     {
       page: "signals",
       target: "signals",
       title: "Intelligence",
-      text: "The Intelligence tab combines sources, evidence, benchmarks, and generated insights so you can see what Fuel used and what it produced.",
+      text: "Intelligence is your evidence timeline — benchmarks, uploads, and logged signals. Fuel is still assembling the first set from onboarding in the background.",
     },
     {
       page: "signals",
       target: "add-source",
       title: "Add a source",
-      text: "Add notes, upload a document, or capture context here — then generate intelligence from it. This is where manual sources and private uploads enter the timeline.",
+      text: "Add a note or document anytime to generate more intelligence without waiting on connectors.",
     },
     {
-      page: "data-room",
-      target: "data-room",
-      title: "Data Room",
-      text: "The Data Room stores pitch decks, investor notes, models, and other private files. Fuel uses them as evidence behind intelligence and benchmarks.",
+      page: "signals",
+      target: "log-intelligence",
+      title: "Log intelligence",
+      text: "Capture a signal yourself — a hire, a deal, a risk, a win. Drop it here and it lands on the timeline alongside everything Fuel generates.",
     },
     {
       page: "initiatives",
       target: "initiatives",
       title: "Initiatives",
-      text: "The Initiatives tab turns insights into action. This is where recommended work, priorities, and growth projects can be managed.",
+      text: "Turn insights into active work. Suggested initiatives from each track can be added here, tracked with milestones, and linked to progress intelligence.",
     },
     {
-      page: "overview",
-      target: "playbooks",
-      title: "Playbooks",
-      text: "The Playbooks button opens runbooks Fuel AI can execute against the company using signal context and benchmarks, producing artifacts like diligence, pricing reviews, audits, and planning frameworks.",
+      page: "data-room",
+      target: "data-room",
+      title: "Data Room",
+      text: "Store decks, notes, and models privately. Uploads feed Intelligence and stay in your workspace.",
     },
     {
-      page: "overview",
-      target: "finish-profile",
-      title: "Finish profile",
-      text: "Before Fuel can generate detailed signals, complete the company profile and add the required context. You can still log a signal manually at any time.",
+      page: "scorecard-v2",
+      target: "ask-fuel-ai",
+      title: "Ask Fuel AI",
+      text: "Ask questions, run playbooks, and generate briefs from your company context whenever you need a deeper cut.",
     },
-  ];
+  ] as const;
+  const tourSteps = profileComplete
+    ? [...coreTourSteps]
+    : [
+        ...coreTourSteps,
+        {
+          page: "overview",
+          target: "finish-profile",
+          title: "Finish profile",
+          text: "Complete your company profile and track details so Fuel can sharpen scores, intelligence, and initiative suggestions.",
+        },
+      ];
+  const [overviewBuildActive, setOverviewBuildActive] = useState(startsWithOverviewBuilding);
+  const [overviewBuildPhase, setOverviewBuildPhase] = useState<OverviewBuildPhase | null>(
+    startsWithOverviewBuilding ? "summary" : null,
+  );
 
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
@@ -5934,20 +7554,34 @@ function PatriotPayJourneyInner({
     const timer = window.setTimeout(() => {
       if (startsWithOverview) {
         setActivePage("scorecard-v2");
-        return;
-      }
-      if (startsWithTourAfterSignals) {
-        setActivePage("signals");
-          setShowTourPrompt(true);
+        setOverviewBuildActive(true);
+        setOverviewBuildPhase("summary");
+        setHeaderTourEnabled(false);
         return;
       }
       setActivePage("signals");
-    }, 2200);
+    }, 1800);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [activePage, startsWithTourAfterSignals, startsWithOverview]);
+  }, [activePage, startsWithOverview]);
+
+  useEffect(() => {
+    if (!overviewBuildActive) return;
+
+    const timers = [
+      window.setTimeout(() => setOverviewBuildPhase("dev"), 4000),
+      window.setTimeout(() => setOverviewBuildPhase("mkt"), 14000),
+      window.setTimeout(() => setOverviewBuildPhase("rev"), 26000),
+      window.setTimeout(() => setOverviewBuildPhase("suggestions"), 36000),
+      window.setTimeout(() => setOverviewBuildPhase("ready"), 44000),
+    ];
+
+    return () => {
+      timers.forEach(timer => window.clearTimeout(timer));
+    };
+  }, [overviewBuildActive]);
 
   useEffect(() => {
     function closeDropdown(event) {
@@ -5992,6 +7626,8 @@ function PatriotPayJourneyInner({
 
   function startTour() {
     setShowTourPrompt(false);
+    setShowTourCoachmark(false);
+    setHeaderTourEnabled(true);
     setTourOpen(true);
     setTourIndex(0);
   }
@@ -6005,6 +7641,14 @@ function PatriotPayJourneyInner({
     }
   }
 
+  function skipOverviewReadyPrompt() {
+    setOverviewBuildPhase(null);
+    setOverviewBuildActive(false);
+    setTourTaken(false);
+    setHeaderTourEnabled(true);
+    setShowTourCoachmark(true);
+  }
+
   function closeTour(completed = false) {
     setTourOpen(false);
     if (completed) {
@@ -6016,8 +7660,8 @@ function PatriotPayJourneyInner({
         // Ignore storage failures in preview/demo environments.
       }
     }
-    if (startsWithTour) {
-      setActivePage("overview");
+    if (startsWithTour || startsWithOverviewBuilding) {
+      setActivePage("scorecard-v2");
     }
   }
 
@@ -6033,7 +7677,7 @@ function PatriotPayJourneyInner({
   }
 
   function nextTourStep() {
-    const lastTourStep = profileComplete ? tourSteps.length - 2 : tourSteps.length - 1;
+    const lastTourStep = tourSteps.length - 1;
     if (tourStep >= lastTourStep) {
       closeTour(true);
       return;
@@ -6046,7 +7690,23 @@ function PatriotPayJourneyInner({
   }
 
   const isAccountPage = activePage === "account";
-  const breadcrumbLabel = isAccountPage ? `Account · ${accountTabLabel(accountTab)}` : "Company";
+  const isInvestorShellPage = activePage === "investor-home"
+    || activePage === "investor-portfolios"
+    || activePage === "investor-pipeline"
+    || activePage === "investor-watchlists";
+  const investorDashboardSection: InvestorDashboardSection =
+    activePage === "investor-portfolios" ? "portfolios"
+      : activePage === "investor-pipeline" ? "pipeline"
+        : activePage === "investor-watchlists" ? "watchlists"
+          : "home";
+  const breadcrumbLabel = isAccountPage
+    ? `Account · ${accountTabLabel(accountTab)}`
+    : activePage === "investor-portfolios" ? "Portfolios"
+      : activePage === "investor-pipeline" ? "Pipeline"
+        : activePage === "investor-watchlists" ? "Watchlists"
+          : isInvestorShellPage
+            ? "Fund dashboard"
+            : "Company";
 
   return (
     <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
@@ -6059,20 +7719,47 @@ function PatriotPayJourneyInner({
             <div className="brand-sub">FUEL 2.0</div>
           </div>
         </div>
-        <div className="account-card" onClick={() => openAccountSettings("overview")} role="button" tabIndex={0} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openAccountSettings("overview"); } }}>
+        <div
+          className={`account-card${isInvestorPersona && activePage === "investor-home" ? " is-active" : ""}`}
+          onClick={openAccountHome}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openAccountHome();
+            }
+          }}
+        >
           <div className="account-avatar">M</div>
           <div className="account-name">My Account</div>
         </div>
         <div className="nav-section">
-          <div className="nav-label">Research</div>
-          <div className="nav-item">⊟ Watchlists</div>
-          <div className="nav-item">
-            ▦ Pipeline <span className="nav-count">0</span>
+          <div className="nav-label">{isInvestorPersona ? "Fund" : "Research"}</div>
+          <div
+            className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
+            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
+            onClick={isInvestorPersona ? () => setActivePage("investor-watchlists") : undefined}
+          >
+            ⊟ Watchlists
+          </div>
+          <div
+            className={`nav-item${activePage === "investor-pipeline" ? " is-active" : ""}`}
+            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
+            onClick={isInvestorPersona ? () => setActivePage("investor-pipeline") : undefined}
+          >
+            ▦ Pipeline <span className="nav-count">{isInvestorPersona ? "13" : "0"}</span>
           </div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Portfolio</div>
-          <div className="nav-item">▢ Portfolios</div>
+          <div
+            className={`nav-item${activePage === "investor-portfolios" ? " is-active" : ""}`}
+            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
+            onClick={isInvestorPersona ? () => setActivePage("investor-portfolios") : undefined}
+          >
+            ▢ Portfolios {isInvestorPersona ? <span className="nav-count">3</span> : null}
+          </div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Value creation</div>
@@ -6102,67 +7789,27 @@ function PatriotPayJourneyInner({
         </div>
         <div className="nav-section">
           <div className="nav-label">Recently viewed</div>
+          {recentCompanies.map(company => (
             <div
-              className={`recent-item ${selectedCompany.id === "patriotpay" ? "active" : ""}`}
+              key={company.id}
+              className={`recent-item${selectedCompany.id === company.id && !isInvestorShellPage ? " active" : ""}`}
               style={{ cursor: "pointer" }}
-              onClick={() => {
-                setSelectedCompany({
-                  id: "patriotpay",
-                  name: "patriotpay",
-                  displayName: "Patriot Pay",
-                  domain: "patriotpay.com",
-                  logo: "P",
-                  logoBg: "#1E4D8C",
-                  meta: "Healthcare · Patient Billing · Seed",
-                  headquarters: "Boston, MA, US",
-                  employees: "11-50",
-                  linkedin: "linkedin.com/company/patriotpay",
-                });
-                setActivePage("journey");
+              role="button"
+              tabIndex={0}
+              onClick={() => openRecentCompany(company.id)}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openRecentCompany(company.id);
+                }
               }}
             >
-            <div className="recent-favicon" style={{ background: "#1E4D8C", color: "#fff" }}>
-              P
+              <div className="recent-favicon" style={{ background: company.logoBg, color: "#fff" }}>
+                {company.logo}
+              </div>
+              {company.displayName}
             </div>
-            patriotpay
-          </div>
-          <div
-            className={`recent-item ${selectedCompany.id === "operator-ai" ? "active" : ""}`}
-            style={{ cursor: "pointer" }}
-            onClick={() => {
-              setSelectedCompany({
-                id: "operator-ai",
-                name: "Operator AI",
-                displayName: "Operator AI",
-                domain: "operator.ai",
-                logo: "O",
-                logoBg: "#5B3A8C",
-                meta: "AI Operations · Workflow Automation · Seed",
-                headquarters: "New York, NY, US",
-                employees: "11-50",
-                linkedin: "linkedin.com/company/operator-ai",
-              });
-              setProfileComplete(true);
-              setActivePage("overview");
-            }}
-          >
-            <div className="recent-favicon" style={{ background: "#5B3A8C", color: "#fff" }}>
-              O
-            </div>
-            Operator AI
-          </div>
-          <div className="recent-item">
-            <div className="recent-favicon" style={{ background: "#8C5B3A", color: "#fff" }}>
-              S
-            </div>
-            Sync Sports
-          </div>
-          <div className="recent-item">
-            <div className="recent-favicon" style={{ background: "#3A8C5B", color: "#fff" }}>
-              W
-            </div>
-            Winrate
-          </div>
+          ))}
         </div>
         <SidebarProfileFooter onOpenAccountSettings={openAccountSettings} />
       </aside>
@@ -6189,7 +7836,7 @@ function PatriotPayJourneyInner({
               <AccountSettings tab={accountTab} onTabChange={setAccountTab} />
             </div>
           </>
-        ) : (<><div className="topbar">
+        ) : (<><div className={`topbar${showTourCoachmark ? " has-tour-coachmark" : ""}`}>
           <div className="breadcrumb">
             Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
             <span className="current">{breadcrumbLabel}</span>
@@ -6205,14 +7852,43 @@ function PatriotPayJourneyInner({
             >
               <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
             </span>
-            {!isProfileWizard && !tourTaken ? (
-              <button className="header-btn" onClick={startTour}>Tour</button>
+            {!isProfileWizard && !tourTaken && headerTourEnabled ? (
+              <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
+                <button
+                  type="button"
+                  className={`header-btn header-tour-btn${showTourCoachmark ? " is-pointed" : ""}`}
+                  data-tour-target="header-tour"
+                  onClick={startTour}
+                >
+                  <span className="header-tour-icon" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="M8 3.5v2.2M8 10.3V12.5M3.5 8h2.2M10.3 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      <circle cx="8" cy="8" r="1.6" fill="currentColor" />
+                    </svg>
+                  </span>
+                  Tour
+                </button>
+                {showTourCoachmark ? (
+                  <div className="header-tour-coachmark" role="status">
+                    <span className="header-tour-coachmark-icon" aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+                        <path d="M8 3.5v2.2M8 10.3V12.5M3.5 8h2.2M10.3 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        <circle cx="8" cy="8" r="1.6" fill="currentColor" />
+                      </svg>
+                    </span>
+                    <p>You can click here later to take a tour of the platform.</p>
+                    <button type="button" onClick={() => setShowTourCoachmark(false)}>OK</button>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
             <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Q4 '25 · Nov 8</span>
           </div>
         </div>
 
-        {!isProfileWizard ? <div className="company-header">
+        {!isProfileWizard && !isInvestorShellPage ? <div className="company-header">
           <div className="company-card">
             <div className="company-logo" style={{ background: selectedCompany.logoBg }}>{selectedCompany.logo}</div>
             <div className="company-identity">
@@ -6256,7 +7932,7 @@ function PatriotPayJourneyInner({
           </div>
         </div> : null}
 
-        {!isProfileWizard ? <div className="tabs">
+        {!isProfileWizard && !isInvestorShellPage ? <div className="tabs">
           <div className={`tab ${activePage === "scorecard-v2" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage("scorecard-v2")}>Overview</div>
           <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>Intelligence</div>
           <div
@@ -6265,9 +7941,6 @@ function PatriotPayJourneyInner({
             onClick={() => setActivePage("initiatives")}
           >
             Initiatives <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>2</span>
-          </div>
-          <div className="tab">
-            Research <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>1</span>
           </div>
           <div
             className={`tab ${activePage === "data-room" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "data-room" ? "tour-highlight" : ""}`}
@@ -6279,14 +7952,25 @@ function PatriotPayJourneyInner({
               <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>{countActiveDocuments(documentSlots)}</span>
             ) : null}
           </div>
-          <div className={`tab ${activePage === "journey" ? "active" : ""}`} onClick={() => setActivePage("journey")}>Scorecard</div>
         </div> : null}
 
         {!isProfileWizard && showTourPrompt ? (
           <TourPromptBanner
             onStartTour={startTour}
             onDismiss={dismissTourPrompt}
+            building={false}
           />
+        ) : null}
+
+        {!isProfileWizard
+          && overviewBuildPhase
+          && overviewBuildPhase !== "ready"
+          && activePage !== "scorecard-v2" ? (
+          <div className="intel-building-banner" role="status">
+            <span>Building Overview</span>
+            <strong>Fuel is still generating scores and advisor context.</strong>
+            <em>Other tabs stay usable — Overview updates when ready.</em>
+          </div>
         ) : null}
 
         <div className={`content ${isProfileWizard ? "profile-wizard-content" : ""}`}>
@@ -6315,6 +7999,21 @@ function PatriotPayJourneyInner({
             />
           ) : activePage === "marketing" ? (
             <MarketingDetailPage onBack={() => setActivePage("journey")} />
+          ) : isInvestorShellPage ? (
+            <InvestorDashboard
+              fundName={fundName}
+              section={investorDashboardSection}
+              hubspotConnected={Boolean(initialOnboardingAnswers?.hubspotConnected)}
+              onOpenCompany={openInvestorCompany}
+              onOpenAccount={() => openAccountSettings("overview")}
+              onNavigateSection={(next) => {
+                setActivePage(
+                  next === "portfolios" ? "investor-portfolios"
+                    : next === "pipeline" ? "investor-pipeline"
+                      : "investor-watchlists",
+                );
+              }}
+            />
           ) : activePage === "signals-loading" ? (
             <SignalsLoadingPage />
           ) : activePage === "signals" ? (
@@ -6330,14 +8029,19 @@ function PatriotPayJourneyInner({
                 persistSourceDocument(typeId, typeLabel, file, intelligenceIds, "Intelligence · Source upload")
               )}
               onOpenDataRoom={() => setActivePage("data-room")}
-              intelligenceItems={intelligenceItems}
-              setIntelligenceItems={setIntelligenceItems}
+              intelligenceItems={investorScopedIntelligence}
+              setIntelligenceItems={setScopedIntelligenceItems}
               intelligenceFocus={intelligenceFocus}
               onClearIntelligenceFocus={() => setIntelligenceFocus(null)}
               benchmarkSubmission={benchmarkSubmission}
               onEditBenchmark={() => setActivePage("benchmark-form")}
               benchmarkBlinkIds={benchmarkBlinkIds}
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
+              manualPendingSources={manualPendingSources}
+              onSaveSource={handleSaveSource}
+              onGenerateFromPending={handleGenerateFromPending}
+              onDismissPendingSource={handleDismissPendingSource}
+              onAttemptSourceGeneration={handleAttemptSourceGeneration}
             />
           ) : activePage === "benchmark-form" ? (
             <LogPrivateDataPage
@@ -6360,6 +8064,7 @@ function PatriotPayJourneyInner({
               profileComplete={profileComplete}
               onEditProfile={() => setActivePage("profile-wizard")}
               company={selectedCompany}
+              visitorMode={isInvestorPersona}
             />
           ) : activePage === "context-feed" ? (
             <SignalsPage
@@ -6374,17 +8079,68 @@ function PatriotPayJourneyInner({
                 persistSourceDocument(typeId, typeLabel, file, intelligenceIds, "Intelligence · Source upload")
               )}
               onOpenDataRoom={() => setActivePage("data-room")}
-              intelligenceItems={intelligenceItems}
-              setIntelligenceItems={setIntelligenceItems}
+              intelligenceItems={investorScopedIntelligence}
+              setIntelligenceItems={setScopedIntelligenceItems}
               intelligenceFocus={intelligenceFocus}
               onClearIntelligenceFocus={() => setIntelligenceFocus(null)}
               benchmarkSubmission={benchmarkSubmission}
               onEditBenchmark={() => setActivePage("benchmark-form")}
               benchmarkBlinkIds={benchmarkBlinkIds}
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
+              manualPendingSources={manualPendingSources}
+              onSaveSource={handleSaveSource}
+              onGenerateFromPending={handleGenerateFromPending}
+              onDismissPendingSource={handleDismissPendingSource}
+              onAttemptSourceGeneration={handleAttemptSourceGeneration}
             />
           ) : activePage === "initiatives" ? (
-            <InitiativesPage />
+            <InitiativesPage
+              investorMode={usesPerCompanyWorkspace}
+              items={usesPerCompanyWorkspace
+                ? investorInitiativesByCompany[selectedCompany.id] ?? []
+                : founderInitiatives}
+              focusInitiativeId={focusInitiativeId}
+              availableIntelligence={investorScopedIntelligence}
+              onLogIntelligence={item => {
+                setScopedIntelligenceItems(previous => [item, ...previous]);
+              }}
+              onCreate={initiative => {
+                if (usesPerCompanyWorkspace) {
+                  setInvestorInitiativesByCompany(previous => ({
+                    ...previous,
+                    [selectedCompany.id]: [...(previous[selectedCompany.id] ?? []), initiative],
+                  }));
+                } else {
+                  setFounderInitiatives(previous => [...previous, initiative]);
+                }
+                setFocusInitiativeId(initiative.id);
+              }}
+              onUpdate={initiative => {
+                if (usesPerCompanyWorkspace) {
+                  setInvestorInitiativesByCompany(previous => ({
+                    ...previous,
+                    [selectedCompany.id]: (previous[selectedCompany.id] ?? []).map(item => (
+                      item.id === initiative.id ? initiative : item
+                    )),
+                  }));
+                } else {
+                  setFounderInitiatives(previous => previous.map(item => (
+                    item.id === initiative.id ? initiative : item
+                  )));
+                }
+              }}
+              onDelete={id => {
+                if (usesPerCompanyWorkspace) {
+                  setInvestorInitiativesByCompany(previous => ({
+                    ...previous,
+                    [selectedCompany.id]: (previous[selectedCompany.id] ?? []).filter(item => item.id !== id),
+                  }));
+                } else {
+                  setFounderInitiatives(previous => previous.filter(item => item.id !== id));
+                }
+                if (focusInitiativeId === id) setFocusInitiativeId(null);
+              }}
+            />
           ) : activePage === "data-room" ? (
             <DataRoomPage
               documentSlots={documentSlots}
@@ -6392,16 +8148,25 @@ function PatriotPayJourneyInner({
               onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Data Room · Private upload")}
               onViewIntelligence={handleViewIntelligenceFromDataRoom}
               onOpenDocumentHistory={setDocumentHistorySlot}
+              investorMode={isInvestorCompanyView}
+              investorAccessRequested={Boolean(dataRoomAccessRequests[selectedCompany.id])}
+              companyName={selectedCompany.displayName}
+              onRequestDataRoomAccess={() => setDataRoomAccessRequests(previous => ({
+                ...previous,
+                [selectedCompany.id]: true,
+              }))}
             />
           ) : activePage === "scorecard-v2" ? (
             <ScorecardV2
               benchmark={formValuesToOnboardingBenchmark(
-                benchmarkSubmission?.formValues ?? (initialBenchmark ? toBenchmarkFormValues(initialBenchmark) : WIZARD_DEFAULT_BENCHMARK),
+                usesPerCompanyWorkspace
+                  ? investorBenchmarkByCompany[selectedCompany.id]?.formValues ?? EMPTY_BENCHMARK_FORM
+                  : benchmarkSubmission?.formValues ?? (initialBenchmark ? toBenchmarkFormValues(initialBenchmark) : WIZARD_DEFAULT_BENCHMARK),
               )}
               cohortLabel={selectedCompany.meta}
               companyName={selectedCompany.displayName}
               journeyStage="Early Revenue"
-              intelligenceItems={intelligenceItems.map(item => ({
+              intelligenceItems={investorScopedIntelligence.map(item => ({
                 id: item.id,
                 type: item.type,
                 text: item.text,
@@ -6414,18 +8179,90 @@ function PatriotPayJourneyInner({
                 headquarters: selectedCompany.headquarters,
                 domain: selectedCompany.domain,
               }}
-              benchmarkContext={benchmarkSubmission ? {
-                notableCustomers: benchmarkSubmission.formValues.notableCustomers,
-                notableHires: benchmarkSubmission.formValues.notableHires,
-                biggestChallenges: benchmarkSubmission.formValues.biggestChallenges,
-                otherUpdates: benchmarkSubmission.formValues.otherUpdates,
-                openToIntros: benchmarkSubmission.formValues.openToIntros,
-              } : undefined}
-              documentSlots={documentSlots.map(slot => ({
+              benchmarkContext={
+                usesPerCompanyWorkspace
+                  ? (investorBenchmarkByCompany[selectedCompany.id]
+                    ? {
+                        notableCustomers: investorBenchmarkByCompany[selectedCompany.id]!.formValues.notableCustomers,
+                        notableHires: investorBenchmarkByCompany[selectedCompany.id]!.formValues.notableHires,
+                        biggestChallenges: investorBenchmarkByCompany[selectedCompany.id]!.formValues.biggestChallenges,
+                        otherUpdates: investorBenchmarkByCompany[selectedCompany.id]!.formValues.otherUpdates,
+                        openToIntros: investorBenchmarkByCompany[selectedCompany.id]!.formValues.openToIntros,
+                      }
+                    : undefined)
+                  : (benchmarkSubmission ? {
+                      notableCustomers: benchmarkSubmission.formValues.notableCustomers,
+                      notableHires: benchmarkSubmission.formValues.notableHires,
+                      biggestChallenges: benchmarkSubmission.formValues.biggestChallenges,
+                      otherUpdates: benchmarkSubmission.formValues.otherUpdates,
+                      openToIntros: benchmarkSubmission.formValues.openToIntros,
+                    } : undefined)
+              }
+              documentSlots={usesPerCompanyWorkspace ? [] : documentSlots.map(slot => ({
                 typeId: slot.typeId,
                 typeLabel: slot.typeLabel,
                 current: slot.current ? { name: slot.current.name } : null,
               }))}
+              efficiencyExtras={(() => {
+                const form = usesPerCompanyWorkspace
+                  ? investorBenchmarkByCompany[selectedCompany.id]?.formValues
+                  : benchmarkSubmission?.formValues ?? (initialBenchmark ? toBenchmarkFormValues(initialBenchmark) : null);
+                const period = usesPerCompanyWorkspace
+                  ? investorBenchmarkByCompany[selectedCompany.id]?.period
+                  : benchmarkSubmission?.period;
+                if (!form && !period) return undefined;
+                return {
+                  cacPayback: form?.cacPayback,
+                  burnMultiple: form?.burnMultiple,
+                  period: period ?? BENCHMARK_PERIOD,
+                };
+              })()}
+              activeInitiatives={(usesPerCompanyWorkspace
+                ? investorInitiativesByCompany[selectedCompany.id] ?? []
+                : founderInitiatives
+              ).map(item => ({
+                id: item.id,
+                title: item.title,
+                description: item.description,
+                pillar: item.pillar,
+                status: item.status,
+                due: item.due,
+                owner: item.owner,
+                progress: 0,
+              }))}
+              onAddInitiative={(initiative) => {
+                const next = createInitiativeRecord({
+                  id: initiative.id,
+                  title: initiative.title,
+                  description: initiative.description,
+                  pillar: initiative.pillar ?? "mkt",
+                  kind: "continuous",
+                  status: "Active",
+                  owner: DEFAULT_INITIATIVE_OWNER,
+                });
+                if (usesPerCompanyWorkspace) {
+                  setInvestorInitiativesByCompany(previous => {
+                    const existing = previous[selectedCompany.id] ?? [];
+                    if (existing.some(item => item.title.trim().toLowerCase() === next.title.trim().toLowerCase())) {
+                      return previous;
+                    }
+                    return {
+                      ...previous,
+                      [selectedCompany.id]: [...existing, next],
+                    };
+                  });
+                } else {
+                  setFounderInitiatives(previous => (
+                    previous.some(item => item.title.trim().toLowerCase() === next.title.trim().toLowerCase())
+                      ? previous
+                      : [...previous, next]
+                  ));
+                }
+              }}
+              onViewInitiative={(id) => {
+                setFocusInitiativeId(id);
+                setActivePage("initiatives");
+              }}
               onUploadPitchDeck={() => setActivePage("data-room")}
               onOpenIntelligence={() => setActivePage("signals")}
               onOpenInitiatives={() => setActivePage("initiatives")}
@@ -6435,14 +8272,26 @@ function PatriotPayJourneyInner({
                 setAskFuelOpen(true);
               }}
               onAddSources={() => setActivePage("signals")}
-              onAddDetails={() => setActivePage("overview")}
-              onboardingAnswers={initialOnboardingAnswers}
+              onAddDetails={() => setActivePage("scorecard-v2")}
+              onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
               brief={generatedBrief}
               lastPlaybook={lastPlaybook}
               onDismissPlaybook={() => setLastPlaybook(null)}
               onViewBrief={() => { setBriefFocusSignal(s => s + 1); setAskFuelOpen(true); }}
               onAskFuel={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }}
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
+              workspaceIntroOpen={investorOverviewIntroCompanyId === selectedCompany.id}
+              onDismissWorkspaceIntro={() => setInvestorOverviewIntroCompanyId(null)}
+              onWorkspaceActivity={() => tryUnlockInvestorOverview(selectedCompany.id)}
+              privateWorkspaceLabel={usesPerCompanyWorkspace ? "Your private workspace" : undefined}
+              overviewBuildPhase={overviewBuildPhase}
+              onStartOptionalTour={() => {
+                setOverviewBuildPhase(null);
+                setOverviewBuildActive(false);
+                setHeaderTourEnabled(true);
+                startTour();
+              }}
+              onDismissOverviewReady={skipOverviewReadyPrompt}
             />
           ) : activePage === "journey" ? (
             <>
@@ -6495,7 +8344,7 @@ function PatriotPayJourneyInner({
       {tourOpen ? (
         <GuidedTourOverlay
           step={tourStep}
-          total={profileComplete ? tourSteps.length - 1 : tourSteps.length}
+          total={tourSteps.length}
           title={tourSteps[tourStep].title}
           text={tourSteps[tourStep].text}
           highlightTarget={tourSteps[tourStep].target}

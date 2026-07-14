@@ -28,15 +28,38 @@ interface ProfileForm {
 interface Answers extends OnboardingTrackAnswers {
   profileProductDescription: string;
   profileApproxHeadcount: string;
+  profileBusinessModel?: string;
+  profileCompany?: string;
   arr: string; arrGrowth: string; nrr: string; logoRetention: string;
   grossMargin: string; monthlyBurn: string; cashOnHand: string;
   headcount: string; payingCustomers: string;
-  investCheckSize: string; investGeography: string; investPipeline: string;
+  investCheckSize: string; investGeography: string[]; investPipeline: string;
+  hubspotConnected?: boolean;
 }
 
 const STEPS_DEFAULT: StepId[] = ["profile", "development", "gtm", "revops", "benchmarking"];
-const STEPS_INVESTOR: StepId[] = ["profile", "investment", "hubspot"];
-const INVESTOR_MODELS = ["Investment firm", "Services or agency"];
+const STEPS_INVESTOR_BASE: StepId[] = ["profile", "investment"];
+const STEPS_INVESTOR_WITH_HUBSPOT: StepId[] = ["profile", "investment", "hubspot"];
+
+function investorActiveSteps(investPipeline: string): StepId[] {
+  return investPipeline === "HubSpot" ? STEPS_INVESTOR_WITH_HUBSPOT : STEPS_INVESTOR_BASE;
+}
+export const INVESTOR_MODELS = ["Investment firm", "Services or agency"];
+
+import {
+  INVEST_GEOGRAPHY_OPTIONS,
+  investGeographyDisplayLabel,
+  normalizeInvestGeography,
+} from "./investGeography.ts";
+
+export {
+  INVEST_GEOGRAPHY_OPTIONS,
+  dealMatchesInvestGeography,
+  investGeographyDisplayLabel,
+  normalizeInvestGeography,
+  normalizeInvestGeographyLabel,
+  normalizeInvestGeographySelection,
+} from "./investGeography.ts";
 
 const LEGACY_BUSINESS_MODELS: Record<string, string> = {
   "Software / SaaS": "Product company",
@@ -589,6 +612,62 @@ function FigmaQuestion({
   );
 }
 
+function FigmaDescMultiSelect({
+  title, subtitle, options, selected, onToggle, accent = SELECT_ACCENT, hint, grouped = false,
+}: {
+  title: string; subtitle?: string;
+  options: readonly { label: string; desc: string }[];
+  selected: string[];
+  onToggle: (v: string) => void;
+  accent?: string; hint?: string; grouped?: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: grouped ? 36 : 0 }}>
+      <h2 className={grouped ? "of-figma-q-grouped" : "of-figma-q-title"}>{title}</h2>
+      {subtitle && <p className="of-figma-q-sub">{subtitle}</p>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: grouped ? 14 : 28 }}>
+        {options.map(opt => {
+          const on = selected.includes(opt.label);
+          return (
+            <button
+              key={opt.label}
+              type="button"
+              className={`of-figma-opt${on ? " of-figma-opt--on" : ""}`}
+              onClick={() => onToggle(opt.label)}
+              style={{
+                display: "flex", alignItems: "flex-start", gap: 13,
+                padding: "14px 16px", borderRadius: 10, textAlign: "left",
+                cursor: "pointer", fontFamily: "inherit",
+                background: on ? `${accent}14` : "transparent",
+                border: on ? `1.5px solid ${accent}` : "1.5px solid rgba(255,255,255,0.12)",
+              }}
+            >
+              <div style={{
+                width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 1,
+                border: on ? `2px solid ${accent}` : "2px solid rgba(255,255,255,0.15)",
+                background: on ? `${accent}33` : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {on ? <span style={{ color: accent, fontSize: 12, fontWeight: 800, lineHeight: 1 }}>✓</span> : null}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div className="of-opt-title" style={{ fontWeight: on ? 600 : 500, color: on ? "#F2F5F2" : "#C8D4CE" }}>{opt.label}</div>
+                <div className="of-opt-desc" style={{ color: on ? "#8FA99A" : "#556878" }}>{opt.desc}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {selected.length > 0 ? (
+        <p style={{ marginTop: 16, fontSize: 13, color: "#556878" }}>
+          {selected.length} region{selected.length === 1 ? "" : "s"} selected
+        </p>
+      ) : null}
+      {hint && <p style={{ fontSize: 12, color: "#8FA99A", marginTop: 12, lineHeight: 1.55 }}>{hint}</p>}
+    </div>
+  );
+}
+
 function FigmaDescQuestion({
   title, subtitle, options, value, onChange, accent = SELECT_ACCENT, hint, grouped = false,
 }: {
@@ -835,6 +914,10 @@ export function mapOnboardingToDetailAnswers(answers: Answers): Record<string, s
   });
 }
 
+export function isInvestorPersona(answers: OnboardingFlowAnswers | null | undefined): boolean {
+  return INVESTOR_MODELS.includes(answers?.profileBusinessModel ?? "");
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function OnboardingFlow({ onComplete }: { onComplete: (answers: Answers) => void }) {
@@ -856,7 +939,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
     profileApproxHeadcount: "",
     arr:"", arrGrowth:"", nrr:"", logoRetention:"", grossMargin:"",
     monthlyBurn:"", cashOnHand:"", headcount:"", payingCustomers:"",
-    investCheckSize:"", investGeography:"", investPipeline:"",
+    investCheckSize:"", investGeography:[], investPipeline:"",
   }));
   const [investStages, setInvestStages] = useState<string[]>([]);
   const [investSectors, setInvestSectors] = useState<string[]>([]);
@@ -872,11 +955,20 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   const allBenchmarkFilled = filledBenchmarkCount === ONBOARDING_BENCHMARK_FIELDS.length;
 
   const isInvestor = INVESTOR_MODELS.includes(profileForm.businessModel);
-  const activeSteps: StepId[] = isInvestor ? STEPS_INVESTOR : STEPS_DEFAULT;
+  const activeSteps = useMemo<StepId[]>(
+    () => (isInvestor ? investorActiveSteps(answers.investPipeline) : STEPS_DEFAULT),
+    [isInvestor, answers.investPipeline],
+  );
 
   const stepId = activeSteps[stepIndex];
   const isLast = stepIndex === activeSteps.length - 1;
   const showConnectLater = stepId === "hubspot" && hubspotStatus !== "connected";
+
+  useEffect(() => {
+    if (stepIndex >= activeSteps.length) {
+      setStepIndex(Math.max(0, activeSteps.length - 1));
+    }
+  }, [activeSteps.length, stepIndex]);
 
   useEffect(() => {
     if (stepId !== "benchmarking" || !allBenchmarkFilled) {
@@ -895,6 +987,20 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
 
   function setPF(k:keyof ProfileForm, v:string) { setProfileForm(p=>({...p,[k]:v})); }
   function setAns(k:keyof Answers, v:string) { setAnswers(p=>({...p,[k]:v})); }
+
+  function toggleInvestGeography(label: string) {
+    setAnswers(prev => {
+      const current = prev.investGeography;
+      if (label === "Global") {
+        return { ...prev, investGeography: current.includes("Global") ? [] : ["Global"] };
+      }
+      const withoutGlobal = current.filter(g => g !== "Global");
+      if (withoutGlobal.includes(label)) {
+        return { ...prev, investGeography: withoutGlobal.filter(g => g !== label) };
+      }
+      return { ...prev, investGeography: [...withoutGlobal, label] };
+    });
+  }
 
   function loadCompanyProfile(record: CompanyRecord) {
     setSearchState("searching");
@@ -956,7 +1062,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
       if (investQ===0) return investStages.length > 0;
       if (investQ===1) return investSectors.length > 0;
       if (investQ===2) return !!answers.investCheckSize;
-      if (investQ===3) return !!answers.investGeography;
+      if (investQ===3) return answers.investGeography.length > 0;
       if (investQ===4) return !!answers.investPipeline;
     }
     if (stepId === "benchmarking" && allBenchmarkFilled && benchmarkGenerating) return false;
@@ -965,10 +1071,17 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   }
 
   function finishOnboarding() {
+    const connected = hubspotStatus === "connected";
+    try {
+      window.localStorage.setItem("fuel-investor-hubspot-connected", connected ? "true" : "false");
+    } catch { /* ignore */ }
     onComplete({
       ...answers,
       profileProductDescription: profileForm.productDescription || profileForm.whatTheyDo,
       profileApproxHeadcount: profileForm.approxHeadcount || answers.headcount,
+      profileBusinessModel: profileForm.businessModel,
+      profileCompany: profileForm.company,
+      hubspotConnected: connected,
     });
   }
 
@@ -1301,11 +1414,12 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                       )}
 
                       {investQ===3 && (
-                        <FigmaQuestion
+                        <FigmaDescMultiSelect
                           title="Where do you primarily invest?"
-                          options={["United States", "North America", "Europe", "Global"]}
-                          value={answers.investGeography}
-                          onChange={v => setAns("investGeography", v)}
+                          subtitle="Select all regions that apply. US is listed separately from Canada and Mexico."
+                          options={INVEST_GEOGRAPHY_OPTIONS}
+                          selected={answers.investGeography}
+                          onToggle={toggleInvestGeography}
                         />
                       )}
 
@@ -1315,7 +1429,9 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                           options={["HubSpot", "Another CRM", "Spreadsheet", "Not yet"]}
                           value={answers.investPipeline}
                           onChange={v => setAns("investPipeline", v)}
-                          hint="We'll connect HubSpot in the next step to load your pipeline."
+                          hint={answers.investPipeline === "HubSpot"
+                            ? "We'll connect HubSpot in the next step to load your pipeline."
+                            : undefined}
                         />
                       )}
 

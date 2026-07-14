@@ -188,6 +188,25 @@ export type ScorecardDocumentSlot = {
   current: { name: string } | null;
 };
 
+/** Optional efficiency metrics from benchmark form (not on OnboardingBenchmarkInput). */
+export type ScorecardEfficiencyExtras = {
+  cacPayback?: string;
+  burnMultiple?: string;
+  period?: string;
+};
+
+export type ScorecardActiveInitiative = {
+  id: string;
+  title: string;
+  description: string;
+  pillar?: ScorecardCategory;
+  status?: string;
+  progress?: number;
+  /** Target / due label from the initiative (e.g. 2026-q3) — used to order the brief roadmap. */
+  due?: string;
+  owner?: string;
+};
+
 export type ScorecardV2Props = {
   benchmark: OnboardingBenchmarkInput;
   cohortLabel?: string;
@@ -197,6 +216,10 @@ export type ScorecardV2Props = {
   intelligenceItems?: ScorecardIntelligenceItem[];
   profileMeta?: ScorecardProfileMeta;
   benchmarkContext?: ScorecardBenchmarkContext;
+  efficiencyExtras?: ScorecardEfficiencyExtras;
+  activeInitiatives?: ScorecardActiveInitiative[];
+  onAddInitiative?: (initiative: ScorecardActiveInitiative) => void;
+  onViewInitiative?: (id: string) => void;
   onUploadPitchDeck?: () => void;
   onRunPlaybook?: (playbookId: string) => void;
   onViewMetric?: (key: MetricKey) => void;
@@ -212,7 +235,67 @@ export type ScorecardV2Props = {
   lastPlaybook?: { name: string; kind: string; description: string; category: string } | null;
   onDismissPlaybook?: () => void;
   onboardingAnswers?: OnboardingFlowAnswers | null;
+  workspaceIntroOpen?: boolean;
+  onDismissWorkspaceIntro?: () => void;
+  onWorkspaceActivity?: () => void;
+  privateWorkspaceLabel?: string;
+  /** Post-onboarding Overview generation — skeletons + checklist until ready. */
+  overviewBuildPhase?: OverviewBuildPhase | null;
+  onStartOptionalTour?: () => void;
+  onDismissOverviewReady?: () => void;
 };
+
+export type OverviewBuildPhase =
+  | "summary"
+  | "dev"
+  | "mkt"
+  | "rev"
+  | "suggestions"
+  | "ready";
+
+const OVERVIEW_BUILD_STEPS: {
+  id: Exclude<OverviewBuildPhase, "ready">;
+  label: string;
+}[] = [
+  { id: "summary", label: "Writing your company summary" },
+  { id: "dev", label: "Building R&D" },
+  { id: "mkt", label: "Building GTM" },
+  { id: "rev", label: "Building G&A" },
+  { id: "suggestions", label: "Preparing initiatives and playbooks" },
+];
+
+const OVERVIEW_BUILD_PHASE_ORDER: OverviewBuildPhase[] = [
+  "summary",
+  "dev",
+  "mkt",
+  "rev",
+  "suggestions",
+  "ready",
+];
+
+function overviewBuildPhaseIndex(phase: OverviewBuildPhase): number {
+  return OVERVIEW_BUILD_PHASE_ORDER.indexOf(phase);
+}
+
+/** Initiative + playbook suggestion counts stay hidden until build finishes. */
+function overviewSuggestionsReady(phase: OverviewBuildPhase | null | undefined): boolean {
+  return phase == null || phase === "ready";
+}
+
+/** Advisor summary unlocks after the quick summary step. */
+function overviewAdvisorReady(phase: OverviewBuildPhase | null | undefined): boolean {
+  return phase == null || overviewBuildPhaseIndex(phase) > overviewBuildPhaseIndex("summary");
+}
+
+/** A track row is ready once its category step has completed. */
+function overviewTrackReady(
+  categoryId: ScorecardCategory,
+  phase: OverviewBuildPhase | null | undefined,
+): boolean {
+  if (phase == null || phase === "ready" || phase === "suggestions") return true;
+  if (phase === "summary") return false;
+  return overviewBuildPhaseIndex(phase) > overviewBuildPhaseIndex(categoryId);
+}
 
 // ─── Cohort data ──────────────────────────────────────────────────────────────
 const METRIC_COHORTS: MetricCohort[] = [
@@ -923,31 +1006,49 @@ function trendArrow(tier: PositionTier): string {
 
 function computeGlancePopoverLayout(
   rect: DOMRect,
+  popoverW: number,
   popoverH: number,
 ): { style: React.CSSProperties; placement: "above" | "below" } {
-  const popoverW = Math.min(380, window.innerWidth - 48);
   const gap = 10;
   const margin = 12;
-  const maxH = Math.min(480, window.innerHeight - margin * 2);
-  const effectiveH = Math.min(popoverH, maxH);
-  const spaceBelow = window.innerHeight - rect.bottom - gap - margin;
-  const spaceAbove = rect.top - gap - margin;
-  const placeAbove = spaceBelow < effectiveH && spaceAbove >= spaceBelow;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const width = Math.min(popoverW, Math.max(220, vw - margin * 2));
+  const maxH = Math.min(480, vh - margin * 2);
+  const measuredH = popoverH > 0 ? popoverH : Math.min(360, maxH);
+  const effectiveH = Math.min(measuredH, maxH);
 
-  const top = placeAbove
-    ? Math.max(margin, rect.top - gap - effectiveH)
-    : Math.min(rect.bottom + gap, window.innerHeight - effectiveH - margin);
+  const spaceBelow = vh - rect.bottom - gap - margin;
+  const spaceAbove = rect.top - gap - margin;
+  const placeAbove = spaceBelow < Math.min(effectiveH, 280) && spaceAbove >= spaceBelow;
+
+  let top = placeAbove
+    ? rect.top - gap - effectiveH
+    : rect.bottom + gap;
+  top = Math.max(margin, Math.min(top, vh - effectiveH - margin));
+
+  // Prefer anchoring to the score ring (left-aligned to the trigger).
+  let left = rect.left;
+  if (left + width > vw - margin) {
+    left = rect.right - width;
+  }
+  left = Math.max(margin, Math.min(left, vw - margin - width));
+
+  const triggerCenterX = rect.left + rect.width / 2;
+  const arrowX = Math.min(Math.max(triggerCenterX - left, 18), width - 18);
 
   return {
     placement: placeAbove ? "above" : "below",
     style: {
       position: "fixed",
       top,
-      right: Math.max(margin, window.innerWidth - rect.right),
-      left: "auto",
+      left,
+      right: "auto",
       bottom: "auto",
-      width: popoverW,
+      width,
+      maxHeight: maxH,
       zIndex: 1000,
+      ["--sc-pop-arrow-x" as string]: `${arrowX}px`,
     },
   };
 }
@@ -1058,8 +1159,9 @@ function GlanceScoreRing({
     if (!trigger) return;
 
     const rect = trigger.getBoundingClientRect();
-    const popoverH = popoverRef.current?.offsetHeight ?? 300;
-    const { style, placement: nextPlacement } = computeGlancePopoverLayout(rect, popoverH);
+    const popoverW = Math.min(380, window.innerWidth - 24);
+    const popoverH = popoverRef.current?.offsetHeight ?? 0;
+    const { style, placement: nextPlacement } = computeGlancePopoverLayout(rect, popoverW, popoverH);
     setPlacement(nextPlacement);
     setPopoverStyle(style);
   }, []);
@@ -1078,10 +1180,17 @@ function GlanceScoreRing({
     }
 
     positionPopover();
+    const frame = window.requestAnimationFrame(() => {
+      positionPopover();
+      window.requestAnimationFrame(positionPopover);
+    });
     const onResize = () => positionPopover();
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [isOpen, positionPopover, cat.scoreContributors.length]);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [isOpen, positionPopover, cat.scoreContributors.length, score]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1110,12 +1219,19 @@ function GlanceScoreRing({
     };
   }, [isOpen, onRequestClose]);
 
-  const popoverNode = isOpen && popoverStyle ? (
+  const popoverNode = isOpen ? (
     <ScoreHealthPopover
       cat={cat}
       score={score}
       popoverRef={popoverRef}
-      popoverStyle={popoverStyle}
+      popoverStyle={popoverStyle ?? {
+        position: "fixed",
+        top: 0,
+        left: -9999,
+        visibility: "hidden",
+        pointerEvents: "none",
+        width: Math.min(380, window.innerWidth - 24),
+      }}
       placement={placement}
       isFixed
       onClickStop={e => e.stopPropagation()}
@@ -1293,6 +1409,7 @@ function CategoryGlanceHeaderBar({
   onOpenIntelligence,
   onOpenInitiatives,
   onRunPlaybook,
+  suggestionsReady = true,
 }: {
   cat: CategoryData;
   answersCta: ReturnType<typeof buildGlanceAnswersCta>;
@@ -1300,20 +1417,25 @@ function CategoryGlanceHeaderBar({
   onOpenIntelligence?: () => void;
   onOpenInitiatives?: () => void;
   onRunPlaybook?: (id: string) => void;
+  suggestionsReady?: boolean;
 }) {
+  const intelCount = Math.max(cat.intelligenceCount, cat.intelDisplayCount);
+
   return (
     <div className="sc-glance-header-bar" onClick={e => e.stopPropagation()}>
       <div className="sc-glance-header-bar-start">
         <div className="sc-glance-header-bar-links">
-          {cat.openInitiatives.length > 0 ? (
+          {suggestionsReady && cat.openInitiatives.length > 0 ? (
             <button type="button" className="sc-cat-header-btn" onClick={() => onOpenInitiatives?.()}>
               {cat.openInitiatives.length} initiative{cat.openInitiatives.length === 1 ? "" : "s"} <span aria-hidden="true">→</span>
             </button>
           ) : null}
           <button type="button" className="sc-cat-header-btn" onClick={() => onOpenIntelligence?.()}>
-            {cat.intelDisplayCount > 0 ? `${cat.intelDisplayCount} intelligence` : "Intelligence"} <span aria-hidden="true">→</span>
+            {intelCount > 0
+              ? `${intelCount} intelligence signal${intelCount === 1 ? "" : "s"}`
+              : "Intelligence"} <span aria-hidden="true">→</span>
           </button>
-          {cat.suggestedPlaybooks.length > 0 ? (
+          {suggestionsReady && cat.suggestedPlaybooks.length > 0 ? (
             <button type="button" className="sc-cat-header-btn" onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}>
               {cat.suggestedPlaybooks.length} playbook{cat.suggestedPlaybooks.length === 1 ? "" : "s"} <span aria-hidden="true">→</span>
             </button>
@@ -1338,6 +1460,80 @@ function CategoryGlanceHeaderBar({
   );
 }
 
+function OverviewBuildPanel({
+  phase,
+}: {
+  phase: OverviewBuildPhase;
+  onStartOptionalTour?: () => void;
+}) {
+  const idx = overviewBuildPhaseIndex(phase);
+  const progress = Math.min(100, Math.round((idx / (OVERVIEW_BUILD_PHASE_ORDER.length - 1)) * 100));
+  const activeStep = OVERVIEW_BUILD_STEPS.find(step => step.id === phase) ?? OVERVIEW_BUILD_STEPS[0];
+
+  return (
+    <div className="sc-overview-build overview-panel" role="status" aria-live="polite">
+      <div className="sc-overview-build-top">
+        <div>
+          <span className="sc-overview-build-eyebrow">Building your Overview</span>
+          <h2 className="sc-overview-build-title">Fuel is working from your onboarding</h2>
+          <p className="sc-overview-build-copy">
+            Summary lands first. R&amp;D, GTM, and G&amp;A follow — other tabs stay open.
+          </p>
+        </div>
+      </div>
+      <div className="sc-overview-build-progress" aria-hidden="true">
+        <div className="sc-overview-build-progress-fill" style={{ width: `${Math.max(progress, 8)}%` }} />
+      </div>
+      <div className="sc-overview-build-active">
+        <i className="sc-overview-build-pulse" aria-hidden="true" />
+        <div className="sc-overview-build-active-copy">
+          <strong>{activeStep.label}</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OverviewAdvisorSkeleton() {
+  return (
+    <div className="sc-overview-skeleton-advisor" aria-hidden="true">
+      <div className="sc-skel-line sc-skel-line-lg" />
+      <div className="sc-skel-line" />
+      <div className="sc-skel-line sc-skel-line-mid" />
+      <div className="sc-skel-chip-row">
+        <span className="sc-skel-chip" />
+        <span className="sc-skel-chip" />
+        <span className="sc-skel-chip" />
+      </div>
+    </div>
+  );
+}
+
+function CategoryGlanceRowSkeleton({ label }: { label: string }) {
+  return (
+    <article className="sc-glance-row sc-glance-row-skeleton" aria-hidden="true">
+      <div className="sc-glance-layout">
+        <div className="sc-glance-brief-col">
+          <div className="sc-glance-id">
+            <div className="sc-skel-ring" />
+            <div className="sc-glance-copy">
+              <h3 className="sc-glance-name">
+                <span>{label}</span>
+              </h3>
+              <div className="sc-skel-line" />
+              <div className="sc-skel-line sc-skel-line-mid" />
+            </div>
+          </div>
+        </div>
+        <div className="sc-skel-insights">
+          <div className="sc-skel-line" />
+          <div className="sc-skel-line sc-skel-line-mid" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function CategoryGlanceRow({
   cat,
   runway,
@@ -1350,6 +1546,7 @@ function CategoryGlanceRow({
   onGlancePopoverOpen,
   onGlancePopoverClose,
   tourTarget,
+  suggestionsReady = true,
 }: {
   cat: CategoryData;
   runway: number | null;
@@ -1362,6 +1559,7 @@ function CategoryGlanceRow({
   onGlancePopoverOpen: () => void;
   onGlancePopoverClose: () => void;
   tourTarget?: string;
+  suggestionsReady?: boolean;
 }) {
   const score = Math.max(0, Math.min(100, cat.score));
   const focusLine = cat.glanceFocus;
@@ -1384,6 +1582,7 @@ function CategoryGlanceRow({
         onOpenIntelligence={onOpenIntelligence}
         onOpenInitiatives={onOpenInitiatives}
         onRunPlaybook={onRunPlaybook}
+        suggestionsReady={suggestionsReady}
       />
       <div className="sc-glance-layout">
         <div className="sc-glance-brief-col">
@@ -1551,8 +1750,30 @@ const INTEL_TYPE_TO_CATEGORY: Record<string, ScorecardCategory> = {
   strategic: "rev",
 };
 
+const BENCHMARK_INTEL_KEY_TO_CATEGORY: Record<string, ScorecardCategory> = {
+  openToIntros: "rev",
+  cacPayback: "dev",
+  burnMultiple: "dev",
+  ruleOf40: "dev",
+};
+
+function resolveIntelligenceCategory(item: ScorecardIntelligenceItem): ScorecardCategory | null {
+  const byType = INTEL_TYPE_TO_CATEGORY[item.type.toLowerCase()];
+  if (byType) return byType;
+
+  if (item.id.startsWith("intel-bench-")) {
+    const key = item.id.slice("intel-bench-".length);
+    if (BENCHMARK_INTEL_KEY_TO_CATEGORY[key]) return BENCHMARK_INTEL_KEY_TO_CATEGORY[key];
+    for (const category of Object.keys(CATEGORY_METRIC_KEYS) as ScorecardCategory[]) {
+      if (CATEGORY_METRIC_KEYS[category].includes(key as MetricKey)) return category;
+    }
+  }
+
+  return null;
+}
+
 function intelligenceForCategory(category: ScorecardCategory, items: ScorecardIntelligenceItem[]): ScorecardIntelligenceItem[] {
-  return items.filter(item => INTEL_TYPE_TO_CATEGORY[item.type.toLowerCase()] === category);
+  return items.filter(item => resolveIntelligenceCategory(item) === category);
 }
 
 function buildDetailSnippets(category: ScorecardCategory, answers: DetailAnswers): string[] {
@@ -1656,7 +1877,16 @@ function countCategoryIntelDisplay(
 ): number {
   const fromItems = intelligenceForCategory(category, items).length;
   if (fromItems > 0) return fromItems;
-  return CATEGORY_METRIC_KEYS[category].filter(k => metricMap[k]?.value != null).length;
+
+  const fromBenchmarkKeys = CATEGORY_METRIC_KEYS[category].filter(k => metricMap[k]?.value != null).length;
+  const fromCrossTrackBench = items.filter(item => {
+    if (!item.id.startsWith("intel-bench-")) return false;
+    const key = item.id.slice("intel-bench-".length);
+    if (BENCHMARK_INTEL_KEY_TO_CATEGORY[key] === category) return true;
+    return CATEGORY_METRIC_KEYS[category].includes(key as MetricKey);
+  }).length;
+
+  return Math.max(fromBenchmarkKeys, fromCrossTrackBench);
 }
 
 function isMissingContributor(c: ScoreContributor): boolean {
@@ -2207,7 +2437,7 @@ function enrichCategoryData(
     scoreContributors: contributors,
     insight,
     openInitiatives: initiatives,
-    intelligenceCount: catIntel.length,
+    intelligenceCount: countCategoryIntelDisplay(base.id, ctx.intelligenceItems, metricMap),
     intelligenceTypeLabels: intelTypes.map(t => t.charAt(0).toUpperCase() + t.slice(1)),
     suggestedPlaybooks: playbooks,
     detailSnippets,
@@ -2325,6 +2555,1071 @@ function buildAdvisorGenericSummary(
   return `${companyName}${sector} — ${tail} Use the tracks below to drill in.`;
 }
 
+type WikiReference = {
+  id: number;
+  label: string;
+  kind: "benchmark" | "profile" | "intelligence" | "document" | "detail";
+  detail: string;
+};
+
+type WikiParagraphPart = { text: string } | { refId: number };
+
+type WikiParagraph = {
+  parts: WikiParagraphPart[];
+};
+
+type WikiSummarySection = {
+  title: string;
+  paragraphs: WikiParagraph[];
+};
+
+type WikiSummaryContent = {
+  compact: WikiParagraph;
+  sections: WikiSummarySection[];
+  references: WikiReference[];
+};
+
+function wikiText(text: string): WikiParagraphPart {
+  return { text };
+}
+
+function wikiCite(refId: number): WikiParagraphPart {
+  return { refId };
+}
+
+function buildOverviewWikiSummary(
+  companyName: string,
+  categories: CategoryData[],
+  runway: number | null,
+  ctx: CategoryBuildContext,
+  documentSlots: ScorecardDocumentSlot[] | undefined,
+  cohortLabel: string,
+): WikiSummaryContent {
+  const references: WikiReference[] = [];
+  const cite = (label: string, kind: WikiReference["kind"], detail: string) => {
+    const id = references.length + 1;
+    references.push({ id, label, kind, detail });
+    return id;
+  };
+
+  const sector = ctx.profileMeta?.sector?.split("·")[0]?.trim() || "B2B company";
+  const employees = ctx.profileMeta?.employees;
+  const headquarters = ctx.profileMeta?.headquarters;
+  const domain = ctx.profileMeta?.domain;
+  const profileRef = cite(
+    "Company profile",
+    "profile",
+    [sector, employees ? `${employees} employees` : null, headquarters, domain].filter(Boolean).join(" · ") || "Onboarding profile",
+  );
+
+  const arrMetric = evaluateMetrics(ctx.benchmark).find(metric => metric.key === "arr");
+  const nrrMetric = evaluateMetrics(ctx.benchmark).find(metric => metric.key === "nrr");
+  const benchRefs: number[] = [];
+  if (arrMetric.value != null) {
+    benchRefs.push(cite("Benchmark · ARR", "benchmark", `${arrMetric.display} vs cohort ${arrMetric.p50Display} median`));
+  }
+  if (nrrMetric.value != null) {
+    benchRefs.push(cite("Benchmark · NRR", "benchmark", `${nrrMetric.display} vs cohort ${nrrMetric.p50Display} median`));
+  }
+  if (!benchRefs.length) {
+    benchRefs.push(cite("Benchmark cohort", "benchmark", cohortLabel));
+  }
+
+  const intelRefs = ctx.intelligenceItems.slice(0, 4).map(item => cite(
+    `Intelligence · ${item.type}`,
+    "intelligence",
+    item.highlight || item.title || item.text,
+  ));
+
+  const docRefs = (documentSlots ?? [])
+    .filter(slot => slot.current)
+    .slice(0, 3)
+    .map(slot => cite(
+      `Data room · ${slot.typeLabel}`,
+      "document",
+      slot.current!.name,
+    ));
+
+  const detailSnippets = categories.flatMap(cat => cat.detailSnippets).filter(Boolean).slice(0, 2);
+  const detailRefs = detailSnippets.map((snippet, index) => cite(
+    `Track details · ${index + 1}`,
+    "detail",
+    snippet,
+  ));
+
+  const urgentCount = categories.filter(c => categoryUrgency(c, runway) === "urgent").length;
+  const watchCount = categories.filter(c => categoryUrgency(c, runway) === "watch").length;
+  const contextPct = computeOverallContextPct(ctx.benchmark, ctx.detailAnswers, ctx.benchmarkContext);
+
+  const compactRefs = [profileRef, ...benchRefs.slice(0, 1), ...intelRefs.slice(0, 1)].filter(Boolean);
+  const compact: WikiParagraph = {
+    parts: [
+      wikiText(`${companyName} is a ${sector.toLowerCase()} company`),
+      ...(headquarters ? [wikiText(` headquartered in ${headquarters}`)] : []),
+      wikiText(". "),
+      wikiText(
+        urgentCount > 0
+          ? `Fuel flags ${urgentCount} urgent focus area${urgentCount > 1 ? "s" : ""} against the ${cohortLabel} cohort`
+          : watchCount > 0
+            ? `Fuel tracks ${watchCount} watch area${watchCount > 1 ? "s" : ""} against the ${cohortLabel} cohort`
+            : `Fuel benchmarks performance against the ${cohortLabel} cohort`,
+      ),
+      ...compactRefs.map(refId => [wikiCite(refId)]).flat(),
+      wikiText(
+        ctx.intelligenceItems.length
+          ? `, with ${ctx.intelligenceItems.length} intelligence signal${ctx.intelligenceItems.length > 1 ? "s" : ""} on file.`
+          : ". Add sources to deepen the picture.",
+      ),
+    ],
+  };
+
+  const profileParagraph: WikiParagraph = {
+    parts: [
+      wikiText(`${companyName} operates in ${sector.toLowerCase()}`),
+      ...(employees ? [wikiText(`, with ${employees} employees`)] : []),
+      ...(headquarters ? [wikiText(` based in ${headquarters}`)] : []),
+      wikiText(". "),
+      wikiText(`Company context is ${contextPct}% complete across profile, benchmark, and track detail forms.`),
+      wikiCite(profileRef),
+      ...(detailRefs[0] ? [wikiText(" "), wikiCite(detailRefs[0])] : []),
+    ],
+  };
+
+  const benchmarkParagraph: WikiParagraph = {
+    parts: [
+      wikiText(`Against ${cohortLabel}, `),
+      ...(arrMetric.value != null
+        ? [
+            wikiText(`reported ARR is ${arrMetric.display} (${arrMetric.positionLabel})`),
+            wikiCite(benchRefs[0]),
+          ]
+        : [wikiText("benchmark metrics are still being filled in"), wikiCite(benchRefs[0])]),
+      ...(nrrMetric.value != null
+        ? [
+            wikiText(`. Net revenue retention is ${nrrMetric.display}`),
+            wikiCite(benchRefs[1] ?? benchRefs[0]),
+          ]
+        : []),
+      ...(runway != null ? [wikiText(`. Estimated runway is ${runway} months.`)] : []),
+      wikiText("."),
+    ],
+  };
+
+  const intelligenceParagraph: WikiParagraph = {
+    parts: intelRefs.length
+      ? [
+          wikiText(`Fuel is monitoring ${ctx.intelligenceItems.length} intelligence item${ctx.intelligenceItems.length > 1 ? "s" : ""} from benchmark, profile, and connected sources`),
+          ...intelRefs.flatMap((refId, index) => (index === 0 ? [wikiCite(refId)] : [wikiText(", "), wikiCite(refId)])),
+          wikiText("."),
+        ]
+      : [
+          wikiText("No user-generated intelligence yet — upload a deck, log a signal, or connect CRM and meeting sources to populate this summary."),
+        ],
+  };
+
+  const tracksParagraph: WikiParagraph = {
+    parts: [
+      wikiText("Across R&D, GTM, and G&A tracks, "),
+      ...categories.flatMap((cat, index) => {
+        const chunk: WikiParagraphPart[] = [];
+        if (index > 0) chunk.push(wikiText(index === categories.length - 1 ? ", and " : ", "));
+        chunk.push(wikiText(`${cat.label} is ${cat.statusLabel.toLowerCase()}`));
+        if (cat.intelligenceCount) chunk.push(wikiText(` (${cat.intelligenceCount} intelligence)`));
+        return chunk;
+      }),
+      wikiText("."),
+    ],
+  };
+
+  const sections: WikiSummarySection[] = [
+    { title: "Overview", paragraphs: [profileParagraph] },
+    { title: "Benchmark position", paragraphs: [benchmarkParagraph] },
+    { title: "Intelligence", paragraphs: [intelligenceParagraph] },
+    { title: "Operating tracks", paragraphs: [tracksParagraph] },
+  ];
+
+  if (docRefs.length) {
+    sections.push({
+      title: "Sources on file",
+      paragraphs: [{
+        parts: [
+          wikiText("Private documents in the data room include "),
+          ...docRefs.flatMap((refId, index) => (index === 0 ? [wikiCite(refId)] : [wikiText(", "), wikiCite(refId)])),
+          wikiText("."),
+        ],
+      }],
+    });
+  }
+
+  if (ctx.benchmarkContext?.biggestChallenges?.trim()) {
+    const challengeRef = cite("Founder update · Challenges", "detail", ctx.benchmarkContext.biggestChallenges.trim());
+    sections.push({
+      title: "Current challenges",
+      paragraphs: [{
+        parts: [
+          wikiText("Reported challenges include "),
+          wikiText(ctx.benchmarkContext.biggestChallenges.trim()),
+          wikiCite(challengeRef),
+          wikiText("."),
+        ],
+      }],
+    });
+  }
+
+  return { compact, sections, references };
+}
+
+function wikiParagraphPlainText(paragraph: WikiParagraph): string {
+  return paragraph.parts
+    .filter((part): part is { text: string } => "text" in part)
+    .map(part => part.text)
+    .join("")
+    .trim();
+}
+
+function renderWikiParagraph(
+  paragraph: WikiParagraph,
+  keyPrefix: string,
+  onCiteClick?: (refId: number) => void,
+) {
+  return paragraph.parts.map((part, index) => {
+    if ("refId" in part) {
+      return (
+        <button
+          key={`${keyPrefix}-cite-${index}`}
+          type="button"
+          className="sc-wiki-cite"
+          onClick={() => onCiteClick?.(part.refId)}
+          aria-label={`Source ${part.refId}`}
+        >
+          [{part.refId}]
+        </button>
+      );
+    }
+    return <span key={`${keyPrefix}-text-${index}`}>{part.text}</span>;
+  });
+}
+
+function buildTrackPitchBrief(cat: CategoryData) {
+  const metricHighlights = cat.metricWeights
+    .filter(metric => metric.display !== "—" && metric.display !== "Not logged")
+    .slice(0, 3);
+
+  return {
+    score: cat.score,
+    narrative: cat.glanceFocus || cat.insight,
+    strengths: [cat.glanceStrength, ...cat.glanceStrengthItems.slice(0, 1).map(item => item.detail)].filter(Boolean),
+    risks: [cat.glanceNeedsWork, ...cat.glanceWeaknessItems.slice(0, 1).map(item => item.detail)].filter(Boolean),
+    metricHighlights,
+  };
+}
+
+function synthesizeTrackOperatingAnalysis(category: ScorecardCategory, answers: DetailAnswers): string | null {
+  const rows = buildDetailFieldRows(category, answers).filter(row => row.value);
+  if (!rows.length) return null;
+
+  const insights = rows
+    .map(row => row.note || (row.value ? DETAIL_ANSWER_IMPACT[row.id]?.[row.value] : undefined))
+    .filter((line): line is string => Boolean(line));
+
+  const meta = CATEGORY_META[category];
+  if (!insights.length) {
+    return `Fuel mapped ${rows.length} operating inputs on ${meta.label} — enough to anchor a peer comparison, with more depth available as you add context.`;
+  }
+
+  const opening = category === "dev"
+    ? "On product and engineering,"
+    : category === "mkt"
+      ? "On go-to-market,"
+      : "On finance and operations,";
+
+  if (insights.length === 1) return `${opening} ${insights[0]}`;
+  return `${opening} ${insights[0]} ${insights[1]}`;
+}
+
+function buildFounderNarrativeParagraph(benchmarkContext?: ScorecardBenchmarkContext): string | null {
+  const parts: string[] = [];
+  if (benchmarkContext?.notableCustomers?.trim()) {
+    parts.push(`Customer momentum centers on ${benchmarkContext.notableCustomers.trim()}.`);
+  }
+  if (benchmarkContext?.notableHires?.trim()) {
+    parts.push(`Team build-out highlights ${benchmarkContext.notableHires.trim()}.`);
+  }
+  if (benchmarkContext?.biggestChallenges?.trim()) {
+    parts.push(`Near-term management priority: ${benchmarkContext.biggestChallenges.trim()}.`);
+  }
+  if (benchmarkContext?.otherUpdates?.trim()) {
+    parts.push(benchmarkContext.otherUpdates.trim());
+  }
+  return parts.length ? parts.join(" ") : null;
+}
+
+type InvestorSnapshotRow = {
+  id: string;
+  label: string;
+  you: string;
+  colour: string;
+  p25: string;
+  p50: string;
+  p75: string;
+  p90: string;
+  band: string;
+  tier: PositionTier;
+  isStrong: boolean;
+};
+
+const SNAPSHOT_BAND_LABELS: Record<PositionTier, string> = {
+  top: "Top decile",
+  upper: "Above median",
+  mid: "Around median",
+  lower: "Below median",
+  bottom: "Below cohort",
+};
+
+const EFFICIENCY_EXTRA_COHORTS: {
+  id: "cacPayback" | "burnMultiple";
+  label: string;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  lowerIsBetter: boolean;
+  format: (n: number) => string;
+}[] = [
+  {
+    id: "cacPayback",
+    label: "CAC payback",
+    p25: 10,
+    p50: 16,
+    p75: 26,
+    p90: 30,
+    lowerIsBetter: true,
+    format: n => `${Math.round(n)} mo`,
+  },
+  {
+    id: "burnMultiple",
+    label: "Burn multiple",
+    p25: 1.3,
+    p50: 2.1,
+    p75: 3.4,
+    p90: 5,
+    lowerIsBetter: true,
+    format: n => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(1)}x`,
+  },
+];
+
+function tierFromCohortBands(
+  value: number,
+  p25: number,
+  p50: number,
+  p75: number,
+  p90: number,
+  lowerIsBetter?: boolean,
+): PositionTier {
+  if (lowerIsBetter) {
+    if (value <= p25) return "top";
+    if (value <= p50) return "upper";
+    if (value <= p75) return "mid";
+    if (value <= p90) return "lower";
+    return "bottom";
+  }
+  if (value >= p90) return "top";
+  if (value >= p75) return "upper";
+  if (value >= p50) return "mid";
+  if (value >= p25) return "lower";
+  return "bottom";
+}
+
+function buildInvestorSnapshotRows(
+  metrics: EvaluatedMetric[],
+  extras?: ScorecardEfficiencyExtras | null,
+): InvestorSnapshotRow[] {
+  const fromMetrics: InvestorSnapshotRow[] = metrics
+    .filter(metric => metric.value != null)
+    .map(metric => ({
+      id: metric.key,
+      label: metric.label,
+      you: metric.display,
+      colour: metric.colour,
+      p25: metric.p25Display,
+      p50: metric.p50Display,
+      p75: metric.p75Display,
+      p90: metric.p90Display,
+      band: SNAPSHOT_BAND_LABELS[metric.tier],
+      tier: metric.tier,
+      isStrong: metric.tier === "top" || metric.tier === "upper",
+    }));
+
+  const fromExtras: InvestorSnapshotRow[] = EFFICIENCY_EXTRA_COHORTS.flatMap(cohort => {
+    const raw = extras?.[cohort.id]?.trim() ?? "";
+    const value = parseMetricValue(raw);
+    if (value == null) return [];
+    const tier = tierFromCohortBands(value, cohort.p25, cohort.p50, cohort.p75, cohort.p90, cohort.lowerIsBetter);
+    const colour = getBenchmarkTierStyle(tier).value;
+    return [{
+      id: cohort.id,
+      label: cohort.label,
+      you: cohort.format(value),
+      colour,
+      p25: cohort.format(cohort.p25),
+      p50: cohort.format(cohort.p50),
+      p75: cohort.format(cohort.p75),
+      p90: cohort.format(cohort.p90),
+      band: SNAPSHOT_BAND_LABELS[tier],
+      tier,
+      isStrong: tier === "top" || tier === "upper",
+    }];
+  });
+
+  // Keep core metrics first; insert efficiency extras after gross margin when present.
+  const core = fromMetrics;
+  const gmIdx = core.findIndex(row => row.id === "grossMargin");
+  if (fromExtras.length && gmIdx >= 0) {
+    return [...core.slice(0, gmIdx + 1), ...fromExtras, ...core.slice(gmIdx + 1)];
+  }
+  return [...core, ...fromExtras];
+}
+
+function buildInvestorStandCopy(
+  companyName: string,
+  rows: InvestorSnapshotRow[],
+  runway: number | null,
+  cohortLabel: string,
+  challenges?: string,
+): string[] {
+  if (!rows.length) {
+    return [`${companyName} has not published benchmark metrics for this period, so peer comparison is not available yet.`];
+  }
+
+  const strong = rows.filter(row => row.isStrong);
+  const weak = rows.filter(row => row.tier === "bottom" || row.tier === "lower");
+  const paragraphs: string[] = [];
+
+  if (strong.length) {
+    const names = strong.slice(0, 3).map(row => `${row.label} (${row.you})`).join(", ");
+    paragraphs.push(
+      `${companyName} sits at or above the ${cohortLabel} median on ${names}.`
+      + (runway != null ? ` Reported cash runway is about ${Math.round(runway)} months at the logged burn rate.` : ""),
+    );
+  } else if (runway != null) {
+    paragraphs.push(
+      `${companyName} reports roughly ${Math.round(runway)} months of runway against logged cash and burn, pointing to a relatively stronger capital position in this period.`,
+    );
+  }
+
+  if (weak.length) {
+    const names = weak.slice(0, 3).map(row => `${row.label} at ${row.you} (${row.band.toLowerCase()})`).join("; ");
+    paragraphs.push(
+      `Relative to the same peer set, the company trails most clearly on ${names}, which weighs on the overall operating picture for this period.`
+      + (challenges?.trim() ? ` Near-term challenge on record: ${challenges.trim()}.` : ""),
+    );
+  } else if (challenges?.trim()) {
+    paragraphs.push(`Near-term challenge on record: ${challenges.trim()}.`);
+  }
+
+  if (!paragraphs.length) {
+    paragraphs.push(
+      `${companyName} tracks near the ${cohortLabel} cohort midpoints across logged metrics, with no single line item standing out as a clear outlier.`,
+    );
+  }
+
+  return paragraphs;
+}
+
+function buildInvestorFocusAreas(rows: InvestorSnapshotRow[]): { title: string; text: string }[] {
+  const weak = [...rows]
+    .filter(row => row.tier === "bottom" || row.tier === "lower")
+    .sort((a, b) => {
+      const order: PositionTier[] = ["bottom", "lower", "mid", "upper", "top"];
+      return order.indexOf(a.tier) - order.indexOf(b.tier);
+    });
+
+  const picks = weak.slice(0, 2);
+  if (!picks.length) {
+    return rows.filter(row => row.tier === "mid").slice(0, 2).map(row => ({
+      title: `${row.label} (${row.you})`,
+      text: `${row.label} is around the cohort median (${row.p50}), so this line sits with peers rather than pulling the snapshot ahead or behind.`,
+    }));
+  }
+
+  return picks.map(row => ({
+    title: `${row.label} (${row.you})`,
+    text: `${row.label} is ${row.band.toLowerCase()} against a cohort median of ${row.p50} (p25 ${row.p25} · p75 ${row.p75}), marking a meaningful gap versus comparable companies in this period.`,
+  }));
+}
+
+function buildPitchExecutiveSummary(
+  companyName: string,
+  categories: CategoryData[],
+  runway: number | null,
+  metricMap: Record<MetricKey, EvaluatedMetric>,
+  cohortLabel: string,
+  contextPct: number,
+): string {
+  const arr = metricMap.arr;
+  const nrr = metricMap.nrr;
+  const headlineMetrics = [
+    arr?.value != null ? `${arr.display} ARR (${arr.positionLabel.toLowerCase()})` : null,
+    nrr?.value != null ? `${nrr.display} NRR` : null,
+    runway != null ? `~${runway} mo runway` : null,
+  ].filter(Boolean);
+
+  const trackScores = categories.map(cat => `${cat.label} ${cat.score}/100`).join(" · ");
+  const metricsClause = headlineMetrics.length
+    ? ` Headline numbers: ${headlineMetrics.join(" · ")}.`
+    : "";
+
+  return `${companyName} in ${cohortLabel}.${metricsClause} Composite operating score across tracks: ${trackScores}. This brief synthesizes benchmark position, operating context, and intelligence into an investor-style read — not a raw export of form fields (${contextPct}% profile context on file).`;
+}
+
+function parseInitiativeDueSortKey(due?: string): number {
+  const raw = due?.trim();
+  if (!raw) return Number.POSITIVE_INFINITY;
+  const quarter = raw.match(/^(\d{4})\s*[-/]?\s*q([1-4])$/i);
+  if (quarter) {
+    const year = Number(quarter[1]);
+    const q = Number(quarter[2]);
+    return Date.UTC(year, (q - 1) * 3, 1);
+  }
+  const iso = Date.parse(raw);
+  if (!Number.isNaN(iso)) return iso;
+  return Number.POSITIVE_INFINITY;
+}
+
+function formatInitiativeDueLabel(due?: string): string {
+  const raw = due?.trim();
+  if (!raw) return "No target date";
+  const quarter = raw.match(/^(\d{4})\s*[-/]?\s*q([1-4])$/i);
+  if (quarter) return `Q${quarter[2]} ${quarter[1]}`;
+  return raw;
+}
+
+function initiativeDueMeta(due?: string, now = new Date()): { period: string; context: string } {
+  const period = formatInitiativeDueLabel(due);
+  const key = parseInitiativeDueSortKey(due);
+  if (!Number.isFinite(key)) return { period, context: "No date set" };
+  const currentQStart = Date.UTC(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+  const nextQStart = Date.UTC(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 1);
+  if (key >= currentQStart && key < nextQStart) return { period, context: "In progress now" };
+  if (key < currentQStart) return { period, context: "Previous quarter" };
+  return { period, context: "Upcoming" };
+}
+
+function pillarCoverageMeta(count: number): { label: string; tone: "blind" | "thin" | "healthy" } {
+  if (count <= 0) return { label: "Blind spot", tone: "blind" };
+  if (count === 1) return { label: "Thin coverage", tone: "thin" };
+  return { label: "Healthy", tone: "healthy" };
+}
+
+function initiativeStatusMeta(status?: string): { label: string; tone: "active" | "done" | "paused" } {
+  const normalized = (status ?? "Active").trim().toLowerCase();
+  if (normalized === "done") return { label: "Shipped", tone: "done" };
+  if (normalized === "paused") return { label: "Paused", tone: "paused" };
+  return { label: "In progress", tone: "active" };
+}
+
+function ScorecardBreadcrumb({
+  onOverview,
+  current,
+  endAction,
+}: {
+  onOverview: () => void;
+  current: string;
+  endAction?: React.ReactNode;
+}) {
+  return (
+    <div className="sc-scorecard-breadcrumb-row">
+      <nav className="sc-scorecard-breadcrumb" aria-label="Breadcrumb">
+        <button type="button" className="sc-scorecard-breadcrumb-link" onClick={onOverview}>
+          Overview
+        </button>
+        <span className="sc-scorecard-breadcrumb-sep" aria-hidden="true">/</span>
+        <span className="sc-scorecard-breadcrumb-current" aria-current="page">{current}</span>
+      </nav>
+      {endAction ? <div className="sc-scorecard-breadcrumb-actions">{endAction}</div> : null}
+    </div>
+  );
+}
+
+function OverviewFullSummaryPage({
+  companyName,
+  summary,
+  metrics,
+  metricMap,
+  categories,
+  runway,
+  buildContext,
+  cohortLabel,
+  documentSlots,
+  efficiencyExtras,
+  activeInitiatives = [],
+  onClose,
+  highlightRefId = null,
+}: {
+  companyName: string;
+  summary: WikiSummaryContent;
+  metrics: EvaluatedMetric[];
+  metricMap: Record<MetricKey, EvaluatedMetric>;
+  categories: CategoryData[];
+  runway: number | null;
+  buildContext: CategoryBuildContext;
+  cohortLabel: string;
+  documentSlots?: ScorecardDocumentSlot[];
+  efficiencyExtras?: ScorecardEfficiencyExtras | null;
+  activeInitiatives?: ScorecardActiveInitiative[];
+  onClose: () => void;
+  highlightRefId?: number | null;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const profileMeta = buildContext.profileMeta;
+  const benchmarkContext = buildContext.benchmarkContext;
+  const productDescription = buildContext.detailAnswers.profile_product_description?.trim()
+    || buildContext.onboardingAnswers?.profileProductDescription?.trim()
+    || "";
+  const reportDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const now = new Date();
+  const periodLabel = efficiencyExtras?.period?.trim()
+    || `${now.getFullYear()}-Q${Math.floor(now.getMonth() / 3) + 1}`;
+  const snapshotRows = buildInvestorSnapshotRows(metrics, efficiencyExtras);
+  const standCopy = buildInvestorStandCopy(
+    companyName,
+    snapshotRows,
+    runway,
+    cohortLabel,
+    benchmarkContext?.biggestChallenges,
+  );
+  const focusAreas = buildInvestorFocusAreas(snapshotRows);
+  const filledDocs = (documentSlots ?? []).filter(slot => slot.current);
+
+  const operatingGroups = (["dev", "mkt", "rev"] as ScorecardCategory[]).map(id => {
+    const rows = buildDetailFieldRows(id, buildContext.detailAnswers)
+      .filter(row => row.value)
+      .slice(0, 6);
+    return {
+      id,
+      label: CATEGORY_META[id].fullLabel,
+      rows,
+    };
+  }).filter(group => group.rows.length > 0);
+
+  const noteItems: { label: string; value: string }[] = [];
+  if (benchmarkContext?.notableCustomers?.trim()) {
+    noteItems.push({ label: "Customers", value: benchmarkContext.notableCustomers.trim() });
+  }
+  if (benchmarkContext?.notableHires?.trim()) {
+    noteItems.push({ label: "Hires", value: benchmarkContext.notableHires.trim() });
+  }
+  if (benchmarkContext?.biggestChallenges?.trim()) {
+    noteItems.push({ label: "Challenges", value: benchmarkContext.biggestChallenges.trim() });
+  }
+  if (benchmarkContext?.otherUpdates?.trim()) {
+    noteItems.push({ label: "Updates", value: benchmarkContext.otherUpdates.trim() });
+  }
+
+  const scrollToRef = (refId: number) => {
+    panelRef.current?.querySelector(`#wiki-ref-${refId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  useEffect(() => {
+    if (highlightRefId == null) return;
+    scrollToRef(highlightRefId);
+  }, [highlightRefId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="sc-investor-brief sc-wiki-full-page" ref={panelRef}>
+      <div className="sc-investor-brief-chrome">
+        <ScorecardBreadcrumb
+          onOverview={onClose}
+          current={`About ${companyName}`}
+          endAction={(
+            <button type="button" className="sc-investor-brief-print" onClick={() => window.print()}>
+              Print / Save as PDF
+            </button>
+          )}
+        />
+      </div>
+
+      <header className="sc-investor-brief-masthead">
+        <div className="sc-investor-brief-masthead-brand">
+          <span className="sc-investor-brief-logo" aria-hidden="true">F</span>
+          <div>
+            <strong>Fuel</strong>
+            <em>{companyName}</em>
+          </div>
+        </div>
+        <div className="sc-investor-brief-masthead-meta">
+          <strong>{reportDate}</strong>
+          <em>Company profile</em>
+        </div>
+      </header>
+
+      <h1 className="sc-investor-brief-title" id="wiki-summary-title">
+        About {companyName}
+      </h1>
+      <p className="sc-investor-brief-subject">
+        Subject: <span>{companyName}</span>
+      </p>
+      <h2 className="sc-investor-brief-section-title">
+        KPI Benchmark — {companyName} — {periodLabel}
+      </h2>
+
+      {(productDescription || profileMeta?.sector || profileMeta?.headquarters || profileMeta?.employees || profileMeta?.domain) ? (
+        <section className="sc-investor-brief-block">
+          <h3 className="sc-investor-brief-h3">About</h3>
+          {productDescription ? (
+            <p className="sc-investor-brief-body">{productDescription}</p>
+          ) : null}
+          <dl className="sc-investor-brief-facts">
+            {profileMeta?.sector ? (
+              <>
+                <dt>Sector</dt>
+                <dd>{profileMeta.sector}</dd>
+              </>
+            ) : null}
+            {profileMeta?.headquarters ? (
+              <>
+                <dt>Headquarters</dt>
+                <dd>{profileMeta.headquarters}</dd>
+              </>
+            ) : null}
+            {profileMeta?.employees ? (
+              <>
+                <dt>Team size</dt>
+                <dd>{profileMeta.employees}</dd>
+              </>
+            ) : null}
+            {profileMeta?.domain ? (
+              <>
+                <dt>Domain</dt>
+                <dd>{profileMeta.domain}</dd>
+              </>
+            ) : null}
+          </dl>
+        </section>
+      ) : null}
+
+      <section className="sc-investor-brief-block">
+        <h3 className="sc-investor-brief-h3">Snapshot</h3>
+        {snapshotRows.length === 0 ? (
+          <p className="sc-investor-brief-empty">No metrics logged for this period.</p>
+        ) : (
+          <>
+            <div className="sc-investor-brief-table-wrap">
+              <table className="sc-investor-brief-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Metric</th>
+                    <th scope="col">You</th>
+                    <th scope="col">Cohort p50</th>
+                    <th scope="col">p25</th>
+                    <th scope="col">p75</th>
+                    <th scope="col">p90</th>
+                    <th scope="col">Band</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {snapshotRows.map(row => (
+                    <tr key={row.id}>
+                      <td>{row.label}</td>
+                      <td>
+                        <strong className="sc-investor-brief-you" style={{ color: row.colour }}>{row.you}</strong>
+                      </td>
+                      <td>{row.p50}</td>
+                      <td>{row.p25}</td>
+                      <td>{row.p75}</td>
+                      <td>{row.p90}</td>
+                      <td>
+                        <span className={`sc-investor-brief-band sc-investor-brief-band--${row.tier}`}>
+                          {row.isStrong ? <span className="sc-investor-brief-check" aria-hidden="true">✓</span> : null}
+                          {row.band}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="sc-investor-brief-cohort-note">
+              Peer cohort: {cohortLabel}. Values from the latest private benchmark submission.
+            </p>
+          </>
+        )}
+      </section>
+
+      {snapshotRows.length > 0 ? (
+        <section className="sc-investor-brief-block">
+          <h3 className="sc-investor-brief-h3">Cohort position</h3>
+          <p className="sc-investor-brief-analysis-label">Fuel analysis</p>
+          {standCopy.map((paragraph, index) => (
+            <p className="sc-investor-brief-body" key={`stand-${index}`}>{paragraph}</p>
+          ))}
+        </section>
+      ) : null}
+
+      {focusAreas.length > 0 ? (
+        <section className="sc-investor-brief-block">
+          <h3 className="sc-investor-brief-h3">Areas to watch</h3>
+          <p className="sc-investor-brief-analysis-label">Fuel analysis</p>
+          <div className="sc-investor-brief-table-wrap">
+            <table className="sc-investor-brief-table sc-investor-brief-notes-table">
+              <thead>
+                <tr>
+                  <th scope="col">Area</th>
+                  <th scope="col">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {focusAreas.map(area => (
+                  <tr key={area.title}>
+                    <td>{area.title}</td>
+                    <td>{area.text}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {(metricMap.cashOnHand?.value != null || metricMap.monthlyBurn?.value != null || runway != null) ? (
+        <section className="sc-investor-brief-block">
+          <h3 className="sc-investor-brief-h3">Capital &amp; runway</h3>
+          <dl className="sc-investor-brief-facts">
+            {metricMap.cashOnHand?.value != null ? (
+              <>
+                <dt>Cash on hand</dt>
+                <dd style={{ color: metricMap.cashOnHand.colour }}>{metricMap.cashOnHand.display}</dd>
+              </>
+            ) : null}
+            {metricMap.monthlyBurn?.value != null ? (
+              <>
+                <dt>Monthly net burn</dt>
+                <dd style={{ color: metricMap.monthlyBurn.colour }}>{metricMap.monthlyBurn.display}</dd>
+              </>
+            ) : null}
+            {runway != null ? (
+              <>
+                <dt>Runway</dt>
+                <dd>~{Math.round(runway)} mo</dd>
+              </>
+            ) : null}
+          </dl>
+        </section>
+      ) : null}
+
+      {operatingGroups.length > 0 ? (
+        <section className="sc-investor-brief-block sc-investor-brief-ops-block">
+          <h3 className="sc-investor-brief-h3">Operating profile</h3>
+          <p className="sc-investor-brief-source-note">
+            From stored onboarding and View details answers only — not generated metrics.
+          </p>
+          <div className="sc-investor-brief-ops">
+            {operatingGroups.map(group => (
+              <div key={group.id} className="sc-investor-brief-ops-group">
+                <h4>{group.label}</h4>
+                <dl className="sc-investor-brief-facts">
+                  {group.rows.map(row => (
+                    <React.Fragment key={row.id}>
+                      <dt>{row.label}</dt>
+                      <dd>{row.value}</dd>
+                    </React.Fragment>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {(noteItems.length > 0 || buildContext.intelligenceItems.length > 0) ? (
+        <section className="sc-investor-brief-block">
+          <h3 className="sc-investor-brief-h3">Notes</h3>
+          {noteItems.length > 0 ? (
+            <div className="sc-investor-brief-table-wrap">
+              <table className="sc-investor-brief-table sc-investor-brief-notes-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Topic</th>
+                    <th scope="col">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {noteItems.map(item => (
+                    <tr key={item.label}>
+                      <td>{item.label}</td>
+                      <td>{item.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {buildContext.intelligenceItems.length > 0 ? (
+            <div className="sc-investor-brief-table-wrap">
+              <table className="sc-investor-brief-table sc-investor-brief-notes-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Type</th>
+                    <th scope="col">Signal</th>
+                    <th scope="col">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buildContext.intelligenceItems.slice(0, 8).map(item => (
+                    <tr key={item.id}>
+                      <td>{item.type}</td>
+                      <td>{item.title || item.text}</td>
+                      <td>{item.highlight && item.highlight !== item.title ? item.highlight : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="sc-investor-brief-block sc-investor-brief-initiatives">
+        <h3 className="sc-investor-brief-h3">Initiatives roadmap</h3>
+        <p className="sc-investor-brief-source-note">
+          Strategic pillars with active work ordered by target date. Suggested scorecard ideas are not listed here.
+        </p>
+
+        <div className="overview-panel sc-investor-brief-roadmap-board">
+          <div className="sc-investor-brief-roadmap-legend" aria-label="Coverage legend">
+            <span className="sc-investor-brief-roadmap-legend-item is-blind">Blind spot</span>
+            <span className="sc-investor-brief-roadmap-legend-item is-thin">Thin coverage</span>
+            <span className="sc-investor-brief-roadmap-legend-item is-healthy">Healthy</span>
+          </div>
+          <div className="sc-investor-brief-roadmap">
+            <div className="sc-investor-brief-roadmap-topline" aria-hidden="true" />
+            {categories.map(cat => {
+            const pillarInits = activeInitiatives
+              .filter(item => item.pillar === cat.id)
+              .slice()
+              .sort((a, b) => {
+                const dueDiff = parseInitiativeDueSortKey(a.due) - parseInitiativeDueSortKey(b.due);
+                if (dueDiff !== 0) return dueDiff;
+                return a.title.localeCompare(b.title);
+              });
+            const coverage = pillarCoverageMeta(pillarInits.length);
+            return (
+              <div
+                key={cat.id}
+                className="sc-investor-brief-pillar-col"
+                style={{
+                  "--pillar-col": cat.colour,
+                  "--pillar-col-dim": cat.colourDim,
+                  "--pillar-col-border": cat.colourBorder,
+                } as React.CSSProperties}
+              >
+                <div className="sc-investor-brief-pillar-cap" aria-hidden="true">
+                  <span className="sc-investor-brief-pillar-dot" />
+                  <span className="sc-investor-brief-pillar-drop" />
+                </div>
+
+                <article className="sc-investor-brief-pillar-card">
+                  <span className="sc-investor-brief-pillar-title-pill">{cat.fullLabel}</span>
+                  <p className="sc-investor-brief-pillar-card-desc">{cat.description}</p>
+                  <div className="sc-investor-brief-pillar-card-meta">
+                    <strong className="sc-investor-brief-pillar-count">{pillarInits.length}</strong>
+                    <span className={`sc-investor-brief-pillar-coverage is-${coverage.tone}`}>
+                      {coverage.label}
+                    </span>
+                  </div>
+                  <div className="sc-investor-brief-pillar-card-footer">
+                    <span className="sc-investor-brief-pillar-tag">{cat.label}</span>
+                  </div>
+                </article>
+
+                <div className={`sc-investor-brief-pillar-stack${pillarInits.length === 0 ? " is-empty" : ""}`}>
+                  {pillarInits.length === 0 ? (
+                    <div className="sc-investor-brief-pillar-empty">
+                      <strong>No initiatives</strong>
+                      <span>Blind spot on this pillar.</span>
+                    </div>
+                  ) : (
+                    <ol className="sc-investor-brief-roadmap-timeline">
+                      {pillarInits.map(init => {
+                        const status = initiativeStatusMeta(init.status);
+                        const dueMeta = initiativeDueMeta(init.due, now);
+                        return (
+                          <li key={init.id} className="sc-investor-brief-roadmap-item">
+                            <div className="sc-investor-brief-roadmap-due-row">
+                              <time className="sc-investor-brief-roadmap-due-pill">{dueMeta.period}</time>
+                              <span className="sc-investor-brief-roadmap-due-context">{dueMeta.context}</span>
+                            </div>
+                            <article className={`sc-investor-brief-init-card is-${status.tone}`}>
+                              <strong>{init.title}</strong>
+                              <div className="sc-investor-brief-init-tags">
+                                <span className={`sc-investor-brief-init-status is-${status.tone}`}>
+                                  {status.label}
+                                </span>
+                                <span className="sc-investor-brief-init-pillar-tag">{cat.label}</span>
+                              </div>
+                              {init.description ? <p>{init.description}</p> : null}
+                              <div className="sc-investor-brief-init-footer">
+                                <em>{init.owner?.trim() || "Unassigned"}</em>
+                                <b>{init.due?.trim() ? formatInitiativeDueLabel(init.due) : "No target"}</b>
+                              </div>
+                            </article>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          </div>
+        </div>
+      </section>
+
+      <section className="sc-investor-brief-block sc-investor-brief-sources">
+        <h3 className="sc-investor-brief-h3">Sources</h3>
+        {filledDocs.length > 0 ? (
+          <ul className="sc-investor-brief-docs">
+            {filledDocs.map(slot => (
+              <li key={slot.typeId}>
+                <em>{slot.typeLabel}</em>
+                <strong>{slot.current!.name}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <ol className="sc-investor-brief-refs">
+          {summary.references.map(reference => (
+            <li
+              key={reference.id}
+              id={`wiki-ref-${reference.id}`}
+              className={highlightRefId === reference.id ? "is-highlighted" : ""}
+            >
+              <button type="button" className="sc-investor-brief-ref-btn" onClick={() => scrollToRef(reference.id)}>
+                <strong>[{reference.id}] {reference.label}</strong>
+              </button>
+              <span>{reference.detail}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <footer className="sc-investor-brief-footer">
+        <span>Generated by Fuel · {companyName}</span>
+        <span>{periodLabel}</span>
+      </footer>
+    </div>
+  );
+}
+
 function mergeDetailAnswers(stored: DetailAnswers, onboarding?: OnboardingFlowAnswers | null): DetailAnswers {
   if (!onboarding) return stored;
   return { ...mapOnboardingToDetailAnswers(onboarding), ...stored };
@@ -2360,6 +3655,7 @@ function buildAdvisorRecommendedActions(
   documentSlots: ScorecardDocumentSlot[] | undefined,
   benchmarkSaved: boolean,
   companyName: string,
+  privateWorkspace = false,
 ): AdvisorRecAction[] {
   const benchFilled = METRIC_COHORTS.filter(c => parseMetricValue(buildContext.benchmark[c.key] ?? "")).length;
   const benchTotal = METRIC_COHORTS.length;
@@ -2391,7 +3687,28 @@ function buildAdvisorRecommendedActions(
   const detailsNeedAction = !detailComplete || detailsQuarterStale;
 
   let benchmarkAction: AdvisorRecAction;
-  if (benchMissing) {
+  if (privateWorkspace && benchMissing) {
+    benchmarkAction = {
+      title: "Log benchmark read",
+      sub: `Your take on ${companyName}'s cohort metrics — ARR, burn, retention, and more.`,
+      cta: "Log Benchmark",
+      done: false,
+    };
+  } else if (privateWorkspace && benchPartial) {
+    benchmarkAction = {
+      title: "Finish benchmark read",
+      sub: `${benchFilled} of ${benchTotal} metrics logged for ${companyName}.`,
+      cta: "Continue",
+      done: false,
+    };
+  } else if (privateWorkspace && benchQuarterStale) {
+    benchmarkAction = {
+      title: "Refresh benchmark read",
+      sub: `${getCurrentQuarterLabel()} — update if their numbers moved since your last pass.`,
+      cta: "Update Benchmark",
+      done: false,
+    };
+  } else if (benchMissing) {
     benchmarkAction = {
       title: "Complete Benchmark",
       sub: "Add cohort metrics to unlock comparisons.",
@@ -2414,15 +3731,19 @@ function buildAdvisorRecommendedActions(
     };
   } else if (benchComplete && !sourcesNeedAction && !detailsNeedAction) {
     benchmarkAction = {
-      title: "Update Benchmark",
-      sub: "Refresh numbers if anything shifted this quarter.",
-      cta: "Update Benchmark",
+      title: privateWorkspace ? "Review benchmark read" : "Update Benchmark",
+      sub: privateWorkspace
+        ? "Refresh if anything shifted since you last logged numbers."
+        : "Refresh numbers if anything shifted this quarter.",
+      cta: privateWorkspace ? "Review Benchmark" : "Update Benchmark",
       done: true,
     };
   } else {
     benchmarkAction = {
-      title: "Review Benchmark",
-      sub: `${benchFilled} of ${benchTotal} cohort metrics on file.`,
+      title: privateWorkspace ? "Review benchmark read" : "Review Benchmark",
+      sub: privateWorkspace
+        ? `${benchFilled} of ${benchTotal} metrics on file in your workspace.`
+        : `${benchFilled} of ${benchTotal} cohort metrics on file.`,
       cta: "Review Benchmark",
       done: true,
     };
@@ -2435,22 +3756,58 @@ function buildAdvisorRecommendedActions(
       userIntelCount > 0 ? `${userIntelCount} intelligence signal${userIntelCount === 1 ? "" : "s"}` : null,
     ].filter(Boolean).join(" · ");
     sourcesAction = {
-      title: "Review Intelligence Sources",
-      sub: sourceBits ? `${sourceBits} — add meetings, decks, or news.` : "Keep sources current for fresh intelligence.",
+      title: privateWorkspace ? "Review intelligence sources" : "Review Intelligence Sources",
+      sub: sourceBits
+        ? privateWorkspace
+          ? `${sourceBits} — add more from calls, decks, or news.`
+          : `${sourceBits} — add meetings, decks, or news.`
+        : privateWorkspace
+          ? "Keep sources current as you learn more about the company."
+          : "Keep sources current for fresh intelligence.",
       cta: "Review Sources",
       done: true,
     };
   } else {
     sourcesAction = {
-      title: "Add Intelligence Sources",
-      sub: "Meetings, decks, news — fuel intelligence, initiatives & playbooks.",
-      cta: "+ Add Sources",
+      title: privateWorkspace ? "Add intelligence sources" : "Add Intelligence Sources",
+      sub: privateWorkspace
+        ? "Calls, decks, articles — anything that informed your read. Private to you."
+        : "Meetings, decks, news — fuel intelligence, initiatives & playbooks.",
+      cta: privateWorkspace ? "Add Sources" : "+ Add Sources",
       done: false,
     };
   }
 
   let detailsAction: AdvisorRecAction;
-  if (detailsQuarterStale && detailComplete) {
+  if (privateWorkspace && detailsQuarterStale && detailComplete) {
+    detailsAction = {
+      title: "Update track context",
+      sub: "New quarter — refresh what you know about product, GTM, and finance.",
+      cta: "Update Context",
+      done: false,
+    };
+  } else if (privateWorkspace && detailComplete) {
+    detailsAction = {
+      title: "Review track context",
+      sub: "All tracks filled — update when you learn something new.",
+      cta: "Review Context",
+      done: true,
+    };
+  } else if (privateWorkspace && detailAnswered === 0) {
+    detailsAction = {
+      title: "Add track context",
+      sub: `R&D, GTM, and Finance — capture what you know about ${companyName} from diligence and conversations.`,
+      cta: "Add Context",
+      done: false,
+    };
+  } else if (privateWorkspace) {
+    detailsAction = {
+      title: "Add track context",
+      sub: `${detailAnswered} of ${detailTotal} fields · ${detailRemaining} left across R&D, GTM, and Finance.`,
+      cta: "Add Context",
+      done: false,
+    };
+  } else if (detailsQuarterStale && detailComplete) {
     detailsAction = {
       title: "Update Company Details",
       sub: `New quarter — refresh product, go-to-market, and finance context.`,
@@ -2490,6 +3847,25 @@ function buildAdvisorRecommendedActions(
   }
 
   return [benchmarkAction, sourcesAction, detailsAction];
+}
+
+/** Private workspaces (other companies) only generate overview content after inputs exist. */
+function isPrivateWorkspaceOverviewReady(
+  benchmarkValues: BenchmarkValues,
+  mergedDetailAnswers: DetailAnswers,
+  documentSlots: ScorecardDocumentSlot[] | undefined,
+  intelligenceItems: ScorecardIntelligenceItem[],
+): boolean {
+  const benchFilled = METRIC_COHORTS.filter(c => parseMetricValue(benchmarkValues[c.key] ?? "")).length;
+  if (benchFilled === 0) return false;
+
+  const hasSources = (documentSlots?.filter(s => s.current).length ?? 0) > 0
+    || intelligenceItems.some(item => !item.id.startsWith("intel-bench-"));
+  if (!hasSources) return false;
+
+  return TRACK_DETAIL_SECTIONS.every(section =>
+    countSectionAnswers(section, mergedDetailAnswers) > 0
+  );
 }
 
 // ─── UI: Detail-enrichment drawer ─────────────────────────────────────────────
@@ -2740,6 +4116,58 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
   };
 }
 
+function OverviewWorkspaceSetupPanel({
+  companyName,
+  actions,
+  onEditBenchmark,
+  onAddSources,
+  onViewDetails,
+}: {
+  companyName: string;
+  actions: AdvisorRecAction[];
+  onEditBenchmark?: () => void;
+  onAddSources?: () => void;
+  onViewDetails?: () => void;
+}) {
+  const handlers = [onEditBenchmark, onAddSources, onViewDetails];
+
+  return (
+    <div className="sc-adv-featured sc-adv-featured-split">
+      <div className="sc-adv-featured-brief-col">
+        <div className="sc-adv">
+          <div className="sc-adv-head">
+            <span className="sc-adv-label">✦ Your private workspace</span>
+            <span className="sc-adv-company">{companyName}</span>
+          </div>
+          <div className="sc-adv-rec-title">Getting started</div>
+          <p className="sc-adv-summary">
+            Build your private view of {companyName}. Add benchmark metrics, intelligence sources,
+            and at least one answer in each of R&amp;D, GTM, and Finance to generate your overview.
+            Whatever you add here is your personal setup.
+          </p>
+        </div>
+      </div>
+      <div className="sc-adv-featured-rec-col">
+        <div className="sc-adv-rec-title">Next steps</div>
+        <ol className="sc-adv-rec-list">
+          {actions.map((action, i) => (
+            <li key={action.title} className="sc-adv-rec-item">
+              <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
+              <div className="sc-adv-rec-body">
+                <strong className="sc-adv-rec-name">{action.title}</strong>
+                <p className="sc-adv-rec-sub">{action.sub}</p>
+              </div>
+              <button type="button" className="sc-adv-rec-cta" onClick={handlers[i]}>
+                {action.cta} <span aria-hidden="true">→</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 // ─── UI: Advisor panel (sc-adv split layout + existing scorecard content) ───
 function OverviewAdvisorPanel({
   categories,
@@ -2747,22 +4175,30 @@ function OverviewAdvisorPanel({
   companyName,
   buildContext,
   benchmarkSaved = false,
+  privateWorkspace = false,
   onOpenIntelligence,
   onEditBenchmark,
   onAddSources,
   onViewDetails,
   documentSlots,
+  wikiSummary,
+  onOpenWikiSummary,
+  suggestionsReady = true,
 }: {
   categories: CategoryData[];
   runway: number | null;
   companyName: string;
   buildContext: CategoryBuildContext;
   benchmarkSaved?: boolean;
+  privateWorkspace?: boolean;
   onOpenIntelligence?: () => void;
   onEditBenchmark?: () => void;
   onAddSources?: () => void;
   onViewDetails?: () => void;
   documentSlots?: ScorecardDocumentSlot[];
+  wikiSummary: WikiSummaryContent;
+  onOpenWikiSummary: (highlightRefId?: number) => void;
+  suggestionsReady?: boolean;
 }) {
   const actions = buildAdvisorRecommendedActions(
     buildContext,
@@ -2770,6 +4206,7 @@ function OverviewAdvisorPanel({
     documentSlots,
     benchmarkSaved,
     companyName,
+    privateWorkspace,
   );
   const actionHandlers = [onEditBenchmark, onAddSources, onViewDetails];
 
@@ -2781,15 +4218,37 @@ function OverviewAdvisorPanel({
             <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
             <span className="sc-adv-company">{companyName}</span>
           </div>
-          <div className="sc-adv-rec-title">Summary</div>
-          <p className="sc-adv-summary">
-            {buildAdvisorGenericSummary(companyName, categories, runway, buildContext)}
+          <div className="sc-adv-rec-title-row">
+            <div className="sc-adv-rec-title">Summary</div>
+            <span className="sc-wiki-source-count">
+              {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              className="sc-wiki-expand-btn"
+              onClick={() => onOpenWikiSummary()}
+              aria-label="Open full company brief"
+            >
+              Full summary
+            </button>
+          </div>
+          <p className="sc-adv-summary sc-wiki-summary-compact">
+            {wikiParagraphPlainText(wikiSummary.compact)}
           </p>
+          <button
+            type="button"
+            className="sc-wiki-view-more"
+            onClick={() => onOpenWikiSummary()}
+          >
+            View full summary with references
+          </button>
           <div className="sc-adv-tags-label">Recent signals</div>
           <div className="sc-adv-tags">
             {categories.map(cat => {
               const tag = trackSignalTag(cat, runway);
-              const totalCount = cat.intelDisplayCount + cat.openInitiatives.length + cat.suggestedPlaybooks.length;
+              const totalCount = cat.intelDisplayCount
+                + (suggestionsReady ? cat.openInitiatives.length : 0)
+                + (suggestionsReady ? cat.suggestedPlaybooks.length : 0);
               return (
                 <button
                   key={cat.id}
@@ -2810,7 +4269,7 @@ function OverviewAdvisorPanel({
         </div>
       </div>
       <div className="sc-adv-featured-rec-col">
-        <div className="sc-adv-rec-title">Recommended Actions</div>
+        <div className="sc-adv-rec-title">{privateWorkspace ? "Next steps" : "Recommended Actions"}</div>
         <ol className="sc-adv-rec-list">
           {actions.map((action, i) => (
             <li key={action.title} className="sc-adv-rec-item">
@@ -2927,28 +4386,75 @@ function formatInitiativeReason(gap: TrackInsightItem): string {
 
 function CategoryDetailInsightsPanel({
   strengths,
+  weaknesses,
 }: {
   strengths: TrackInsightItem[];
+  weaknesses: TrackInsightItem[];
 }) {
+  const hasAny = strengths.length > 0 || weaknesses.length > 0;
+  if (!hasAny) {
+    return (
+      <p className="sc-cat-sw-empty sc-detail-insights-empty">
+        No track insights yet — add profile answers, benchmarks, or sources.
+      </p>
+    );
+  }
+
   return (
     <div className="sc-detail-insights-action">
-      {strengths.length > 0 ? (
-        <div className="sc-detail-strengths-strip">
-          <span className="sc-detail-insights-section-label">What&apos;s working</span>
-          <div className="sc-detail-strength-chips">
-            {strengths.map(item => (
+      <DetailInsightChipStrip
+        tone="strong"
+        label="What's working"
+        items={strengths}
+        empty="No strengths flagged yet."
+      />
+      <DetailInsightChipStrip
+        tone="weak"
+        label="Needs improvement"
+        items={weaknesses}
+        empty="No gaps flagged yet."
+      />
+    </div>
+  );
+}
+
+function DetailInsightChipStrip({
+  tone,
+  label,
+  items,
+  empty,
+}: {
+  tone: "strong" | "weak";
+  label: string;
+  items: TrackInsightItem[];
+  empty: string;
+}) {
+  return (
+    <div className={`sc-detail-insights-strip is-${tone}`}>
+      <span className="sc-detail-insights-section-label">{label}</span>
+      {items.length > 0 ? (
+        <div className="sc-detail-strength-chips" role="list">
+          {items.map(item => {
+            const why = stripInsightSourceSuffix(item.detail) || item.label;
+            return (
               <span
                 key={item.id}
-                className="sc-detail-strength-chip"
-                title={stripInsightSourceSuffix(item.detail)}
+                className={`sc-detail-insight-chip is-${tone}`}
+                role="listitem"
+                tabIndex={0}
+                aria-label={`${item.label}. ${why}`}
               >
                 {item.label}
+                <span className="sc-detail-insight-tip" role="tooltip">
+                  <strong>{tone === "strong" ? "Why it's working" : "Why it needs work"}</strong>
+                  <em>{why}</em>
+                </span>
               </span>
-            ))}
-          </div>
+            );
+          })}
         </div>
       ) : (
-        <p className="sc-cat-sw-empty sc-detail-insights-empty">No strengths flagged yet.</p>
+        <p className="sc-cat-sw-empty">{empty}</p>
       )}
     </div>
   );
@@ -3121,61 +4627,157 @@ function CategoryDetailFormWidget({
 
 function CategoryDetailInitiativesWidget({
   suggested,
+  active = [],
+  categoryId,
+  categoryColour,
   weaknesses = [],
+  onAddInitiative,
   onOpenInitiatives,
+  onViewInitiative,
 }: {
   suggested: CategoryInitiative[];
+  active?: ScorecardActiveInitiative[];
+  categoryId: ScorecardCategory;
+  categoryColour: string;
   weaknesses?: TrackInsightItem[];
+  onAddInitiative?: (initiative: ScorecardActiveInitiative) => void;
   onOpenInitiatives?: () => void;
+  onViewInitiative?: (id: string) => void;
 }) {
-  const active: CategoryInitiative[] = [];
-  const hasActive = active.length > 0;
+  const activeForTrack = active.filter(item => !item.pillar || item.pillar === categoryId);
+  const hasActive = activeForTrack.length > 0;
   const [view, setView] = useState<"active" | "suggested">("active");
+  const [toast, setToast] = useState<{ message: string; initiativeId: string } | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const addTimerRef = useRef<number | null>(null);
   const showView = hasActive ? view : "suggested";
 
+  const activeTitles = useMemo(
+    () => new Set(activeForTrack.map(item => item.title.trim().toLowerCase())),
+    [activeForTrack],
+  );
+
   const sortedSuggested = useMemo(() => {
-    const scored = suggested.map(init => ({
-      init,
-      gap: initiativeMatchesWeakness(init, weaknesses),
-    }));
+    const scored = suggested
+      .filter(init => !activeTitles.has(init.title.trim().toLowerCase()))
+      .map(init => ({
+        init,
+        gap: initiativeMatchesWeakness(init, weaknesses),
+      }));
     return scored.sort((a, b) => Number(Boolean(b.gap)) - Number(Boolean(a.gap)));
-  }, [suggested, weaknesses]);
+  }, [suggested, weaknesses, activeTitles]);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
+    if (addTimerRef.current != null) window.clearTimeout(addTimerRef.current);
+  }, []);
+
+  const showToast = (message: string, initiativeId: string) => {
+    setToast({ message, initiativeId });
+    if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 4200);
+  };
+
+  const handleAdd = (init: CategoryInitiative) => {
+    if (!onAddInitiative) {
+      onOpenInitiatives?.();
+      return;
+    }
+    if (addingId) return;
+
+    setAddingId(init.id);
+    if (addTimerRef.current != null) window.clearTimeout(addTimerRef.current);
+    addTimerRef.current = window.setTimeout(() => {
+      const nextId = `${init.id}-${Date.now()}`;
+      onAddInitiative({
+        id: nextId,
+        title: init.title,
+        description: init.description,
+        pillar: categoryId,
+        status: "Active",
+        progress: 0,
+      });
+      setAddingId(null);
+      setView("active");
+      showToast(`Initiative created · ${init.title}`, nextId);
+    }, 1100);
+  };
 
   const suggestedList = sortedSuggested.length > 0 ? (
     <div className="scorecard-drill-init-list sc-detail-init-list">
-      {sortedSuggested.map(({ init, gap }) => (
-        <div
-          key={init.id}
-          className="scorecard-drill-init-row"
-          style={{ "--init-col": init.colour } as React.CSSProperties}
-        >
-          <div className="scorecard-drill-init-body">
-            <div className="scorecard-drill-init-title">{init.title}</div>
-            <div className="scorecard-drill-init-desc">
-              {gap ? (
-                <>
-                  <span className="sc-detail-init-reason-label">Why: </span>
-                  {truncateAdvisorLine(formatInitiativeReason(gap), 140)}
-                </>
-              ) : (
-                init.description
-              )}
+      {sortedSuggested.map(({ init, gap }) => {
+        const isAdding = addingId === init.id;
+        return (
+          <div
+            key={init.id}
+            className={`scorecard-drill-init-row${isAdding ? " is-adding" : ""}`}
+            style={{ "--init-col": init.colour } as React.CSSProperties}
+          >
+            <div className="scorecard-drill-init-body">
+              <div className="scorecard-drill-init-title">{init.title}</div>
+              <div className="scorecard-drill-init-desc">
+                {gap ? (
+                  <>
+                    <span className="sc-detail-init-reason-label">Why: </span>
+                    {truncateAdvisorLine(formatInitiativeReason(gap), 140)}
+                  </>
+                ) : (
+                  init.description
+                )}
+              </div>
+            </div>
+            <div className="scorecard-drill-init-action">
+              <button
+                type="button"
+                className={`scorecard-drill-init-btn${isAdding ? " is-loading" : ""}`}
+                onClick={() => handleAdd(init)}
+                disabled={Boolean(addingId) || (!onAddInitiative && !onOpenInitiatives)}
+                aria-busy={isAdding}
+              >
+                {isAdding ? (
+                  <>
+                    <span className="sc-detail-init-spinner" aria-hidden="true" />
+                    Adding
+                  </>
+                ) : (
+                  <>Add <span aria-hidden="true">→</span></>
+                )}
+              </button>
             </div>
           </div>
-          <div className="scorecard-drill-init-action">
-            <button type="button" className="scorecard-drill-init-btn" onClick={() => onOpenInitiatives?.()}>
-              Add <span aria-hidden="true">→</span>
-            </button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   ) : (
-    <p className="sc-detail-init-empty">No suggested initiatives for this track yet.</p>
+    <p className="sc-detail-init-empty">
+      {suggested.length > 0
+        ? "All suggested initiatives for this track are already active."
+        : "No suggested initiatives for this track yet."}
+    </p>
   );
 
   return (
-    <div className="sc-detail-init-stack">
+    <div className={`sc-detail-init-stack${addingId ? " is-busy" : ""}`}>
+      {toast ? (
+        <div className="sc-init-toast" role="status">
+          <span>{toast.message}</span>
+          {onViewInitiative || onOpenInitiatives ? (
+            <button
+              type="button"
+              className="sc-init-toast-view"
+              onClick={() => {
+                if (onViewInitiative) onViewInitiative(toast.initiativeId);
+                else onOpenInitiatives?.();
+                setToast(null);
+              }}
+            >
+              View
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {hasActive ? (
         <div className="sc-detail-init-seg" role="tablist" aria-label="Initiative view">
           <button
@@ -3185,16 +4787,16 @@ function CategoryDetailInitiativesWidget({
             className={`sc-detail-init-seg-btn${showView === "active" ? " is-active" : ""}`}
             onClick={() => setView("active")}
           >
-            Active
+            Active · {activeForTrack.length}
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={showView === "suggested"}
-            className={`sc-detail-init-seg-btn${showView === "suggested" ? " is-active" : ""}${suggested.length > 0 ? " has-recs" : ""}`}
+            className={`sc-detail-init-seg-btn${showView === "suggested" ? " is-active" : ""}${sortedSuggested.length > 0 ? " has-recs" : ""}`}
             onClick={() => setView("suggested")}
           >
-            Suggested{suggested.length > 0 ? ` · ${suggested.length}` : ""}
+            Suggested{sortedSuggested.length > 0 ? ` · ${sortedSuggested.length}` : ""}
           </button>
         </div>
       ) : null}
@@ -3202,14 +4804,29 @@ function CategoryDetailInitiativesWidget({
       {showView === "active" && hasActive ? (
         <div className="sc-detail-init-group">
           <span className="sc-detail-init-group-label">Active</span>
-          {active.map(init => (
-            <div key={init.id} className="scorecard-drill-init-row" style={{ "--init-col": init.colour } as React.CSSProperties}>
-              <div className="scorecard-drill-init-body">
-                <div className="scorecard-drill-init-title">{init.title}</div>
-                <div className="scorecard-drill-init-desc">{init.description}</div>
+          <div className="scorecard-drill-init-list sc-detail-init-list">
+            {activeForTrack.map(init => (
+              <div key={init.id} className="scorecard-drill-init-row" style={{ "--init-col": categoryColour } as React.CSSProperties}>
+                <div className="scorecard-drill-init-body">
+                  <div className="scorecard-drill-init-title">{init.title}</div>
+                  <div className="scorecard-drill-init-desc">{init.description}</div>
+                </div>
+                <div className="scorecard-drill-init-action">
+                  <button
+                    type="button"
+                    className="scorecard-drill-init-btn"
+                    onClick={() => {
+                      if (onViewInitiative) onViewInitiative(init.id);
+                      else onOpenInitiatives?.();
+                    }}
+                    disabled={!onViewInitiative && !onOpenInitiatives}
+                  >
+                    View
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ) : (
         <div className="sc-detail-init-group">
@@ -3290,24 +4907,32 @@ function CategoryDetailView({
   detailAnswers,
   runway,
   intelligenceItems,
+  activeInitiatives = [],
   onBack,
   onUpdateDetails,
   onEditBenchmark,
   onOpenIntelligence,
   onOpenInitiatives,
+  onAddInitiative,
+  onViewInitiative,
   onRunPlaybook,
+  suggestionsReady = true,
 }: {
   cat: CategoryData;
   metricMap: Record<MetricKey, EvaluatedMetric>;
   detailAnswers: DetailAnswers;
   runway: number | null;
   intelligenceItems: ScorecardIntelligenceItem[];
+  activeInitiatives?: ScorecardActiveInitiative[];
   onBack: () => void;
   onUpdateDetails?: () => void;
   onEditBenchmark?: () => void;
   onOpenIntelligence?: () => void;
   onOpenInitiatives?: () => void;
-  onRunPlaybook?: (id: string) => void;
+  onAddInitiative?: (initiative: ScorecardActiveInitiative) => void;
+  onViewInitiative?: (id: string) => void;
+  onRunPlaybook?: (playbookId: string) => void;
+  suggestionsReady?: boolean;
 }) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [intelExpanded, setIntelExpanded] = useState(false);
@@ -3323,7 +4948,10 @@ function CategoryDetailView({
   );
   const visibleIntel = intelExpanded ? catIntel : catIntel.slice(0, 5);
   const hiddenIntelCount = Math.max(0, catIntel.length - 5);
-  const playbooks = cat.suggestedPlaybooks.length ? cat.suggestedPlaybooks : CATEGORY_PLAYBOOKS[cat.id];
+  const playbooks = suggestionsReady
+    ? (cat.suggestedPlaybooks.length ? cat.suggestedPlaybooks : CATEGORY_PLAYBOOKS[cat.id])
+    : [];
+  const suggestedInitiatives = suggestionsReady ? cat.openInitiatives : [];
   const allBenchmarkMetrics = useMemo(
     () => ALL_BENCHMARK_METRIC_KEYS.map(k => metricMap[k]).filter(Boolean),
     [metricMap],
@@ -3331,9 +4959,10 @@ function CategoryDetailView({
 
   return (
     <div className="sc-category-detail sc-detail-dashboard">
-      <button type="button" className="scorecard-drill-back-btn sc-category-detail-back" onClick={onBack}>
-        ← Overview
-      </button>
+      <ScorecardBreadcrumb
+        onOverview={onBack}
+        current={`${cat.label} · ${cat.fullLabel}`}
+      />
 
       <article className="sc-glance-row sc-glance-row-detail sc-detail-hero-widget">
         <CategoryGlanceHeaderBar
@@ -3343,6 +4972,7 @@ function CategoryDetailView({
           onOpenIntelligence={onOpenIntelligence}
           onOpenInitiatives={onOpenInitiatives}
           onRunPlaybook={onRunPlaybook}
+          suggestionsReady={suggestionsReady}
         />
         <div className="sc-detail-hero">
           <div className="sc-detail-hero-main">
@@ -3372,12 +5002,19 @@ function CategoryDetailView({
         <DetailDashboardWidget title="Track insights" span={6}>
           <CategoryDetailInsightsPanel
             strengths={cat.glanceStrengthItems}
+            weaknesses={cat.glanceWeaknessItems}
           />
         </DetailDashboardWidget>
 
         <DetailDashboardWidget
           title="Initiatives"
-          meta={cat.openInitiatives.length ? `${cat.openInitiatives.length} suggested` : undefined}
+          meta={
+            !suggestionsReady
+              ? "Building…"
+              : suggestedInitiatives.length
+                ? `${suggestedInitiatives.length} suggested`
+                : undefined
+          }
           span={6}
           headerAction={onOpenInitiatives ? (
             <button type="button" className="sc-detail-widget-head-link" onClick={() => onOpenInitiatives()}>
@@ -3385,16 +5022,25 @@ function CategoryDetailView({
             </button>
           ) : null}
         >
-          <CategoryDetailInitiativesWidget
-            suggested={cat.openInitiatives}
-            weaknesses={cat.glanceWeaknessItems}
-            onOpenInitiatives={onOpenInitiatives}
-          />
+          {suggestionsReady ? (
+            <CategoryDetailInitiativesWidget
+              suggested={suggestedInitiatives}
+              active={activeInitiatives}
+              categoryId={cat.id}
+              categoryColour={cat.colour}
+              weaknesses={cat.glanceWeaknessItems}
+              onAddInitiative={onAddInitiative}
+              onOpenInitiatives={onOpenInitiatives}
+              onViewInitiative={onViewInitiative}
+            />
+          ) : (
+            <p className="sc-cat-sw-empty">Initiative suggestions are still preparing.</p>
+          )}
         </DetailDashboardWidget>
 
         <DetailDashboardWidget
           title="Intelligence"
-          meta={catIntel.length ? `${catIntel.length} signal${catIntel.length === 1 ? "" : "s"}` : undefined}
+          meta={cat.intelligenceCount ? `${cat.intelligenceCount} signal${cat.intelligenceCount === 1 ? "" : "s"}` : undefined}
           span={6}
           footer={(
             <button type="button" className="sc-category-detail-tab-link" onClick={() => onOpenIntelligence?.()}>
@@ -3432,7 +5078,13 @@ function CategoryDetailView({
 
         <DetailDashboardWidget
           title="Playbooks"
-          meta={playbooks.length ? `${playbooks.length} available` : undefined}
+          meta={
+            !suggestionsReady
+              ? "Building…"
+              : playbooks.length
+                ? `${playbooks.length} available`
+                : undefined
+          }
           span={6}
         >
           {playbooks.length > 0 ? (
@@ -3455,7 +5107,11 @@ function CategoryDetailView({
               ))}
             </div>
           ) : (
-            <p className="sc-cat-sw-empty">No playbooks suggested for this track yet.</p>
+            <p className="sc-cat-sw-empty">
+              {suggestionsReady
+                ? "No playbooks suggested for this track yet."
+                : "Playbook suggestions are still preparing."}
+            </p>
           )}
         </DetailDashboardWidget>
       </div>
@@ -3882,6 +5538,17 @@ export default function ScorecardV2({
   activeTourTarget,
   onboardingAnswers = null,
   documentSlots,
+  workspaceIntroOpen = false,
+  onDismissWorkspaceIntro,
+  onWorkspaceActivity,
+  privateWorkspaceLabel,
+  efficiencyExtras,
+  activeInitiatives = [],
+  onAddInitiative,
+  onViewInitiative,
+  overviewBuildPhase = null,
+  onStartOptionalTour,
+  onDismissOverviewReady,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
   const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
@@ -3893,6 +5560,8 @@ export default function ScorecardV2({
   const [drawerStep, setDrawerStep] = useState(0);
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const [advisorOpen, setAdvisorOpen] = useState(true);
+  const [wikiSummaryOpen, setWikiSummaryOpen] = useState(false);
+  const [wikiHighlightRefId, setWikiHighlightRefId] = useState<number | null>(null);
   const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(cName));
 
   const mergedDetailAnswers = useMemo(
@@ -3927,6 +5596,7 @@ export default function ScorecardV2({
       const next = { ...prev };
       if (value) next[qid] = value; else delete next[qid];
       saveDetailAnswers(cName, next);
+      if (value) onWorkspaceActivity?.();
       return next;
     });
   };
@@ -3957,8 +5627,54 @@ export default function ScorecardV2({
     [metricMap, runway, buildContext],
   );
 
+  const showWorkspaceSetup = useMemo(() => {
+    if (!privateWorkspaceLabel) return false;
+    return !isPrivateWorkspaceOverviewReady(
+      benchmarkValues,
+      mergedDetailAnswers,
+      documentSlots,
+      intelligenceItems,
+    );
+  }, [benchmarkValues, documentSlots, intelligenceItems, mergedDetailAnswers, privateWorkspaceLabel]);
+
+  useEffect(() => {
+    if (showWorkspaceSetup && (activeView === "dev" || activeView === "mkt" || activeView === "rev")) {
+      setActiveView("overview");
+    }
+  }, [activeView, showWorkspaceSetup]);
+
+  const advisorActions = useMemo(
+    () => buildAdvisorRecommendedActions(
+      buildContext,
+      mergedDetailAnswers,
+      documentSlots,
+      benchmarkSaved,
+      cName,
+      Boolean(privateWorkspaceLabel),
+    ),
+    [benchmarkSaved, buildContext, cName, documentSlots, mergedDetailAnswers, privateWorkspaceLabel],
+  );
+
+  const wikiSummary = useMemo(
+    () => buildOverviewWikiSummary(cName, categoryData, runway, buildContext, documentSlots, cohortLabel),
+    [buildContext, categoryData, cName, cohortLabel, documentSlots, runway],
+  );
+
+  const openWikiSummary = useCallback((highlightRefId?: number) => {
+    setWikiHighlightRefId(highlightRefId ?? null);
+    setWikiSummaryOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (activeView !== "overview" && wikiSummaryOpen) {
+      setWikiSummaryOpen(false);
+      setWikiHighlightRefId(null);
+    }
+  }, [activeView, wikiSummaryOpen]);
+
   const isCategoryDetail = activeView === "dev" || activeView === "mkt" || activeView === "rev";
   const activeCategory = isCategoryDetail ? categoryData.find(c => c.id === activeView) : undefined;
+  const suggestionsReady = overviewSuggestionsReady(overviewBuildPhase);
 
   if (activeView === "benchmark") {
     return (
@@ -3975,9 +5691,64 @@ export default function ScorecardV2({
 
   return (
     <div className="scorecard-v2">
+      {workspaceIntroOpen ? (
+        <div className="sc-workspace-intro">
+          <div>
+            <strong>Your private overview is ready</strong>
+            <p>
+              Fuel set up a personal workspace for {cName}. Add benchmarks, track details, intelligence, and initiatives here —
+              visible only to your account, never to the founding team or other investors.
+            </p>
+          </div>
+          <button type="button" onClick={onDismissWorkspaceIntro}>Got it</button>
+        </div>
+      ) : null}
+      {privateWorkspaceLabel ? (
+        <div className="sc-private-workspace-label">{privateWorkspaceLabel}</div>
+      ) : null}
+      {wikiSummaryOpen && activeView === "overview" ? (
+        <OverviewFullSummaryPage
+          companyName={cName}
+          summary={wikiSummary}
+          metrics={metrics}
+          metricMap={metricMap}
+          categories={categoryData}
+          runway={runway}
+          buildContext={buildContext}
+          cohortLabel={cohortLabel}
+          documentSlots={documentSlots}
+          efficiencyExtras={efficiencyExtras}
+          activeInitiatives={activeInitiatives}
+          highlightRefId={wikiHighlightRefId}
+          onClose={() => {
+            setWikiSummaryOpen(false);
+            setWikiHighlightRefId(null);
+          }}
+        />
+      ) : (
+        <>
+      {!isCategoryDetail && overviewBuildPhase && overviewBuildPhase !== "ready" ? (
+        <OverviewBuildPanel
+          phase={overviewBuildPhase}
+        />
+      ) : null}
+      {!isCategoryDetail && overviewBuildPhase === "ready" ? (
+        <div className="sc-overview-ready-bar" role="status">
+          <div>
+            <strong>Your Overview is ready</strong>
+            <span>Scores, advisor, and first suggestions are live.</span>
+          </div>
+          <div className="sc-overview-ready-actions">
+            {onStartOptionalTour ? (
+              <button type="button" onClick={onStartOptionalTour}>Take a quick tour</button>
+            ) : null}
+            <button type="button" className="secondary" onClick={onDismissOverviewReady}>Skip</button>
+          </div>
+        </div>
+      ) : null}
       {!isCategoryDetail ? (
       <div
-        className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}`}
+        className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
         data-tour-target="ai-advisor"
       >
         <div className="sc-adv-featured-border" aria-hidden="true" />
@@ -3990,22 +5761,42 @@ export default function ScorecardV2({
           aria-expanded={advisorOpen}
         >
           <span className="sc-adv-featured-toggle-label">✦ Fuel AI · Advisor</span>
-          <span className="sc-adv-featured-toggle-meta">{cName}</span>
+          <span className="sc-adv-featured-toggle-meta">
+            {overviewBuildPhase && !overviewAdvisorReady(overviewBuildPhase)
+              ? "Building…"
+              : cName}
+          </span>
           <span className="sc-adv-featured-chev" aria-hidden="true">▾</span>
         </div>
         {advisorOpen ? (
+          overviewBuildPhase && !overviewAdvisorReady(overviewBuildPhase) ? (
+            <OverviewAdvisorSkeleton />
+          ) : showWorkspaceSetup ? (
+            <OverviewWorkspaceSetupPanel
+              companyName={cName}
+              actions={advisorActions}
+              onEditBenchmark={() => setEditBenchmarkOpen(true)}
+              onAddSources={() => setAddSourcesOpen(true)}
+              onViewDetails={() => openDetailsDrawer()}
+            />
+          ) : (
           <OverviewAdvisorPanel
             categories={categoryData}
             runway={runway}
             companyName={cName}
             buildContext={buildContext}
             benchmarkSaved={benchmarkSaved}
+            privateWorkspace={Boolean(privateWorkspaceLabel)}
             onOpenIntelligence={onOpenIntelligence}
             onEditBenchmark={() => setEditBenchmarkOpen(true)}
             onAddSources={() => setAddSourcesOpen(true)}
             onViewDetails={() => openDetailsDrawer()}
             documentSlots={documentSlots}
+            wikiSummary={wikiSummary}
+            onOpenWikiSummary={openWikiSummary}
+            suggestionsReady={suggestionsReady}
           />
+          )
         ) : null}
       </div>
       ) : null}
@@ -4017,32 +5808,53 @@ export default function ScorecardV2({
           detailAnswers={mergedDetailAnswers}
           runway={runway}
           intelligenceItems={intelligenceItems}
+          activeInitiatives={activeInitiatives}
           onBack={() => setActiveView("overview")}
           onUpdateDetails={() => openDetailsDrawer(activeCategory.id)}
           onEditBenchmark={() => setEditBenchmarkOpen(true)}
           onOpenIntelligence={onOpenIntelligence}
           onOpenInitiatives={onOpenInitiatives}
+          onAddInitiative={onAddInitiative}
+          onViewInitiative={onViewInitiative}
           onRunPlaybook={onRunPlaybook}
+          suggestionsReady={suggestionsReady}
         />
+      ) : showWorkspaceSetup ? (
+        <div className="sc-workspace-setup-hint">
+          <p>Complete benchmark, sources, and R&amp;D · GTM · Finance details above to generate your track scores.</p>
+        </div>
+      ) : overviewBuildPhase && overviewBuildPhase === "summary" ? (
+        <div className="sc-overview-tracks sc-overview-tracks-glance" aria-busy="true">
+          <CategoryGlanceRowSkeleton label="R&D" />
+          <CategoryGlanceRowSkeleton label="GTM" />
+          <CategoryGlanceRowSkeleton label="G&A" />
+        </div>
       ) : (
         <div className="sc-overview-tracks sc-overview-tracks-glance">
           {categoryData.map(cat => (
-            <CategoryGlanceRow
-              key={cat.id}
-              cat={cat}
-              runway={runway}
-              onOpen={() => setActiveView(cat.id)}
-              onUpdateDetails={() => openDetailsDrawer(cat.id)}
-              onOpenIntelligence={onOpenIntelligence}
-              onOpenInitiatives={onOpenInitiatives}
-              onRunPlaybook={onRunPlaybook}
-              glancePopoverOpen={openGlancePopover === cat.id}
-              onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
-              onGlancePopoverClose={() => setOpenGlancePopover(null)}
-              tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
-            />
+            overviewTrackReady(cat.id, overviewBuildPhase) ? (
+              <CategoryGlanceRow
+                key={cat.id}
+                cat={cat}
+                runway={runway}
+                onOpen={() => setActiveView(cat.id)}
+                onUpdateDetails={() => openDetailsDrawer(cat.id)}
+                onOpenIntelligence={onOpenIntelligence}
+                onOpenInitiatives={onOpenInitiatives}
+                onRunPlaybook={onRunPlaybook}
+                glancePopoverOpen={openGlancePopover === cat.id}
+                onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
+                onGlancePopoverClose={() => setOpenGlancePopover(null)}
+                tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
+                suggestionsReady={suggestionsReady}
+              />
+            ) : (
+              <CategoryGlanceRowSkeleton key={cat.id} label={cat.label} />
+            )
           ))}
         </div>
+      )}
+        </>
       )}
 
       {drawerOpen && (
@@ -4054,6 +5866,7 @@ export default function ScorecardV2({
           onSaveClose={() => {
             setDrawerOpen(false);
             saveStoredQuarter(`fuel-details-q-${cName}`);
+            onWorkspaceActivity?.();
           }}
           onClose={() => setDrawerOpen(false)}
         />

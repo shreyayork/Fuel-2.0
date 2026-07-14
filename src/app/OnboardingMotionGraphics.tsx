@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "motion/react";
+import {
+  dealMatchesInvestGeography,
+  investGeographyDisplayLabel,
+} from "./investGeography.ts";
 
 // ─── Shared types (mirrors OnboardingFlow) ───────────────────────────────────
 
@@ -825,8 +829,21 @@ const DEAL_SUGGESTIONS: DealSuggestion[] = [
   { name: "Mercury", sector: "FinTech", stage: "Series A / B", geo: "United States", checkFit: ["$2M – $10M", "Over $10M"], growth: "62% ARR", score: 88 },
   { name: "Vanta", sector: "SaaS / Software", stage: "Series A / B", geo: "United States", checkFit: ["$2M – $10M"], growth: "74% ARR", score: 86 },
   { name: "Ramp", sector: "FinTech", stage: "Growth / Series C+", geo: "United States", checkFit: ["Over $10M"], growth: "48% ARR", score: 82 },
+  { name: "Wealthsimple", sector: "FinTech", stage: "Series A / B", geo: "Canada", checkFit: ["$2M – $10M", "$500K – $2M"], growth: "71% ARR", score: 84 },
   { name: "Deel", sector: "SaaS / Software", stage: "Growth / Series C+", geo: "Global", checkFit: ["$2M – $10M", "Over $10M"], growth: "55% ARR", score: 80 },
 ];
+
+const INVEST_MOTION_ACCENT = "#00B48A";
+const INVEST_MOTION_GRADIENT = "linear-gradient(135deg, #00B48A, #2BB8A0)";
+const INVEST_MOTION_TINT_BG = "#E8F8F3";
+const INVEST_MOTION_TINT_BORDER = "#B8E8D8";
+const INVEST_MOTION_CHIP_BG = "#EEF6F3";
+const INVEST_MOTION_CHIP_BORDER = "#D4E8E0";
+const INVEST_MOTION_TINT_TEXT = "#2A6B58";
+
+function dealMatchesGeography(dealGeo: string, geography: string | string[]): boolean {
+  return dealMatchesInvestGeography(dealGeo, geography);
+}
 
 function filterDealSuggestions(
   stages: string[], sectors: string[], checkSize: string, geography: string,
@@ -836,7 +853,7 @@ function filterDealSuggestions(
       if (stages.length && !stages.includes(d.stage)) return false;
       if (sectors.length && !sectors.some(s => d.sector.includes(s.split("/")[0].trim()) || s.includes(d.sector.split("/")[0].trim()))) return false;
       if (checkSize && !d.checkFit.includes(checkSize)) return false;
-      if (geography && geography !== "Global" && d.geo !== geography && geography !== "North America") return false;
+      if (!dealMatchesGeography(d.geo, geography)) return false;
       return true;
     })
     .sort((a, b) => b.score - a.score)
@@ -852,13 +869,13 @@ function SuggestionCard({ deal, i }: { deal: DealSuggestion; i: number }) {
       style={{
         display: "flex", alignItems: "center", gap: 12,
         padding: "11px 13px", marginBottom: 8,
-        background: "#fff", borderRadius: 10, border: "1px solid #DDD0F5",
-        boxShadow: "0 2px 8px rgba(139,118,212,0.08)",
+        background: "#fff", borderRadius: 10, border: `1px solid ${INVEST_MOTION_CHIP_BORDER}`,
+        boxShadow: "0 2px 8px rgba(0, 180, 138, 0.08)",
       }}
     >
       <div style={{
         width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-        background: "linear-gradient(135deg, #8B76D4, #B8A0E8)",
+        background: INVEST_MOTION_GRADIENT,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: M.lg, fontWeight: 800, color: "#fff",
       }}>
@@ -869,8 +886,8 @@ function SuggestionCard({ deal, i }: { deal: DealSuggestion; i: number }) {
         <div style={{ fontSize: M.sm, color: "#8A9E96", marginTop: 2 }}>{deal.stage} · {deal.growth}</div>
       </div>
       <div style={{
-        fontSize: M.md, fontWeight: 800, color: "#8B76D4",
-        background: "#F3EFFE", borderRadius: 8, padding: "3px 8px", flexShrink: 0,
+        fontSize: M.md, fontWeight: 800, color: INVEST_MOTION_ACCENT,
+        background: INVEST_MOTION_TINT_BG, borderRadius: 8, padding: "3px 8px", flexShrink: 0,
       }}>
         {deal.score}%
       </div>
@@ -883,7 +900,7 @@ export function InvestmentMotion({
   stages = [],
   sectors = [],
   checkSize = "",
-  geography = "",
+  geography = [] as string[],
   pipeline = "",
   companyName = "Your fund",
 }: {
@@ -891,7 +908,7 @@ export function InvestmentMotion({
   stages?: string[];
   sectors?: string[];
   checkSize?: string;
-  geography?: string;
+  geography?: string | string[];
   pipeline?: string;
   companyName?: string;
 }) {
@@ -910,35 +927,37 @@ export function InvestmentMotion({
     }));
   }, [stages]);
 
+  const geographyLabel = investGeographyDisplayLabel(geography);
+
   const subtitles = [
     stages.length ? `Stage focus · ${stages.join(", ")}` : "Stage focus · deal flow",
     sectors.length ? `Sectors · ${sectors.slice(0, 2).join(", ")}` : "Smart company suggestions",
     checkSize ? `Check size · ${checkSize}` : "Deal sizing · portfolio fit",
-    geography ? `Geography · ${geography}` : "Geo-matched opportunities",
-    pipeline ? `Pipeline · ${pipeline}` : "Deal pipeline · CRM connect",
+    geographyLabel ? `Geography · ${geographyLabel}` : "Geo-matched opportunities",
+    pipeline ? `Pipeline · ${pipeline}` : "Deal pipeline",
   ];
 
   return (
-    <MotionShell accent="#8B76D4">
+    <MotionShell accent={INVEST_MOTION_ACCENT}>
       <FuelProductCard title={companyName} subtitle={subtitles[investQ] ?? "Fund intelligence"}>
         <AnimatePresence mode="wait">
           {investQ === 0 && (
             <motion.div key="stages" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: INVEST_MOTION_ACCENT, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Stage-matched deal flow
               </div>
               {stageBars.map((s, i) => (
                 <div key={s.stage} style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontSize: M.md, color: "#5A7A70" }}>{s.stage}</span>
-                    <span style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4" }}>{s.deals} deals</span>
+                    <span style={{ fontSize: M.md, fontWeight: 700, color: INVEST_MOTION_ACCENT }}>{s.deals} deals</span>
                   </div>
                   <div style={{ height: 5, background: "#E8F0ED", borderRadius: 3, overflow: "hidden" }}>
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${s.pct}%` }}
                       transition={{ delay: 0.15 + i * 0.1, duration: 0.8, ease: EASE_OUT }}
-                      style={{ height: "100%", background: "#8B76D4", borderRadius: 3 }}
+                      style={{ height: "100%", background: INVEST_MOTION_ACCENT, borderRadius: 3 }}
                     />
                   </div>
                 </div>
@@ -946,7 +965,7 @@ export function InvestmentMotion({
               {stages.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
                   {stages.map(s => (
-                    <span key={s} style={{ fontSize: M.sm, fontWeight: 600, color: "#8B76D4", background: "#F3EFFE", border: "1px solid #DDD0F5", borderRadius: 12, padding: "4px 10px" }}>{s}</span>
+                    <span key={s} style={{ fontSize: M.sm, fontWeight: 600, color: INVEST_MOTION_ACCENT, background: INVEST_MOTION_CHIP_BG, border: `1px solid ${INVEST_MOTION_CHIP_BORDER}`, borderRadius: 12, padding: "4px 10px" }}>{s}</span>
                   ))}
                 </div>
               )}
@@ -956,7 +975,7 @@ export function InvestmentMotion({
 
           {investQ === 1 && (
             <motion.div key="sectors" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: INVEST_MOTION_ACCENT, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Smart company suggestions
               </div>
               {(suggestions.length ? suggestions : DEAL_SUGGESTIONS.slice(0, 3)).map((d, i) => (
@@ -965,7 +984,7 @@ export function InvestmentMotion({
               {sectors.length > 0 && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
                   {sectors.map(s => (
-                    <span key={s} style={{ fontSize: M.sm, fontWeight: 600, color: "#8B76D4", background: "#F3EFFE", border: "1px solid #DDD0F5", borderRadius: 12, padding: "4px 10px" }}>{s}</span>
+                    <span key={s} style={{ fontSize: M.sm, fontWeight: 600, color: INVEST_MOTION_ACCENT, background: INVEST_MOTION_CHIP_BG, border: `1px solid ${INVEST_MOTION_CHIP_BORDER}`, borderRadius: 12, padding: "4px 10px" }}>{s}</span>
                   ))}
                 </div>
               )}
@@ -975,7 +994,7 @@ export function InvestmentMotion({
 
           {investQ === 2 && (
             <motion.div key="check" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: INVEST_MOTION_ACCENT, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Portfolio · deal sizing
               </div>
               {[
@@ -986,20 +1005,20 @@ export function InvestmentMotion({
                 <div key={b.label} style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontSize: M.md, color: "#5A7A70" }}>{b.label}</span>
-                    <span style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4" }}>{b.pct}%</span>
+                    <span style={{ fontSize: M.md, fontWeight: 700, color: INVEST_MOTION_ACCENT }}>{b.pct}%</span>
                   </div>
                   <div style={{ height: 5, background: "#E8F0ED", borderRadius: 3, overflow: "hidden" }}>
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${b.pct}%` }}
                       transition={{ delay: 0.15 + i * 0.1, duration: 0.8, ease: EASE_OUT }}
-                      style={{ height: "100%", background: "#8B76D4", borderRadius: 3 }}
+                      style={{ height: "100%", background: INVEST_MOTION_ACCENT, borderRadius: 3 }}
                     />
                   </div>
                 </div>
               ))}
               {checkSize && (
-                <div style={{ marginTop: 10, padding: "10px 12px", background: "#F3EFFE", borderRadius: 10, border: "1px solid #DDD0F5", fontSize: M.md, color: "#5A4A78", lineHeight: 1.55 }}>
+                <div style={{ marginTop: 10, padding: "10px 12px", background: INVEST_MOTION_TINT_BG, borderRadius: 10, border: `1px solid ${INVEST_MOTION_TINT_BORDER}`, fontSize: M.md, color: INVEST_MOTION_TINT_TEXT, lineHeight: 1.55 }}>
                   Sweet spot: <strong>{checkSize}</strong> — {(suggestions.length ? suggestions : DEAL_SUGGESTIONS.slice(0, 2)).map(d => d.name).join(", ")} fit your range.
                 </div>
               )}
@@ -1009,28 +1028,28 @@ export function InvestmentMotion({
 
           {investQ === 3 && (
             <motion.div key="geo" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                {geography || "Geo-matched"} opportunities
+              <div style={{ fontSize: M.md, fontWeight: 700, color: INVEST_MOTION_ACCENT, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                {geographyLabel ? `${geographyLabel} opportunities` : "Geo-matched opportunities"}
               </div>
-              {(suggestions.length ? suggestions : DEAL_SUGGESTIONS.filter(d => !geography || d.geo === geography || geography === "Global").slice(0, 3)).map((d, i) => (
+              {(suggestions.length ? suggestions : DEAL_SUGGESTIONS.filter(d => dealMatchesGeography(d.geo, geography)).slice(0, 3)).map((d, i) => (
                 <SuggestionCard key={d.name} deal={d} i={i} />
               ))}
-              {geography && (
+              {geographyLabel ? (
                 <div style={{ marginTop: 8, fontSize: M.md, color: "#8A9E96", lineHeight: 1.55 }}>
-                  Prioritizing {geography} companies raising in your stage and sector focus.
+                  Prioritizing {geographyLabel} companies raising in your stage and sector focus.
                 </div>
-              )}
+              ) : null}
 
             </motion.div>
           )}
 
           {investQ === 4 && (
             <motion.div key="pipeline" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}>
-              <div style={{ fontSize: M.md, fontWeight: 700, color: "#8B76D4", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              <div style={{ fontSize: M.md, fontWeight: 700, color: INVEST_MOTION_ACCENT, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 {pipeline === "HubSpot" ? "HubSpot · connecting" : "Deal pipeline"}
               </div>
               {[
-                { stage: "Sourced", count: 24, color: "#8B76D4" },
+                { stage: "Sourced", count: 24, color: INVEST_MOTION_ACCENT },
                 { stage: "Diligence", count: 8, color: "#00B48A" },
                 { stage: "Term sheet", count: 3, color: "#D4924A" },
                 { stage: "Portfolio", count: pipeline ? 18 : 12, color: "#2BB8A0" },
@@ -1047,18 +1066,16 @@ export function InvestmentMotion({
                   <span style={{ fontSize: M.base, fontWeight: 700, color: s.color }}>{s.count}</span>
                 </motion.div>
               ))}
-              {pipeline && (
+              {pipeline === "HubSpot" ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.4, ...EASE_ENTER }}
                   style={{ marginTop: 10, padding: "10px 12px", background: "#E8F8F3", borderRadius: 10, border: "1px solid #B8E8D8", fontSize: M.md, color: "#2A6B58", lineHeight: 1.55 }}
                 >
-                  {pipeline === "HubSpot"
-                    ? "✓ HubSpot connection queued — deals, contacts, and notes will sync on setup."
-                    : `We'll import your ${pipeline} pipeline and unify deal + portfolio tracking.`}
+                  ✓ HubSpot connection queued — deals, contacts, and notes will sync on setup.
                 </motion.div>
-              )}
+              ) : null}
 
             </motion.div>
           )}
@@ -1075,7 +1092,7 @@ type HubSpotStatus = "pending" | "connecting" | "connected";
 const PIPELINE_DEALS = [
   { name: "Nexus AI", stage: "Diligence", value: "$1.2M", color: "#00B48A" },
   { name: "Patriot Pay", stage: "Term sheet", value: "$800K", color: "#D4924A" },
-  { name: "Mercury", stage: "Sourced", value: "$2.5M", color: "#8B76D4" },
+  { name: "Mercury", stage: "Sourced", value: "$2.5M", color: INVEST_MOTION_ACCENT },
   { name: "Vanta", stage: "Portfolio", value: "$3.1M", color: "#2BB8A0" },
 ];
 
