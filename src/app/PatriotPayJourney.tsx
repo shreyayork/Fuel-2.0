@@ -33,13 +33,11 @@ import {
   buildYearOptions,
   filterIntelligenceByDate,
   getIntelligenceDateRange,
-  groupIntelligenceItems,
   INTELLIGENCE_DATE_PRESETS,
   matchesIntelligenceSearch,
   MONTH_OPTIONS,
   type IntelligenceCustomRange,
   type IntelligenceDatePreset,
-  type IntelligenceGroupMode,
 } from "./intelligenceFilters";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -2667,7 +2665,7 @@ type IntelligenceItem = {
   updatedAtMs?: number;
 };
 
-type SourceQueueStatus = "awaiting_generation" | "no_intelligence";
+type SourceQueueStatus = "awaiting_generation" | "saved";
 
 type PendingSource = {
   id: string;
@@ -2678,6 +2676,8 @@ type PendingSource = {
   addedAtMs: number;
   addedAtLabel: string;
   status: SourceQueueStatus;
+  intelligenceGenerated?: boolean;
+  intelligenceIds?: string[];
   emptyReason?: string;
   processedAtLabel?: string;
 };
@@ -2705,14 +2705,14 @@ function evaluateSourceIntelligenceGeneration({
   if (!hasDocument && trimmedDescription.length < 20) {
     return {
       item: null,
-      emptyReason: "Add more context — Fuel needs a clearer description to extract intelligence from a note.",
+      emptyReason: "Source saved without intelligence.",
     };
   }
 
   if (hasDocument && !trimmedDescription && trimmedTitle.length < 10) {
     return {
       item: null,
-      emptyReason: "Fuel couldn't identify structured signal in this file. Add a title and description of what to extract.",
+      emptyReason: "Source saved without intelligence.",
     };
   }
 
@@ -2730,7 +2730,7 @@ function getPendingSources(
   documentSlots: DataRoomDocumentSlot[],
 ): PendingSource[] {
   const documentPending = getActiveDocumentSlots(documentSlots)
-    .filter(slot => slot.current && slot.current.intelligenceCount === 0)
+    .filter(slot => slot.current)
     .map(slot => ({
       id: `pending-doc-${slot.typeId}`,
       title: slot.current!.name,
@@ -2743,7 +2743,9 @@ function getPendingSources(
       },
       addedAtMs: slot.current!.uploadedAtMs,
       addedAtLabel: slot.current!.uploadedAt,
-      status: slot.current!.generationAttemptedAtMs ? "no_intelligence" as const : "awaiting_generation" as const,
+      status: slot.current!.generationAttemptedAtMs ? "saved" as const : "awaiting_generation" as const,
+      intelligenceGenerated: slot.current!.intelligenceCount > 0,
+      intelligenceIds: slot.current!.intelligenceIds,
       emptyReason: slot.current!.emptyReason,
       processedAtLabel: slot.current!.generationAttemptedAtMs
         ? new Date(slot.current!.generationAttemptedAtMs).toLocaleString("en-US")
@@ -2760,6 +2762,39 @@ function getPendingSources(
     ...manualPending,
     ...documentPending.filter(source => !manualDocumentTypeIds.has(source.document!.typeId)),
   ].sort((left, right) => right.addedAtMs - left.addedAtMs);
+}
+
+type SourceIntelligenceMeta = {
+  count: number;
+  ids: string[];
+  status: "awaiting" | "generated" | "empty";
+};
+
+function getSourceIntelligenceMeta(
+  source: PendingSource,
+  documentSlots: DataRoomDocumentSlot[],
+): SourceIntelligenceMeta {
+  if (source.status === "awaiting_generation") {
+    return { count: 0, ids: [], status: "awaiting" };
+  }
+
+  let ids = source.intelligenceIds ?? [];
+  if (source.kind === "document" && source.document) {
+    const slot = documentSlots.find(entry => entry.typeId === source.document!.typeId);
+    if (slot?.current) {
+      ids = slot.current.intelligenceIds;
+    }
+  }
+
+  if (ids.length > 0) {
+    return { count: ids.length, ids, status: "generated" };
+  }
+
+  return {
+    count: 0,
+    ids: [],
+    status: source.intelligenceGenerated === false || source.emptyReason ? "empty" : "awaiting",
+  };
 }
 
 function attachIntelligenceToDocumentSlot(
@@ -3146,6 +3181,9 @@ export type OnboardingBenchmarkInput = {
   monthlyBurn: string;
   cashOnHand: string;
   grossMargin: string;
+  cacPayback: string;
+  burnMultiple: string;
+  ruleOf40: string;
   headcount: string;
   payingCustomers: string;
 };
@@ -3160,6 +3198,9 @@ function toBenchmarkFormValues(onboarding: OnboardingBenchmarkInput): BenchmarkF
     monthlyBurn: onboarding.monthlyBurn,
     cashOnHand: onboarding.cashOnHand,
     grossMargin: onboarding.grossMargin,
+    cacPayback: onboarding.cacPayback,
+    burnMultiple: onboarding.burnMultiple,
+    ruleOf40: onboarding.ruleOf40,
     headcount: onboarding.headcount,
     paidCustomers: onboarding.payingCustomers,
   };
@@ -3174,6 +3215,9 @@ function formValuesToOnboardingBenchmark(form: BenchmarkFormValues): OnboardingB
     monthlyBurn: form.monthlyBurn,
     cashOnHand: form.cashOnHand,
     grossMargin: form.grossMargin,
+    cacPayback: form.cacPayback,
+    burnMultiple: form.burnMultiple,
+    ruleOf40: form.ruleOf40,
     headcount: form.headcount,
     payingCustomers: form.paidCustomers,
   };
@@ -4227,6 +4271,232 @@ function DataRoomPage({
   );
 }
 
+
+type SignalsView = "intelligence" | "sources";
+
+function SourceDetailSidebar({
+  source,
+  intelligenceMeta,
+  linkedIntelligence,
+  onClose,
+  onGenerate,
+  onDismiss,
+  onViewIntelligence,
+  onSelectIntelligence,
+}: {
+  source: PendingSource;
+  intelligenceMeta: SourceIntelligenceMeta;
+  linkedIntelligence: IntelligenceItem[];
+  onClose: () => void;
+  onGenerate?: () => void;
+  onDismiss?: () => void;
+  onViewIntelligence?: () => void;
+  onSelectIntelligence?: (id: string) => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const typeLabel = source.kind === "document"
+    ? source.document?.typeLabel || "Document"
+    : "Private note";
+  const statusLabel = intelligenceMeta.status === "awaiting"
+    ? "Awaiting generation"
+    : intelligenceMeta.status === "generated"
+      ? "Intelligence generated"
+      : "No intelligence extracted";
+
+  return (
+    <>
+      <button className="context-sidebar-scrim" aria-label="Close source detail" onClick={onClose} />
+      <aside className="document-history-sidebar source-detail-sidebar">
+        <div className="provenance-head">
+          <div>
+            <span className="document-history-sidebar-label">Source detail</span>
+            <strong>{source.title}</strong>
+          </div>
+          <button type="button" onClick={onClose}>Close · Esc</button>
+        </div>
+        <div className="document-history-sidebar-body">
+          <div className="source-detail-sidebar-section">
+            <span className="source-detail-sidebar-label">Type</span>
+            <strong>{typeLabel}</strong>
+          </div>
+          <div className="source-detail-sidebar-section">
+            <span className="source-detail-sidebar-label">Status</span>
+            <strong>{statusLabel}</strong>
+            {source.emptyReason ? <p>{source.emptyReason}</p> : null}
+          </div>
+          {source.description ? (
+            <div className="source-detail-sidebar-section">
+              <span className="source-detail-sidebar-label">Context</span>
+              <p>{source.description}</p>
+            </div>
+          ) : null}
+          <div className="source-detail-sidebar-meta">
+            <span>Added {source.addedAtLabel}</span>
+            {source.processedAtLabel ? <span>Processed {source.processedAtLabel}</span> : null}
+          </div>
+          {linkedIntelligence.length > 0 ? (
+            <div className="source-detail-sidebar-intelligence">
+              <span className="source-detail-sidebar-label">
+                {linkedIntelligence.length} intelligence item{linkedIntelligence.length === 1 ? "" : "s"} generated
+              </span>
+              {linkedIntelligence.map(item => (
+                <button
+                  type="button"
+                  className="source-detail-intelligence-link"
+                  key={item.id}
+                  onClick={() => onSelectIntelligence?.(item.id)}
+                >
+                  <strong>{item.text}</strong>
+                  <span>{item.type} · {item.date}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="source-detail-sidebar-actions">
+            {intelligenceMeta.status === "awaiting" && onGenerate ? (
+              <button type="button" className="signals-pending-generate" onClick={onGenerate}>
+                Generate intelligence
+              </button>
+            ) : null}
+            {intelligenceMeta.count > 0 && onViewIntelligence ? (
+              <button type="button" className="data-room-intelligence-link" onClick={onViewIntelligence}>
+                View {intelligenceMeta.count} in timeline →
+              </button>
+            ) : null}
+            {source.kind === "note" && onDismiss ? (
+              <button type="button" className="signals-pending-dismiss" onClick={onDismiss}>
+                Remove source
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function SourcesListPanel({
+  sources,
+  documentSlots,
+  onSelectSource,
+  onGenerateFromPending,
+  onDismissPendingSource,
+  onFocusIntelligence,
+}: {
+  sources: PendingSource[];
+  documentSlots: DataRoomDocumentSlot[];
+  onSelectSource: (sourceId: string) => void;
+  onGenerateFromPending?: (pendingId: string) => void;
+  onDismissPendingSource?: (pendingId: string) => void;
+  onFocusIntelligence?: (focus: IntelligenceFocus) => void;
+}) {
+  if (!sources.length) {
+    return (
+      <div className="signals-sources-panel">
+        <div className="signals-sources-head">
+          <strong>Sources</strong>
+          <em>0 sources</em>
+        </div>
+        <div className="signals-intel-empty">
+          <strong>No sources yet</strong>
+          <p>Add a source above to start building context for intelligence generation.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="signals-sources-panel">
+      <div className="signals-sources-head">
+        <strong>Sources</strong>
+        <em>{sources.length} source{sources.length === 1 ? "" : "s"}</em>
+      </div>
+      <div className="data-room-list signals-sources-list">
+        <div className="data-room-row data-room-row-head signals-sources-row">
+          <span>Source</span>
+          <span>Type</span>
+          <span>Added</span>
+          <span>Intelligence</span>
+          <span>Actions</span>
+        </div>
+        {sources.map(source => {
+          const meta = getSourceIntelligenceMeta(source, documentSlots);
+          const typeLabel = source.kind === "document"
+            ? source.document?.typeLabel || "Document"
+            : "Private note";
+
+          return (
+            <div
+              className="data-room-row signals-sources-row signals-sources-row-clickable"
+              key={source.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelectSource(source.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelectSource(source.id);
+                }
+              }}
+            >
+              <strong className="data-room-latest">{source.title}</strong>
+              <span>{typeLabel}</span>
+              <span>{source.addedAtLabel}</span>
+              <span className="data-room-intelligence">
+                {meta.status === "generated" ? (
+                  <button
+                    type="button"
+                    className="data-room-intelligence-link"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onFocusIntelligence?.({ ids: meta.ids, label: source.title });
+                    }}
+                  >
+                    {meta.count} generated →
+                  </button>
+                ) : meta.status === "empty" ? (
+                  <span className="data-room-intelligence-pending data-room-intelligence-empty">
+                    No intelligence identified
+                  </span>
+                ) : (
+                  <span className="data-room-intelligence-pending">Awaiting generation</span>
+                )}
+              </span>
+              <span className="signals-sources-row-actions" onClick={event => event.stopPropagation()}>
+                {source.kind === "note" ? (
+                  <button
+                    type="button"
+                    className="signals-pending-dismiss"
+                    onClick={() => onDismissPendingSource?.(source.id)}
+                  >
+                    Remove
+                  </button>
+                ) : null}
+                {meta.status === "awaiting" ? (
+                  <button
+                    type="button"
+                    className="signals-pending-generate"
+                    onClick={() => onGenerateFromPending?.(source.id)}
+                  >
+                    Generate
+                  </button>
+                ) : null}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SignalsPage({
   isProfileComplete,
   onLogBenchmarkData,
@@ -4241,12 +4511,12 @@ function SignalsPage({
   setIntelligenceItems,
   intelligenceFocus = null,
   onClearIntelligenceFocus,
+  onFocusIntelligence,
   benchmarkSubmission = null,
   onEditBenchmark,
   benchmarkBlinkIds = [],
   activeTourTarget,
   manualPendingSources = [],
-  onSaveSource,
   onGenerateFromPending,
   onDismissPendingSource,
   onAttemptSourceGeneration,
@@ -4264,16 +4534,12 @@ function SignalsPage({
   setIntelligenceItems: React.Dispatch<React.SetStateAction<IntelligenceItem[]>>;
   intelligenceFocus?: IntelligenceFocus | null;
   onClearIntelligenceFocus?: () => void;
+  onFocusIntelligence?: (focus: IntelligenceFocus) => void;
   benchmarkSubmission?: BenchmarkSubmission | null;
   onEditBenchmark?: () => void;
   benchmarkBlinkIds?: string[];
   activeTourTarget?: string;
   manualPendingSources?: PendingSource[];
-  onSaveSource?: (params: {
-    title: string;
-    description: string;
-    document?: { typeId: string; typeLabel: string; file: File };
-  }) => void;
   onGenerateFromPending?: (pendingId: string) => void;
   onDismissPendingSource?: (pendingId: string) => void;
   onAttemptSourceGeneration?: (params: {
@@ -4299,7 +4565,8 @@ function SignalsPage({
     endMonth: now.getMonth(),
     endYear: now.getFullYear(),
   });
-  const [groupMode, setGroupMode] = useState<IntelligenceGroupMode>("none");
+  const [signalsView, setSignalsView] = useState<SignalsView>("intelligence");
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const intelligenceFocusActive = Boolean(intelligenceFocus?.ids.length);
   const timelineFilters = isProfileComplete
@@ -4341,29 +4608,16 @@ function SignalsPage({
     [dateRange, resolveUpdatedAt, searchFilteredItems],
   );
 
-  const intelligenceGroups = useMemo(
-    () => groupIntelligenceItems(filteredIntelligenceItems, groupMode, resolveUpdatedAt),
-    [filteredIntelligenceItems, groupMode, resolveUpdatedAt],
-  );
 
   const visibleIntelligenceItems = filteredIntelligenceItems;
   const pendingSources = useMemo(
     () => getPendingSources(manualPendingSources, documentSlots),
     [documentSlots, manualPendingSources],
   );
-  const awaitingSources = useMemo(
-    () => pendingSources.filter(source => source.status === "awaiting_generation"),
-    [pendingSources],
-  );
-  const emptySources = useMemo(
-    () => pendingSources.filter(source => source.status === "no_intelligence"),
-    [pendingSources],
-  );
   const filtersActive = Boolean(
     searchQuery.trim()
     || activeTimelineFilter !== "All"
-    || datePreset !== "current-quarter"
-    || groupMode !== "none",
+    || datePreset !== "current-quarter",
   );
   const benchmarkIntelligenceItems = useMemo(
     () => visibleIntelligenceItems.filter(item => item.id.startsWith("intel-bench-")),
@@ -4414,9 +4668,18 @@ function SignalsPage({
     || Boolean(benchmarkSubmission)
     || intelligenceItems.some(item => !item.id.startsWith("intel-bench-"));
   const selectedIntelligence = intelligenceItems.find(item => item.id === selectedIntelligenceId) || null;
+  const selectedSource = pendingSources.find(source => source.id === selectedSourceId) || null;
+  const selectedSourceMeta = selectedSource
+    ? getSourceIntelligenceMeta(selectedSource, documentSlots)
+    : null;
+  const selectedSourceIntelligence = selectedSourceMeta
+    ? intelligenceItems.filter(item => selectedSourceMeta.ids.includes(item.id))
+    : [];
 
   useEffect(() => {
     if (!intelligenceFocus?.ids.length) return;
+    setSignalsView("intelligence");
+    setSelectedSourceId(null);
     setBlinkingIntelligenceIds(intelligenceFocus.ids);
     const blinkTimer = window.setTimeout(() => setBlinkingIntelligenceIds([]), 900);
     const scrollTimer = window.setTimeout(() => {
@@ -4511,11 +4774,12 @@ function SignalsPage({
         data-intelligence-id={row.id}
         role="button"
         tabIndex={0}
-        onClick={() => setSelectedIntelligenceId(row.id)}
+        onClick={() => { setSelectedIntelligenceId(row.id); setSelectedSourceId(null); }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             setSelectedIntelligenceId(row.id);
+            setSelectedSourceId(null);
           }
         }}
       >
@@ -4669,16 +4933,6 @@ function SignalsPage({
             </div>
           ) : null}
 
-          <select
-            className="signals-intel-toolbar-select"
-            value={groupMode}
-            onChange={event => setGroupMode(event.target.value as IntelligenceGroupMode)}
-            aria-label="Group intelligence by"
-          >
-            <option value="none">Timeline</option>
-            <option value="intelligence">Intelligence</option>
-            <option value="source">Source</option>
-          </select>
 
           <div className="signals-intel-search-cluster">
             <select
@@ -4717,145 +4971,48 @@ function SignalsPage({
         />
       ) : null}
       <div className="signals-timeline-list">
-        {!intelligenceFocusActive && (awaitingSources.length > 0 || emptySources.length > 0) ? (
-          <section className="signals-pending-sources">
-            {awaitingSources.length > 0 ? (
-              <>
-                <div className="signals-pending-sources-head">
-                  <strong>
-                    {awaitingSources.length} source{awaitingSources.length === 1 ? "" : "s"} awaiting intelligence
-                  </strong>
-                  <span>Saved context that hasn&apos;t been processed yet.</span>
-                </div>
-                {awaitingSources.map(source => (
-                  <div className="signals-pending-source-row" key={source.id}>
-                    <div className="signals-pending-source-copy">
-                      <strong>{source.title}</strong>
-                      <p>
-                        {source.kind === "document" ? `${source.document?.typeLabel} · ` : "Private note · "}
-                        {source.description || "Ready to generate"}
-                      </p>
-                      <em>{source.addedAtLabel}</em>
-                    </div>
-                    <div className="signals-pending-source-actions">
-                      {source.kind === "note" ? (
-                        <button
-                          type="button"
-                          className="signals-pending-dismiss"
-                          onClick={() => onDismissPendingSource?.(source.id)}
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="signals-pending-generate"
-                        onClick={() => onGenerateFromPending?.(source.id)}
-                      >
-                        Generate intelligence
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : null}
-            {emptySources.length > 0 ? (
-              <>
-                <div className={`signals-pending-sources-head${awaitingSources.length > 0 ? " signals-pending-sources-head--spaced" : ""}`}>
-                  <strong>
-                    {emptySources.length} source{emptySources.length === 1 ? "" : "s"} with no intelligence identified
-                  </strong>
-                  <span>Fuel processed {emptySources.length === 1 ? "this source" : "these sources"} but didn&apos;t find timeline-ready signal.</span>
-                </div>
-                {emptySources.map(source => (
-                  <div className="signals-pending-source-row signals-pending-source-row--empty" key={source.id}>
-                    <div className="signals-pending-source-copy">
-                      <strong>{source.title}</strong>
-                      <p>{source.emptyReason || "No intelligence met Fuel's confidence threshold."}</p>
-                      <em>Processed {source.processedAtLabel || source.addedAtLabel}</em>
-                    </div>
-                    <div className="signals-pending-source-actions">
-                      {source.kind === "note" ? (
-                        <button
-                          type="button"
-                          className="signals-pending-dismiss"
-                          onClick={() => onDismissPendingSource?.(source.id)}
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="signals-pending-generate"
-                        onClick={() => onGenerateFromPending?.(source.id)}
-                      >
-                        Try again
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : null}
-          </section>
-        ) : null}
-        {groupMode === "none" ? timelineBlocks.map((block) => {
+        {timelineBlocks.map((block) => {
           if (block.kind === "benchmark") {
             const benchmarkBlinking = block.items.some(item => (
               blinkingIntelligenceIds.includes(item.id) || benchmarkBlinkIds.includes(item.id)
             ));
             return (
-              <React.Fragment key={`benchmark-${block.submission.submittedAtMs}`}>
-                {block.items.map(renderTimelineRow)}
+              <div
+                className={`signals-benchmark-block${benchmarkBlinking ? " blink-once" : ""}`}
+                key={`benchmark-${block.submission.submittedAtMs}`}
+              >
+                <div className="signals-benchmark-block-entries">
+                  {block.items.map(renderTimelineRow)}
+                </div>
                 <QuarterlySubmissionPanel
                   submission={block.submission}
                   onEdit={onEditBenchmark || (() => undefined)}
-                  highlight={benchmarkBlinking}
+                  highlight={false}
                 />
-              </React.Fragment>
+              </div>
             );
           }
           return renderTimelineRow(block.item);
-        }) : (
-          <>
-            {showQuarterlySubmission && benchmarkSubmission && benchmarkIntelligenceItems.length > 0 ? (
-              <QuarterlySubmissionPanel
-                submission={benchmarkSubmission}
-                onEdit={onEditBenchmark || (() => undefined)}
-                highlight={benchmarkIntelligenceItems.some(item => (
-                  blinkingIntelligenceIds.includes(item.id) || benchmarkBlinkIds.includes(item.id)
-                ))}
-              />
-            ) : null}
-            {intelligenceGroups.map(group => (
-              <section className="signals-intel-group" key={group.key}>
-                <div className="signals-intel-group-head">
-                  <div>
-                    <strong>{group.label}</strong>
-                    {group.meta ? <span>{group.meta}</span> : null}
-                  </div>
-                  <em>{group.items.length} item{group.items.length === 1 ? "" : "s"}</em>
-                </div>
-                {group.items.map(renderTimelineRow)}
-              </section>
-            ))}
-          </>
-        )}
+        })}
         {!visibleIntelligenceItems.length ? (
           <div className="signals-intel-empty">
-            {emptySources.length > 0 && awaitingSources.length === 0 && !filtersActive ? (
-              <>
-                <strong>No intelligence identified from your sources</strong>
-                <p>
-                  Fuel processed {emptySources.length} source{emptySources.length === 1 ? "" : "s"} above but didn&apos;t extract timeline items.
-                  Add more context and try again, or log intelligence manually.
-                </p>
-              </>
-            ) : awaitingSources.length > 0 && !filtersActive ? (
+            {pendingSources.length > 0 && !filtersActive ? (
               <>
                 <strong>No intelligence generated yet</strong>
                 <p>
-                  {awaitingSources.length} source{awaitingSources.length === 1 ? " is" : "s are"} saved above.
-                  Generate intelligence to add {awaitingSources.length === 1 ? "it" : "them"} to your timeline.
+                  {pendingSources.length} source{pendingSources.length === 1 ? " is" : "s are"} in Sources.
+                  {" "}
+                  <button
+                    type="button"
+                    className="signals-intel-empty-link"
+                    onClick={() => {
+                      setSignalsView("sources");
+                      setSelectedSourceId(null);
+                    }}
+                  >
+                    Open Sources
+                  </button>
+                  {" "}to generate intelligence.
                 </p>
               </>
             ) : filtersActive ? (
@@ -4894,17 +5051,83 @@ function SignalsPage({
           onAttemptSourceGeneration={onAttemptSourceGeneration}
           documentSlots={documentSlots}
           onPersistSourceDocument={onPersistSourceDocument}
-          onSaveSource={onSaveSource}
           sourceFormOpen={sourceFormOpen}
           onSourceFormOpenChange={setSourceFormOpen}
         />
 
-        {intelligenceTimelinePanel}
+        {!intelligenceFocusActive ? (
+          <div className="signals-view-tabs">
+            <button
+              type="button"
+              className={`signals-view-tab${signalsView === "intelligence" ? " active" : ""}`}
+              onClick={() => {
+                setSignalsView("intelligence");
+                setSelectedSourceId(null);
+              }}
+            >
+              Intelligence
+              <span>{intelligenceItems.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`signals-view-tab${signalsView === "sources" ? " active" : ""}`}
+              onClick={() => {
+                setSignalsView("sources");
+                setSelectedIntelligenceId(null);
+              }}
+            >
+              Sources
+              <span>{pendingSources.length}</span>
+            </button>
+          </div>
+        ) : null}
+
+        {signalsView === "intelligence" || intelligenceFocusActive ? intelligenceTimelinePanel : (
+          <SourcesListPanel
+            sources={pendingSources}
+            documentSlots={documentSlots}
+            onSelectSource={(sourceId) => {
+              setSelectedSourceId(sourceId);
+              setSelectedIntelligenceId(null);
+            }}
+            onGenerateFromPending={onGenerateFromPending}
+            onDismissPendingSource={onDismissPendingSource}
+            onFocusIntelligence={(focus) => {
+              onFocusIntelligence?.(focus);
+              setSignalsView("intelligence");
+              setSelectedSourceId(null);
+            }}
+          />
+        )}
 
         {selectedIntelligence ? (
           <IntelligenceProvenanceSidebar
             item={selectedIntelligence}
             onClose={() => setSelectedIntelligenceId(null)}
+          />
+        ) : null}
+
+        {selectedSource && selectedSourceMeta ? (
+          <SourceDetailSidebar
+            source={selectedSource}
+            intelligenceMeta={selectedSourceMeta}
+            linkedIntelligence={selectedSourceIntelligence}
+            onClose={() => setSelectedSourceId(null)}
+            onGenerate={() => onGenerateFromPending?.(selectedSource.id)}
+            onDismiss={() => {
+              onDismissPendingSource?.(selectedSource.id);
+              setSelectedSourceId(null);
+            }}
+            onViewIntelligence={() => {
+              onFocusIntelligence?.({ ids: selectedSourceMeta.ids, label: selectedSource.title });
+              setSignalsView("intelligence");
+              setSelectedSourceId(null);
+            }}
+            onSelectIntelligence={(id) => {
+              setSelectedSourceId(null);
+              setSignalsView("intelligence");
+              setSelectedIntelligenceId(id);
+            }}
           />
         ) : null}
       </section>
@@ -4969,7 +5192,6 @@ function SignalsPage({
         documentSlots={documentSlots}
         processingDocumentTypeId={processingDocumentTypeId}
         onPersistSourceDocument={onPersistSourceDocument}
-        onSaveSource={onSaveSource}
         sourceFormOpen={sourceFormOpen}
         onSourceFormOpenChange={setSourceFormOpen}
       />
@@ -4997,8 +5219,8 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
     },
     {
       title: "Capital efficiency",
-      subtitle: "Burn, runway, gross margin — how much fuel you have and how efficiently it converts.",
-      fields: ["Monthly burn (net)", "Cash on hand", "Gross margin"],
+      subtitle: "Burn, runway, margin, and unit economics — how efficiently capital converts.",
+      fields: ["Monthly burn (net)", "Cash on hand", "Gross margin", "CAC payback", "Burn multiple", "Rule of 40"],
     },
     {
       title: "Team + customers",
@@ -5419,6 +5641,8 @@ type InitiativeMilestone = {
   title: string;
   due?: string;
   done: boolean;
+  /** Short annotation under the milestone — Jira/Asana checklist description pattern. */
+  note?: string;
 };
 
 type InitiativeIntelligenceLink = {
@@ -5561,6 +5785,125 @@ function buildDefaultMilestones(title: string, pillar: InitiativePillar): Initia
 function nextProgressRole(links: InitiativeIntelligenceLink[]): InitiativeProgressRole {
   const roles: InitiativeProgressRole[] = ["baseline", "current", "target"];
   return roles.find(role => !links.some(link => link.role === role)) ?? "current";
+}
+
+/** Checklist row with optional inline annotation (Jira/Asana: muted line under title, edit on demand). */
+function InitiativeMilestoneRow({
+  milestone,
+  onToggle,
+  onRemove,
+  onNoteChange,
+}: {
+  milestone: InitiativeMilestone;
+  onToggle: () => void;
+  onRemove: () => void;
+  onNoteChange: (note?: string) => void;
+}) {
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(milestone.note ?? "");
+  const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const skipCommitRef = useRef(false);
+  const noteText = milestone.note?.trim() ?? "";
+
+  useEffect(() => {
+    if (!noteEditing) setNoteDraft(milestone.note ?? "");
+  }, [milestone.note, noteEditing]);
+
+  useEffect(() => {
+    if (!noteEditing) return;
+    noteInputRef.current?.focus();
+    const el = noteInputRef.current;
+    if (el) {
+      el.selectionStart = el.value.length;
+      el.selectionEnd = el.value.length;
+    }
+  }, [noteEditing]);
+
+  const commitNote = () => {
+    if (skipCommitRef.current) {
+      skipCommitRef.current = false;
+      return;
+    }
+    const next = noteDraft.trim();
+    onNoteChange(next || undefined);
+    setNoteEditing(false);
+  };
+
+  const cancelNote = () => {
+    skipCommitRef.current = true;
+    setNoteDraft(milestone.note ?? "");
+    setNoteEditing(false);
+  };
+
+  return (
+    <div className={`initiative-milestone-item${milestone.done ? " is-done" : ""}`}>
+      <div className="initiative-milestone-row">
+        <button
+          type="button"
+          className={`initiative-milestone-check${milestone.done ? " is-done" : ""}`}
+          aria-label={milestone.done ? "Mark incomplete" : "Mark complete"}
+          onClick={onToggle}
+        >
+          {milestone.done ? "✓" : ""}
+        </button>
+        <div className="initiative-milestone-main">
+          <span className={`initiative-milestone-title${milestone.done ? " is-done" : ""}`}>
+            {milestone.title}
+          </span>
+          {noteEditing ? (
+            <div className="initiative-milestone-note-edit">
+              <textarea
+                ref={noteInputRef}
+                className="initiative-milestone-note-input"
+                value={noteDraft}
+                rows={2}
+                maxLength={280}
+                placeholder="Add a short note…"
+                aria-label={`Note for ${milestone.title}`}
+                onChange={event => setNoteDraft(event.target.value)}
+                onBlur={commitNote}
+                onKeyDown={event => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    cancelNote();
+                  } else if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    commitNote();
+                  }
+                }}
+              />
+              <span className="initiative-milestone-note-hint">Enter to save · Esc to cancel</span>
+            </div>
+          ) : noteText ? (
+            <button
+              type="button"
+              className="initiative-milestone-note"
+              onClick={() => setNoteEditing(true)}
+            >
+              {noteText}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="initiative-milestone-note-add"
+              onClick={() => setNoteEditing(true)}
+            >
+              + Note
+            </button>
+          )}
+        </div>
+        {milestone.due ? <em className="initiative-milestone-due">{isoToDisplayDate(milestone.due)}</em> : null}
+        <button
+          type="button"
+          className="initiative-milestone-remove"
+          aria-label="Remove milestone"
+          onClick={onRemove}
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function InitiativeDetailDrawer({
@@ -5794,10 +6137,6 @@ function InitiativeDetailDrawer({
                   <div>
                     <dt>Target</dt>
                     <dd>{displayInitiativeDue(item.due)}</dd>
-                  </div>
-                  <div>
-                    <dt>Status</dt>
-                    <dd>{listStatus}</dd>
                   </div>
                 </dl>
               </div>
@@ -6035,32 +6374,23 @@ function InitiativeDetailDrawer({
                 <p className="initiative-card-section-empty">No milestones yet.</p>
               ) : (
                 item.milestones.map(milestone => (
-                  <div key={milestone.id} className="initiative-milestone-row">
-                    <button
-                      type="button"
-                      className={`initiative-milestone-check${milestone.done ? " is-done" : ""}`}
-                      aria-label={milestone.done ? "Mark incomplete" : "Mark complete"}
-                      onClick={() => onPatch({
-                        milestones: item.milestones.map(entry => (
-                          entry.id === milestone.id ? { ...entry, done: !entry.done } : entry
-                        )),
-                      })}
-                    >
-                      {milestone.done ? "✓" : ""}
-                    </button>
-                    <span className={milestone.done ? "is-done" : ""}>{milestone.title}</span>
-                    {milestone.due ? <em>{isoToDisplayDate(milestone.due)}</em> : null}
-                    <button
-                      type="button"
-                      className="initiative-milestone-remove"
-                      aria-label="Remove milestone"
-                      onClick={() => onPatch({
-                        milestones: item.milestones.filter(entry => entry.id !== milestone.id),
-                      })}
-                    >
-                      ×
-                    </button>
-                  </div>
+                  <InitiativeMilestoneRow
+                    key={milestone.id}
+                    milestone={milestone}
+                    onToggle={() => onPatch({
+                      milestones: item.milestones.map(entry => (
+                        entry.id === milestone.id ? { ...entry, done: !entry.done } : entry
+                      )),
+                    })}
+                    onRemove={() => onPatch({
+                      milestones: item.milestones.filter(entry => entry.id !== milestone.id),
+                    })}
+                    onNoteChange={note => onPatch({
+                      milestones: item.milestones.map(entry => (
+                        entry.id === milestone.id ? { ...entry, note } : entry
+                      )),
+                    })}
+                  />
                 ))
               )}
             </div>
@@ -6285,6 +6615,7 @@ function InitiativesPage({
   onUpdate,
   onDelete,
   onLogIntelligence,
+  onClearFocus,
 }: {
   investorMode?: boolean;
   items?: InitiativeRecord[];
@@ -6294,10 +6625,12 @@ function InitiativesPage({
   onUpdate?: (initiative: InitiativeRecord) => void;
   onDelete?: (id: string) => void;
   onLogIntelligence?: (item: IntelligenceItem) => void;
+  onClearFocus?: () => void;
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const [statusTab, setStatusTab] = useState<InitiativeListStatus>("Active");
-  const [selectedId, setSelectedId] = useState<string | null>(focusInitiativeId);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [suggestedOpen, setSuggestedOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftKind, setDraftKind] = useState<InitiativeKind>("continuous");
   const [draftPillar, setDraftPillar] = useState<InitiativePillar>("mkt");
@@ -6305,23 +6638,18 @@ function InitiativesPage({
   const [draftAssignees, setDraftAssignees] = useState<string[]>([DEFAULT_INITIATIVE_ASSIGNEE]);
   const [draftDue, setDraftDue] = useState("");
 
-  useEffect(() => {
-    if (!focusInitiativeId) return;
-    setSelectedId(focusInitiativeId);
-  }, [focusInitiativeId]);
-
+  // One-shot focus from toasts / "View initiative" — consume so tab revisits don't reopen the drawer.
   useEffect(() => {
     if (!focusInitiativeId) return;
     const focused = items.find(item => item.id === focusInitiativeId);
-    if (!focused) return;
-    const status = normalizeInitiativeStatus(focused.status);
-    if (status === "Suggested") {
-      setStatusTab("Active");
-      setSelectedId(null);
+    if (!focused || normalizeInitiativeStatus(focused.status) === "Suggested") {
+      onClearFocus?.();
       return;
     }
-    setStatusTab(status);
-  }, [focusInitiativeId, items]);
+    setStatusTab(normalizeInitiativeListStatus(focused.status));
+    setSelectedId(focusInitiativeId);
+    onClearFocus?.();
+  }, [focusInitiativeId, items, onClearFocus]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<InitiativeListStatus, number> = {
@@ -6402,6 +6730,7 @@ function InitiativesPage({
   const acceptRecommendation = (item: InitiativeRecord) => {
     patchInitiative(item.id, { status: "Active" });
     setStatusTab("Active");
+    setSuggestedOpen(false);
     setSelectedId(item.id);
   };
 
@@ -6410,7 +6739,11 @@ function InitiativesPage({
     if (selectedId === id) setSelectedId(null);
   };
 
-  const closeDrawer = () => setSelectedId(null);
+  const closeDrawer = () => {
+    setSelectedId(null);
+    onClearFocus?.();
+  };
+  const showSuggested = !investorMode && recommendedItems.length > 0;
 
   return (
     <section className="initiatives-page">
@@ -6423,11 +6756,25 @@ function InitiativesPage({
               : "Continuous + one-time work the operating team is running with this company."}
           </p>
         </div>
-        {isCreating ? (
-          <button type="button" className="initiatives-secondary-btn" onClick={resetCreateForm}>Cancel</button>
-        ) : (
-          <button type="button" className="initiatives-primary-btn" onClick={() => setIsCreating(true)}>+ New initiative</button>
-        )}
+        <div className="initiatives-head-actions">
+          {showSuggested ? (
+            <button
+              type="button"
+              className="initiatives-secondary-btn"
+              onClick={() => {
+                setIsCreating(false);
+                setSuggestedOpen(true);
+              }}
+            >
+              Suggested <em>{recommendedItems.length}</em>
+            </button>
+          ) : null}
+          {isCreating ? (
+            <button type="button" className="initiatives-secondary-btn" onClick={resetCreateForm}>Cancel</button>
+          ) : (
+            <button type="button" className="initiatives-primary-btn" onClick={() => setIsCreating(true)}>+ New initiative</button>
+          )}
+        </div>
       </div>
 
       <div className="initiatives-status-toggle" role="tablist" aria-label="Initiative status">
@@ -6448,47 +6795,6 @@ function InitiativesPage({
           </button>
         ))}
       </div>
-
-      {!investorMode && recommendedItems.length > 0 ? (
-        <div className="initiatives-recommended overview-panel">
-          <div className="initiatives-recommended-head">
-            <div>
-              <span className="initiatives-recommended-label">Recommended</span>
-              <p>Fuel ideas from your scorecard. Add one to Active, or dismiss it.</p>
-            </div>
-            <em>{recommendedItems.length}</em>
-          </div>
-          <ul className="initiatives-recommended-list">
-            {recommendedItems.map(item => (
-              <li key={item.id} className="initiatives-recommended-row">
-                <div className="initiatives-recommended-copy">
-                  <strong>{item.title}</strong>
-                  <span>
-                    {initiativePillarLabel(item.pillar)}
-                    {item.description.trim() ? ` · ${item.description}` : ""}
-                  </span>
-                </div>
-                <div className="initiatives-recommended-actions">
-                  <button
-                    type="button"
-                    className="initiatives-primary-btn"
-                    onClick={() => acceptRecommendation(item)}
-                  >
-                    Add
-                  </button>
-                  <button
-                    type="button"
-                    className="initiatives-secondary-btn"
-                    onClick={() => dismissRecommendation(item.id)}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
 
       {isCreating ? (
         <div className="initiative-form-card">
@@ -6533,12 +6839,21 @@ function InitiativesPage({
           <p>
             {statusTab === "Completed"
               ? "Mark an active initiative Completed when the work ships."
-              : recommendedItems.length > 0
-                ? "Add a recommendation above, or create one with + New initiative."
+              : showSuggested
+                ? "Start from a scorecard suggestion, or create one with + New initiative."
                 : investorMode
                   ? <>Create diligence or value-creation work with <span>+ New initiative</span> — kept private to your account.</>
                   : <>Start one with <span>+ New initiative</span>, or add ideas from a track detail page.</>}
           </p>
+          {statusTab === "Active" && showSuggested ? (
+            <button
+              type="button"
+              className="initiatives-primary-btn"
+              onClick={() => setSuggestedOpen(true)}
+            >
+              View suggested · {recommendedItems.length}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -6565,22 +6880,87 @@ function InitiativesPage({
                         {status}
                       </span>
                       <em>
-                        {initiativeKindLabel(item.kind).toUpperCase()}
-                        {" "}
+                        {initiativeKindLabel(item.kind)}
+                        {" · "}
                         {initiativePillarLabel(item.pillar)}
-                        {" "}
-                        ASSIGNED: {assignees.join(", ").toUpperCase()}
+                        {" · "}
+                        {assignees.join(", ")}
                         {milestonesTotal > 0
-                          ? ` · ${milestonesDone}/${milestonesTotal} MILESTONES`
+                          ? ` · ${milestonesDone}/${milestonesTotal} milestones`
                           : ""}
                       </em>
                     </div>
                   </div>
-                  <span className="initiative-card-open-hint" aria-hidden="true">Open →</span>
+                  <span className="initiative-card-open-hint" aria-hidden="true">Open</span>
                 </button>
               </article>
             );
           })}
+        </div>
+      ) : null}
+
+      {suggestedOpen && showSuggested ? (
+        <div className="bench-drawer-scrim" onClick={() => setSuggestedOpen(false)}>
+          <aside
+            className="bench-drawer initiative-suggested-drawer"
+            onClick={event => event.stopPropagation()}
+            role="dialog"
+            aria-label="Suggested initiatives"
+          >
+            <header className="bench-drawer-head">
+              <div>
+                <div className="initiative-drawer-eyebrow">From your scorecard</div>
+                <h2 className="bench-drawer-title">Suggested</h2>
+                <p className="bench-drawer-sub">
+                  Add one to Active to track it, or dismiss ideas you don’t need.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="bench-drawer-x"
+                onClick={() => setSuggestedOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </header>
+            <div className="bench-drawer-body initiative-suggested-drawer-body">
+              <ul className="initiatives-suggested-list">
+                {recommendedItems.map(item => (
+                  <li key={item.id} className="initiatives-suggested-row">
+                    <div className="initiatives-suggested-copy">
+                      <strong>{item.title}</strong>
+                      <span>
+                        {initiativePillarLabel(item.pillar)}
+                        {item.description.trim() ? ` · ${item.description}` : ""}
+                      </span>
+                    </div>
+                    <div className="initiatives-suggested-actions">
+                      <button
+                        type="button"
+                        className="initiatives-primary-btn"
+                        onClick={() => acceptRecommendation(item)}
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        className="initiatives-secondary-btn"
+                        onClick={() => dismissRecommendation(item.id)}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <footer className="bench-drawer-actions">
+              <button type="button" className="bench-drawer-cancel" onClick={() => setSuggestedOpen(false)}>
+                Close
+              </button>
+            </footer>
+          </aside>
         </div>
       ) : null}
 
@@ -6895,7 +7275,6 @@ function ContextFeedPage({
   documentSlots,
   processingDocumentTypeId = null,
   onPersistSourceDocument,
-  onSaveSource,
   sourceFormOpen,
   onSourceFormOpenChange,
 }: {
@@ -6910,15 +7289,10 @@ function ContextFeedPage({
   documentSlots?: DataRoomDocumentSlot[];
   processingDocumentTypeId?: string | null;
   onPersistSourceDocument?: (typeId: string, typeLabel: string, file: File, intelligenceIds: string[]) => void;
-  onSaveSource?: (params: {
-    title: string;
-    description: string;
-    document?: { typeId: string; typeLabel: string; file: File };
-  }) => void;
   sourceFormOpen?: boolean;
   onSourceFormOpenChange?: (open: boolean) => void;
 }) {
-  const { tryAction, generationBlocked, setPopoverOpen } = useCredits();
+  const { tryAction } = useCredits();
   type ContextConnector = {
     id: string;
     name: string;
@@ -6945,7 +7319,6 @@ function ContextFeedPage({
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceDescription, setSourceDescription] = useState("");
   const [attachedDocument, setAttachedDocument] = useState<{ typeId: string; typeLabel: string; file: File } | null>(null);
-  const [signalsGenerated, setSignalsGenerated] = useState(false);
   const contextConnectors: ContextConnector[] = [
     {
       id: "google-analytics",
@@ -7121,42 +7494,23 @@ function ContextFeedPage({
   const recommendedConnectors = contextConnectors.filter(connector => connector.tone !== "connected");
   const activeConnector = selectedConnector || recommendedConnectors[0];
 
-  const cancelAddSource = () => {
-    setShowSourceForm(false);
+  const resetSourceForm = () => {
     setSourceTitle("");
     setSourceDescription("");
     setAttachedDocument(null);
+  };
+
+  const cancelAddSource = () => {
+    setShowSourceForm(false);
+    resetSourceForm();
   };
 
   const handleAttachDocument = (typeId: string, typeLabel: string, file: File) => {
     setAttachedDocument({ typeId, typeLabel, file });
   };
 
-  const handleSaveSource = () => {
+  const handleAddSource = () => {
     if (!sourceTitle.trim()) return;
-    onSaveSource?.({
-      title: sourceTitle,
-      description: sourceDescription,
-      document: attachedDocument
-        ? {
-            typeId: attachedDocument.typeId,
-            typeLabel: attachedDocument.typeLabel,
-            file: attachedDocument.file,
-          }
-        : undefined,
-    });
-    setShowSourceForm(false);
-    setSourceTitle("");
-    setSourceDescription("");
-    setAttachedDocument(null);
-  };
-
-  const handleGenerateIntelligence = () => {
-    if (!sourceTitle.trim()) return;
-    if (generationBlocked) {
-      setPopoverOpen(true);
-      return;
-    }
 
     if (onAttemptSourceGeneration) {
       onAttemptSourceGeneration({
@@ -7170,40 +7524,35 @@ function ContextFeedPage({
             }
           : undefined,
       });
-      setSignalsGenerated(true);
       setShowSourceForm(false);
-      setSourceTitle("");
-      setSourceDescription("");
-      setAttachedDocument(null);
+      resetSourceForm();
       return;
     }
 
     tryAction("generateSource", () => {
-      const item = createSourceIntelligence({
+      const document = attachedDocument
+        ? {
+            typeId: attachedDocument.typeId,
+            typeLabel: attachedDocument.typeLabel,
+            fileName: attachedDocument.file.name,
+          }
+        : undefined;
+      const result = evaluateSourceIntelligenceGeneration({
         title: sourceTitle,
         description: sourceDescription,
-        document: attachedDocument
-          ? {
-              typeId: attachedDocument.typeId,
-              typeLabel: attachedDocument.typeLabel,
-              fileName: attachedDocument.file.name,
-            }
-          : undefined,
+        document,
       });
-      onIntelligenceGenerated?.(item);
+      if (result.item) onIntelligenceGenerated?.(result.item);
       if (attachedDocument && onPersistSourceDocument) {
         onPersistSourceDocument(
           attachedDocument.typeId,
           attachedDocument.typeLabel,
           attachedDocument.file,
-          [item.id],
+          result.item ? [result.item.id] : [],
         );
       }
-      setSignalsGenerated(true);
       setShowSourceForm(false);
-      setSourceTitle("");
-      setSourceDescription("");
-      setAttachedDocument(null);
+      resetSourceForm();
     });
   };
 
@@ -7255,25 +7604,11 @@ function ContextFeedPage({
                 <button type="button" className="ghost" onClick={cancelAddSource}>Cancel</button>
                 <button
                   type="button"
-                  className="secondary"
+                  className="primary"
                   disabled={!sourceTitle.trim()}
-                  onClick={handleSaveSource}
+                  onClick={handleAddSource}
                 >
-                  Save source
-                </button>
-                <button
-                  type="button"
-                  className={`primary${generationBlocked ? " credit-action-disabled" : ""}`}
-                  disabled={!sourceTitle.trim() || signalsGenerated}
-                  onClick={() => {
-                    if (generationBlocked) {
-                      setPopoverOpen(true);
-                      return;
-                    }
-                    handleGenerateIntelligence();
-                  }}
-                >
-                  {signalsGenerated ? "Generated" : "Generate intelligence"}
+                  Add source
                 </button>
               </div>
             </div>
@@ -7518,12 +7853,18 @@ function PatriotPayJourneyInner({
     initialPage === "overview-building" || initialPage === "signals-loading-tour";
   const startsWithOverview = initialPage === "overview-loading";
   const startsWithScorecard = initialPage === "scorecard-v2";
-  const startsWithInvestorHome = initialPage === "investor-home";
+  const startsWithInvestorShell =
+    initialPage === "investor-home"
+    || initialPage === "investor-portfolios"
+    || initialPage === "investor-pipeline"
+    || initialPage === "investor-watchlists";
   const [openTracks, setOpenTracks] = useState(() => new Set());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
   const [activePage, setActivePage] = useState(
-    startsWithInvestorHome ? "investor-home"
+    // Investor fund dashboard is hidden for now — land on Portfolios.
+    initialPage === "investor-home" || initialPage === "investor-portfolios"
+      ? "investor-portfolios"
       : startsWithTour ? "overview"
       : (startsWithScorecard || startsWithOverviewBuilding) ? "scorecard-v2"
       : startsWithOverview ? "signals-loading"
@@ -7538,7 +7879,7 @@ function PatriotPayJourneyInner({
       || startsWithOverviewBuilding
       || startsWithOverview
       || startsWithScorecard
-      || startsWithInvestorHome,
+      || startsWithInvestorShell,
   );
   const [accountTab, setAccountTab] = useState<AccountSettingsTab>("overview");
   const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
@@ -7572,13 +7913,13 @@ function PatriotPayJourneyInner({
     setSelectedCompany(FOUNDER_COMPANY);
     setActivePage("scorecard-v2");
   }, []);
-  const openInvestorHome = useCallback(() => {
-    setActivePage("investor-home");
+  const openInvestorPortfolios = useCallback(() => {
+    setActivePage("investor-portfolios");
   }, []);
   const openAccountHome = useCallback(() => {
-    if (isInvestorPersona) openInvestorHome();
+    if (isInvestorPersona) openInvestorPortfolios();
     else openMyCompanyProfile();
-  }, [isInvestorPersona, openInvestorHome, openMyCompanyProfile]);
+  }, [isInvestorPersona, openInvestorPortfolios, openMyCompanyProfile]);
   const [generatedBrief, setGeneratedBrief] = useState<Brief | null>(null);
   const [lastPlaybook, setLastPlaybook] = useState<{ name: string; kind: string; description: string; category: string } | null>(null);
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
@@ -7661,33 +8002,6 @@ function PatriotPayJourneyInner({
       intelligenceCount: intelligenceIds.length,
     }));
   };
-  const handleSaveSource = (params: {
-    title: string;
-    description: string;
-    document?: { typeId: string; typeLabel: string; file: File };
-  }) => {
-    if (params.document) {
-      persistSourceDocument(
-        params.document.typeId,
-        params.document.typeLabel,
-        params.document.file,
-        [],
-        "Intelligence · Source staged",
-      );
-      return;
-    }
-
-    const now = Date.now();
-    setManualPendingSources(previous => [{
-      id: `pending-note-${now}`,
-      title: params.title.trim(),
-      description: params.description.trim(),
-      kind: "note",
-      addedAtMs: now,
-      addedAtLabel: new Date(now).toLocaleString("en-US"),
-      status: "awaiting_generation",
-    }, ...previous]);
-  };
   const applySourceGenerationResult = useCallback(({
     title,
     description,
@@ -7754,19 +8068,42 @@ function PatriotPayJourneyInner({
         }
       }
 
-      if (pendingId?.startsWith("pending-note-")) {
-        setManualPendingSources(previous => previous.filter(source => source.id !== pendingId));
+      if (pendingId && !document) {
+        setManualPendingSources(previous => previous.map(source => (
+          source.id === pendingId
+            ? {
+                ...source,
+                status: "saved",
+                intelligenceGenerated: true,
+                intelligenceIds: [item.id],
+                processedAtLabel,
+              }
+            : source
+        )));
+      } else if (!document) {
+        setManualPendingSources(previous => [{
+          id: `source-note-${processedAtMs}`,
+          title: title.trim(),
+          description: description.trim(),
+          kind: "note",
+          addedAtMs: processedAtMs,
+          addedAtLabel: processedAtLabel,
+          processedAtLabel,
+          status: "saved",
+          intelligenceGenerated: true,
+          intelligenceIds: [item.id],
+        }, ...previous]);
       }
       return;
     }
 
-    if (pendingId?.startsWith("pending-note-")) {
+    if (pendingId && !document) {
       setManualPendingSources(previous => previous.map(source => (
         source.id === pendingId
           ? {
               ...source,
-              status: "no_intelligence",
-              emptyReason: result.emptyReason,
+              status: "saved",
+              intelligenceGenerated: false,
               processedAtLabel,
             }
           : source
@@ -7784,14 +8121,16 @@ function PatriotPayJourneyInner({
     }
 
     setManualPendingSources(previous => [{
-      id: `pending-note-${processedAtMs}`,
+      id: `source-note-${processedAtMs}`,
       title: title.trim(),
       description: description.trim(),
       kind: "note",
       addedAtMs: processedAtMs,
       addedAtLabel: processedAtLabel,
       processedAtLabel,
-      status: "no_intelligence",
+      status: "saved",
+      intelligenceGenerated: false,
+      intelligenceIds: [],
       emptyReason: result.emptyReason,
     }, ...previous]);
   }, [usesPerCompanyWorkspace, selectedCompany.id, investorIntelligenceByCompany, investorInitiativesByCompany, investorBenchmarkByCompany, investorWorkspaceStarted, markInvestorWorkspaceStarted]);
@@ -7802,6 +8141,35 @@ function PatriotPayJourneyInner({
     documentMeta?: { typeId: string; typeLabel: string; fileName: string };
     pendingId?: string;
   }) => {
+    const sourceAddedAtMs = Date.now();
+    const sourceAddedAtLabel = new Date(sourceAddedAtMs).toLocaleString("en-US");
+    const sourceId = params.pendingId
+      ?? (!params.document ? `source-note-${sourceAddedAtMs}` : undefined);
+
+    if (!params.pendingId && !params.document && sourceId) {
+      setManualPendingSources(previous => [{
+        id: sourceId,
+        title: params.title.trim(),
+        description: params.description.trim(),
+        kind: "note",
+        addedAtMs: sourceAddedAtMs,
+        addedAtLabel: sourceAddedAtLabel,
+        processedAtLabel: sourceAddedAtLabel,
+        status: "saved",
+        intelligenceGenerated: false,
+      }, ...previous]);
+    }
+
+    if (params.document && !params.pendingId) {
+      persistSourceDocument(
+        params.document.typeId,
+        params.document.typeLabel,
+        params.document.file,
+        [],
+        "Intelligence · Source added",
+      );
+    }
+
     tryAction("generateSource", () => {
       const documentForEval = params.document
         ? {
@@ -7817,22 +8185,12 @@ function PatriotPayJourneyInner({
         document: documentForEval,
       });
 
-      if (params.document && !result.item && !params.pendingId) {
-        persistSourceDocument(
-          params.document.typeId,
-          params.document.typeLabel,
-          params.document.file,
-          [],
-          "Intelligence · Source processed",
-        );
-      }
-
       applySourceGenerationResult({
         title: params.title,
         description: params.description,
         document: documentForEval,
-        documentFile: params.document?.file,
-        pendingId: params.pendingId,
+        documentFile: undefined,
+        pendingId: sourceId,
         result,
       });
     });
@@ -8213,17 +8571,16 @@ function PatriotPayJourneyInner({
     || activePage === "investor-pipeline"
     || activePage === "investor-watchlists";
   const investorDashboardSection: InvestorDashboardSection =
-    activePage === "investor-portfolios" ? "portfolios"
-      : activePage === "investor-pipeline" ? "pipeline"
-        : activePage === "investor-watchlists" ? "watchlists"
-          : "home";
+    activePage === "investor-pipeline" ? "pipeline"
+      : activePage === "investor-watchlists" ? "watchlists"
+        : "portfolios"; // home dashboard hidden — portfolios is the investor landing
   const breadcrumbLabel = isAccountPage
     ? `Account · ${accountTabLabel(accountTab)}`
-    : activePage === "investor-portfolios" ? "Portfolios"
+    : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
       : activePage === "investor-pipeline" ? "Pipeline"
         : activePage === "investor-watchlists" ? "Watchlists"
           : isInvestorShellPage
-            ? "Fund dashboard"
+            ? "Portfolios"
             : "Company";
 
   return (
@@ -8238,7 +8595,7 @@ function PatriotPayJourneyInner({
           </div>
         </div>
         <div
-          className={`account-card${isInvestorPersona && activePage === "investor-home" ? " is-active" : ""}`}
+          className="account-card"
           onClick={openAccountHome}
           role="button"
           tabIndex={0}
@@ -8456,7 +8813,10 @@ function PatriotPayJourneyInner({
           <div
             className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
             data-tour-target={tourOpen && tourSteps[tourStep].target === "initiatives" ? "initiatives" : undefined}
-            onClick={() => setActivePage("initiatives")}
+            onClick={() => {
+              setFocusInitiativeId(null);
+              setActivePage("initiatives");
+            }}
           >
             Initiatives <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>2</span>
           </div>
@@ -8551,12 +8911,12 @@ function PatriotPayJourneyInner({
               setIntelligenceItems={setScopedIntelligenceItems}
               intelligenceFocus={intelligenceFocus}
               onClearIntelligenceFocus={() => setIntelligenceFocus(null)}
+              onFocusIntelligence={setIntelligenceFocus}
               benchmarkSubmission={benchmarkSubmission}
               onEditBenchmark={() => setActivePage("benchmark-form")}
               benchmarkBlinkIds={benchmarkBlinkIds}
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
               manualPendingSources={manualPendingSources}
-              onSaveSource={handleSaveSource}
               onGenerateFromPending={handleGenerateFromPending}
               onDismissPendingSource={handleDismissPendingSource}
               onAttemptSourceGeneration={handleAttemptSourceGeneration}
@@ -8601,12 +8961,12 @@ function PatriotPayJourneyInner({
               setIntelligenceItems={setScopedIntelligenceItems}
               intelligenceFocus={intelligenceFocus}
               onClearIntelligenceFocus={() => setIntelligenceFocus(null)}
+              onFocusIntelligence={setIntelligenceFocus}
               benchmarkSubmission={benchmarkSubmission}
               onEditBenchmark={() => setActivePage("benchmark-form")}
               benchmarkBlinkIds={benchmarkBlinkIds}
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
               manualPendingSources={manualPendingSources}
-              onSaveSource={handleSaveSource}
               onGenerateFromPending={handleGenerateFromPending}
               onDismissPendingSource={handleDismissPendingSource}
               onAttemptSourceGeneration={handleAttemptSourceGeneration}
@@ -8618,6 +8978,7 @@ function PatriotPayJourneyInner({
                 ? investorInitiativesByCompany[selectedCompany.id] ?? []
                 : founderInitiatives}
               focusInitiativeId={focusInitiativeId}
+              onClearFocus={() => setFocusInitiativeId(null)}
               availableIntelligence={investorScopedIntelligence}
               onLogIntelligence={item => {
                 setScopedIntelligenceItems(previous => [item, ...previous]);

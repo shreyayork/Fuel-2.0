@@ -1074,6 +1074,9 @@ type BenchmarkValues = {
   monthlyBurn: string;
   cashOnHand: string;
   grossMargin: string;
+  cacPayback: string;
+  burnMultiple: string;
+  ruleOf40: string;
   headcount: string;
   payingCustomers: string;
 };
@@ -1084,7 +1087,7 @@ export type BenchmarkWizardField = {
   prompt: string;
   promptHint?: string;
   placeholder: string;
-  unit: "usd" | "percent" | "count";
+  unit: "usd" | "percent" | "count" | "months" | "multiple";
   p25: number;
   p50: number;
   p75: number;
@@ -1144,6 +1147,9 @@ export const BENCHMARK_WIZARD_FIELDS: BenchmarkWizardField[] = [
   { key: "nrr", label: "Net revenue retention", prompt: "What does net revenue retention look like?", placeholder: "108", unit: "percent", p25: 95, p50: 108, p75: 125, p90: 145, bandStart: 66, bandEnd: 84 },
   { key: "logoRetention", label: "Logo retention", prompt: "What share of customers stayed over the last year?", placeholder: "88", unit: "percent", p25: 80, p50: 88, p75: 93, p90: 97, bandStart: 82, bandEnd: 96 },
   { key: "grossMargin", label: "Gross margin", prompt: "What's your blended gross margin?", placeholder: "72", unit: "percent", p25: 55, p50: 72, p75: 82, p90: 88, bandStart: 64, bandEnd: 92 },
+  { key: "cacPayback", label: "CAC payback", prompt: "How many months to recover customer acquisition cost?", placeholder: "16", unit: "months", p25: 10, p50: 16, p75: 26, p90: 42, bandStart: 20, bandEnd: 62, lowerIsBetter: true },
+  { key: "burnMultiple", label: "Burn multiple", prompt: "What's your burn multiple right now?", placeholder: "2.1", unit: "multiple", p25: 1.3, p50: 2.1, p75: 3.4, p90: 5.5, bandStart: 18, bandEnd: 58, lowerIsBetter: true },
+  { key: "ruleOf40", label: "Rule of 40", prompt: "What's your Rule of 40 (growth % + profit margin %)?", placeholder: "28", unit: "percent", p25: 15, p50: 28, p75: 40, p90: 55, bandStart: 30, bandEnd: 78 },
   { key: "monthlyBurn", label: "Monthly net burn", prompt: "Roughly how much net cash are you burning each month?", placeholder: "80000", unit: "usd", p25: 40000, p50: 80000, p75: 180000, p90: 350000, bandStart: 12, bandEnd: 52, lowerIsBetter: true },
   { key: "cashOnHand", label: "Cash on hand", prompt: "How much runway fuel is in the bank today?", placeholder: "1500000", unit: "usd", p25: 500000, p50: 1500000, p75: 3000000, p90: 6000000, bandStart: 22, bandEnd: 50 },
   { key: "headcount", label: "Headcount (FTE)", prompt: "How many full-time people are on the team?", placeholder: "12", unit: "count", p25: 6, p50: 12, p75: 22, p90: 40, bandStart: 15, bandEnd: 55 },
@@ -1160,7 +1166,7 @@ type BenchmarkGroupDef = {
 
 const BENCHMARK_GROUPS: BenchmarkGroupDef[] = [
   { key: "gtm", label: "GTM", sub: "Revenue + retention", color: "#00B48A", fieldKeys: ["arr", "arrGrowth", "nrr", "logoRetention"] },
-  { key: "ga", label: "G&A", sub: "Capital + efficiency", color: "#D4924A", fieldKeys: ["grossMargin", "monthlyBurn", "cashOnHand"] },
+  { key: "ga", label: "G&A", sub: "Capital + efficiency", color: "#D4924A", fieldKeys: ["grossMargin", "cacPayback", "burnMultiple", "ruleOf40", "monthlyBurn", "cashOnHand"] },
   { key: "rd", label: "R&D", sub: "Engineering + product", color: "#8B76D4", fieldKeys: ["headcount", "payingCustomers"] },
 ];
 
@@ -1351,7 +1357,7 @@ function BenchmarkPercentileInline({
 }
 
 function parseBenchmarkNumber(raw: string): number | null {
-  const cleaned = raw.replace(/[$,%x,\s]/gi, "");
+  const cleaned = raw.replace(/[$,%x,\s]/gi, "").replace(/mo(nths?)?$/i, "");
   if (!cleaned) return null;
   const value = Number(cleaned);
   return Number.isFinite(value) ? value : null;
@@ -1364,6 +1370,8 @@ export function formatBenchmarkDisplay(value: number, unit: BenchmarkWizardField
     return `$${value}`;
   }
   if (unit === "percent") return `${value}%`;
+  if (unit === "months") return `${value} mo`;
+  if (unit === "multiple") return `${value % 1 === 0 ? value.toFixed(0) : value.toFixed(1)}x`;
   return String(value);
 }
 
@@ -1723,6 +1731,9 @@ function momentMetricLabel(field: BenchmarkWizardField): string {
     nrr: "NRR",
     logoRetention: "logo retention",
     grossMargin: "gross margin",
+    cacPayback: "CAC payback",
+    burnMultiple: "burn multiple",
+    ruleOf40: "Rule of 40",
     monthlyBurn: "monthly burn",
     cashOnHand: "cash on hand",
     headcount: "headcount",
@@ -2462,6 +2473,9 @@ function buildBenchmarkResultRows(values: Partial<BenchmarkValues>) {
     monthlyBurn: values.monthlyBurn ?? "",
     cashOnHand: values.cashOnHand ?? "",
     grossMargin: values.grossMargin ?? "",
+    cacPayback: values.cacPayback ?? "",
+    burnMultiple: values.burnMultiple ?? "",
+    ruleOf40: values.ruleOf40 ?? "",
     headcount: values.headcount ?? "",
     payingCustomers: values.payingCustomers ?? "",
   };
@@ -3334,6 +3348,9 @@ function BenchmarkCard({
     monthlyBurn: "",
     cashOnHand: "",
     grossMargin: "",
+    cacPayback: "",
+    burnMultiple: "",
+    ruleOf40: "",
     headcount: "",
     payingCustomers: "",
   });
@@ -4760,7 +4777,7 @@ const DEV_WIZARD_QUESTIONS: QualQuestion[] = [
 ];
 
 const GTM_BENCH_KEYS: (keyof BenchmarkValues)[] = ["arr", "arrGrowth", "nrr", "logoRetention"];
-const REVOPS_BENCH_KEYS: (keyof BenchmarkValues)[] = ["grossMargin", "monthlyBurn", "cashOnHand"];
+const REVOPS_BENCH_KEYS: (keyof BenchmarkValues)[] = ["grossMargin", "cacPayback", "burnMultiple", "ruleOf40", "monthlyBurn", "cashOnHand"];
 const DEV_BENCH_KEYS: (keyof BenchmarkValues)[] = ["headcount", "payingCustomers"];
 
 const WIZARD_GROUP_COLORS = { gtm: "#00B48A", revops: "#D4924A", dev: "#8B76D4" } as const;
@@ -4955,6 +4972,9 @@ const BENCH_INTEL_SIGNALS: Record<string, IntelSignalCatalogEntry> = {
   nrr: { signalId: "nrr_pct", category: "retention", label: "Net revenue retention" },
   logoRetention: { signalId: "logo_retention_pct", category: "retention", label: "Logo retention" },
   grossMargin: { signalId: "gross_margin_pct", category: "efficiency", label: "Gross margin (blended)" },
+  cacPayback: { signalId: "cac_payback_months", category: "efficiency", label: "CAC payback" },
+  burnMultiple: { signalId: "burn_multiple", category: "efficiency", label: "Burn multiple" },
+  ruleOf40: { signalId: "rule_of_40", category: "efficiency", label: "Rule of 40" },
   monthlyBurn: { signalId: "monthly_burn_usd", category: "finance", label: "Monthly net burn" },
   cashOnHand: { signalId: "cash_on_hand_usd", category: "finance", label: "Cash on hand" },
   headcount: { signalId: "fte_count", category: "team", label: "FTE headcount" },
@@ -5146,6 +5166,18 @@ const REVOPS_METRIC_INITIATIVES: Record<(typeof REVOPS_BENCH_KEYS)[number], { ga
   grossMargin: {
     gap: { title: "Review COGS and delivery costs", description: "Small margin improvements compound into meaningful runway extension.", cadence: "One-time" },
     strong: { title: "Protect gross margin as you scale", description: "High margin is a competitive advantage — audit hosting and support load before hiring.", cadence: "Continuous" },
+  },
+  cacPayback: {
+    gap: { title: "Redesign acquisition economics", description: "Long payback usually points at channel mix, ICP fit, or sales-cycle drag — fix the path before scaling spend.", cadence: "One-time" },
+    strong: { title: "Scale efficient acquisition", description: "Payback looks healthy — double down on the channels recovering capital fastest.", cadence: "Continuous" },
+  },
+  burnMultiple: {
+    gap: { title: "Improve capital efficiency", description: "Tighten spend that does not move ARR until burn multiple trends toward peer median.", cadence: "One-time" },
+    strong: { title: "Keep burn multiple disciplined", description: "Efficient burn leaves room to invest when growth clicks.", cadence: "Continuous" },
+  },
+  ruleOf40: {
+    gap: { title: "Balance growth and profitability", description: "Rule of 40 below peers means growth or margin (or both) needs a clearer operating plan.", cadence: "One-time" },
+    strong: { title: "Defend Rule of 40 strength", description: "Growth plus margin is working — keep instrumentation tight as you scale.", cadence: "Continuous" },
   },
   monthlyBurn: {
     gap: { title: "Audit burn drivers", description: "Identify the top 3 costs that don't directly drive revenue or retention.", cadence: "One-time" },
@@ -7602,7 +7634,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
     const cohortLabel = `${cohort.model} · ${cohort.stage} · ${cohort.region}`;
     const emptyBench: BenchmarkValues = {
       arr: "", arrGrowth: "", nrr: "", logoRetention: "", monthlyBurn: "",
-      cashOnHand: "", grossMargin: "", headcount: "", payingCustomers: "",
+      cashOnHand: "", grossMargin: "", cacPayback: "", burnMultiple: "", ruleOf40: "",
+      headcount: "", payingCustomers: "",
     };
     const snapshot: BenchmarkSnapshot = {
       values: { ...emptyBench, ...data.bench },
@@ -7634,7 +7667,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
       const cohortLabel = `${cohort.model} · ${cohort.stage} · ${cohort.region}`;
       const emptyBench: BenchmarkValues = {
         arr: "", arrGrowth: "", nrr: "", logoRetention: "", monthlyBurn: "",
-        cashOnHand: "", grossMargin: "", headcount: "", payingCustomers: "",
+        cashOnHand: "", grossMargin: "", cacPayback: "", burnMultiple: "", ruleOf40: "",
+        headcount: "", payingCustomers: "",
       };
       const snapshot: BenchmarkSnapshot = {
         values: { ...emptyBench, ...accumulatedBenchRef.current },
@@ -8200,7 +8234,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                             { fieldKey: "logoRetention" },
                           ]}
                           benchStepOffset={0}
-                          benchTotal={9}
+                          benchTotal={12}
                           onComplete={handleGtmCategoryComplete}
                         />
                       )}
@@ -8264,11 +8298,14 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                           ]}
                           benchFields={[
                             { fieldKey: "grossMargin" },
+                            { fieldKey: "cacPayback" },
+                            { fieldKey: "burnMultiple" },
+                            { fieldKey: "ruleOf40" },
                             { fieldKey: "monthlyBurn" },
                             { fieldKey: "cashOnHand" },
                           ]}
                           benchStepOffset={4}
-                          benchTotal={9}
+                          benchTotal={12}
                           externalQuals={{ salesMotion: qualAnswers.salesMotion }}
                           onComplete={handleRevOpsCategoryComplete}
                         />
@@ -8321,8 +8358,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                             { fieldKey: "headcount" },
                             { fieldKey: "payingCustomers" },
                           ]}
-                          benchStepOffset={7}
-                          benchTotal={9}
+                          benchStepOffset={10}
+                          benchTotal={12}
                           onComplete={handleDevCategoryComplete}
                         />
                       )}

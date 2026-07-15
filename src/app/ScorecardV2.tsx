@@ -53,7 +53,7 @@ type MetricCohort = {
   key: MetricKey;
   label: string;
   p25: number; p50: number; p75: number; p90: number;
-  unit: "usd" | "percent" | "count";
+  unit: "usd" | "percent" | "count" | "months" | "multiple";
   lowerIsBetter?: boolean;
   intelCategory: string;
 };
@@ -188,7 +188,7 @@ export type ScorecardDocumentSlot = {
   current: { name: string } | null;
 };
 
-/** Optional efficiency metrics from benchmark form (not on OnboardingBenchmarkInput). */
+/** Efficiency metrics also available via benchmark form. */
 export type ScorecardEfficiencyExtras = {
   cacPayback?: string;
   burnMultiple?: string;
@@ -304,6 +304,9 @@ const METRIC_COHORTS: MetricCohort[] = [
   { key: "nrr",             label: "Net revenue retention", p25: 95,        p50: 108,       p75: 125,       p90: 145,       unit: "percent", intelCategory: "Retention" },
   { key: "logoRetention",   label: "Logo retention",        p25: 80,        p50: 88,        p75: 93,        p90: 97,        unit: "percent", intelCategory: "Retention" },
   { key: "grossMargin",     label: "Gross margin",          p25: 55,        p50: 72,        p75: 82,        p90: 88,        unit: "percent", intelCategory: "Efficiency"},
+  { key: "cacPayback",      label: "CAC payback",           p25: 10,        p50: 16,        p75: 26,        p90: 42,        unit: "months",  lowerIsBetter: true, intelCategory: "Efficiency" },
+  { key: "burnMultiple",    label: "Burn multiple",         p25: 1.3,       p50: 2.1,       p75: 3.4,       p90: 5.5,       unit: "multiple", lowerIsBetter: true, intelCategory: "Efficiency" },
+  { key: "ruleOf40",        label: "Rule of 40",            p25: 15,        p50: 28,        p75: 40,        p90: 55,        unit: "percent", intelCategory: "Efficiency" },
   { key: "monthlyBurn",     label: "Monthly net burn",      p25: 40_000,    p50: 80_000,    p75: 180_000,   p90: 350_000,   unit: "usd",     lowerIsBetter: true, intelCategory: "Finance" },
   { key: "cashOnHand",      label: "Cash on hand",          p25: 500_000,   p50: 1_500_000, p75: 3_000_000, p90: 6_000_000, unit: "usd",     intelCategory: "Finance"   },
   { key: "headcount",       label: "FTE headcount",         p25: 6,         p50: 12,        p75: 22,        p90: 40,        unit: "count",   intelCategory: "Team"      },
@@ -318,7 +321,7 @@ const ALL_BENCHMARK_METRIC_KEYS: MetricKey[] = METRIC_COHORTS.map(c => c.key);
 const CATEGORY_METRIC_KEYS: Record<ScorecardCategory, MetricKey[]> = {
   dev: ["headcount", "grossMargin"],
   mkt: ["arr", "logoRetention", "payingCustomers", "nrr", "arrGrowth"],
-  rev: ["cashOnHand", "monthlyBurn"],
+  rev: ["cashOnHand", "monthlyBurn", "cacPayback", "burnMultiple", "ruleOf40"],
 };
 
 const CATEGORY_META: Record<ScorecardCategory, {
@@ -368,7 +371,7 @@ const CATEGORY_PLAYBOOKS: Record<ScorecardCategory, CategoryPlaybook[]> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function parseMetricValue(raw: string): number | null {
-  const cleaned = raw.replace(/[$,%x,\s]/gi, "");
+  const cleaned = raw.replace(/[$,%x,\s]/gi, "").replace(/mo(nths?)?$/i, "");
   if (!cleaned) return null;
   const value = Number(cleaned);
   return Number.isFinite(value) ? value : null;
@@ -950,6 +953,9 @@ const BASE_METRIC_PLAYBOOKS: Partial<Record<MetricKey, MetricPlaybookOption[]>> 
   logoRetention:   [{ id: "marketing-icp-sprint",        title: "ICP Validation Sprint",       track: "GTM"   }, { id: "revops-retention",          title: "Retention Playbook",        track: "G&A"      }],
   payingCustomers: [{ id: "revops-pipeline-rhythm",      title: "Pipeline Operating Rhythm",   track: "G&A"      }, { id: "marketing-repeatable-gtm",  title: "Repeatable GTM Motion",     track: "GTM"   }],
   grossMargin:     [{ id: "finops-margin-review",        title: "Margin Review",               track: "FinOps"      }, { id: "finops-runway-burn-review", title: "Runway & Burn Review",      track: "FinOps"      }],
+  cacPayback:      [{ id: "finops-burn-efficiency",      title: "Burn Efficiency Review",      track: "FinOps"      }, { id: "marketing-repeatable-gtm",  title: "Repeatable GTM Motion",     track: "GTM"   }],
+  burnMultiple:    [{ id: "finops-burn-efficiency",      title: "Burn Efficiency Review",      track: "FinOps"      }, { id: "finops-runway-burn-review", title: "Runway & Burn Review",      track: "FinOps"      }],
+  ruleOf40:        [{ id: "finops-margin-review",        title: "Margin Review",               track: "FinOps"      }, { id: "finops-runway-burn-review", title: "Runway & Burn Review",      track: "FinOps"      }],
   monthlyBurn:     [{ id: "finops-runway-burn-review",   title: "Runway & Burn Review",        track: "FinOps"      }, { id: "finops-burn-efficiency",    title: "Burn Efficiency Review",    track: "FinOps"      }],
   cashOnHand:      [{ id: "finops-runway-burn-review",   title: "Runway & Burn Review",        track: "FinOps"      }, { id: "finops-board-readiness",    title: "Board Readiness Review",    track: "FinOps"      }],
   headcount:       [{ id: "dev-launch-signal-review",    title: "Launch Signal Review",        track: "R&D" }, { id: "dev-scale-readiness",       title: "Scale Readiness Check",     track: "R&D" }],
@@ -957,7 +963,8 @@ const BASE_METRIC_PLAYBOOKS: Partial<Record<MetricKey, MetricPlaybookOption[]>> 
 
 const METRIC_PLAYBOOK_TRACKS: Partial<Record<MetricKey, Array<MetricPlaybookOption["track"]>>> = {
   arr: ["GTM", "G&A"], arrGrowth: ["GTM"], nrr: ["G&A"], logoRetention: ["GTM", "G&A"],
-  payingCustomers: ["G&A", "GTM"], grossMargin: ["FinOps"], monthlyBurn: ["FinOps"], cashOnHand: ["FinOps"], headcount: ["R&D"],
+  payingCustomers: ["G&A", "GTM"], grossMargin: ["FinOps"], cacPayback: ["FinOps", "GTM"],
+  burnMultiple: ["FinOps"], ruleOf40: ["FinOps"], monthlyBurn: ["FinOps"], cashOnHand: ["FinOps"], headcount: ["R&D"],
 };
 
 function dedupeByTitle(pb: MetricPlaybookOption[]): MetricPlaybookOption[] {
@@ -3097,7 +3104,7 @@ function formatInitiativeDueLabel(due?: string): string {
 function initiativeDueMeta(due?: string, now = new Date()): { period: string; context: string } {
   const period = formatInitiativeDueLabel(due);
   const key = parseInitiativeDueSortKey(due);
-  if (!Number.isFinite(key)) return { period, context: "No date set" };
+  if (!Number.isFinite(key)) return { period: "No target date", context: "" };
   const currentQStart = Date.UTC(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
   const nextQStart = Date.UTC(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 1);
   if (key >= currentQStart && key < nextQStart) return { period, context: "In progress now" };
@@ -3552,11 +3559,14 @@ function OverviewFullSummaryPage({
                       {pillarInits.map(init => {
                         const status = initiativeStatusMeta(init.status);
                         const dueMeta = initiativeDueMeta(init.due, now);
+                        const hasDue = Boolean(init.due?.trim());
                         return (
                           <li key={init.id} className="sc-investor-brief-roadmap-item">
-                            <div className="sc-investor-brief-roadmap-due-row">
+                            <div className={`sc-investor-brief-roadmap-due-row${hasDue ? "" : " is-undated"}`}>
                               <time className="sc-investor-brief-roadmap-due-pill">{dueMeta.period}</time>
-                              <span className="sc-investor-brief-roadmap-due-context">{dueMeta.context}</span>
+                              {dueMeta.context ? (
+                                <span className="sc-investor-brief-roadmap-due-context">{dueMeta.context}</span>
+                              ) : null}
                             </div>
                             <article className={`sc-investor-brief-init-card is-${status.tone}`}>
                               <strong>{init.title}</strong>
@@ -3569,7 +3579,6 @@ function OverviewFullSummaryPage({
                               {init.description ? <p>{init.description}</p> : null}
                               <div className="sc-investor-brief-init-footer">
                                 <em>{init.owner?.trim() || "Unassigned"}</em>
-                                <b>{init.due?.trim() ? formatInitiativeDueLabel(init.due) : "No target"}</b>
                               </div>
                             </article>
                           </li>

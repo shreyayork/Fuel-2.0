@@ -3,6 +3,7 @@ export const INVEST_GEOGRAPHY_OPTIONS = [
   { label: "Canada", desc: "Canadian companies" },
   { label: "Mexico", desc: "Mexican companies" },
   { label: "Europe", desc: "EU, UK, and nearby markets" },
+  { label: "Asia Pacific", desc: "APAC markets across Asia and Oceania" },
   { label: "Global", desc: "No geography filter" },
 ] as const;
 

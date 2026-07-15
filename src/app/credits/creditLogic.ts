@@ -138,18 +138,19 @@ export function createDefaultSnapshot(plan: CreditPlan = "free"): CreditSnapshot
     return createDemoFreeSnapshot();
   }
   const limits = PLAN_LIMITS[plan];
+  // Fresh workspace after onboarding — full allowance, nothing pre-spent.
   return {
     plan,
-    monthlyUsed: plan === "free" ? 50 : 800,
+    monthlyUsed: 0,
     monthlyLimit: limits.monthly,
-    dailyUsed: plan === "free" ? 20 : 90,
+    dailyUsed: 0,
     dailyLimit: limits.daily,
     topUpBalance: 0,
     blockUntil: null,
     monthlyResetLabel: "Apr 1",
     justUnblocked: false,
     monthlyLowToastShown: false,
-    stats: { signals: 12, docs: 2, messages: 18 },
+    stats: { signals: 0, docs: 0, messages: 0 },
   };
 }
 

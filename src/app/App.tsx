@@ -18,7 +18,7 @@ export default function App() {
     const isInvestor = isInvestorPersona(onboardingAnswers);
     return (
       <PatriotPayJourney
-        initialPage={isInvestor ? "investor-home" : "overview-building"}
+        initialPage={isInvestor ? "investor-portfolios" : "overview-building"}
         initialBenchmark={onboardingBenchmark}
         initialOnboardingAnswers={onboardingAnswers}
         persona={isInvestor ? "investor" : "founder"}

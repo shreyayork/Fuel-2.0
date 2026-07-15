@@ -31,7 +31,8 @@ interface Answers extends OnboardingTrackAnswers {
   profileBusinessModel?: string;
   profileCompany?: string;
   arr: string; arrGrowth: string; nrr: string; logoRetention: string;
-  grossMargin: string; monthlyBurn: string; cashOnHand: string;
+  grossMargin: string; cacPayback: string; burnMultiple: string; ruleOf40: string;
+  monthlyBurn: string; cashOnHand: string;
   headcount: string; payingCustomers: string;
   investCheckSize: string; investGeography: string[]; investPipeline: string;
   hubspotConnected?: boolean;
@@ -87,13 +88,16 @@ const ONBOARDING_BENCHMARK_FIELDS: {
   p50: number;
   p75: number;
   p90: number;
-  unit: "%" | "usd" | "";
+  unit: "%" | "usd" | "" | "mo" | "x";
   lowerIsBetter?: boolean;
 }[] = [
   { label: "ARR", key: "arr", ph: "e.g. $1,200,000", p25: 150_000, p50: 500_000, p75: 1_200_000, p90: 2_500_000, unit: "usd" },
   { label: "ARR growth (YoY)", key: "arrGrowth", ph: "e.g. 85%", p25: 18, p50: 42, p75: 80, p90: 140, unit: "%" },
   { label: "Net revenue retention", key: "nrr", ph: "e.g. 108%", p25: 88, p50: 104, p75: 118, p90: 130, unit: "%" },
   { label: "Gross margin", key: "grossMargin", ph: "e.g. 72%", p25: 48, p50: 62, p75: 74, p90: 82, unit: "%" },
+  { label: "CAC payback", key: "cacPayback", ph: "e.g. 16 mo", p25: 10, p50: 16, p75: 26, p90: 42, unit: "mo", lowerIsBetter: true },
+  { label: "Burn multiple", key: "burnMultiple", ph: "e.g. 2.1x", p25: 1.3, p50: 2.1, p75: 3.4, p90: 5.5, unit: "x", lowerIsBetter: true },
+  { label: "Rule of 40", key: "ruleOf40", ph: "e.g. 28", p25: 15, p50: 28, p75: 40, p90: 55, unit: "%" },
   { label: "Logo retention", key: "logoRetention", ph: "e.g. 92%", p25: 72, p50: 84, p75: 91, p90: 96, unit: "%" },
   { label: "Monthly net burn", key: "monthlyBurn", ph: "e.g. $85,000", p25: 40000, p50: 85000, p75: 160000, p90: 280000, unit: "usd", lowerIsBetter: true },
   { label: "Cash on hand", key: "cashOnHand", ph: "e.g. $3,200,000", p25: 800000, p50: 2000000, p75: 4000000, p90: 8000000, unit: "usd" },
@@ -773,12 +777,14 @@ function formatUsd(n: number): string {
 function formatBenchmarkP(v: number, unit: string): string {
   if (unit === "%") return `${v}%`;
   if (unit === "usd") return formatUsd(v);
+  if (unit === "mo") return `${v} mo`;
+  if (unit === "x") return `${v}x`;
   return String(v);
 }
 
 function parseVal(s: string): number | null {
   if (!s.trim()) return null;
-  const c = s.replace(/[$,\s]/g, "");
+  const c = s.replace(/[$,\s]/g, "").replace(/mo(nths?)?$/i, "").replace(/x$/i, "");
   const m = c.match(/^([\d.]+)\s*M$/i);  if (m) return parseFloat(m[1]) * 1_000_000;
   const k = c.match(/^([\d.]+)\s*K$/i);  if (k) return parseFloat(k[1]) * 1_000;
   const p = c.match(/^([\d.]+)\s*%?$/);  if (p) return parseFloat(p[1]);
@@ -897,6 +903,9 @@ export function answersToOnboardingBenchmark(answers: Answers): OnboardingBenchm
     monthlyBurn: answers.monthlyBurn,
     cashOnHand: answers.cashOnHand,
     grossMargin: answers.grossMargin,
+    cacPayback: answers.cacPayback,
+    burnMultiple: answers.burnMultiple,
+    ruleOf40: answers.ruleOf40,
     headcount: answers.headcount,
     payingCustomers: answers.payingCustomers,
   };
@@ -938,6 +947,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
     profileProductDescription: "",
     profileApproxHeadcount: "",
     arr:"", arrGrowth:"", nrr:"", logoRetention:"", grossMargin:"",
+    cacPayback:"", burnMultiple:"", ruleOf40:"",
     monthlyBurn:"", cashOnHand:"", headcount:"", payingCustomers:"",
     investCheckSize:"", investGeography:[], investPipeline:"",
   }));

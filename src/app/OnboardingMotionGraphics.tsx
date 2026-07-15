@@ -33,6 +33,9 @@ interface Answers {
   arrGrowth?: string;
   nrr?: string;
   grossMargin?: string;
+  cacPayback?: string;
+  burnMultiple?: string;
+  ruleOf40?: string;
   logoRetention?: string;
   monthlyBurn?: string;
   cashOnHand?: string;
