@@ -87,12 +87,26 @@ Do not invent `gap: 10px` / `12px` panel grids when the sibling page uses `16px`
 
 ## Typography
 
-- **Section eyebrow / label**: muted, `10–10.5px`, uppercase, `letter-spacing: 0.08–0.12em`, weight 800
-- **Section / widget title**: primary, `14–15px`, weight 800
+- **Section eyebrow / label**: muted, `10px`, uppercase, `letter-spacing: 0.08em`, weight 700 — **only** for section labels
+- **Status badge / pill / flag**: sentence case, `11px`, weight 600 — never CSS uppercase/capitalize
+- **Insight chip**: sentence case, `12px`, weight 600 — no `text-transform`
+- **Section / widget title**: primary, `13–15px`, weight 700
 - **Page H1**: primary, `24px`, weight 800
-- **KPI value**: primary, `22px` (overview metric) or `17–18px` for compact
-- **Body**: primary or muted — at most **two** text colors on one card
-- **View all / secondary button**: match `.overview-panel-head button` — `11px`, weight 800, `padding: 7px 10px`, border `rgb(38, 57, 71)`
+- **KPI value**: primary, `22px` (overview metric) or `14px` for compact gap rows
+- **Body / form value**: `12.5px`, weight 500
+- **View all / secondary button**: match `.overview-panel-head button` — `11px`, weight 800, `padding: 7px 10px`
+
+Scorecard status colors + badge casing: see [fuel-scorecard-ui](../fuel-scorecard-ui/SKILL.md).
+
+### Status colors (scorecard — both themes)
+
+| Role | Hex |
+|------|-----|
+| Good | `#12b886` |
+| Watch | `#F5A623` |
+| Bad | `#E05C5C` |
+
+Left accents → good green only. Do not invent extra status hues.
 
 ## Buttons
 

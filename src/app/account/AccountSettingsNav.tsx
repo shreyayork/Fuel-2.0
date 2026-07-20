@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from "react";
 
 export type AccountSettingsTab =
+  | "profile"
   | "overview"
   | "users"
   | "teams"
@@ -40,8 +41,9 @@ export function useAccountSettingsNavOptional() {
   return useContext(AccountSettingsNavContext);
 }
 
-export const ACCOUNT_SETTINGS_TABS: { id: AccountSettingsTab; label: string }[] = [
-  { id: "overview", label: "Overview" },
+export const ACCOUNT_SETTINGS_TABS: { id: AccountSettingsTab; label: string; hidden?: boolean }[] = [
+  { id: "profile", label: "My Profile" },
+  { id: "overview", label: "Overview", hidden: true },
   { id: "users", label: "Users" },
   { id: "teams", label: "Teams" },
   { id: "settings", label: "Settings" },

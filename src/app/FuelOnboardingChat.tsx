@@ -378,7 +378,7 @@ function TypingDots() {
           }} />
         ))}
       </div>
-      <span style={{ fontSize: 11, color: "#8FA99A" }}>Fuel AI is thinking...</span>
+      <span style={{ fontSize: 11, color: "var(--text-2)" }}>Fuel AI is thinking...</span>
     </div>
   );
 }
@@ -418,16 +418,16 @@ const ROUND_TYPES = ["Pre-seed", "Seed", "Series A", "Series B", "Series C", "Br
 function inputStyle(focused?: boolean): React.CSSProperties {
   return {
     width: "100%", boxSizing: "border-box",
-    background: "#132130", border: `1px solid ${focused ? "rgba(61,214,140,0.35)" : "rgba(255,255,255,0.08)"}`,
+    background: "var(--bg)", border: `1px solid ${focused ? "rgba(61,214,140,0.35)" : "var(--panel-border)"}`,
     borderRadius: 6, padding: "7px 10px",
-    fontSize: 12, color: "#F2F5F2", outline: "none",
+    fontSize: 12, color: "var(--text-1)", outline: "none",
     transition: "border-color 0.15s",
   };
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, color: "#8FA99A", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
+    <div style={{ fontSize: 10, color: "var(--text-2)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
       {children}
     </div>
   );
@@ -483,7 +483,7 @@ function CrunchbaseCard({
     ];
     return (
       <div style={{
-        background: "#1F3140", border: "1px solid rgba(255,255,255,0.1)",
+        background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.1)",
         borderRadius: 12, overflow: "hidden", marginTop: 4,
       }}>
         <div style={{
@@ -498,7 +498,7 @@ function CrunchbaseCard({
             fontSize: 14, fontWeight: 800, color: "#00B48A",
           }}>{fields.name.charAt(0)}</div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#F2F5F2" }}>{fields.name}</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text-1)" }}>{fields.name}</div>
             <div style={{ fontSize: 11, color: "#00B48A", marginTop: 1 }}>{fields.category}</div>
           </div>
           <div style={{
@@ -510,26 +510,26 @@ function CrunchbaseCard({
         <div style={{ padding: "14px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
           {displayFields.map(({ label, value, full }) => (
             <div key={label} style={full ? { gridColumn: "1 / -1" } : {}}>
-              <div style={{ fontSize: 10, color: "#8FA99A", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 2 }}>{label}</div>
-              <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.4 }}>{value}</div>
+              <div style={{ fontSize: 10, color: "var(--text-2)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 2 }}>{label}</div>
+              <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.4 }}>{value}</div>
             </div>
           ))}
         </div>
         {rounds.length > 0 && (
           <div style={{ padding: "0 16px 12px" }}>
-            <div style={{ fontSize: 10, color: "#8FA99A", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>Funding rounds</div>
+            <div style={{ fontSize: 10, color: "var(--text-2)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>Funding rounds</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {rounds.map(r => (
                 <div key={r.id} style={{
                   display: "flex", gap: 8, alignItems: "center",
-                  background: "#172632", border: "1px solid rgba(255,255,255,0.05)",
+                  background: "var(--panel)", border: "1px solid rgba(255,255,255,0.05)",
                   borderRadius: 7, padding: "7px 10px",
                 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: "#8B76D4", minWidth: 70 }}>{r.type}</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "#00B48A", minWidth: 60 }}>{r.amount || "—"}</span>
-                  {r.date && <span style={{ fontSize: 11, color: "#8FA99A" }}>{r.date}</span>}
+                  {r.date && <span style={{ fontSize: 11, color: "var(--text-2)" }}>{r.date}</span>}
                   {r.investors && (
-                    <span style={{ fontSize: 11, color: "#8FA99A", marginLeft: "auto", textAlign: "right" }}>
+                    <span style={{ fontSize: 11, color: "var(--text-2)", marginLeft: "auto", textAlign: "right" }}>
                       {r.investors}
                     </span>
                   )}
@@ -546,7 +546,7 @@ function CrunchbaseCard({
               padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer",
             }}>Yes, looks good</button>
             <button onClick={() => setMode("edit")} style={{
-              background: "transparent", color: "#8FA99A",
+              background: "transparent", color: "var(--text-2)",
               border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7,
               padding: "8px 14px", fontSize: 12, cursor: "pointer",
             }}>Update details</button>
@@ -559,7 +559,7 @@ function CrunchbaseCard({
   // ── Edit mode ──
   return (
     <div style={{
-      background: "#1F3140", border: "1px solid rgba(255,255,255,0.1)",
+      background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: 12, overflow: "hidden", marginTop: 4,
     }}>
       {/* Header */}
@@ -567,7 +567,7 @@ function CrunchbaseCard({
         padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)",
         display: "flex", alignItems: "center", gap: 8,
       }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F2" }}>Update company details</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Update company details</div>
         <div style={{
           marginLeft: "auto", fontSize: 10, background: "rgba(139,118,212,0.12)",
           color: "#8B76D4", border: "1px solid rgba(139,118,212,0.2)",
@@ -650,20 +650,20 @@ function CrunchbaseCard({
           {rounds.length === 0 ? (
             <div style={{
               textAlign: "center", padding: "16px",
-              background: "#172632", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8,
-              fontSize: 12, color: "#8FA99A",
+              background: "var(--panel)", border: "1px dashed var(--panel-border)", borderRadius: 8,
+              fontSize: 12, color: "var(--text-2)",
             }}>No rounds added yet — click "Add round" to start</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0, border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, overflow: "hidden" }}>
               {/* Table header */}
               <div style={{
                 display: "grid", gridTemplateColumns: "120px 90px 80px 1fr 32px",
-                gap: 0, background: "#172632",
+                gap: 0, background: "var(--panel)",
                 borderBottom: "1px solid rgba(255,255,255,0.07)",
                 padding: "6px 10px",
               }}>
                 {["Round", "Amount", "Date", "Investors", ""].map(h => (
-                  <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.4px" }}>{h}</div>
+                  <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.4px" }}>{h}</div>
                 ))}
               </div>
               {/* Rows */}
@@ -671,7 +671,7 @@ function CrunchbaseCard({
                 <div key={r.id} style={{
                   display: "grid", gridTemplateColumns: "120px 90px 80px 1fr 32px",
                   gap: 6, alignItems: "center",
-                  background: i % 2 === 0 ? "#172632" : "#132130",
+                  background: i % 2 === 0 ? "var(--panel)" : "var(--bg)",
                   borderBottom: i < rounds.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                   padding: "6px 10px",
                 }}>
@@ -728,8 +728,8 @@ function CrunchbaseCard({
           padding: "8px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer",
         }}>Save & review</button>
         <button onClick={() => setMode("view")} style={{
-          background: "transparent", color: "#8FA99A",
-          border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7,
+          background: "transparent", color: "var(--text-2)",
+          border: "1px solid var(--panel-border)", borderRadius: 7,
           padding: "8px 14px", fontSize: 12, cursor: "pointer",
         }}>Cancel</button>
       </div>
@@ -743,7 +743,7 @@ function BusinessModelCard({ selected, onSelect }: { selected?: string; onSelect
 
   return (
     <div style={{
-      background: "#1F3140",
+      background: "var(--surface-3)",
       border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: 12,
       marginTop: 4,
@@ -767,8 +767,8 @@ function BusinessModelCard({ selected, onSelect }: { selected?: string; onSelect
                 onSelect(option.id);
               }}
               style={{
-                background: active ? "rgba(0,180,138,0.13)" : "#132130",
-                border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.08)",
+                background: active ? "rgba(0,180,138,0.13)" : "var(--bg)",
+                border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid var(--panel-border)",
                 borderRadius: 9,
                 color: "inherit",
                 cursor: "pointer",
@@ -778,10 +778,10 @@ function BusinessModelCard({ selected, onSelect }: { selected?: string; onSelect
                 textAlign: "left",
               }}
             >
-              <strong style={{ color: active ? "#F2F5F2" : "#F2F5F2", display: "block", fontSize: 12.5, lineHeight: 1.25 }}>
+              <strong style={{ color: active ? "var(--text-1)" : "var(--text-1)", display: "block", fontSize: 12.5, lineHeight: 1.25 }}>
                 {option.label}
               </strong>
-              <span style={{ color: "#8FA99A", display: "block", fontSize: 11.5, lineHeight: 1.35, marginTop: 5 }}>
+              <span style={{ color: "var(--text-2)", display: "block", fontSize: 11.5, lineHeight: 1.35, marginTop: 5 }}>
                 {option.desc}
               </span>
             </button>
@@ -827,7 +827,7 @@ function ProfileFormCard({
     background: "rgba(0,180,138,0.1)",
     border: "1px solid rgba(0,180,138,0.16)",
     borderRadius: 999,
-    color: "#F2F5F2",
+    color: "var(--text-1)",
     display: "inline-flex",
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
     fontSize: 9.5,
@@ -846,7 +846,7 @@ function ProfileFormCard({
 
   return (
     <div style={{
-      background: "#1F3140",
+      background: "var(--surface-3)",
       border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: 12,
       marginTop: 4,
@@ -855,10 +855,10 @@ function ProfileFormCard({
       <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
         + Profile ready
       </div>
-      <div style={{ color: "#F2F5F2", fontSize: 18, fontWeight: 800, lineHeight: 1.2, marginBottom: 6 }}>
+      <div style={{ color: "var(--text-1)", fontSize: 18, fontWeight: 800, lineHeight: 1.2, marginBottom: 6 }}>
         Review your <span style={{ color: "#00B48A" }}>{companyName || "company"}</span> profile.
       </div>
-      <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45, marginBottom: 14 }}>
+      <div style={{ color: "var(--text-2)", fontSize: 12, lineHeight: 1.45, marginBottom: 14 }}>
         The more accurate this is, the tighter your peer cohort. Garbage in, garbage out.
       </div>
 
@@ -891,7 +891,7 @@ function ProfileFormCard({
                   onClick={() => setSelectedModel(option.label)}
                   style={{
                     background: active ? "rgba(0,180,138,0.13)" : "#0B1720",
-                    border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.08)",
+                    border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid var(--panel-border)",
                     borderRadius: 9,
                     color: "inherit",
                     cursor: "pointer",
@@ -900,10 +900,10 @@ function ProfileFormCard({
                     textAlign: "left",
                   }}
                 >
-                  <strong style={{ color: active ? "#F2F5F2" : "#F2F5F2", display: "block", fontSize: 11.5, lineHeight: 1.25 }}>
+                  <strong style={{ color: active ? "var(--text-1)" : "var(--text-1)", display: "block", fontSize: 11.5, lineHeight: 1.25 }}>
                     {option.label}
                   </strong>
-                  <span style={{ color: "#8FA99A", display: "block", fontSize: 10.5, lineHeight: 1.3, marginTop: 4 }}>
+                  <span style={{ color: "var(--text-2)", display: "block", fontSize: 10.5, lineHeight: 1.3, marginTop: 4 }}>
                     {option.desc}
                   </span>
                 </button>
@@ -966,7 +966,7 @@ function ProfileFormCard({
                 {rounds.map(round => (
                   <div key={round.id} style={{
                     alignItems: "center",
-                    background: "#172632",
+                    background: "var(--panel)",
                     border: "1px solid rgba(255,255,255,0.06)",
                     borderRadius: 8,
                     display: "grid",
@@ -1016,12 +1016,12 @@ function ProfileFormCard({
           background: "rgba(0,180,138,0.08)",
           border: "1px solid rgba(0,180,138,0.18)",
           borderRadius: 8,
-          color: "#F2F5F2",
+          color: "var(--text-1)",
           fontSize: 11.5,
           lineHeight: 1.45,
           padding: "10px 12px",
         }}>
-          We'll link <strong style={{ color: "#F2F5F2" }}>{domain}</strong> to your Fuel profile. Teammates can create their own profiles for the same company.
+          We'll link <strong style={{ color: "var(--text-1)" }}>{domain}</strong> to your Fuel profile. Teammates can create their own profiles for the same company.
         </div>
 
         {!claimed ? (
@@ -1329,7 +1329,7 @@ function BenchmarkPercentileInline({
 
   return (
     <span
-      style={{ color: "#8FA99A", fontSize: 10, lineHeight: 1.4 }}
+      style={{ color: "var(--text-2)", fontSize: 10, lineHeight: 1.4 }}
       title="P25–P90 show where peers rank. P50 is the cohort median."
     >
       {BENCHMARK_PERCENTILES.map((bucket, index) => {
@@ -1346,7 +1346,7 @@ function BenchmarkPercentileInline({
           <span key={bucket.key} title={bucket.title} style={bucketColor ? { color: bucketColor, fontWeight: isActive ? 700 : 600 } : undefined}>
             {bucket.label}{" "}
             {isMedian || isActive ? (
-              <strong style={{ color: bucketColor ?? "#F2F5F2", fontWeight: 700 }}>{getBenchmarkPercentileValue(field, bucket.key)}</strong>
+              <strong style={{ color: bucketColor ?? "var(--text-1)", fontWeight: 700 }}>{getBenchmarkPercentileValue(field, bucket.key)}</strong>
             ) : getBenchmarkPercentileValue(field, bucket.key)}
             {index < BENCHMARK_PERCENTILES.length - 1 ? " · " : null}
           </span>
@@ -1440,6 +1440,37 @@ export function getBenchmarkTier(value: number, field: BenchmarkWizardField) {
 
 type BenchmarkTier = ReturnType<typeof getBenchmarkTier>;
 
+/** Status styles — green / amber / red only (identical in light and dark). */
+const STATUS_STYLE_GOOD = {
+  marker: "#12b886",
+  glow: "rgba(18,184,134,0.35)",
+  badgeBg: "rgba(18,184,134,0.12)",
+  badgeBorder: "rgba(18,184,134,0.28)",
+  calloutBg: "rgba(18,184,134,0.08)",
+  calloutBorder: "rgba(18,184,134,0.22)",
+  value: "#12b886",
+} as const;
+
+const STATUS_STYLE_WATCH = {
+  marker: "#F5A623",
+  glow: "rgba(245,166,35,0.35)",
+  badgeBg: "rgba(245,166,35,0.12)",
+  badgeBorder: "rgba(245,166,35,0.28)",
+  calloutBg: "rgba(245,166,35,0.08)",
+  calloutBorder: "rgba(245,166,35,0.22)",
+  value: "#F5A623",
+} as const;
+
+const STATUS_STYLE_BAD = {
+  marker: "#E05C5C",
+  glow: "rgba(224,92,92,0.35)",
+  badgeBg: "rgba(224,92,92,0.12)",
+  badgeBorder: "rgba(224,92,92,0.28)",
+  calloutBg: "rgba(224,92,92,0.08)",
+  calloutBorder: "rgba(224,92,92,0.22)",
+  value: "#E05C5C",
+} as const;
+
 export const BENCHMARK_TIER_PALETTE: Record<BenchmarkTier, {
   marker: string;
   glow: string;
@@ -1449,51 +1480,11 @@ export const BENCHMARK_TIER_PALETTE: Record<BenchmarkTier, {
   calloutBorder: string;
   value: string;
 }> = {
-  top: {
-    marker: "#00B48A",
-    glow: "rgba(0,180,138,0.38)",
-    badgeBg: "rgba(0,180,138,0.18)",
-    badgeBorder: "rgba(0,180,138,0.42)",
-    calloutBg: "rgba(0,180,138,0.1)",
-    calloutBorder: "rgba(0,180,138,0.24)",
-    value: "#00B48A",
-  },
-  upper: {
-    marker: "#9BD4BC",
-    glow: "rgba(155,212,188,0.32)",
-    badgeBg: "rgba(155,212,188,0.14)",
-    badgeBorder: "rgba(155,212,188,0.35)",
-    calloutBg: "rgba(155,212,188,0.08)",
-    calloutBorder: "rgba(155,212,188,0.2)",
-    value: "#9BD4BC",
-  },
-  mid: {
-    marker: "#D4A86A",
-    glow: "rgba(212,168,106,0.32)",
-    badgeBg: "rgba(212,168,106,0.14)",
-    badgeBorder: "rgba(212,168,106,0.35)",
-    calloutBg: "rgba(212,168,106,0.08)",
-    calloutBorder: "rgba(212,168,106,0.22)",
-    value: "#D4A86A",
-  },
-  lower: {
-    marker: "#C9976B",
-    glow: "rgba(201,151,107,0.32)",
-    badgeBg: "rgba(201,151,107,0.14)",
-    badgeBorder: "rgba(201,151,107,0.35)",
-    calloutBg: "rgba(201,151,107,0.08)",
-    calloutBorder: "rgba(201,151,107,0.22)",
-    value: "#C9976B",
-  },
-  bottom: {
-    marker: "#CF8A8A",
-    glow: "rgba(207,138,138,0.34)",
-    badgeBg: "rgba(207,138,138,0.14)",
-    badgeBorder: "rgba(207,138,138,0.35)",
-    calloutBg: "rgba(207,138,138,0.1)",
-    calloutBorder: "rgba(207,138,138,0.24)",
-    value: "#CF8A8A",
-  },
+  top: { ...STATUS_STYLE_GOOD },
+  upper: { ...STATUS_STYLE_GOOD },
+  mid: { ...STATUS_STYLE_WATCH },
+  lower: { ...STATUS_STYLE_WATCH },
+  bottom: { ...STATUS_STYLE_BAD },
 };
 
 export function getBenchmarkTierStyle(tier: BenchmarkTier) {
@@ -1517,7 +1508,7 @@ export function BenchmarkCohortTrack({
   const tier = value != null ? getBenchmarkTier(value, field) : null;
   const tierStyle = tier ? getBenchmarkTierStyle(tier) : null;
   const outsideCohort = marker != null && (marker < field.bandStart || marker > field.bandEnd);
-  const markerColor = tierStyle?.marker ?? (outsideCohort ? "#F2F5F2" : "#00B48A");
+  const markerColor = tierStyle?.marker ?? (outsideCohort ? "var(--text-1)" : "#00B48A");
   const markerGlow = tierStyle?.glow ?? "rgba(0,180,138,0.45)";
 
   return (
@@ -1544,7 +1535,7 @@ export function BenchmarkCohortTrack({
         <>
           <div style={{
             background: markerColor,
-            border: "2px solid #F2F5F2",
+            border: "2px solid var(--text-1)",
             borderRadius: "50%",
             boxShadow: animate
               ? `0 0 0 6px rgba(255,255,255,0.12), 0 0 18px ${markerGlow}`
@@ -1558,7 +1549,7 @@ export function BenchmarkCohortTrack({
             zIndex: 2,
           }} />
           <div style={{
-            background: "#F2F5F2",
+            background: "var(--text-1)",
             height: compact ? 14 : 18,
             left: `${marker}%`,
             position: "absolute",
@@ -2123,7 +2114,7 @@ export function SuggestedPlaybooksList({
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 3 }}>
-                <strong style={{ color: "#F2F5F2", fontSize: 12 }}>{playbook.title}</strong>
+                <strong style={{ color: "var(--text-1)", fontSize: 12 }}>{playbook.title}</strong>
                 <span style={{
                   background: `${trackColors[playbook.track]}18`,
                   border: `1px solid ${trackColors[playbook.track]}33`,
@@ -2136,7 +2127,7 @@ export function SuggestedPlaybooksList({
                   {playbook.track}
                 </span>
               </div>
-              <p style={{ color: "#8FA99A", fontSize: 11.5, lineHeight: 1.45, margin: 0 }}>{playbook.prompt}</p>
+              <p style={{ color: "var(--text-2)", fontSize: 11.5, lineHeight: 1.45, margin: 0 }}>{playbook.prompt}</p>
             </div>
           </div>
         ))}
@@ -2218,7 +2209,7 @@ function KpiSnapshotMoment({
   if (embedded) {
     return (
       <>
-        <div style={{ color: "#F2F5F2", fontSize: 15, fontWeight: 700, lineHeight: 1.45, marginBottom: 4 }}>
+        <div style={{ color: "var(--text-1)", fontSize: 15, fontWeight: 700, lineHeight: 1.45, marginBottom: 4 }}>
           {renderBoldText(moment.headline)}
         </div>
         {insightSections}
@@ -2322,7 +2313,7 @@ function FuelHelpBubble({
       {content.teaser ? (
         <div style={{
           borderTop: "1px solid rgba(0,180,138,0.14)",
-          color: "#F2F5F2",
+          color: "var(--text-1)",
           fontSize: 11.5,
           fontWeight: 700,
           letterSpacing: "0.02em",
@@ -2354,10 +2345,10 @@ function BenchmarkInsightCallout({
       marginTop: compact ? 8 : 0,
       padding: compact ? "8px 10px" : "10px 12px",
     }}>
-      <strong style={{ color: "#F2F5F2", display: "block", fontSize: compact ? 11.5 : 12.5, marginBottom: compact ? 2 : 4 }}>
+      <strong style={{ color: "var(--text-1)", display: "block", fontSize: compact ? 11.5 : 12.5, marginBottom: compact ? 2 : 4 }}>
         {insight.headline}
       </strong>
-      <span style={{ color: "#8FA99A", fontSize: compact ? 10.5 : 11.5, lineHeight: 1.45 }}>{insight.detail}</span>
+      <span style={{ color: "var(--text-2)", fontSize: compact ? 10.5 : 11.5, lineHeight: 1.45 }}>{insight.detail}</span>
     </div>
   );
 }
@@ -2385,7 +2376,7 @@ function LiveBenchmarkBar({
     }}>
       {!compact ? (
         <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-          <span style={{ color: "#8FA99A", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          <span style={{ color: "var(--text-2)", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>
             {field.label} · cohort distribution
           </span>
           {insight ? (
@@ -2393,7 +2384,7 @@ function LiveBenchmarkBar({
               background: "rgba(0,180,138,0.12)",
               border: "1px solid rgba(0,180,138,0.28)",
               borderRadius: 999,
-              color: "#F2F5F2",
+              color: "var(--text-1)",
               fontSize: 10,
               fontWeight: 800,
               padding: "3px 9px",
@@ -2900,7 +2891,7 @@ function CategoryCard({
     background: "rgba(255,255,255,0.06)",
     border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 6,
-    color: "#8FA99A",
+    color: "var(--text-2)",
     cursor: "pointer",
     display: "flex",
     font: "inherit",
@@ -2963,14 +2954,14 @@ function CategoryCard({
   }
 
   return (
-    <div style={{ background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, marginTop: 4, overflow: "hidden", width: "100%" }}>
+    <div style={{ background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, marginTop: 4, overflow: "hidden", width: "100%" }}>
 
       {/* Category header */}
-      <div style={{ background: categoryBg, borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "11px 16px 10px" }}>
+      <div style={{ background: categoryBg, borderBottom: "1px solid var(--panel-border)", padding: "11px 16px 10px" }}>
         <div style={{ color: categoryColor, fontSize: 10, fontWeight: 900, letterSpacing: "0.13em", textTransform: "uppercase", marginBottom: 3 }}>
           {categoryLabel}
         </div>
-        <div style={{ color: "#8FA99A", fontSize: 12, fontWeight: 500, lineHeight: 1.5 }}>{categoryDescription}</div>
+        <div style={{ color: "var(--text-2)", fontSize: 12, fontWeight: 500, lineHeight: 1.5 }}>{categoryDescription}</div>
       </div>
 
       {/* Qualitative questions */}
@@ -2985,7 +2976,7 @@ function CategoryCard({
                 borderBottom: i < visibleQuestions.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                 padding: "10px 16px",
               }}>
-                <div style={{ color: "#F2F5F2", fontSize: 12.5, fontWeight: 600, lineHeight: 1.4, marginBottom: 8 }}>{q.label}</div>
+                <div style={{ color: "var(--text-1)", fontSize: 12.5, fontWeight: 600, lineHeight: 1.4, marginBottom: 8 }}>{q.label}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {q.options.map(opt => {
                     const isSelected = sel === opt;
@@ -2994,8 +2985,8 @@ function CategoryCard({
                         onClick={() => handleQualSelect(q.key, opt)}
                         style={{
                           background: isSelected ? "rgba(0,180,138,0.15)" : "#0B1720",
-                          border: `1px solid ${isSelected ? "rgba(0,180,138,0.55)" : "rgba(255,255,255,0.1)"}`,
-                          borderRadius: 20, color: isSelected ? "#00B48A" : "#8FA99A",
+                          border: `1px solid ${isSelected ? "rgba(0,180,138,0.55)" : "var(--border-strong)"}`,
+                          borderRadius: 20, color: isSelected ? "#00B48A" : "var(--text-2)",
                           cursor: submitted ? "default" : "pointer", font: "inherit",
                           fontSize: 11.5, fontWeight: isSelected ? 700 : 500,
                           padding: "5px 12px", transition: "all 0.15s",
@@ -3029,7 +3020,7 @@ function CategoryCard({
       {visibleBenchFields.length > 0 && (
         <div style={{ padding: "12px 16px 14px" }}>
           <div style={{ alignItems: "center", display: "flex", gap: 8, marginBottom: 10 }}>
-            <div style={{ color: "#8FA99A", fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase" }}>Numbers</div>
+            <div style={{ color: "var(--text-2)", fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase" }}>Numbers</div>
             {counterTotal > 1 && (
               <div style={{ color: "#6B8899", fontSize: 11 }}>
                 {counterCurrent} of {counterTotal}
@@ -3046,7 +3037,7 @@ function CategoryCard({
               return (
                 <div key={field.key} style={{ alignItems: "center", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, display: "flex", gap: 8, marginBottom: 6, padding: "8px 12px" }}>
                   <div style={{ flex: 1 }}>
-                    <span style={{ color: "#8FA99A", fontSize: 12, fontWeight: 600 }}>{field.label}</span>
+                    <span style={{ color: "var(--text-2)", fontSize: 12, fontWeight: 600 }}>{field.label}</span>
                     <span style={{ color: "#6B8899", fontSize: 11, marginLeft: 8 }}>skipped</span>
                   </div>
                   {!submitted && <button type="button" onClick={() => editField(field.key)} style={editBtnStyle}>✎</button>}
@@ -3069,11 +3060,11 @@ function CategoryCard({
               marginTop: lockedCount > 0 ? 4 : 0,
               padding: 12,
             }}>
-              <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: activeField.promptHint ? 5 : 10 }}>
+              <div style={{ color: "var(--text-1)", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: activeField.promptHint ? 5 : 10 }}>
                 {activeField.prompt}
               </div>
               {activeField.promptHint && (
-                <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>{activeField.promptHint}</div>
+                <div style={{ color: "var(--text-2)", fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>{activeField.promptHint}</div>
               )}
               <div style={{ position: "relative", marginBottom: 10 }}>
                 <input
@@ -3089,13 +3080,13 @@ function CategoryCard({
                     border: `1px solid ${activeValue != null ? "rgba(0,180,138,0.35)" : "rgba(255,255,255,0.12)"}`,
                     borderRadius: 10,
                     boxShadow: activeValue != null ? "0 0 0 1px rgba(0,180,138,0.12)" : "none",
-                    color: "#F2F5F2", font: "inherit", fontSize: 18, fontWeight: 800, outline: "none",
+                    color: "var(--text-1)", font: "inherit", fontSize: 18, fontWeight: 800, outline: "none",
                     padding: activeField.unit === "percent" ? "10px 36px 10px 12px" : "10px 12px",
                     transition: "border-color 0.15s, box-shadow 0.15s", width: "100%",
                   }}
                 />
                 {activeField.unit === "percent" && (
-                  <span style={{ color: "#8FA99A", fontSize: 16, fontWeight: 800, pointerEvents: "none", position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>%</span>
+                  <span style={{ color: "var(--text-2)", fontSize: 16, fontWeight: 800, pointerEvents: "none", position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>%</span>
                 )}
               </div>
               <LiveBenchmarkBar compact field={activeField} value={activeValue} animate={pulseKey === activeField.key} />
@@ -3103,13 +3094,13 @@ function CategoryCard({
                 <button type="button" disabled={activeValue == null} onClick={lockInActive} style={{
                   background: activeValue != null ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.06)",
                   border: "none", borderRadius: 8,
-                  color: activeValue != null ? "#0a1a12" : "#8FA99A",
+                  color: activeValue != null ? "#0a1a12" : "var(--text-2)",
                   cursor: activeValue != null ? "pointer" : "not-allowed",
                   font: "inherit", fontSize: 12, fontWeight: 800, padding: "10px 18px",
                 }}>
                   {lockedCount >= visibleBenchFields.length - 1 ? "Lock in →" : "Lock in & next →"}
                 </button>
-                <span style={{ color: "#8FA99A", fontSize: 11.5 }}>
+                <span style={{ color: "var(--text-2)", fontSize: 11.5 }}>
                   {counterStep} of {counterTotal}
                 </span>
                 <button type="button" onClick={skipActive} style={{
@@ -3136,7 +3127,7 @@ function CategoryCard({
                 ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)"
                 : "rgba(255,255,255,0.07)",
               border: "none", borderRadius: 8,
-              color: canContinue ? "#0a1a12" : "#8FA99A",
+              color: canContinue ? "#0a1a12" : "var(--text-2)",
               cursor: canContinue ? "pointer" : "not-allowed",
               font: "inherit", fontSize: 12, fontWeight: 800, padding: "9px 20px",
               transition: "background 0.15s",
@@ -3204,7 +3195,7 @@ function QualSectionCard({
 
   return (
     <div style={{
-      background: "#172632",
+      background: "var(--panel)",
       border: "1px solid rgba(255,255,255,0.09)",
       borderRadius: 12,
       marginTop: 6,
@@ -3219,7 +3210,7 @@ function QualSectionCard({
           {sectionLabel}
         </div>
         {sectionSub && (
-          <div style={{ color: "#8FA99A", fontSize: 12, fontWeight: 600 }}>{sectionSub}</div>
+          <div style={{ color: "var(--text-2)", fontSize: 12, fontWeight: 600 }}>{sectionSub}</div>
         )}
       </div>
 
@@ -3238,7 +3229,7 @@ function QualSectionCard({
                 padding: "11px 14px",
               }}
             >
-              <div style={{ color: "#F2F5F2", fontSize: 12.5, fontWeight: 600, lineHeight: 1.4, marginBottom: 9 }}>
+              <div style={{ color: "var(--text-1)", fontSize: 12.5, fontWeight: 600, lineHeight: 1.4, marginBottom: 9 }}>
                 {q.label}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -3252,9 +3243,9 @@ function QualSectionCard({
                       onClick={() => handleSelect(q.key, opt)}
                       style={{
                         background: isSelected ? "rgba(0,180,138,0.15)" : "#0B1720",
-                        border: `1px solid ${isSelected ? "rgba(0,180,138,0.55)" : "rgba(255,255,255,0.1)"}`,
+                        border: `1px solid ${isSelected ? "rgba(0,180,138,0.55)" : "var(--border-strong)"}`,
                         borderRadius: 20,
-                        color: isSelected ? "#00B48A" : "#8FA99A",
+                        color: isSelected ? "#00B48A" : "var(--text-2)",
                         cursor: submitted ? "default" : "pointer",
                         font: "inherit",
                         fontSize: 11.5,
@@ -3297,7 +3288,7 @@ function QualSectionCard({
                 : "rgba(255,255,255,0.07)",
               border: "none",
               borderRadius: 8,
-              color: allAnswered ? "#0a1a12" : "#8FA99A",
+              color: allAnswered ? "#0a1a12" : "var(--text-2)",
               cursor: allAnswered ? "pointer" : "not-allowed",
               font: "inherit",
               fontSize: 12,
@@ -3496,7 +3487,7 @@ function BenchmarkCard({
 
   const cardShell = (children: React.ReactNode) => (
       <div style={{
-      background: "#1F3140",
+      background: "var(--surface-3)",
       border: "1px solid rgba(255,255,255,0.09)",
       borderRadius: 12,
       marginTop: 4,
@@ -3582,9 +3573,9 @@ function BenchmarkCard({
                           onClick={() => setCohort(current => ({ ...current, [section.key]: option }))}
                           style={{
                             background: active ? "rgba(0,180,138,0.14)" : "#0B1720",
-                            border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid rgba(255,255,255,0.08)",
+                            border: active ? "1px solid rgba(0,180,138,0.55)" : "1px solid var(--panel-border)",
                             borderRadius: 999,
-                            color: "#F2F5F2",
+                            color: "var(--text-1)",
                             cursor: "pointer",
                             font: "inherit",
                             fontSize: 11,
@@ -3610,7 +3601,7 @@ function BenchmarkCard({
             <>
               {isEditBrowse && (
                 <div style={{ alignItems: "center", display: "flex", gap: 10, justifyContent: "space-between", marginBottom: 4 }}>
-                  <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45 }}>
+                  <div style={{ color: "var(--text-2)", fontSize: 12, lineHeight: 1.45 }}>
                     Tap ✎ on any metric to edit one field.
                   </div>
                   <button
@@ -3620,7 +3611,7 @@ function BenchmarkCard({
                       background: "rgba(255,255,255,0.06)",
                       border: "1px solid rgba(255,255,255,0.1)",
                           borderRadius: 8,
-                      color: "#F2F5F2",
+                      color: "var(--text-1)",
                       cursor: "pointer",
                       flexShrink: 0,
                       font: "inherit",
@@ -3655,11 +3646,11 @@ function BenchmarkCard({
                   marginTop: 4,
                   padding: 12,
                 }}>
-                  <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: activeField.promptHint ? 6 : 10 }}>
+                  <div style={{ color: "var(--text-1)", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: activeField.promptHint ? 6 : 10 }}>
                     {activeField.prompt}
                         </div>
                   {activeField.promptHint ? (
-                    <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>
+                    <div style={{ color: "var(--text-2)", fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>
                       {activeField.promptHint}
                     </div>
                   ) : null}
@@ -3678,7 +3669,7 @@ function BenchmarkCard({
                         border: "1px solid rgba(0,180,138,0.35)",
                         borderRadius: 10,
                         boxShadow: activeValue != null ? "0 0 0 1px rgba(0,180,138,0.12)" : "none",
-                        color: "#F2F5F2",
+                        color: "var(--text-1)",
                         font: "inherit",
                         fontSize: 18,
                         fontWeight: 800,
@@ -3688,7 +3679,7 @@ function BenchmarkCard({
                       }}
                     />
                     {activeField.unit === "percent" && (
-                      <span style={{ color: "#8FA99A", fontSize: 16, fontWeight: 800, pointerEvents: "none", position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>%</span>
+                      <span style={{ color: "var(--text-2)", fontSize: 16, fontWeight: 800, pointerEvents: "none", position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>%</span>
                     )}
               </div>
                   <LiveBenchmarkBar compact field={activeField} value={activeValue} animate={pulseKey === activeField.key} />
@@ -3701,7 +3692,7 @@ function BenchmarkCard({
                         background: activeValue != null ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.06)",
                         border: "none",
                         borderRadius: 8,
-                        color: activeValue != null ? "#0a1a12" : "#8FA99A",
+                        color: activeValue != null ? "#0a1a12" : "var(--text-2)",
                         cursor: activeValue != null ? "pointer" : "not-allowed",
                         font: "inherit",
                         fontSize: 12,
@@ -3711,7 +3702,7 @@ function BenchmarkCard({
                     >
                       Save →
                     </button>
-                    <button type="button" onClick={cancelSingleFieldEdit} style={{ background: "none", border: "none", color: "#8FA99A", cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 700, padding: "10px 4px" }}>
+                    <button type="button" onClick={cancelSingleFieldEdit} style={{ background: "none", border: "none", color: "var(--text-2)", cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 700, padding: "10px 4px" }}>
                       Cancel
                     </button>
             </div>
@@ -3773,11 +3764,11 @@ function BenchmarkCard({
                       <div style={{ color: activeGroup.color, fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 2 }}>
                         {activeGroup.label}
                       </div>
-                      <div style={{ color: "#F2F5F2", fontSize: 13, fontWeight: 800 }}>
+                      <div style={{ color: "var(--text-1)", fontSize: 13, fontWeight: 800 }}>
                         {activeGroup.sub}
                       </div>
                     </div>
-                    <div style={{ color: "#8FA99A", fontSize: 11, fontWeight: 700 }}>
+                    <div style={{ color: "var(--text-2)", fontSize: 11, fontWeight: 700 }}>
                       {activeGroupIdx + 1} of {BENCHMARK_GROUPS.length}
                     </div>
                   </div>
@@ -3795,11 +3786,11 @@ function BenchmarkCard({
                           padding: "14px 14px",
                         }}
                       >
-                        <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: field.promptHint ? 5 : 10 }}>
+                        <div style={{ color: "var(--text-1)", fontSize: 14, fontWeight: 800, lineHeight: 1.35, marginBottom: field.promptHint ? 5 : 10 }}>
                           {field.prompt}
                         </div>
                         {field.promptHint && (
-                          <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>
+                          <div style={{ color: "var(--text-2)", fontSize: 12, lineHeight: 1.45, marginBottom: 10 }}>
                             {field.promptHint}
                           </div>
                         )}
@@ -3815,7 +3806,7 @@ function BenchmarkCard({
                               border: `1px solid ${value != null ? "rgba(0,180,138,0.35)" : "rgba(255,255,255,0.12)"}`,
                               borderRadius: 10,
                               boxShadow: value != null ? "0 0 0 1px rgba(0,180,138,0.12)" : "none",
-                              color: "#F2F5F2",
+                              color: "var(--text-1)",
                               font: "inherit",
                               fontSize: 18,
                               fontWeight: 800,
@@ -3826,7 +3817,7 @@ function BenchmarkCard({
                             }}
                           />
                           {field.unit === "percent" && (
-                            <span style={{ color: "#8FA99A", fontSize: 16, fontWeight: 800, pointerEvents: "none", position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>%</span>
+                            <span style={{ color: "var(--text-2)", fontSize: 16, fontWeight: 800, pointerEvents: "none", position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>%</span>
                           )}
                         </div>
                         <LiveBenchmarkBar compact field={field} value={value} animate={pulseKey === key} />
@@ -3845,7 +3836,7 @@ function BenchmarkCard({
                           : "rgba(255,255,255,0.07)",
                         border: "none",
                         borderRadius: 8,
-                        color: activeGroupReady ? "#0a1a12" : "#8FA99A",
+                        color: activeGroupReady ? "#0a1a12" : "var(--text-2)",
                         cursor: activeGroupReady ? "pointer" : "not-allowed",
                         font: "inherit",
                         fontSize: 12,
@@ -3857,7 +3848,7 @@ function BenchmarkCard({
                         ? `Lock in ${activeGroup.label} →`
                         : "See my full benchmark →"}
           </button>
-                    <span style={{ color: "#8FA99A", fontSize: 11.5 }}>
+                    <span style={{ color: "var(--text-2)", fontSize: 11.5 }}>
                       {activeGroup.fieldKeys.filter(k => parseBenchmarkNumber(benchmarkValues[k]) != null).length} / {activeGroup.fieldKeys.length} filled
                     </span>
         </div>
@@ -3874,7 +3865,7 @@ function BenchmarkCard({
   if (mode === "loading") {
     return (
       <div style={{
-        background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)",
+        background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.09)",
         borderRadius: 12, marginTop: 4, padding: 20, textAlign: "center", width: "100%",
       }}>
         <div style={{ display: "inline-flex", gap: 4, marginBottom: 12 }}>
@@ -3886,8 +3877,8 @@ function BenchmarkCard({
             }} />
           ))}
         </div>
-        <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800 }}>Building your benchmark</div>
-        <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.5, marginTop: 5 }}>
+        <div style={{ color: "var(--text-1)", fontSize: 14, fontWeight: 800 }}>Building your benchmark</div>
+        <div style={{ color: "var(--text-2)", fontSize: 12, lineHeight: 1.5, marginTop: 5 }}>
           Plotting {cohortLabel} and locking in your intelligence.
         </div>
       </div>
@@ -3899,7 +3890,7 @@ function BenchmarkCard({
       <div
         ref={journeyResultsRef}
         style={{
-        background: "linear-gradient(135deg, #172632 0%, #10202B 100%)",
+        background: "linear-gradient(135deg, var(--panel) 0%, var(--bg-main) 100%)",
         border: "1px solid rgba(61,214,140,0.18)",
         borderRadius: 12,
         padding: 16,
@@ -3917,7 +3908,7 @@ function BenchmarkCard({
             background: "rgba(0,180,138,0.1)",
             border: "1px solid rgba(0,180,138,0.2)",
             borderRadius: 999,
-            color: "#F2F5F2",
+            color: "var(--text-1)",
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
             fontSize: 10.5,
             fontWeight: 800,
@@ -3948,9 +3939,9 @@ function BenchmarkCard({
                 }}
               >
               {isSelected ? <span style={{ color: "#00B48A", fontSize: 12, position: "absolute", right: 10, top: 8 }}>✓</span> : null}
-                <div style={{ color: "#8FA99A", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>{item.stage}</div>
-              <strong style={{ color: "#F2F5F2", display: "block", fontSize: 12, lineHeight: 1.25 }}>{item.title}</strong>
-              <p style={{ color: "#8FA99A", fontSize: 10.5, lineHeight: 1.3, margin: "4px 0 0" }}>{item.detail}</p>
+                <div style={{ color: "var(--text-2)", fontSize: 9.5, fontWeight: 900, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>{item.stage}</div>
+              <strong style={{ color: "var(--text-1)", display: "block", fontSize: 12, lineHeight: 1.25 }}>{item.title}</strong>
+              <p style={{ color: "var(--text-2)", fontSize: 10.5, lineHeight: 1.3, margin: "4px 0 0" }}>{item.detail}</p>
             </button>
             );
           })}
@@ -4006,12 +3997,12 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
 
   return (
     <div style={{
-      background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)",
+      background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.09)",
       borderRadius: 12, overflow: "hidden", marginTop: 4,
     }}>
       <div style={{ padding: "13px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F2" }}>York IE — embedded growth partner</div>
-        <div style={{ fontSize: 12, color: "#8FA99A", marginTop: 4, lineHeight: 1.55 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>York IE — embedded growth partner</div>
+        <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 4, lineHeight: 1.55 }}>
           York IE provides senior practitioners — not consultants — across the same four tracks Fuel monitors. They work inside your team to move the numbers Fuel is tracking.
         </div>
       </div>
@@ -4019,7 +4010,7 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
       <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         {tracks.map(t => (
           <div key={t.label} style={{
-            background: "#172632", border: `1px solid ${t.color}22`,
+            background: "var(--panel)", border: `1px solid ${t.color}22`,
             borderRadius: 9, padding: "12px 13px",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
@@ -4027,17 +4018,17 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
               <span style={{ fontSize: 12, fontWeight: 700, color: t.color }}>{t.label}</span>
             </div>
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 5 }}>Fuel tracks</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 5 }}>Fuel tracks</div>
               {t.tracked.map(item => (
                 <div key={item} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 3 }}>
                   <span style={{ color: t.color, fontSize: 10, marginTop: 1, flexShrink: 0 }}>·</span>
-                  <span style={{ fontSize: 11, color: "#8FA99A", lineHeight: 1.4 }}>{item}</span>
+                  <span style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.4 }}>{item}</span>
                 </div>
               ))}
             </div>
             <div style={{
               borderTop: `1px solid ${t.color}18`, paddingTop: 8,
-              fontSize: 11, color: "#F2F5F2", lineHeight: 1.45, fontStyle: "italic",
+              fontSize: 11, color: "var(--text-1)", lineHeight: 1.45, fontStyle: "italic",
             }}>{t.helps}</div>
           </div>
         ))}
@@ -4051,7 +4042,7 @@ function YorkServicesCard({ onChoice }: { onChoice: (v: "york-yes" | "york-skip"
             padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer",
           }}>I want York IE on my team →</button>
           <button onClick={() => { setChosen(true); onChoice("york-skip"); }} style={{
-            background: "transparent", color: "#8FA99A",
+            background: "transparent", color: "var(--text-2)",
             border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7,
             padding: "8px 14px", fontSize: 12, cursor: "pointer",
           }}>I'll focus on integrations for now</button>
@@ -4081,19 +4072,19 @@ function ValuePropCard({
   const props = items?.length ? items : defaultProps;
   return (
     <div style={{
-      background: "#1F3140", border: "1px solid rgba(255,255,255,0.1)",
+      background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: 12, overflow: "hidden", marginTop: 4,
     }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2" }}>{headline}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{headline}</div>
       </div>
       <div style={{ padding: "10px 16px 4px", display: "flex", flexDirection: "column", gap: 8 }}>
         {props.map(p => (
           <div key={p.title} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{p.icon}</span>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#F2F5F2", marginBottom: 2 }}>{p.title}</div>
-              <div style={{ fontSize: 11.5, color: "#8FA99A", lineHeight: 1.5 }}>{p.desc}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-1)", marginBottom: 2 }}>{p.title}</div>
+              <div style={{ fontSize: 11.5, color: "var(--text-2)", lineHeight: 1.5 }}>{p.desc}</div>
             </div>
           </div>
         ))}
@@ -4136,7 +4127,7 @@ function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
 
   return (
     <div style={{
-      background: "#1F3140",
+      background: "var(--surface-3)",
       border: "1px solid rgba(255,255,255,0.09)",
       borderRadius: 12,
       marginTop: 4,
@@ -4146,29 +4137,29 @@ function YorkProjectsCard({ onContinue }: { onContinue: () => void }) {
         <div style={{ color: fuel.textMuted, fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", marginBottom: 5, textTransform: "uppercase" }}>
           York IE projects
         </div>
-        <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800 }}>
+        <div style={{ color: "var(--text-1)", fontSize: 14, fontWeight: 800 }}>
           Active work Fuel will use for intelligence generation
         </div>
-        <div style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.55, marginTop: 5 }}>
+        <div style={{ color: "var(--text-2)", fontSize: 12, lineHeight: 1.55, marginTop: 5 }}>
           Your York IE workspace is already connected, so Fuel can use these active projects, updates, and service context automatically. You can review detailed project updates anytime in Scorecard.
         </div>
       </div>
       <div style={{ display: "grid", gap: 8, padding: 14 }}>
         {projects.map(project => (
           <div key={project.title} style={{
-            background: "#172632",
+            background: "var(--panel)",
             border: "1px solid rgba(255,255,255,0.06)",
             borderRadius: 9,
             padding: 12,
           }}>
             <div style={{ alignItems: "center", display: "flex", gap: 8, marginBottom: 5 }}>
               <span style={{ color: "#00B48A", fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>{project.area}</span>
-              <span style={{ background: "rgba(0,180,138,0.1)", border: "1px solid rgba(0,180,138,0.2)", borderRadius: 999, color: "#F2F5F2", fontSize: 10, fontWeight: 800, padding: "2px 7px" }}>
+              <span style={{ background: "rgba(0,180,138,0.1)", border: "1px solid rgba(0,180,138,0.2)", borderRadius: 999, color: "var(--text-1)", fontSize: 10, fontWeight: 800, padding: "2px 7px" }}>
                 {project.status}
               </span>
             </div>
-            <strong style={{ color: "#F2F5F2", display: "block", fontSize: 13 }}>{project.title}</strong>
-            <p style={{ color: "#8FA99A", fontSize: 12, lineHeight: 1.5, margin: "5px 0 0" }}>{project.summary}</p>
+            <strong style={{ color: "var(--text-1)", display: "block", fontSize: 13 }}>{project.title}</strong>
+            <p style={{ color: "var(--text-2)", fontSize: 12, lineHeight: 1.5, margin: "5px 0 0" }}>{project.summary}</p>
           </div>
         ))}
       </div>
@@ -4215,12 +4206,12 @@ function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
   ];
   return (
     <div style={{
-      background: "#1F3140", border: "1px solid rgba(255,255,255,0.09)",
+      background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.09)",
       borderRadius: 12, overflow: "hidden", marginTop: 4,
     }}>
       <div style={{ padding: "13px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F2" }}>Why add integrations?</div>
-        <div style={{ fontSize: 12, color: "#8FA99A", marginTop: 3 }}>Your integrations are what power everything in Fuel.</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Why add integrations?</div>
+        <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 3 }}>Your integrations are what power everything in Fuel.</div>
       </div>
 
       {/* Reasons — compact 2-col */}
@@ -4228,13 +4219,13 @@ function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
         {reasons.map(r => (
           <div key={r.title} style={{
             display: "flex", gap: 9, alignItems: "flex-start",
-            background: "#172632", border: "1px solid rgba(255,255,255,0.05)",
+            background: "var(--panel)", border: "1px solid rgba(255,255,255,0.05)",
             borderRadius: 8, padding: "9px 11px",
           }}>
             <span style={{ fontSize: 15, flexShrink: 0 }}>{r.icon}</span>
             <div>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: "#F2F5F2", marginBottom: 2 }}>{r.title}</div>
-              <div style={{ fontSize: 11, color: "#8FA99A", lineHeight: 1.45 }}>{r.desc}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-1)", marginBottom: 2 }}>{r.title}</div>
+              <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.45 }}>{r.desc}</div>
             </div>
           </div>
         ))}
@@ -4242,7 +4233,7 @@ function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
 
       {/* Available integrations by track */}
       <div style={{ padding: "8px 16px 12px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div style={{ fontSize: 11.5, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>Available integrations</div>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>Available integrations</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {categories.map(cat => (
             <div key={cat.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -4254,8 +4245,8 @@ function WhyIntegrateCard({ onContinue }: { onContinue: () => void }) {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                 {cat.integrations.map(name => (
                   <span key={name} style={{
-                    fontSize: 11, color: "#8FA99A",
-                    background: "#172632", border: "1px solid rgba(255,255,255,0.07)",
+                    fontSize: 11, color: "var(--text-2)",
+                    background: "var(--panel)", border: "1px solid rgba(255,255,255,0.07)",
                     borderRadius: 5, padding: "2px 8px",
                   }}>{name}</span>
                 ))}
@@ -4288,26 +4279,26 @@ function IntegrationSelector({
   const categories = ["Development", "Marketing", "RevOps", "FinOps"];
   return (
     <div style={{
-      background: "#1F3140", border: "1px solid rgba(255,255,255,0.1)",
+      background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: 12, overflow: "hidden", marginTop: 4,
     }}>
       <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2" }}>Set up your integrations</div>
-        <div style={{ fontSize: 11.5, color: "#8FA99A", marginTop: 3 }}>Select the integrations you want active. Premium connectors can be added to your Fuel subscription from the Connector Hub.</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>Set up your integrations</div>
+        <div style={{ fontSize: 11.5, color: "var(--text-2)", marginTop: 3 }}>Select the integrations you want active. Premium connectors can be added to your Fuel subscription from the Connector Hub.</div>
       </div>
       {categories.map(cat => {
         const items = INTEGRATIONS.filter(i => i.category === cat);
         return (
           <div key={cat} style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>{cat}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>{cat}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {items.map(item => {
                 const isSelected = selected.includes(item.id);
                 return (
                   <button key={item.id} onClick={() => onToggle(item.id)} style={{
                     display: "flex", alignItems: "center", gap: 7,
-                    background: isSelected ? "rgba(61,214,140,0.1)" : "#172632",
-                    border: isSelected ? "1px solid rgba(61,214,140,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                    background: isSelected ? "rgba(61,214,140,0.1)" : "var(--panel)",
+                    border: isSelected ? "1px solid rgba(61,214,140,0.3)" : "1px solid var(--panel-border)",
                     borderRadius: 7, padding: "6px 10px",
                     cursor: "pointer", transition: "all 0.15s",
                   }}>
@@ -4317,7 +4308,7 @@ function IntegrationSelector({
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 9, fontWeight: 800, color: item.color,
                     }}>{item.abbr}</span>
-                    <span style={{ fontSize: 11.5, color: isSelected ? "#00B48A" : "#8FA99A", fontWeight: isSelected ? 600 : 400 }}>{item.name}</span>
+                    <span style={{ fontSize: 11.5, color: isSelected ? "#00B48A" : "var(--text-2)", fontWeight: isSelected ? 600 : 400 }}>{item.name}</span>
                     {"york" in item && item.york && (
                       <span style={{ fontSize: 9, color: "#00B48A", background: "rgba(61,214,140,0.1)", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>York</span>
                     )}
@@ -4344,7 +4335,7 @@ function IntegrationSelector({
           {selected.length > 0 ? `Connect ${selected.length} integration${selected.length > 1 ? "s" : ""}` : "Skip for now"}
         </button>
         {selected.length === 0 && (
-          <span style={{ fontSize: 12, color: "#8FA99A" }}>You can add premium connectors anytime from the Connector Hub</span>
+          <span style={{ fontSize: 12, color: "var(--text-2)" }}>You can add premium connectors anytime from the Connector Hub</span>
         )}
       </div>
     </div>
@@ -4386,7 +4377,7 @@ const FUNCTION_COLORS: Record<TeamFunction, string> = {
   Marketing: "#8B76D4",
   "Customer Success": "#9BD4BC",
   "Finance & Ops": "#C9976B",
-  Leadership: "#F2F5F2",
+  Leadership: "var(--text-1)",
 };
 
 function linkedInTeamDistribution(total: number): TeamHeadcount {
@@ -4442,7 +4433,7 @@ function TeamStructureCard({
 
   return (
     <div style={{
-      background: "#1F3140",
+      background: "var(--surface-3)",
       border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: 12,
       marginTop: 4,
@@ -4452,13 +4443,13 @@ function TeamStructureCard({
         borderBottom: "1px solid rgba(255,255,255,0.06)",
         padding: "12px 16px",
       }}>
-        <div style={{ color: "#8FA99A", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
+        <div style={{ color: "var(--text-2)", fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
           Team structure
         </div>
-        <div style={{ color: "#F2F5F2", fontSize: 14, fontWeight: 800, lineHeight: 1.35 }}>
+        <div style={{ color: "var(--text-1)", fontSize: 14, fontWeight: 800, lineHeight: 1.35 }}>
           {total} people total
         </div>
-        <div style={{ color: "#8FA99A", fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
+        <div style={{ color: "var(--text-2)", fontSize: 11.5, lineHeight: 1.45, marginTop: 3 }}>
           We pulled this from LinkedIn. Adjust if anything looks off.
         </div>
       </div>
@@ -4477,7 +4468,7 @@ function TeamStructureCard({
               gridTemplateColumns: "130px 1fr 80px",
               padding: "8px 0",
             }}>
-              <div style={{ color: "#F2F5F2", fontSize: 12, fontWeight: 600 }}>{fn}</div>
+              <div style={{ color: "var(--text-1)", fontSize: 12, fontWeight: 600 }}>{fn}</div>
               <div style={{
                 background: "#07131C",
                 borderRadius: 999,
@@ -4502,10 +4493,10 @@ function TeamStructureCard({
                     disabled={count === 0}
                     style={{
                       alignItems: "center",
-                      background: "rgba(255,255,255,0.05)",
+                      background: "var(--border)",
                       border: "1px solid rgba(255,255,255,0.1)",
                       borderRadius: 4,
-                      color: "#8FA99A",
+                      color: "var(--text-2)",
                       cursor: count === 0 ? "not-allowed" : "pointer",
                       display: "flex",
                       fontSize: 13,
@@ -4548,7 +4539,7 @@ function TeamStructureCard({
         })}
         {allowAddFunction && hiddenFunctions.length > 0 && !confirmed && (
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 8, paddingTop: 10 }}>
-            <div style={{ color: "#8FA99A", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginBottom: 8, textTransform: "uppercase" }}>
+            <div style={{ color: "var(--text-2)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", marginBottom: 8, textTransform: "uppercase" }}>
               Add a function
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -4561,7 +4552,7 @@ function TeamStructureCard({
                     background: "#0B1720",
                     border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: 20,
-                    color: "#8FA99A",
+                    color: "var(--text-2)",
                     cursor: "pointer",
                     font: "inherit",
                     fontSize: 11.5,
@@ -4835,7 +4826,7 @@ function WizardStepIndicator({ step }: { step: WizardStepId }) {
   const pct = (step / WIZARD_STEP_COUNT) * 100;
   return (
     <div style={{ marginBottom: 32 }}>
-      <div style={{ color: "#8FA99A", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", marginBottom: 10 }}>
+      <div style={{ color: "var(--text-2)", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", marginBottom: 10 }}>
         Step {step} of {WIZARD_STEP_COUNT} · {WIZARD_STEP_LABELS[step]}
       </div>
       <div style={{ background: "#07131C", borderRadius: 999, height: 4, overflow: "hidden" }}>
@@ -5018,7 +5009,7 @@ function IntelligencePreviewRow({ signal }: { signal: SectionIntelSignal }) {
       <span style={{
         alignSelf: "start",
         background: "rgba(10, 20, 28, 0.55)",
-        border: "1px solid rgb(38, 57, 71)",
+        border: "1px solid var(--panel-border)",
         borderRadius: 999,
         color: fuel.textMuted,
         fontFamily: '"JetBrains Mono", ui-monospace, monospace',
@@ -6263,7 +6254,7 @@ function WizardPayoffStep({
                 </div>
                 {i < 3 ? (
                   <div style={{
-                    background: isDone ? "rgba(0,180,138,0.35)" : "rgba(255,255,255,0.08)",
+                    background: isDone ? "rgba(0,180,138,0.35)" : "var(--panel-border)",
                     flex: "0 0 24px",
                     height: 2,
                     marginBottom: 18,
@@ -6686,7 +6677,7 @@ function OnboardingWizard({
     {
       id: "team",
       label: "Team",
-      color: "#8FA99A",
+      color: "var(--text-2)",
       editStep: 8,
       qualItems: team ? TEAM_FUNCTIONS.filter(fn => team[fn] > 0).map(fn => ({ label: fn, value: `${team[fn]} FTE` })) : [],
       benchItems: [],
@@ -6879,7 +6870,7 @@ function OnboardingWizard({
 
       <div style={{
         borderTop: "1px solid rgba(255,255,255,0.07)",
-        background: "#172632",
+        background: "var(--panel)",
         padding: "16px 24px",
         display: "flex",
         gap: 12,
@@ -6889,7 +6880,7 @@ function OnboardingWizard({
         {(step > 1 && step < WIZARD_STEP_COUNT) || sectionBridge ? (
           <button type="button" onClick={goBack} style={{
             background: "transparent", border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 8, color: "#8FA99A", cursor: "pointer", font: "inherit",
+            borderRadius: 8, color: "var(--text-2)", cursor: "pointer", font: "inherit",
             fontSize: 12, fontWeight: 700, padding: "10px 18px",
           }}>
             ← Back
@@ -6900,7 +6891,7 @@ function OnboardingWizard({
             <button type="button" disabled={!canNext} onClick={goNext} style={{
               background: canNext ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.07)",
               border: "none", borderRadius: 8,
-              color: canNext ? "#0a1a12" : "#8FA99A",
+              color: canNext ? "#0a1a12" : "var(--text-2)",
               cursor: canNext ? "pointer" : "not-allowed",
               font: "inherit", fontSize: 12, fontWeight: 800, padding: "10px 22px",
             }}>
@@ -6925,7 +6916,7 @@ function OnboardingWizard({
             style={{
               background: launching ? "rgba(255,255,255,0.07)" : "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
               border: "none", borderRadius: 8,
-              color: launching ? "#8FA99A" : "#0a1a12",
+              color: launching ? "var(--text-2)" : "#0a1a12",
               cursor: launching ? "not-allowed" : "pointer",
               font: "inherit", fontSize: 12, fontWeight: 800, padding: "10px 22px",
             }}
@@ -7914,10 +7905,10 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
         }
         .fuel-chip-btn:hover { opacity: 0.85; transform: translateY(-1px); }
         .fuel-send:hover { opacity: 0.85; }
-        .fuel-manual:hover { color: #8FA99A !important; }
+        .fuel-manual:hover { color: var(--text-2) !important; }
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
       `}</style>
 
       <div style={{
@@ -7927,13 +7918,13 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
         display: "flex", alignItems: "stretch", justifyContent: "stretch",
       }}>
       <div style={{
-        width: "100vw", height: "100vh", background: "#132130",
+        width: "100vw", height: "100vh", background: "var(--bg)",
         display: "flex", flexDirection: "column",
         fontFamily: "Inter, -apple-system, sans-serif",
       }}>
         {/* Top bar */}
         <div style={{
-          height: 52, background: "#1F3140",
+          height: 52, background: "var(--surface-3)",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
           display: "flex", alignItems: "center",
           padding: "0 24px", justifyContent: "space-between",
@@ -7946,8 +7937,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 12, fontWeight: 900, color: "#0a1a12",
             }}>F</div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F2" }}>Fuel</span>
-            <span style={{ fontSize: 12, color: "#8FA99A", fontWeight: 500 }}>by York IE</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Fuel</span>
+            <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500 }}>by York IE</span>
             <span style={{
               fontSize: 9, fontWeight: 700, color: "#00B48A",
               background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)",
@@ -7959,7 +7950,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
             onClick={onManual}
             className="fuel-manual"
             style={{
-              background: "none", border: "none", color: "#8FA99A",
+              background: "none", border: "none", color: "var(--text-2)",
               fontSize: 12, cursor: "pointer", transition: "color 0.15s",
             }}
           >
@@ -7974,7 +7965,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
           {/* ── Chat panel ── */}
           <div style={{
             flex: 1, display: "flex", flexDirection: "column",
-            minWidth: 0, background: "#132130",
+            minWidth: 0, background: "var(--bg)",
           }}>
             {/* Messages / wizard */}
             {wizardActive ? (
@@ -8041,30 +8032,30 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                             border: "1px solid rgba(0,180,138,0.18)",
                             borderRadius: msg.role === "ai" ? "4px 12px 12px 12px" : "12px 4px 12px 12px",
                             padding: "11px 14px",
-                            fontSize: 13, color: "#F2F5F2", lineHeight: 1.65,
+                            fontSize: 13, color: "var(--text-1)", lineHeight: 1.65,
                             whiteSpace: "pre-line",
                           }}>
                             {msg.text.split("**").map((part, i) =>
                               i % 2 === 0
                                 ? <span key={i}>{part}</span>
-                                : <strong key={i} style={{ color: "#F2F5F2", fontWeight: 700 }}>{part}</strong>
+                                : <strong key={i} style={{ color: "var(--text-1)", fontWeight: 700 }}>{part}</strong>
                             )}
                           </div>
                         )
                       )}
                       {msg.text && !msg.fuelHelp && (
                         <div style={{
-                          background: msg.role === "ai" ? "#172632" : "#1F3140",
+                          background: msg.role === "ai" ? "var(--panel)" : "var(--surface-3)",
                           border: "1px solid rgba(255,255,255,0.07)",
                           borderRadius: msg.role === "ai" ? "4px 12px 12px 12px" : "12px 4px 12px 12px",
                           padding: "11px 14px",
-                          fontSize: 13, color: "#F2F5F2", lineHeight: 1.65,
+                          fontSize: 13, color: "var(--text-1)", lineHeight: 1.65,
                           whiteSpace: "pre-line",
                         }}>
                           {msg.text.split("**").map((part, i) =>
                             i % 2 === 0
                               ? <span key={i}>{part}</span>
-                              : <strong key={i} style={{ color: "#F2F5F2", fontWeight: 700 }}>{part}</strong>
+                              : <strong key={i} style={{ color: "var(--text-1)", fontWeight: 700 }}>{part}</strong>
                           )}
                         </div>
                       )}
@@ -8144,8 +8135,8 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                               padding: "18px 16px", marginTop: 4, textAlign: "center",
                             }}>
                               <div style={{ fontSize: 24, marginBottom: 8 }}>🚀</div>
-                              <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2", marginBottom: 6 }}>Your Fuel workspace is ready</div>
-                              <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.65, marginBottom: 14 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)", marginBottom: 6 }}>Your Fuel workspace is ready</div>
+                              <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.65, marginBottom: 14 }}>
                                 York IE will be in touch shortly to match you with the right team.<br />Scorecard is set up and waiting.
                               </div>
                               {!launched && (
@@ -8522,7 +8513,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                               className="fuel-chip-btn"
                               onClick={() => handleChipClick(chip.value)}
                               style={{
-                                background: "#172632",
+                                background: "var(--panel)",
                                 border: "1px solid rgba(61,214,140,0.25)",
                                 color: "#00B48A", borderRadius: 20,
                                 padding: "6px 14px", fontSize: 12, fontWeight: 600,
@@ -8540,7 +8531,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                   <div className="fuel-msg" style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                     <AIAvatar />
                     <div style={{
-                      background: "#172632", border: "1px solid rgba(255,255,255,0.07)",
+                      background: "var(--panel)", border: "1px solid rgba(255,255,255,0.07)",
                       borderRadius: "4px 12px 12px 12px",
                     }}>
                       <TypingDots />
@@ -8555,7 +8546,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
             {/* Input — only visible during text-entry steps */}
             {inputActive && <div style={{
               borderTop: "1px solid rgba(255,255,255,0.07)",
-              background: "#172632", padding: "14px 24px",
+              background: "var(--panel)", padding: "14px 24px",
               display: "flex", gap: 10, alignItems: "center",
             }}>
               <input
@@ -8572,10 +8563,10 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                   : "Use the options above to continue..."
                 }
                 style={{
-                  flex: 1, background: "#1F3140",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  flex: 1, background: "var(--surface-3)",
+                  border: "1px solid var(--panel-border)",
                   borderRadius: 8, padding: "10px 14px",
-                  fontSize: 13, color: "#F2F5F2",
+                  fontSize: 13, color: "var(--text-1)",
                   outline: "none", transition: "border-color 0.15s",
                   opacity: inputActive ? 1 : 0.4,
                 }}
@@ -8593,7 +8584,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "all 0.15s",
                   fontSize: 15,
-                  color: inputActive && inputValue.trim() ? "#0a1a12" : "#8FA99A",
+                  color: inputActive && inputValue.trim() ? "#0a1a12" : "var(--text-2)",
                 }}
               >→</button>
             </div>}
@@ -8608,7 +8599,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
             overflowY: "auto",
             order: -1,
           }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 16 }}>
               What&apos;s getting set up
             </div>
 
@@ -8625,11 +8616,11 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 10, transition: "all 0.3s",
                     }}>
-                      {done ? <span style={{ color: "#00B48A" }}>✓</span> : current ? <span style={{ color: "#00B48A", fontSize: 8 }}>●</span> : <span style={{ color: "#8FA99A" }}>○</span>}
+                      {done ? <span style={{ color: "#00B48A" }}>✓</span> : current ? <span style={{ color: "#00B48A", fontSize: 8 }}>●</span> : <span style={{ color: "var(--text-2)" }}>○</span>}
                     </div>
                     <span style={{
                       fontSize: 12,
-                      color: done ? "#00B48A" : current ? "#F2F5F2" : "#8FA99A",
+                      color: done ? "#00B48A" : current ? "var(--text-1)" : "var(--text-2)",
                       fontWeight: done || current ? 600 : 400,
                       transition: "color 0.3s",
                     }}>{item.label}</span>
@@ -8640,12 +8631,12 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
 
             {/* York IE Value Creation Engine — auto-updates from profile + benchmarks */}
             <div style={{
-              marginTop: 28, background: "#172632",
+              marginTop: 28, background: "var(--panel)",
               border: "1px solid rgba(255,255,255,0.07)",
               borderRadius: 10, padding: "14px 14px 10px",
             }}>
               <div style={{
-                fontSize: 9, fontWeight: 800, color: "#8FA99A",
+                fontSize: 9, fontWeight: 800, color: "var(--text-2)",
                 textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14,
               }}>
                 York IE · Value Creation
@@ -8684,7 +8675,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
                       }}>
                         <span style={{
                           fontSize: 12, fontWeight: isActive ? 700 : isDone ? 600 : 400,
-                          color: isDone ? "#00B48A" : isActive ? "#F2F5F2" : "#566E7A",
+                          color: isDone ? "#00B48A" : isActive ? "var(--text-1)" : "#566E7A",
                           transition: "color 0.3s",
                         }}>
                           {stg.label}
@@ -8699,7 +8690,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
               </div>
                       {/* Sub-text: show operational gap line after team confirm, else stage description */}
                       {(isActive || isDone) && (
-                        <div style={{ fontSize: 10, color: isDone ? "#6B8899" : "#8FA99A", marginTop: 2 }}>
+                        <div style={{ fontSize: 10, color: isDone ? "#6B8899" : "var(--text-2)", marginTop: 2 }}>
                           {isActive ? operationalGapLine : stg.sub}
             </div>
                       )}

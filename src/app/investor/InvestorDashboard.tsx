@@ -632,7 +632,7 @@ function SectorAllocationChart({ slices }: { slices: SectorAllocationSlice[] }) 
             cy={cy}
             r={(outerR + innerR) / 2}
             fill="none"
-            stroke="rgba(38, 57, 71, 0.95)"
+            stroke="var(--panel-border)"
             strokeWidth={outerR - innerR + 4}
           />
           {arcs.map(slice => {
@@ -701,7 +701,7 @@ function DemographicAmountLabel(props: {
     <text
       x={x + 10}
       y={y + height / 2}
-      fill="rgb(244, 246, 248)"
+      fill="var(--panel-strong)"
       fontSize={11}
       fontWeight={800}
       dominantBaseline="middle"
@@ -724,7 +724,7 @@ function DemographicPercentLabel(props: {
     <text
       x={x + width + 10}
       y={y + height / 2}
-      fill="rgb(244, 246, 248)"
+      fill="var(--panel-strong)"
       fontSize={13}
       fontWeight={800}
       dominantBaseline="middle"
@@ -792,13 +792,13 @@ function DemographicAllocationChart({ slices }: { slices: DemographicAllocationS
             margin={{ top: 8, right: 56, left: 4, bottom: 4 }}
             barCategoryGap="28%"
           >
-            <CartesianGrid horizontal={false} stroke="rgb(38, 57, 71)" strokeDasharray="3 3" />
+            <CartesianGrid horizontal={false} stroke="var(--panel-border)" strokeDasharray="3 3" />
             <XAxis
               type="number"
               tickLine={false}
               axisLine={false}
               tickFormatter={(value: number) => formatUsdCompact(value)}
-              tick={{ fill: "rgb(138, 153, 166)", fontSize: 11 }}
+              tick={{ fill: "var(--panel-muted)", fontSize: 11 }}
             />
             <YAxis
               type="category"
@@ -806,13 +806,13 @@ function DemographicAllocationChart({ slices }: { slices: DemographicAllocationS
               width={118}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "rgb(244, 246, 248)", fontSize: 13, fontWeight: 700 }}
+              tick={{ fill: "var(--panel-strong)", fontSize: 13, fontWeight: 700 }}
             />
             <Tooltip
               cursor={{ fill: "rgba(255, 255, 255, 0.03)" }}
               content={<DemographicTooltip />}
             />
-            <Bar dataKey="amount" radius={[0, 8, 8, 0]} maxBarSize={28} background={{ fill: "rgba(38, 57, 71, 0.45)", radius: [0, 8, 8, 0] }}>
+            <Bar dataKey="amount" radius={[0, 8, 8, 0]} maxBarSize={28} background={{ fill: "var(--panel-inset)", radius: [0, 8, 8, 0] }}>
               {data.map((slice, index) => (
                 <Cell
                   key={slice.region}

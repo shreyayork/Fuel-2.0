@@ -1,11 +1,14 @@
-/** Standard Fuel UI colors — prefer these over inline hex in chat and dashboard. */
+/** Standard Fuel UI colors — prefer CSS vars in styles; hex kept for canvas/SVG fallbacks. */
 export const fuel = {
-  text: "#F2F5F2",
-  textMuted: "#8FA99A",
-  accent: "#00B48A",
-  surface: "#1F3140",
-  surfaceInset: "#0B1720",
-  surfaceRaised: "#172632",
-  border: "rgba(255,255,255,0.09)",
-  borderAccent: "rgba(0,180,138,0.28)",
+  text: "var(--fuel-text, #F2F5F2)",
+  textMuted: "var(--fuel-text-muted, #8FA99A)",
+  accent: "var(--fuel-accent, #12b886)",
+  surface: "var(--fuel-surface, #1F3140)",
+  surfaceInset: "var(--fuel-surface-inset, #0B1720)",
+  surfaceRaised: "var(--fuel-surface-raised, #172632)",
+  border: "var(--fuel-border, rgba(255,255,255,0.09))",
+  borderAccent: "var(--fuel-border-accent, rgba(18,184,134,0.28))",
+  statusGood: "var(--status-good, #12b886)",
+  statusWatch: "var(--status-watch, #F5A623)",
+  statusBad: "var(--status-bad, #E05C5C)",
 } as const;

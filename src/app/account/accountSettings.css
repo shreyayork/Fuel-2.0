@@ -79,8 +79,8 @@
 }
 
 .account-settings-tab.is-active {
-  border-bottom-color: var(--text-1);
-  color: var(--text-1);
+  border-bottom-color: var(--tab-active, var(--text-1));
+  color: var(--tab-active, var(--text-1));
   font-weight: 600;
 }
 
@@ -106,6 +106,262 @@
   color: var(--text-3);
   font-size: 13.5px;
   margin: 0;
+}
+
+/* ─── My Profile tab ─── */
+.acct-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.acct-profile-identity {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  justify-content: space-between;
+  padding: 20px 22px;
+}
+
+.acct-profile-identity-main {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+}
+
+.acct-profile-avatar {
+  align-items: center;
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  color: var(--text-1);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  height: 52px;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  width: 52px;
+}
+
+.acct-profile-identity-copy {
+  min-width: 0;
+}
+
+.acct-profile-name-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.acct-profile-name {
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.acct-profile-role-badge {
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  text-transform: lowercase;
+}
+
+.acct-profile-email {
+  color: var(--text-3);
+  font-size: 13.5px;
+  margin: 4px 0 0;
+}
+
+.acct-profile-signout {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text-1);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  transition: border-color 0.14s, background 0.14s;
+}
+
+.acct-profile-signout:hover {
+  background: var(--panel-inset);
+  border-color: var(--border-strong);
+}
+
+.acct-profile-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+}
+
+.acct-profile-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.acct-profile-card {
+  padding: 20px 22px;
+}
+
+.acct-profile-card-head {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.acct-profile-card-title {
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+}
+
+.acct-profile-card-head .acct-profile-card-title {
+  margin-bottom: 0;
+}
+
+.acct-profile-card-meta {
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.acct-profile-soon {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.acct-profile-card-copy {
+  color: var(--panel-body);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.acct-profile-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+}
+
+.acct-profile-field {
+  display: grid;
+  gap: 4px;
+}
+
+.acct-profile-field dt {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.acct-profile-field dd {
+  color: var(--text-1);
+  font-size: 14px;
+  margin: 0;
+}
+
+.acct-profile-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12.5px;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.acct-profile-usage-metrics {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.acct-profile-usage-label {
+  color: var(--text-3);
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.acct-profile-usage-value {
+  color: var(--text-1);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.acct-profile-link,
+.acct-profile-inline-link {
+  background: none;
+  border: 0;
+  color: var(--fuel-accent, #00b48a);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.acct-profile-link:hover,
+.acct-profile-inline-link:hover {
+  text-decoration: underline;
+}
+
+.acct-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.acct-profile-list-row {
+  align-items: center;
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  color: var(--text-1);
+  display: flex;
+  font-size: 13.5px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+@media (max-width: 900px) {
+  .acct-profile-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── Usage tab ─── */
@@ -148,7 +404,7 @@
 }
 
 .acct-usage-plan-progress {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--progress-track, var(--wash-strong));
   border-radius: 999px;
   height: 7px;
   overflow: hidden;
@@ -198,7 +454,7 @@
 
 .acct-usage-range-btn {
   align-items: center;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--wash);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-1);
@@ -238,12 +494,12 @@
 }
 
 .acct-usage-period-pill:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--wash);
   color: var(--text-1);
 }
 
 .acct-usage-period-pill.is-active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--panel-border);
   color: var(--text-1);
 }
 
@@ -262,7 +518,7 @@
 }
 
 .acct-usage-user-filter select {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--wash);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-1);
@@ -498,7 +754,7 @@
 }
 
 .acct-usage-topup-cta {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--wash);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-1);
@@ -512,7 +768,7 @@
 }
 
 .acct-usage-topup-cta:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--wash-strong);
   border-color: rgba(0, 180, 138, 0.28);
 }
 
@@ -534,7 +790,7 @@
 }
 
 .acct-usage-share-track {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--progress-track, var(--wash-strong));
   border-radius: 999px;
   height: 6px;
   overflow: hidden;

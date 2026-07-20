@@ -29,6 +29,11 @@ import {
   toggleMultiSelectAnswer,
   type DetailAnswers,
 } from "./trackQuestions.ts";
+import {
+  resolveYorkOfferForPillar,
+  type YorkServiceOffer,
+} from "./yorkIeUpsell";
+import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import "./PatriotPayJourney.css";
 
 // Single source of truth for field definitions (P-values, band positions, units)
@@ -37,11 +42,22 @@ const WIZARD_FIELD_BY_KEY = Object.fromEntries(
 ) as Record<string, BenchmarkWizardField>;
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
-const COLOUR_STRONG = "#3DD68C";
-const COLOUR_ABOVE  = "#9BD4BC";
-const COLOUR_AROUND = "#D4A86A";
-const COLOUR_BELOW  = "#C9976B";
-const COLOUR_WEAK   = "#CF8A8A";
+/** Shared status ink — green / amber / red only (both themes). */
+const STATUS_GOOD = "#12b886";
+const STATUS_WATCH = "#F5A623";
+const STATUS_BAD = "#E05C5C";
+
+function toneColour(kind: "strong" | "above" | "around" | "below" | "weak"): string {
+  if (kind === "strong" || kind === "above") return STATUS_GOOD;
+  if (kind === "around" || kind === "below") return STATUS_WATCH;
+  return STATUS_BAD;
+}
+
+const COLOUR_STRONG = () => toneColour("strong");
+const COLOUR_ABOVE = () => toneColour("above");
+const COLOUR_AROUND = () => toneColour("around");
+const COLOUR_BELOW = () => toneColour("below");
+const COLOUR_WEAK = () => toneColour("weak");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ScorecardView = "overview" | "dev" | "mkt" | "rev" | "benchmark";
@@ -209,6 +225,7 @@ export type ScorecardActiveInitiative = {
 
 export type ScorecardV2Props = {
   benchmark: OnboardingBenchmarkInput;
+  onBenchmarkChange?: (benchmark: OnboardingBenchmarkInput) => void;
   cohortLabel?: string;
   companyName?: string;
   journeyStage?: string;
@@ -243,6 +260,9 @@ export type ScorecardV2Props = {
   overviewBuildPhase?: OverviewBuildPhase | null;
   onStartOptionalTour?: () => void;
   onDismissOverviewReady?: () => void;
+  /** Controlled tip next to Recommended Actions after Overview finishes building. */
+  recActionsTipOpen?: boolean;
+  onDismissRecActionsTip?: () => void;
 };
 
 export type OverviewBuildPhase =
@@ -327,9 +347,9 @@ const CATEGORY_METRIC_KEYS: Record<ScorecardCategory, MetricKey[]> = {
 const CATEGORY_META: Record<ScorecardCategory, {
   label: string; fullLabel: string; description: string; icon: string; colour: string; colourDim: string; colourBorder: string; drillTitle: string; urgentLabel: string;
 }> = {
-  dev: { label: "R&D", fullLabel: "Research and Development", description: "Headcount, gross margin, R&D velocity and technical execution.", icon: "⚙", colour: "#00B48A", colourDim: "rgba(0,180,138,0.08)",   colourBorder: "rgba(0,180,138,0.22)",   drillTitle: "Engineering & product",  urgentLabel: "R&D velocity"  },
-  mkt: { label: "GTM", fullLabel: "Go-to-Market",          description: "Revenue, growth, retention, customers and GTM execution.",       icon: "↗", colour: "#9BD4BC", colourDim: "rgba(155,212,188,0.08)", colourBorder: "rgba(155,212,188,0.22)", drillTitle: "GTM & acquisition",      urgentLabel: "GTM motion"    },
-  rev: { label: "G&A", fullLabel: "General and Administrative",  description: "Cash, burn, runway and operational performance.",                icon: "◎", colour: "#D4A86A", colourDim: "rgba(212,168,106,0.08)", colourBorder: "rgba(212,168,106,0.22)", drillTitle: "Revenue operations",     urgentLabel: "Cash runway"   },
+  dev: { label: "R&D", fullLabel: "Research and Development", description: "Headcount, gross margin, R&D velocity and technical execution.", icon: "⚙", colour: "#12b886", colourDim: "rgba(18,184,134,0.1)",   colourBorder: "rgba(18,184,134,0.28)",   drillTitle: "Engineering & product",  urgentLabel: "R&D velocity"  },
+  mkt: { label: "GTM", fullLabel: "Go-to-Market",          description: "Revenue, growth, retention, customers and GTM execution.",       icon: "↗", colour: "#12b886", colourDim: "rgba(18,184,134,0.1)", colourBorder: "rgba(18,184,134,0.28)", drillTitle: "GTM & acquisition",      urgentLabel: "GTM motion"    },
+  rev: { label: "G&A", fullLabel: "General and Administrative",  description: "Cash, burn, runway and operational performance.",                icon: "◎", colour: "#F5A623", colourDim: "rgba(245,166,35,0.1)", colourBorder: "rgba(245,166,35,0.28)", drillTitle: "Revenue operations",     urgentLabel: "Cash runway"   },
 };
 
 // Status labels — richer than raw quartile
@@ -381,10 +401,15 @@ function parseMetricValue(raw: string): number | null {
 const POSITION_LABELS: Record<PositionTier, string> = {
   top: "Top quartile", upper: "Above median", mid: "Around median", lower: "Below median", bottom: "Bottom of cohort",
 };
-const TIER_COLOUR: Record<PositionTier, string> = {
-  top: COLOUR_STRONG, upper: COLOUR_ABOVE, mid: COLOUR_AROUND, lower: COLOUR_BELOW, bottom: COLOUR_WEAK,
-};
-
+function tierColour(tier: PositionTier): string {
+  return {
+    top: toneColour("strong"),
+    upper: toneColour("above"),
+    mid: toneColour("around"),
+    lower: toneColour("below"),
+    bottom: toneColour("weak"),
+  }[tier];
+}
 
 function worstTier(tiers: PositionTier[]): PositionTier {
   const order: PositionTier[] = ["bottom", "lower", "mid", "upper", "top"];
@@ -396,11 +421,11 @@ function tierToScore(tier: PositionTier): number {
 }
 
 function colourFromScore(score: number): string {
-  if (score >= 80) return COLOUR_STRONG;
-  if (score >= 65) return COLOUR_ABOVE;
-  if (score >= 50) return COLOUR_AROUND;
-  if (score >= 35) return COLOUR_BELOW;
-  return COLOUR_WEAK;
+  if (score >= 80) return toneColour("strong");
+  if (score >= 65) return toneColour("above");
+  if (score >= 50) return toneColour("around");
+  if (score >= 35) return toneColour("below");
+  return toneColour("weak");
 }
 
 function statusFromCompositeScore(score: number): { label: string; tone: "strong" | "above" | "watch" | "weak" } {
@@ -825,8 +850,8 @@ function buildCategoryData(category: ScorecardCategory, metricMap: Record<Metric
     insight = hc.value != null
       ? `${hc.display} FTEs is ${hc.positionLabel.toLowerCase()} for your cohort. ${gm.value != null ? `Gross margin (${gm.display}) is ${gm.positionLabel.toLowerCase()} — ${gm.tier === "top" || gm.tier === "upper" ? "strong unit economics for this stage." : "review COGS before scaling headcount."}` : "Connect your delivery stack to unlock R&D velocity signals."}`
       : `Engineering setup hasn't been connected yet. ${gm.value != null ? `Gross margin (${gm.display}) is ${gm.positionLabel.toLowerCase()}` : ""}. Add context to unlock R&D signals.`;
-    signals.push({ text: hc.value != null ? `${hc.display} FTEs · ${hc.positionLabel.toLowerCase()}` : "Engineering setup unknown", colour: hc.value != null ? hc.colour : COLOUR_AROUND });
-    signals.push({ text: gm.value != null ? `Gross margin ${gm.display}` : "Gross margin not logged", colour: gm.value != null ? gm.colour : COLOUR_AROUND });
+    signals.push({ text: hc.value != null ? `${hc.display} FTEs · ${hc.positionLabel.toLowerCase()}` : "Engineering setup unknown", colour: hc.value != null ? hc.colour : COLOUR_AROUND() });
+    signals.push({ text: gm.value != null ? `Gross margin ${gm.display}` : "Gross margin not logged", colour: gm.value != null ? gm.colour : COLOUR_AROUND() });
     stats.push({ label: "FTEs", value: hc.display });
     stats.push({ label: "Gross margin", value: gm.display });
   }
@@ -838,8 +863,8 @@ function buildCategoryData(category: ScorecardCategory, metricMap: Record<Metric
       : arr.tier === "bottom" || arr.tier === "lower"
         ? `ARR is ${arr.positionLabel.toLowerCase()} (${arr.display}) versus peers. Focus on the first 10 paying customers before scaling any channel spend.`
         : `ARR at ${arr.display} is ${arr.positionLabel.toLowerCase()}. ${ret.value != null ? `Logo retention (${ret.display}) is ${ret.positionLabel.toLowerCase()}.` : ""}`;
-    signals.push({ text: !isPreRevenue ? `ARR ${arr.display} · ${arr.positionLabel.toLowerCase()}` : "Pre-revenue · no GTM motion", colour: !isPreRevenue ? arr.colour : COLOUR_WEAK });
-    signals.push({ text: cust.value != null ? `${cust.display} paying customers` : "No acquisition channel data", colour: cust.value != null ? cust.colour : COLOUR_WEAK });
+    signals.push({ text: !isPreRevenue ? `ARR ${arr.display} · ${arr.positionLabel.toLowerCase()}` : "Pre-revenue · no GTM motion", colour: !isPreRevenue ? arr.colour : COLOUR_WEAK() });
+    signals.push({ text: cust.value != null ? `${cust.display} paying customers` : "No acquisition channel data", colour: cust.value != null ? cust.colour : COLOUR_WEAK() });
     stats.push({ label: "ARR", value: arr.display });
     stats.push({ label: "Customers", value: cust.display });
     stats.push({ label: "Retention", value: ret.display });
@@ -853,8 +878,8 @@ function buildCategoryData(category: ScorecardCategory, metricMap: Record<Metric
       insight = `~${rt} months of runway at current burn (${burn.display}). Plan the next capital event within 90 days.`;
     else
       insight = `Cash (${cash.display}) and burn (${burn.display}) imply ${runway != null ? `~${rt} months` : "unknown"} runway. ${burn.tier === "top" || burn.tier === "upper" ? "Capital-efficient for stage." : "Review burn before next growth push."}`;
-    signals.push({ text: runway != null && runway < 6 ? "Critical cash runway" : cash.value != null ? `${cash.display} cash on hand` : "Cash not logged", colour: runway != null && runway < 6 ? COLOUR_WEAK : cash.value != null ? cash.colour : COLOUR_AROUND });
-    signals.push({ text: burn.value != null ? `Burn ${burn.display}/mo · ${burn.positionLabel.toLowerCase()}` : "Burn not logged", colour: burn.value != null ? burn.colour : COLOUR_AROUND });
+    signals.push({ text: runway != null && runway < 6 ? "Critical cash runway" : cash.value != null ? `${cash.display} cash on hand` : "Cash not logged", colour: runway != null && runway < 6 ? COLOUR_WEAK() : cash.value != null ? cash.colour : COLOUR_AROUND() });
+    signals.push({ text: burn.value != null ? `Burn ${burn.display}/mo · ${burn.positionLabel.toLowerCase()}` : "Burn not logged", colour: burn.value != null ? burn.colour : COLOUR_AROUND() });
     stats.push({ label: "Cash", value: cash.display });
     stats.push({ label: "Burn", value: burn.display });
     stats.push({ label: "Runway", value: runway != null ? `${runway.toFixed(0)}m` : "—" });
@@ -863,11 +888,11 @@ function buildCategoryData(category: ScorecardCategory, metricMap: Record<Metric
   return {
     id: category, label: meta.label, fullLabel: meta.fullLabel, description: meta.description, icon: meta.icon,
     colour: meta.colour, colourDim: meta.colourDim, colourBorder: meta.colourBorder,
-    barWidth: avgScore, barColour: TIER_COLOUR[worst],
+    barWidth: avgScore, barColour: tierColour(worst),
     insight, signals, metricKeys: keys,
     score: Math.round(avgScore),
     position: tiers.length ? POSITION_LABELS[worst] : "Not logged",
-    positionColour: TIER_COLOUR[worst],
+    positionColour: tierColour(worst),
     positionTier: worst,
     stats,
     benchmarkChips: buildBenchmarkChips(category, metricMap, runway),
@@ -927,21 +952,21 @@ function buildCategoryInitiatives(category: ScorecardCategory, metricMap: Record
   if (category === "dev") {
     const hc = metricMap.headcount, gm = metricMap.grossMargin;
     return [
-      { id: "dev-i1", title: hc.value == null ? "Complete R&D context form" : "Define engineering team structure", description: hc.value == null ? "Unlock engineering signals — 5 questions, under 2 minutes." : "Decide in-house vs contractors before next funding round.", colour: COLOUR_AROUND },
-      { id: "dev-i2", title: gm.tier === "top" || gm.tier === "upper" ? "Protect gross margin as headcount grows" : "Review COGS and delivery cost structure", description: gm.tier === "top" || gm.tier === "upper" ? "High margin is a competitive advantage. Audit hosting and support load before scaling team." : "Small COGS improvements compound into meaningful runway extension.", colour: TIER_COLOUR[gm.tier] },
+      { id: "dev-i1", title: hc.value == null ? "Complete R&D context form" : "Define engineering team structure", description: hc.value == null ? "Unlock engineering signals — 5 questions, under 2 minutes." : "Decide in-house vs contractors before next funding round.", colour: COLOUR_AROUND() },
+      { id: "dev-i2", title: gm.tier === "top" || gm.tier === "upper" ? "Protect gross margin as headcount grows" : "Review COGS and delivery cost structure", description: gm.tier === "top" || gm.tier === "upper" ? "High margin is a competitive advantage. Audit hosting and support load before scaling team." : "Small COGS improvements compound into meaningful runway extension.", colour: tierColour(gm.tier) },
     ];
   }
   if (category === "mkt") {
     const arr = metricMap.arr, cust = metricMap.payingCustomers;
     return [
-      { id: "mkt-i1", title: arr.value == null || arr.value < 100_000 ? "Define first revenue milestone" : "Scale repeatable acquisition channel", description: arr.value == null || arr.value < 100_000 ? "Set a specific ARR target and identify the first 3 target customers." : `ARR at ${arr.display} — lock the next milestone and the one channel that gets you there.`, colour: arr.value != null && arr.value > 100_000 ? COLOUR_AROUND : COLOUR_WEAK },
-      { id: "mkt-i2", title: cust.value == null ? "Hire fractional CMO or demand gen lead" : "Connect CRM for acquisition attribution", description: cust.value == null ? "Free up founder bandwidth and build a repeatable acquisition motion." : "Pipeline visibility is a prerequisite for any repeatable sales motion.", colour: COLOUR_AROUND },
+      { id: "mkt-i1", title: arr.value == null || arr.value < 100_000 ? "Define first revenue milestone" : "Scale repeatable acquisition channel", description: arr.value == null || arr.value < 100_000 ? "Set a specific ARR target and identify the first 3 target customers." : `ARR at ${arr.display} — lock the next milestone and the one channel that gets you there.`, colour: arr.value != null && arr.value > 100_000 ? COLOUR_AROUND() : COLOUR_WEAK() },
+      { id: "mkt-i2", title: cust.value == null ? "Hire fractional CMO or demand gen lead" : "Connect CRM for acquisition attribution", description: cust.value == null ? "Free up founder bandwidth and build a repeatable acquisition motion." : "Pipeline visibility is a prerequisite for any repeatable sales motion.", colour: COLOUR_AROUND() },
     ];
   }
   const rt = runway ?? 0;
   return [
-    { id: "rev-i1", title: rt < 6 ? "Raise bridge round or reduce burn within 30 days" : "Plan next capital event", description: rt < 6 ? "Contact existing investors. Identify top 2–3 non-essential costs to pause." : `${runway != null ? `~${runway.toFixed(0)} months runway` : "Runway unknown"} — begin investor conversations before runway drops below 6 months.`, colour: rt < 6 ? COLOUR_WEAK : COLOUR_AROUND },
-    { id: "rev-i2", title: "Implement CRM before first sales hire", description: "Pipeline visibility is a prerequisite for any repeatable revenue motion.", colour: COLOUR_AROUND },
+    { id: "rev-i1", title: rt < 6 ? "Raise bridge round or reduce burn within 30 days" : "Plan next capital event", description: rt < 6 ? "Contact existing investors. Identify top 2–3 non-essential costs to pause." : `${runway != null ? `~${runway.toFixed(0)} months runway` : "Runway unknown"} — begin investor conversations before runway drops below 6 months.`, colour: rt < 6 ? COLOUR_WEAK() : COLOUR_AROUND() },
+    { id: "rev-i2", title: "Implement CRM before first sales hire", description: "Pipeline visibility is a prerequisite for any repeatable revenue motion.", colour: COLOUR_AROUND() },
   ];
 }
 
@@ -1971,9 +1996,38 @@ function friendlyMetricLabel(label: string): string {
   return METRIC_FRIENDLY[label] ?? label.toLowerCase();
 }
 
+/** UI labels: first letter capital, rest unchanged (no CSS capitalize/uppercase). */
+function toSentenceCase(s: string): string {
+  const t = s.trim();
+  if (!t) return t;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 function insightTopicKey(label: string): string {
   const base = label.split(":")[0]?.trim() ?? label;
   return friendlyMetricLabel(base).toLowerCase();
+}
+
+/** Chip titles must stay short — intel titles are often "Field: long answer". */
+function shortInsightChipLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "Insight";
+  const colon = trimmed.indexOf(": ");
+  const head = colon > 0 && colon <= 56 ? trimmed.slice(0, colon) : trimmed;
+  const plain = toSentenceCase(friendlyMetricLabel(head));
+  return plain.length > 40 ? `${plain.slice(0, 40)}…` : plain;
+}
+
+function insightChipDetailFromIntel(item: ScorecardIntelligenceItem): string {
+  const highlight = (item.highlight ?? "").trim();
+  if (highlight) return highlight;
+  const title = (item.title ?? "").trim();
+  const colon = title.indexOf(": ");
+  if (colon > 0) {
+    const after = title.slice(colon + 2).trim();
+    if (after) return after;
+  }
+  return (item.text ?? "").trim() || "Context captured from sources";
 }
 
 function trackFocusName(category: ScorecardCategory): string {
@@ -2279,14 +2333,15 @@ function buildTrackInsightLists(
     }
 
     const sentiment = classifyUserIntel(item);
-    const label = item.title?.trim() || item.text?.trim() || "Intelligence signal";
-    const detail = (item.highlight ?? item.text ?? "").trim() || "Context captured from sources";
+    const rawTitle = item.title?.trim() || item.text?.trim() || "Intelligence signal";
+    const label = shortInsightChipLabel(rawTitle);
+    const detail = insightChipDetailFromIntel(item);
     if (sentiment === "strength") {
-      addStrength(item.id, label, detail.length > 72 ? `${detail.slice(0, 72)}…` : detail, "intelligence", 65);
+      addStrength(item.id, label, detail, "intelligence", 65);
     } else if (sentiment === "weakness") {
-      addWeakness(item.id, label, detail.length > 72 ? `${detail.slice(0, 72)}…` : detail, "intelligence", 35);
+      addWeakness(item.id, label, detail, "intelligence", 35);
     } else {
-      addStrength(item.id, label, detail.length > 72 ? `${detail.slice(0, 72)}…` : detail, "intelligence", 55);
+      addStrength(item.id, label, detail, "intelligence", 55);
     }
   });
 
@@ -2319,7 +2374,7 @@ function TrackInsightPanel({
         <ul className="sc-cat-sw-list">
           {items.map(item => (
             <li key={item.id}>
-              <strong>{item.label}</strong>
+              <strong>{shortInsightChipLabel(item.label)}</strong>
               <em>{item.detail}</em>
             </li>
           ))}
@@ -3118,10 +3173,10 @@ function pillarCoverageMeta(count: number): { label: string; tone: "blind" | "th
   return { label: "Healthy", tone: "healthy" };
 }
 
-function initiativeStatusMeta(status?: string): { label: string; tone: "active" | "done" | "paused" } {
+function initiativeStatusMeta(status?: string): { label: string; tone: "active" | "done" | "paused" | "suggested" } {
   const normalized = (status ?? "Active").trim().toLowerCase();
   if (normalized === "done" || normalized === "completed") return { label: "Completed", tone: "done" };
-  if (normalized === "suggested" || normalized === "draft") return { label: "Suggested", tone: "paused" };
+  if (normalized === "suggested" || normalized === "draft") return { label: "Suggested", tone: "suggested" };
   if (normalized === "paused") return { label: "Paused", tone: "paused" };
   return { label: "Active", tone: "active" };
 }
@@ -3184,10 +3239,17 @@ function OverviewFullSummaryPage({
   const productDescription = buildContext.detailAnswers.profile_product_description?.trim()
     || buildContext.onboardingAnswers?.profileProductDescription?.trim()
     || "";
+  const topPriorities = buildContext.detailAnswers.profile_top_priorities?.trim() || "";
+  const publicDataCorrections = buildContext.detailAnswers.profile_public_data_wrong?.trim() || "";
+  const biggestRisk = buildContext.detailAnswers.profile_biggest_risk?.trim() || "";
+  const hasCompanyFacts = Boolean(
+    profileMeta?.sector || profileMeta?.headquarters || profileMeta?.employees || profileMeta?.domain,
+  );
+  const hasAboutSection = Boolean(
+    productDescription || topPriorities || publicDataCorrections || biggestRisk || hasCompanyFacts,
+  );
   const reportDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const now = new Date();
-  const periodLabel = efficiencyExtras?.period?.trim()
-    || `${now.getFullYear()}-Q${Math.floor(now.getMonth() / 3) + 1}`;
   const snapshotRows = buildInvestorSnapshotRows(metrics, efficiencyExtras);
   const standCopy = buildInvestorStandCopy(
     companyName,
@@ -3201,28 +3263,13 @@ function OverviewFullSummaryPage({
 
   const operatingGroups = (["dev", "mkt", "rev"] as ScorecardCategory[]).map(id => {
     const rows = buildDetailFieldRows(id, buildContext.detailAnswers)
-      .filter(row => row.value)
-      .slice(0, 6);
+      .filter(row => row.value);
     return {
       id,
       label: CATEGORY_META[id].fullLabel,
       rows,
     };
   }).filter(group => group.rows.length > 0);
-
-  const noteItems: { label: string; value: string }[] = [];
-  if (benchmarkContext?.notableCustomers?.trim()) {
-    noteItems.push({ label: "Customers", value: benchmarkContext.notableCustomers.trim() });
-  }
-  if (benchmarkContext?.notableHires?.trim()) {
-    noteItems.push({ label: "Hires", value: benchmarkContext.notableHires.trim() });
-  }
-  if (benchmarkContext?.biggestChallenges?.trim()) {
-    noteItems.push({ label: "Challenges", value: benchmarkContext.biggestChallenges.trim() });
-  }
-  if (benchmarkContext?.otherUpdates?.trim()) {
-    noteItems.push({ label: "Updates", value: benchmarkContext.otherUpdates.trim() });
-  }
 
   const scrollToRef = (refId: number) => {
     panelRef.current?.querySelector(`#wiki-ref-${refId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -3265,26 +3312,34 @@ function OverviewFullSummaryPage({
         </div>
         <div className="sc-investor-brief-masthead-meta">
           <strong>{reportDate}</strong>
-          <em>Company profile</em>
         </div>
       </header>
 
-      <h1 className="sc-investor-brief-title" id="wiki-summary-title">
-        About {companyName}
-      </h1>
-      <p className="sc-investor-brief-subject">
-        Subject: <span>{companyName}</span>
-      </p>
-      <h2 className="sc-investor-brief-section-title">
-        KPI Benchmark — {companyName} — {periodLabel}
-      </h2>
-
-      {(productDescription || profileMeta?.sector || profileMeta?.headquarters || profileMeta?.employees || profileMeta?.domain) ? (
+      {hasAboutSection ? (
         <section className="sc-investor-brief-block">
           <h3 className="sc-investor-brief-h3">About</h3>
           {productDescription ? (
             <p className="sc-investor-brief-body">{productDescription}</p>
           ) : null}
+          {topPriorities ? (
+            <div className="sc-investor-brief-profile-field">
+              <p className="sc-investor-brief-analysis-label">Top priorities</p>
+              <p className="sc-investor-brief-body">{topPriorities}</p>
+            </div>
+          ) : null}
+          {biggestRisk ? (
+            <div className="sc-investor-brief-profile-field">
+              <p className="sc-investor-brief-analysis-label">Biggest risk</p>
+              <p className="sc-investor-brief-body">{biggestRisk}</p>
+            </div>
+          ) : null}
+          {publicDataCorrections ? (
+            <div className="sc-investor-brief-profile-field">
+              <p className="sc-investor-brief-analysis-label">Public data corrections</p>
+              <p className="sc-investor-brief-body">{publicDataCorrections}</p>
+            </div>
+          ) : null}
+          {hasCompanyFacts ? (
           <dl className="sc-investor-brief-facts">
             {profileMeta?.sector ? (
               <>
@@ -3311,6 +3366,7 @@ function OverviewFullSummaryPage({
               </>
             ) : null}
           </dl>
+          ) : null}
         </section>
       ) : null}
 
@@ -3433,65 +3489,17 @@ function OverviewFullSummaryPage({
             {operatingGroups.map(group => (
               <div key={group.id} className="sc-investor-brief-ops-group">
                 <h4>{group.label}</h4>
-                <dl className="sc-investor-brief-facts">
+                <div className="sc-investor-brief-ops-grid">
                   {group.rows.map(row => (
-                    <React.Fragment key={row.id}>
-                      <dt>{row.label}</dt>
-                      <dd>{row.value}</dd>
-                    </React.Fragment>
+                    <div key={row.id} className="sc-investor-brief-ops-item">
+                      <span className="sc-investor-brief-ops-label">{row.label}</span>
+                      <p className="sc-investor-brief-ops-value">{row.value}</p>
+                    </div>
                   ))}
-                </dl>
+                </div>
               </div>
             ))}
           </div>
-        </section>
-      ) : null}
-
-      {(noteItems.length > 0 || buildContext.intelligenceItems.length > 0) ? (
-        <section className="sc-investor-brief-block">
-          <h3 className="sc-investor-brief-h3">Notes</h3>
-          {noteItems.length > 0 ? (
-            <div className="sc-investor-brief-table-wrap">
-              <table className="sc-investor-brief-table sc-investor-brief-notes-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Topic</th>
-                    <th scope="col">Detail</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {noteItems.map(item => (
-                    <tr key={item.label}>
-                      <td>{item.label}</td>
-                      <td>{item.value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-          {buildContext.intelligenceItems.length > 0 ? (
-            <div className="sc-investor-brief-table-wrap">
-              <table className="sc-investor-brief-table sc-investor-brief-notes-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Type</th>
-                    <th scope="col">Signal</th>
-                    <th scope="col">Detail</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {buildContext.intelligenceItems.slice(0, 8).map(item => (
-                    <tr key={item.id}>
-                      <td>{item.type}</td>
-                      <td>{item.title || item.text}</td>
-                      <td>{item.highlight && item.highlight !== item.title ? item.highlight : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
         </section>
       ) : null}
 
@@ -3536,7 +3544,9 @@ function OverviewFullSummaryPage({
 
                 <article className="sc-investor-brief-pillar-card">
                   <span className="sc-investor-brief-pillar-title-pill">{cat.fullLabel}</span>
-                  <p className="sc-investor-brief-pillar-card-desc">{cat.description}</p>
+                  <p className="sc-investor-brief-pillar-card-desc">
+                    {TRACK_DETAIL_SECTIONS.find(s => s.id === cat.id)?.definition ?? cat.description}
+                  </p>
                   <div className="sc-investor-brief-pillar-card-meta">
                     <strong className="sc-investor-brief-pillar-count">{pillarInits.length}</strong>
                     <span className={`sc-investor-brief-pillar-coverage is-${coverage.tone}`}>
@@ -3621,11 +3631,6 @@ function OverviewFullSummaryPage({
           ))}
         </ol>
       </section>
-
-      <footer className="sc-investor-brief-footer">
-        <span>Generated by Fuel · {companyName}</span>
-        <span>{periodLabel}</span>
-      </footer>
     </div>
   );
 }
@@ -3650,6 +3655,94 @@ function saveStoredQuarter(key: string, label = getCurrentQuarterLabel()) {
 
 function isQuarterStale(stored: string | null): boolean {
   return !!stored && stored !== getCurrentQuarterLabel();
+}
+
+function recActionsTipStorageKey(companyName: string): string {
+  return `fuel-rec-actions-tip-${companyName}`;
+}
+
+function recActionsTipPendingKey(companyName: string): string {
+  return `fuel-rec-actions-tip-pending-${companyName}`;
+}
+
+/** Call when Overview finishes post-onboarding build — survives navigating away from Overview. */
+export function markRecActionsTipPending(companyName: string) {
+  try {
+    window.sessionStorage.setItem(recActionsTipPendingKey(companyName), "1");
+  } catch { /* ignore */ }
+}
+
+/** Clear dismiss + pending so a new post-onboarding Overview build can queue the tip on ready. */
+export function resetRecActionsTipForOnboarding(companyName: string) {
+  try {
+    window.localStorage.removeItem(recActionsTipStorageKey(companyName));
+    window.sessionStorage.removeItem(recActionsTipPendingKey(companyName));
+  } catch { /* ignore */ }
+}
+
+export function isRecActionsTipPending(companyName: string): boolean {
+  try {
+    return window.sessionStorage.getItem(recActionsTipPendingKey(companyName)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function isRecActionsTipDismissed(companyName: string): boolean {
+  try {
+    return window.localStorage.getItem(recActionsTipStorageKey(companyName)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function clearRecActionsTipPending(companyName: string) {
+  try {
+    window.sessionStorage.removeItem(recActionsTipPendingKey(companyName));
+  } catch { /* ignore */ }
+}
+
+export function dismissRecActionsTip(companyName: string) {
+  try {
+    window.localStorage.setItem(recActionsTipStorageKey(companyName), "1");
+    clearRecActionsTipPending(companyName);
+  } catch { /* ignore */ }
+}
+
+function RecommendedActionsShareTip({
+  companyName,
+  onDismiss,
+}: {
+  companyName: string;
+  onDismiss: () => void;
+}) {
+  const dismissRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    dismissRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="sc-adv-rec-tip" role="dialog" aria-modal="true" aria-label="Why complete recommended actions">
+      <span className="sc-adv-rec-tip-eyebrow">Start here</span>
+      <strong className="sc-adv-rec-tip-title">This is how {companyName} gets an edge</strong>
+      <p>
+        Every metric, source, and track detail you add turns Fuel into a sharper operator for
+        your company — clearer peer gaps, tighter priorities, and the moves that actually move
+        growth. Incomplete inputs = generic advice. Finish these and you get a plan built on
+        your numbers.
+      </p>
+      <p className="sc-adv-rec-tip-privacy">Your data is only visible to you.</p>
+      <button
+        ref={dismissRef}
+        type="button"
+        className="sc-adv-rec-tip-dismiss"
+        onClick={onDismiss}
+      >
+        Got it
+      </button>
+    </div>
+  );
 }
 
 type AdvisorRecAction = {
@@ -4103,26 +4196,28 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
   if (urgency === "ok") {
     return {
       suffix: "Stable",
-      suffixColour: COLOUR_STRONG,
-      dotColour: COLOUR_STRONG,
+      suffixColour: COLOUR_STRONG(),
+      dotColour: COLOUR_STRONG(),
       urgent: false,
-      borderColour: "rgba(0, 180, 138, 0.22)",
+      borderColour: "rgba(18, 184, 134, 0.28)",
     };
   }
   if (urgency === "urgent") {
     const n = Math.max(1, cat.openInitiatives.length || cat.intelligenceCount || 1);
     return {
       suffix: `${n} new risk${n > 1 ? "s" : ""}`,
-      suffixColour: COLOUR_WEAK,
-      dotColour: COLOUR_WEAK,
+      suffixColour: COLOUR_WEAK(),
+      dotColour: COLOUR_WEAK(),
       urgent: true,
+      borderColour: "rgba(224, 92, 92, 0.28)",
     };
   }
   return {
     suffix: "Watch",
-    suffixColour: COLOUR_AROUND,
-    dotColour: COLOUR_AROUND,
+    suffixColour: COLOUR_AROUND(),
+    dotColour: COLOUR_AROUND(),
     urgent: false,
+    borderColour: "rgba(245, 166, 35, 0.28)",
   };
 }
 
@@ -4132,12 +4227,18 @@ function OverviewWorkspaceSetupPanel({
   onEditBenchmark,
   onAddSources,
   onViewDetails,
+  showShareTip = false,
+  onDismissShareTip,
+  tourHighlightRecommended = false,
 }: {
   companyName: string;
   actions: AdvisorRecAction[];
   onEditBenchmark?: () => void;
   onAddSources?: () => void;
   onViewDetails?: () => void;
+  showShareTip?: boolean;
+  onDismissShareTip?: () => void;
+  tourHighlightRecommended?: boolean;
 }) {
   const handlers = [onEditBenchmark, onAddSources, onViewDetails];
 
@@ -4158,21 +4259,31 @@ function OverviewWorkspaceSetupPanel({
         </div>
       </div>
       <div className="sc-adv-featured-rec-col">
-        <div className="sc-adv-rec-title">Next steps</div>
-        <ol className="sc-adv-rec-list">
-          {actions.map((action, i) => (
-            <li key={action.title} className="sc-adv-rec-item">
-              <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
-              <div className="sc-adv-rec-body">
-                <strong className="sc-adv-rec-name">{action.title}</strong>
-                <p className="sc-adv-rec-sub">{action.sub}</p>
-              </div>
-              <button type="button" className="sc-adv-rec-cta" onClick={handlers[i]}>
-                {action.cta} <span aria-hidden="true">→</span>
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div
+          className={`sc-adv-rec-spotlight${showShareTip ? " is-active" : ""}${tourHighlightRecommended ? " tour-highlight" : ""}`}
+          data-tour-target="recommended-actions"
+        >
+          <div className="sc-adv-rec-title-wrap">
+            <div className="sc-adv-rec-title">Next steps</div>
+            {showShareTip && onDismissShareTip ? (
+              <RecommendedActionsShareTip companyName={companyName} onDismiss={onDismissShareTip} />
+            ) : null}
+          </div>
+          <ol className="sc-adv-rec-list">
+            {actions.map((action, i) => (
+              <li key={action.title} className="sc-adv-rec-item">
+                <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
+                <div className="sc-adv-rec-body">
+                  <strong className="sc-adv-rec-name">{action.title}</strong>
+                  <p className="sc-adv-rec-sub">{action.sub}</p>
+                </div>
+                <button type="button" className="sc-adv-rec-cta" onClick={handlers[i]}>
+                  {action.cta} <span aria-hidden="true">→</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </div>
   );
@@ -4195,6 +4306,9 @@ function OverviewAdvisorPanel({
   onOpenWikiSummary,
   suggestionsReady = true,
   overviewBuildPhase = null,
+  showShareTip = false,
+  onDismissShareTip,
+  tourHighlightRecommended = false,
 }: {
   categories: CategoryData[];
   runway: number | null;
@@ -4211,6 +4325,9 @@ function OverviewAdvisorPanel({
   onOpenWikiSummary: (highlightRefId?: number) => void;
   suggestionsReady?: boolean;
   overviewBuildPhase?: OverviewBuildPhase | null;
+  showShareTip?: boolean;
+  onDismissShareTip?: () => void;
+  tourHighlightRecommended?: boolean;
 }) {
   const actions = buildAdvisorRecommendedActions(
     buildContext,
@@ -4291,21 +4408,31 @@ function OverviewAdvisorPanel({
         </div>
       </div>
       <div className="sc-adv-featured-rec-col">
-        <div className="sc-adv-rec-title">{privateWorkspace ? "Next steps" : "Recommended Actions"}</div>
-        <ol className="sc-adv-rec-list">
-          {actions.map((action, i) => (
-            <li key={action.title} className="sc-adv-rec-item">
-              <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
-              <div className="sc-adv-rec-body">
-                <strong className="sc-adv-rec-name">{action.title}</strong>
-                <p className="sc-adv-rec-sub">{action.sub}</p>
-              </div>
-              <button type="button" className="sc-adv-rec-cta" onClick={actionHandlers[i]}>
-                {action.cta} <span aria-hidden="true">→</span>
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div
+          className={`sc-adv-rec-spotlight${showShareTip ? " is-active" : ""}${tourHighlightRecommended ? " tour-highlight" : ""}`}
+          data-tour-target="recommended-actions"
+        >
+          <div className="sc-adv-rec-title-wrap">
+            <div className="sc-adv-rec-title">{privateWorkspace ? "Next steps" : "Recommended Actions"}</div>
+            {showShareTip && onDismissShareTip ? (
+              <RecommendedActionsShareTip companyName={companyName} onDismiss={onDismissShareTip} />
+            ) : null}
+          </div>
+          <ol className="sc-adv-rec-list">
+            {actions.map((action, i) => (
+              <li key={action.title} className="sc-adv-rec-item">
+                <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
+                <div className="sc-adv-rec-body">
+                  <strong className="sc-adv-rec-name">{action.title}</strong>
+                  <p className="sc-adv-rec-sub">{action.sub}</p>
+                </div>
+                <button type="button" className="sc-adv-rec-cta" onClick={actionHandlers[i]}>
+                  {action.cta} <span aria-hidden="true">→</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </div>
   );
@@ -4409,16 +4536,23 @@ function formatInitiativeReason(gap: TrackInsightItem): string {
 function CategoryDetailInsightsPanel({
   strengths,
   weaknesses,
+  yorkOffer = null,
 }: {
   strengths: TrackInsightItem[];
   weaknesses: TrackInsightItem[];
+  yorkOffer?: YorkServiceOffer | null;
 }) {
   const hasAny = strengths.length > 0 || weaknesses.length > 0;
   if (!hasAny) {
     return (
-      <p className="sc-cat-sw-empty sc-detail-insights-empty">
-        No track insights yet — add profile answers, benchmarks, or sources.
-      </p>
+      <>
+        <p className="sc-cat-sw-empty sc-detail-insights-empty">
+          No track insights yet — add profile answers, benchmarks, or sources.
+        </p>
+        {yorkOffer ? (
+          <YorkPartnerNudge offer={yorkOffer} className="york-nudge--detail" showHelpSummary />
+        ) : null}
+      </>
     );
   }
 
@@ -4436,6 +4570,9 @@ function CategoryDetailInsightsPanel({
         items={weaknesses}
         empty="No gaps flagged yet."
       />
+      {yorkOffer ? (
+        <YorkPartnerNudge offer={yorkOffer} className="york-nudge--detail" showHelpSummary />
+      ) : null}
     </div>
   );
 }
@@ -4458,15 +4595,16 @@ function DetailInsightChipStrip({
         <div className="sc-detail-strength-chips" role="list">
           {items.map(item => {
             const why = stripInsightSourceSuffix(item.detail) || item.label;
+            const chipLabel = shortInsightChipLabel(item.label);
             return (
               <span
                 key={item.id}
                 className={`sc-detail-insight-chip is-${tone}`}
                 role="listitem"
                 tabIndex={0}
-                aria-label={`${item.label}. ${why}`}
+                aria-label={`${chipLabel}. ${why}`}
               >
-                {item.label}
+                <span className="sc-detail-insight-chip-label">{chipLabel}</span>
                 <span className="sc-detail-insight-tip" role="tooltip">
                   <strong>{tone === "strong" ? "Why it's working" : "Why it needs work"}</strong>
                   <em>{why}</em>
@@ -4613,17 +4751,14 @@ function CategoryDetailFormWidget({
                 <div className="sc-detail-form-row-head">
                   <span className="sc-detail-form-label">{row.label}</span>
                   {row.tone === "missing" ? (
-                    <span className="sc-detail-form-flag">Missing</span>
+                    <span className="sc-detail-form-flag is-missing">Missing</span>
                   ) : row.tone === "concern" ? (
-                    <span className="sc-detail-form-flag">Needs attention</span>
+                    <span className="sc-detail-form-flag is-concern">Needs attention</span>
                   ) : row.tone === "watch" ? (
                     <span className="sc-detail-form-flag is-watch">Watch</span>
                   ) : null}
                 </div>
                 <div className="sc-detail-form-value">{row.value ?? "Not answered"}</div>
-                {row.note ? (
-                  <p className="sc-detail-form-note">{founderPlainCopy(row.note)}</p>
-                ) : null}
               </div>
             ))}
           </div>
@@ -4878,11 +5013,11 @@ function DevTeamCluster({ team, catColour }: { team: typeof DEV_TEAM; catColour:
   const avatars = team.map((t, i) => {
     const initials = t.lead.split(/\s+/).map(p => p[0]).join("").slice(0, 2).toUpperCase();
     const palette: [string, string][] = [
-      ["#3FE0A4", "#1E7A4A"],
-      ["#E5B544", "#B07A1F"],
-      ["#A78BFA", "#5E47B5"],
-      ["#9BD4BC", "#3FA483"],
-      ["#D4A86A", "#9A6A2A"],
+      ["#12b886", "#0a7a5a"],
+      ["#F5A623", "#B07A1F"],
+      ["#E05C5C", "#9A3A3A"],
+      ["#12b886", "#0a7a5a"],
+      ["#F5A623", "#B07A1F"],
     ];
     const [a, b] = palette[i % palette.length];
     return { ...t, initials, gradFrom: a, gradTo: b };
@@ -4982,6 +5117,10 @@ function CategoryDetailView({
     () => ALL_BENCHMARK_METRIC_KEYS.map(k => metricMap[k]).filter(Boolean),
     [metricMap],
   );
+  const yorkOffer = useMemo(
+    () => resolveYorkOfferForPillar(cat.id, detailAnswers),
+    [cat.id, detailAnswers],
+  );
 
   return (
     <div className="sc-category-detail sc-detail-dashboard">
@@ -5029,6 +5168,7 @@ function CategoryDetailView({
           <CategoryDetailInsightsPanel
             strengths={cat.glanceStrengthItems}
             weaknesses={cat.glanceWeaknessItems}
+            yorkOffer={yorkOffer}
           />
         </DetailDashboardWidget>
 
@@ -5233,7 +5373,7 @@ function CategoryDrilldownView({
           <div className="scorecard-drill-intel-row">
             <span className="scorecard-drill-intel-cat">Efficiency</span>
             <span className="scorecard-drill-intel-text">Implied runway</span>
-            <span className="scorecard-drill-intel-val" style={{ color: runway < 6 ? COLOUR_WEAK : runway < 12 ? COLOUR_AROUND : COLOUR_ABOVE }}>
+            <span className="scorecard-drill-intel-val" style={{ color: runway < 6 ? COLOUR_WEAK() : runway < 12 ? COLOUR_AROUND() : COLOUR_ABOVE() }}>
               {runway.toFixed(1)} mo
             </span>
             <span className="scorecard-drill-intel-date">derived</span>
@@ -5323,7 +5463,7 @@ function BenchmarkDrilldownView({
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-function BenchmarkEditDrawer({
+export function BenchmarkEditDrawer({
   open, onClose, benchmark, companyName, onSave,
 }: {
   open: boolean;
@@ -5395,8 +5535,6 @@ function AddSourcesDrawer({
   const [type, setType] = useState("Pitch deck");
   const [typeOpen, setTypeOpen] = useState(false);
   const [description, setDescription] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastOpenRef = useRef(false);
 
   const SOURCE_TYPES = [
@@ -5413,39 +5551,32 @@ function AddSourcesDrawer({
 
   useEffect(() => {
     if (open && !lastOpenRef.current) {
-      setTitle(""); setType("Pitch deck"); setDescription(""); setTypeOpen(false); setFile(null);
+      setTitle(""); setType("Pitch deck"); setDescription(""); setTypeOpen(false);
     }
     lastOpenRef.current = open;
   }, [open]);
 
   if (!open) return null;
 
-  const canSubmit = title.trim().length > 0 || !!file;
+  const canSubmit = title.trim().length > 0;
   const submit = () => {
     if (!canSubmit) return;
-    onGenerate({ title: title.trim() || (file ? file.name : ""), type, description: description.trim() });
+    onGenerate({ title: title.trim(), type, description: description.trim() });
     onClose();
   };
-
-  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    if (f) setFile(f);
-  };
-  const formatBytes = (b: number) => b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 
   return (
     <div className="bench-drawer-scrim" onClick={onClose}>
       <aside className="bench-drawer add-sources-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Add source">
         <header className="bench-drawer-head">
           <div>
-            <div className="add-sources-eyebrow">SOURCES</div>
-            <h2 className="bench-drawer-title" style={{ fontSize: 22 }}>Auto-generate sources from connected context</h2>
+            <div className="add-sources-eyebrow">Sources</div>
+            <h2 className="bench-drawer-title">Auto-generate sources from connected context</h2>
             <p className="bench-drawer-sub">Capture notes, connector activity, and meetings — then turn them into intelligence.</p>
           </div>
           <div className="add-sources-actions">
             <button type="button" className="bench-drawer-cancel" onClick={onClose}>Cancel</button>
-            <button type="button" className="bench-drawer-save" onClick={submit} disabled={!canSubmit} style={!canSubmit ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>
+            <button type="button" className="bench-drawer-save" onClick={submit} disabled={!canSubmit}>
               Generate intelligence
             </button>
           </div>
@@ -5453,49 +5584,7 @@ function AddSourcesDrawer({
 
         <div className="bench-drawer-body">
           <div className="bench-field">
-            <label className="bench-field-label">UPLOAD</label>
-            <div
-              className={`add-sources-upload${file ? " has-file" : ""}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); }}
-              onDrop={onDrop}
-              role="button"
-              tabIndex={0}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                style={{ display: "none" }}
-                onChange={e => setFile(e.target.files?.[0] ?? null)}
-              />
-              {file ? (
-                <>
-                  <div className="add-sources-upload-icon">▣</div>
-                  <div className="add-sources-upload-meta">
-                    <strong>{file.name}</strong>
-                    <span>{formatBytes(file.size)} · click to replace</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="add-sources-upload-clear"
-                    onClick={e => { e.stopPropagation(); setFile(null); }}
-                    aria-label="Remove file"
-                  >✕</button>
-                </>
-              ) : (
-                <>
-                  <div className="add-sources-upload-icon">↑</div>
-                  <div className="add-sources-upload-meta">
-                    <strong>Drop a file or click to browse</strong>
-                    <span>PDF, DOCX, XLSX, PPTX, CSV — up to 25 MB</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="bench-field">
-            <label className="bench-field-label">TITLE</label>
+            <label className="bench-field-label">Title</label>
             <div className="add-sources-title-row">
               <input
                 className="bench-field-input"
@@ -5527,7 +5616,7 @@ function AddSourcesDrawer({
           </div>
 
           <div className="bench-field">
-            <label className="bench-field-label">DESCRIPTION</label>
+            <label className="bench-field-label">Description</label>
             <textarea
               className="bench-field-input add-sources-textarea"
               value={description}
@@ -5544,6 +5633,7 @@ function AddSourcesDrawer({
 
 export default function ScorecardV2({
   benchmark,
+  onBenchmarkChange,
   cohortLabel = "B2B SaaS · Seed · US",
   companyName = "Patriot Pay",
   journeyStage = "Early Revenue",
@@ -5575,11 +5665,14 @@ export default function ScorecardV2({
   overviewBuildPhase = null,
   onStartOptionalTour,
   onDismissOverviewReady,
+  recActionsTipOpen = false,
+  onDismissRecActionsTip,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
   const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
   const [benchmarkValues, setBenchmarkValues] = useState<OnboardingBenchmarkInput>(benchmark);
+  const benchmarkSyncKey = useMemo(() => JSON.stringify(benchmark), [benchmark]);
   const [addSourcesOpen, setAddSourcesOpen] = useState(false);
   const cName = companyName ?? "This company";
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -5595,9 +5688,30 @@ export default function ScorecardV2({
     [detailAnswers, onboardingAnswers],
   );
 
+  // Keep advisor expanded and tip in view while the post-onboarding tip is open on Overview.
+  useEffect(() => {
+    if (!recActionsTipOpen) return;
+    if (activeView !== "overview") return;
+    if (overviewBuildPhase != null && overviewBuildPhase !== "ready") return;
+    setAdvisorOpen(true);
+    setWikiSummaryOpen(false);
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector(".sc-adv-rec-tip")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [recActionsTipOpen, overviewBuildPhase, activeView]);
+
+  // Expand advisor when the guided tour points at it or Recommended Actions.
+  useEffect(() => {
+    if (activeTourTarget !== "ai-advisor" && activeTourTarget !== "recommended-actions") return;
+    if (activeView !== "overview") return;
+    setAdvisorOpen(true);
+    setWikiSummaryOpen(false);
+  }, [activeTourTarget, activeView]);
+
   useEffect(() => {
     setBenchmarkValues(benchmark);
-  }, [benchmark]);
+  }, [benchmarkSyncKey, benchmark]);
 
   useEffect(() => {
     const filled = METRIC_COHORTS.filter(c => parseMetricValue(benchmarkValues[c.key] ?? "")).length;
@@ -5701,6 +5815,12 @@ export default function ScorecardV2({
   const isCategoryDetail = activeView === "dev" || activeView === "mkt" || activeView === "rev";
   const activeCategory = isCategoryDetail ? categoryData.find(c => c.id === activeView) : undefined;
   const suggestionsReady = overviewSuggestionsReady(overviewBuildPhase);
+  /** Tip + scrim only on Overview — never on R&D / GTM / G&A detail or full brief. */
+  const showRecActionsTip =
+    recActionsTipOpen
+    && suggestionsReady
+    && activeView === "overview"
+    && !wikiSummaryOpen;
 
   if (activeView === "benchmark") {
     return (
@@ -5716,7 +5836,10 @@ export default function ScorecardV2({
   }
 
   return (
-    <div className="scorecard-v2">
+    <div className={`scorecard-v2${showRecActionsTip ? " is-rec-tip-focus" : ""}`}>
+      {showRecActionsTip ? (
+        <div className="sc-adv-rec-tip-scrim" aria-hidden="true" />
+      ) : null}
       {workspaceIntroOpen ? (
         <div className="sc-workspace-intro">
           <div>
@@ -5774,16 +5897,25 @@ export default function ScorecardV2({
       ) : null}
       {!isCategoryDetail ? (
       <div
-        className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
+        className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}${showRecActionsTip ? " has-rec-tip-focus" : ""}${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
         data-tour-target="ai-advisor"
       >
         <div className="sc-adv-featured-border" aria-hidden="true" />
         <div
           className="sc-adv-featured-toggle"
-          onClick={() => setAdvisorOpen(o => !o)}
+          onClick={() => {
+            if (showRecActionsTip) return;
+            setAdvisorOpen(o => !o);
+          }}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAdvisorOpen(o => !o); } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (showRecActionsTip) return;
+              setAdvisorOpen(o => !o);
+            }
+          }}
           aria-expanded={advisorOpen}
         >
           <span className="sc-adv-featured-toggle-label">✦ Fuel AI · Advisor</span>
@@ -5804,6 +5936,9 @@ export default function ScorecardV2({
               onEditBenchmark={() => setEditBenchmarkOpen(true)}
               onAddSources={() => setAddSourcesOpen(true)}
               onViewDetails={() => openDetailsDrawer()}
+              showShareTip={showRecActionsTip}
+              onDismissShareTip={onDismissRecActionsTip}
+              tourHighlightRecommended={activeTourTarget === "recommended-actions"}
             />
           ) : (
           <OverviewAdvisorPanel
@@ -5822,6 +5957,9 @@ export default function ScorecardV2({
             onOpenWikiSummary={openWikiSummary}
             suggestionsReady={suggestionsReady}
             overviewBuildPhase={overviewBuildPhase}
+            showShareTip={showRecActionsTip}
+            onDismissShareTip={onDismissRecActionsTip}
+            tourHighlightRecommended={activeTourTarget === "recommended-actions"}
           />
           )
         ) : null}
@@ -5906,6 +6044,7 @@ export default function ScorecardV2({
         companyName={cName}
         onSave={next => {
           setBenchmarkValues(next);
+          onBenchmarkChange?.(next);
           setBenchmarkSaved(true);
           saveStoredQuarter(`fuel-benchmark-q-${cName}`);
         }}

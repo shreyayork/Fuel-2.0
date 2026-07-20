@@ -451,6 +451,154 @@ function AccountSettingsPlaceholder({ tab }: { tab: AccountSettingsTab }) {
   );
 }
 
+const PROFILE_USER = {
+  name: "Shreya Gokani",
+  email: "shreya.g@york.ie",
+  role: "member",
+  organization: "—",
+  userId: "317ba520-4071-70b8-5a86-433196fa4817",
+  initials: "SG",
+  portfolios: [{ name: "Shreya Gokani", count: 1 }],
+  watchlists: [] as { name: string; count: number }[],
+};
+
+function AccountProfileTab({
+  onOpenUsage,
+}: {
+  onOpenUsage: () => void;
+}) {
+  const tokensUsed = 91700;
+  const agentRuns = 56;
+  const portfolioCount = PROFILE_USER.portfolios.length;
+  const watchlistCount = PROFILE_USER.watchlists.length;
+
+  return (
+    <div className="acct-profile">
+      <section className="overview-panel acct-profile-identity">
+        <div className="acct-profile-identity-main">
+          <div className="acct-profile-avatar" aria-hidden="true">{PROFILE_USER.initials}</div>
+          <div className="acct-profile-identity-copy">
+            <div className="acct-profile-name-row">
+              <h2 className="acct-profile-name">{PROFILE_USER.name}</h2>
+              <span className="acct-profile-role-badge">{PROFILE_USER.role}</span>
+            </div>
+            <p className="acct-profile-email">{PROFILE_USER.email}</p>
+          </div>
+        </div>
+        <button type="button" className="acct-profile-signout">
+          Sign out
+        </button>
+      </section>
+
+      <div className="acct-profile-grid">
+        <div className="acct-profile-col">
+          <section className="overview-panel acct-profile-card">
+            <h3 className="acct-profile-card-title">Account</h3>
+            <dl className="acct-profile-fields">
+              <div className="acct-profile-field">
+                <dt>Email</dt>
+                <dd>{PROFILE_USER.email}</dd>
+              </div>
+              <div className="acct-profile-field">
+                <dt>Display Name</dt>
+                <dd>{PROFILE_USER.name}</dd>
+              </div>
+              <div className="acct-profile-field">
+                <dt>Role</dt>
+                <dd>{PROFILE_USER.role}</dd>
+              </div>
+              <div className="acct-profile-field">
+                <dt>Organization</dt>
+                <dd>{PROFILE_USER.organization}</dd>
+              </div>
+              <div className="acct-profile-field">
+                <dt>User ID</dt>
+                <dd className="acct-profile-mono">{PROFILE_USER.userId}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="overview-panel acct-profile-card">
+            <div className="acct-profile-card-head">
+              <h3 className="acct-profile-card-title">Notification preferences</h3>
+              <span className="acct-profile-soon">Soon</span>
+            </div>
+            <p className="acct-profile-card-copy">
+              Per-list cadence lives on each portfolio/watchlist today. Global digest preferences
+              (default cadence, delivery day, summary depth) will land here next.
+            </p>
+          </section>
+
+          <section className="overview-panel acct-profile-card">
+            <div className="acct-profile-card-head">
+              <h3 className="acct-profile-card-title">Your AI usage</h3>
+              <span className="acct-profile-card-meta">this month</span>
+            </div>
+            <div className="acct-profile-usage-metrics">
+              <div className="acct-profile-usage-metric">
+                <span className="acct-profile-usage-label">Tokens</span>
+                <strong className="acct-profile-usage-value">{formatCompact(tokensUsed)}</strong>
+              </div>
+              <div className="acct-profile-usage-metric">
+                <span className="acct-profile-usage-label">Agent Runs</span>
+                <strong className="acct-profile-usage-value">{agentRuns}</strong>
+              </div>
+            </div>
+            <button type="button" className="acct-profile-link" onClick={onOpenUsage}>
+              See account-wide usage <span aria-hidden="true">→</span>
+            </button>
+          </section>
+        </div>
+
+        <div className="acct-profile-col">
+          <section className="overview-panel acct-profile-card">
+            <div className="acct-profile-card-head">
+              <h3 className="acct-profile-card-title">Your portfolios</h3>
+              <span className="acct-profile-card-meta">{portfolioCount}</span>
+            </div>
+            {portfolioCount > 0 ? (
+              <ul className="acct-profile-list">
+                {PROFILE_USER.portfolios.map(item => (
+                  <li key={item.name} className="acct-profile-list-row">
+                    <span>{item.name}</span>
+                    <span className="acct-profile-card-meta">{item.count}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="acct-profile-card-copy">No portfolios yet.</p>
+            )}
+          </section>
+
+          <section className="overview-panel acct-profile-card">
+            <div className="acct-profile-card-head">
+              <h3 className="acct-profile-card-title">Your watchlists</h3>
+              <span className="acct-profile-card-meta">{watchlistCount}</span>
+            </div>
+            {watchlistCount > 0 ? (
+              <ul className="acct-profile-list">
+                {PROFILE_USER.watchlists.map(item => (
+                  <li key={item.name} className="acct-profile-list-row">
+                    <span>{item.name}</span>
+                    <span className="acct-profile-card-meta">{item.count}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="acct-profile-card-copy">
+                No watchlists yet.{" "}
+                <button type="button" className="acct-profile-inline-link">
+                  Create one.
+                </button>
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AccountSettings({
   tab,
   onTabChange,
@@ -459,23 +607,30 @@ export function AccountSettings({
   onTabChange: (tab: AccountSettingsTab) => void;
 }) {
   const { snapshot } = useCredits();
+  const isProfile = tab === "profile";
 
   return (
     <div className="account-settings">
       <header className="account-settings-hero">
         <div className="account-settings-hero-main">
-          <h1 className="account-settings-title">My Account</h1>
-          <p className="account-settings-sub">Account settings · members, teams, plan, and billing</p>
+          <h1 className="account-settings-title">{isProfile ? "Profile" : "My Account"}</h1>
+          <p className="account-settings-sub">
+            {isProfile
+              ? "Your account, preferences, and the lists you own."
+              : "Account settings · members, teams, plan, and billing"}
+          </p>
         </div>
-        <div className="account-settings-badges">
-          {snapshot.plan === "free" ? <span className="account-settings-badge trial">Trial</span> : null}
-          <span className="account-settings-badge">fuel-teams</span>
-          <span className="account-settings-badge">admin</span>
-        </div>
+        {!isProfile ? (
+          <div className="account-settings-badges">
+            {snapshot.plan === "free" ? <span className="account-settings-badge trial">Trial</span> : null}
+            <span className="account-settings-badge">fuel-teams</span>
+            <span className="account-settings-badge">admin</span>
+          </div>
+        ) : null}
       </header>
 
       <nav className="account-settings-tabs" aria-label="Account settings">
-        {ACCOUNT_SETTINGS_TABS.map(item => (
+        {ACCOUNT_SETTINGS_TABS.filter(item => !item.hidden).map(item => (
           <button
             key={item.id}
             type="button"
@@ -489,7 +644,9 @@ export function AccountSettings({
       </nav>
 
       <div className="account-settings-body">
-        {tab === "usage" ? (
+        {tab === "profile" ? (
+          <AccountProfileTab onOpenUsage={() => onTabChange("usage")} />
+        ) : tab === "usage" ? (
           <AccountUsageTab snapshot={snapshot} />
         ) : (
           <AccountSettingsPlaceholder tab={tab} />

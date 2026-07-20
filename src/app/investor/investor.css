@@ -41,7 +41,7 @@
 }
 
 .investor-dashboard-eyebrow {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   display: block;
   font-size: var(--inv-label, 10.5px);
   font-weight: 800;
@@ -52,7 +52,7 @@
 
 .investor-home-head h1,
 .investor-dashboard-head h1 {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: var(--inv-h1, 24px);
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -61,7 +61,7 @@
 
 .investor-home-head p,
 .investor-dashboard-head p {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: var(--inv-body, 13px);
   line-height: 1.6;
   margin: 0;
@@ -70,10 +70,10 @@
 
 .investor-dashboard-account-btn,
 .investor-section-view-more {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
   border-radius: 7px;
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   cursor: pointer;
   flex-shrink: 0;
   font: inherit;
@@ -85,8 +85,8 @@
 
 .investor-dashboard-account-btn:hover,
 .investor-section-view-more:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  color: rgb(244, 246, 248);
+  border-color: var(--border-strong);
+  color: var(--panel-strong);
 }
 
 .investor-home-kpis.overview-metric-grid {
@@ -105,7 +105,7 @@
 }
 
 .investor-home-kpi.overview-metric-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--border-strong);
 }
 
 .investor-home-grid {
@@ -134,7 +134,7 @@
 }
 
 .investor-home-empty {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 13px;
   margin: 12px 0 0;
 }
@@ -152,8 +152,8 @@
 
 .investor-home-thesis-card {
   align-items: center;
-  background: rgba(10, 20, 28, 0.35);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
   display: grid;
   gap: 20px;
@@ -195,25 +195,25 @@
 }
 
 .investor-home-thesis-identity strong {
-  color: rgb(242, 245, 242);
+  color: var(--text-1);
   font-size: 13.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 
 .investor-home-thesis-identity:hover strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .investor-home-thesis-identity em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 12px;
   font-style: normal;
   line-height: 1.4;
 }
 
 .investor-home-thesis-name-row b {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 800;
 }
@@ -228,19 +228,19 @@
 }
 
 .investor-home-thesis-why {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: 12.5px;
   line-height: 1.5;
   margin: 0;
 }
 
 .investor-home-thesis-why span {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-weight: 700;
 }
 
 .investor-home-thesis-meta {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 12px;
   line-height: 1.4;
   margin: 0;
@@ -326,7 +326,7 @@
 }
 
 .investor-sector-donut-center strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -334,7 +334,7 @@
 }
 
 .investor-sector-donut-center em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 11px;
   font-style: normal;
   font-weight: 600;
@@ -346,7 +346,7 @@
 }
 
 .investor-sector-donut-center span {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 10px;
   font-weight: 600;
   margin-top: 3px;
@@ -366,7 +366,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   border-radius: 0;
   color: inherit;
   cursor: pointer;
@@ -406,19 +406,19 @@
 }
 
 .investor-sector-legend-top strong {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-sector-legend-top b {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 12px;
   font-weight: 800;
 }
 
 .investor-sector-legend-copy em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 11px;
   font-style: normal;
 }
@@ -442,20 +442,20 @@
 }
 
 .investor-demo-summary strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.03em;
 }
 
 .investor-demo-summary em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 13px;
   font-style: normal;
 }
 
 .investor-demo-col-labels {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   display: grid;
   font-size: var(--inv-table-head, 11px);
   font-weight: 800;
@@ -476,8 +476,8 @@
 }
 
 .investor-demo-tooltip {
-  background: rgb(23, 38, 50);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -486,20 +486,20 @@
 }
 
 .investor-demo-tooltip strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 13px;
   font-weight: 800;
 }
 
 .investor-demo-tooltip em,
 .investor-demo-tooltip span {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 12px;
   font-style: normal;
 }
 
 .investor-home-suggestion-reason {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: block;
   font-size: 12px;
   line-height: 1.55;
@@ -516,7 +516,7 @@
 
 .investor-home-attention-row {
   align-items: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   display: flex;
   gap: 8px;
   padding: 14px 0;
@@ -543,7 +543,7 @@
 }
 
 .investor-home-attention-main:hover strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .investor-home-attention-main .investor-urgent-dot {
@@ -551,14 +551,14 @@
 }
 
 .investor-home-attention-list strong {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: block;
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-home-attention-list em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 12px;
   font-style: normal;
@@ -567,10 +567,10 @@
 
 .investor-home-attention-mail {
   align-items: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
   border-radius: 7px;
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: inline-flex;
   flex-shrink: 0;
   height: 32px;
@@ -580,8 +580,8 @@
 }
 
 .investor-home-attention-mail:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  color: rgb(244, 246, 248);
+  border-color: var(--border-strong);
+  color: var(--panel-strong);
 }
 
 .investor-hubspot-prompt {
@@ -603,7 +603,7 @@
   background: rgba(0, 180, 138, 0.12);
   border: 1px solid rgba(0, 180, 138, 0.28);
   border-radius: 10px;
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   display: inline-flex;
   flex-shrink: 0;
   font-size: 13px;
@@ -620,14 +620,14 @@
 }
 
 .investor-hubspot-prompt-copy strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   display: block;
   font-size: 14px;
   font-weight: 800;
 }
 
 .investor-hubspot-prompt-copy p {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: 13px;
   line-height: 1.6;
   margin: 6px 0 0;
@@ -657,14 +657,14 @@
 .investor-home-pipeline-select select {
   appearance: none;
   background-color: transparent;
-  background-image: linear-gradient(45deg, transparent 50%, rgb(138, 153, 166) 50%),
-    linear-gradient(135deg, rgb(138, 153, 166) 50%, transparent 50%);
+  background-image: linear-gradient(45deg, transparent 50%, var(--panel-muted) 50%),
+    linear-gradient(135deg, var(--panel-muted) 50%, transparent 50%);
   background-position: calc(100% - 14px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
   background-repeat: no-repeat;
   background-size: 5px 5px, 5px 5px;
-  border: 1px solid rgb(38, 57, 71);
+  border: 1px solid var(--panel-border);
   border-radius: 7px;
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   cursor: pointer;
   font: inherit;
   font-size: 12px;
@@ -683,7 +683,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   color: inherit;
   cursor: pointer;
   display: flex;
@@ -700,18 +700,18 @@
 }
 
 .investor-home-deal-row:hover strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .investor-home-deal-row strong {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: block;
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-home-deal-row em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 12px;
   font-style: normal;
@@ -719,7 +719,7 @@
 }
 
 .investor-home-deal-row b {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 14px;
   font-weight: 600;
 }
@@ -728,7 +728,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   color: inherit;
   cursor: pointer;
   display: flex;
@@ -746,18 +746,18 @@
 }
 
 .investor-home-suggestion:hover strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .investor-home-suggestion strong {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: block;
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-home-suggestion em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 12px;
   font-style: normal;
@@ -765,14 +765,14 @@
 }
 
 .investor-home-suggestion-score {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: var(--inv-row, 12.5px);
   font-weight: 800;
   white-space: nowrap;
 }
 
 .investor-fund-summary strong.investor-fund-summary-headline {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   display: block;
   font-size: 17px;
   font-weight: 700;
@@ -825,7 +825,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   color: inherit;
   cursor: pointer;
   display: flex;
@@ -848,14 +848,14 @@
 }
 
 .investor-red-flag-copy strong {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: block;
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-red-flag-copy span {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 12px;
   line-height: 1.4;
@@ -871,7 +871,7 @@
 }
 
 .investor-red-flag-open {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 14px;
 }
 
@@ -923,7 +923,7 @@
 
 .investor-portfolio-table-head {
   border-bottom: 0;
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   font-size: var(--inv-table-head, 11px);
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -932,7 +932,7 @@
 }
 
 .investor-portfolio-table-head span {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   display: block;
   font-size: var(--inv-table-head, 11px);
   font-weight: 800;
@@ -949,7 +949,7 @@
 .investor-portfolio-table-row {
   background: transparent;
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   color: inherit;
   cursor: pointer;
   font: inherit;
@@ -958,7 +958,7 @@
 }
 
 .investor-portfolio-table-row:first-child {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
 }
 
 .investor-portfolio-table-row:hover {
@@ -966,7 +966,7 @@
 }
 
 .investor-portfolio-table-row:hover .investor-rank-name-row strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .investor-portfolio-table-row.is-flagged {
@@ -974,12 +974,12 @@
 }
 
 .investor-portfolio-cell {
-  color: rgb(242, 245, 242);
+  color: var(--text-1);
   min-width: 0;
 }
 
 .investor-portfolio-cell strong {
-  color: rgb(242, 245, 242);
+  color: var(--text-1);
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
   letter-spacing: normal;
@@ -1012,14 +1012,14 @@
 }
 
 .investor-rank-name-row strong {
-  color: rgb(242, 245, 242);
+  color: var(--text-1);
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
   letter-spacing: normal;
 }
 
 .investor-rank-identity em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 11px;
   font-style: normal;
@@ -1049,11 +1049,11 @@
 }
 
 .investor-qoq--up {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
 }
 
 .investor-qoq--flat {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
 }
 
 .investor-qoq--down {
@@ -1066,11 +1066,11 @@
 }
 
 .investor-growth--up {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
 }
 
 .investor-growth--flat {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
 }
 
 .investor-growth--down {
@@ -1094,7 +1094,7 @@
 .investor-portfolio-back {
   background: transparent;
   border: 0;
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   cursor: pointer;
   font: inherit;
   font-size: 12px;
@@ -1118,7 +1118,7 @@
 }
 
 .investor-portfolio-list-name em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: var(--inv-meta, 12px);
   font-style: normal;
   font-weight: 500;
@@ -1126,9 +1126,9 @@
 
 .investor-portfolio-more-chip {
   align-items: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--wash-strong);
   border-radius: 999px;
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: inline-flex;
   font-size: 10px;
   font-weight: 700;
@@ -1149,7 +1149,7 @@
 
 .investor-portfolio-create p,
 .investor-portfolio-empty p {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: 13px;
   line-height: 1.6;
   margin: 0;
@@ -1168,7 +1168,7 @@
 }
 
 .investor-portfolio-create-fields em {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   font-size: 10px;
   font-style: normal;
   font-weight: 800;
@@ -1178,10 +1178,10 @@
 
 .investor-portfolio-create-fields input,
 .investor-portfolio-create-fields select {
-  background: rgb(10, 23, 32);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 7px;
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font: inherit;
   font-size: 13px;
   padding: 10px 12px;
@@ -1204,7 +1204,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   color: inherit;
   cursor: pointer;
   display: flex;
@@ -1221,14 +1221,14 @@
 }
 
 .investor-portfolio-add-list strong {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: block;
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-portfolio-add-list em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 12px;
   font-style: normal;
@@ -1236,13 +1236,13 @@
 }
 
 .investor-portfolio-add-list b {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 800;
 }
 
 .investor-portfolio-empty span {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1271,7 +1271,7 @@
 }
 
 .investor-watchlists-page-head h1 {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: var(--inv-h1, 24px);
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -1279,7 +1279,7 @@
 }
 
 .investor-watchlists-page-head p {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: var(--inv-body, 13px);
   line-height: 1.6;
   margin: 0;
@@ -1309,7 +1309,7 @@
   background: transparent;
   border: 0;
   border-bottom: 2px solid transparent;
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
@@ -1323,17 +1323,17 @@
 }
 
 .investor-watchlists-tabs button.is-active {
-  border-bottom-color: rgb(244, 246, 248);
-  color: rgb(244, 246, 248);
+  border-bottom-color: var(--panel-strong);
+  color: var(--panel-strong);
   font-weight: 700;
 }
 
 .investor-watchlists-search {
   align-items: center;
-  background: rgba(10, 20, 28, 0.35);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: inline-flex;
   gap: 8px;
   min-width: min(280px, 100%);
@@ -1343,7 +1343,7 @@
 .investor-watchlists-search input {
   background: transparent;
   border: 0;
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   flex: 1;
   font: inherit;
   font-size: 13px;
@@ -1352,7 +1352,7 @@
 }
 
 .investor-watchlists-search input::placeholder {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
 }
 
 .investor-watchlists-table {
@@ -1379,8 +1379,8 @@
 }
 
 .investor-watchlists-table-head {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgb(0, 180, 138);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
   font-size: var(--inv-table-head, 11px);
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -1388,28 +1388,28 @@
 }
 
 .investor-watchlists-row {
-  border-bottom: 1px solid rgb(38, 57, 71);
+  border-bottom: 1px solid var(--panel-border);
 }
 
 .investor-watchlists-row:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--wash);
 }
 
 .investor-watchlists-name {
-  color: rgb(242, 245, 242);
+  color: var(--text-1);
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-watchlists-companies {
   align-items: center;
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: flex;
   gap: 10px;
 }
 
 .investor-watchlists-companies em {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-style: normal;
   font-weight: 600;
 }
@@ -1419,7 +1419,7 @@
 }
 
 .investor-watchlists-logo-stack .investor-company-logo {
-  box-shadow: 0 0 0 2px rgb(23, 38, 50);
+  box-shadow: 0 0 0 2px var(--panel);
   margin-left: -6px;
 }
 
@@ -1434,14 +1434,14 @@
 }
 
 .investor-watchlists-owner strong {
-  color: rgb(242, 245, 242);
+  color: var(--text-1);
   display: block;
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-watchlists-owner em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 11px;
   font-style: normal;
@@ -1449,10 +1449,10 @@
 }
 
 .investor-watchlists-scope {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
   border-radius: 999px;
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   display: inline-flex;
   font-size: 11px;
   font-weight: 700;
@@ -1460,23 +1460,23 @@
 }
 
 .investor-watchlists-updated {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 12px;
 }
 
 .investor-watchlists-digest select {
   appearance: none;
-  background: rgba(10, 20, 28, 0.35);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   cursor: pointer;
   font: inherit;
   font-size: 12px;
   font-weight: 700;
   padding: 7px 28px 7px 10px;
-  background-image: linear-gradient(45deg, transparent 50%, rgb(138, 153, 166) 50%),
-    linear-gradient(135deg, rgb(138, 153, 166) 50%, transparent 50%);
+  background-image: linear-gradient(45deg, transparent 50%, var(--panel-muted) 50%),
+    linear-gradient(135deg, var(--panel-muted) 50%, transparent 50%);
   background-position: calc(100% - 14px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
   background-repeat: no-repeat;
   background-size: 5px 5px, 5px 5px;
@@ -1489,7 +1489,7 @@
 .investor-watchlists-star {
   background: transparent;
   border: 0;
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   cursor: pointer;
   font: inherit;
   font-size: 16px;
@@ -1502,7 +1502,7 @@
 }
 
 .investor-watchlists-empty {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 13px;
   margin: 24px 0;
 }
@@ -1539,8 +1539,8 @@
 }
 
 .investor-suggested-table-head {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgb(0, 180, 138);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
   font-size: var(--inv-table-head, 11px);
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -1549,11 +1549,11 @@
 }
 
 .investor-suggested-table-row {
-  border-bottom: 1px solid rgb(38, 57, 71);
+  border-bottom: 1px solid var(--panel-border);
 }
 
 .investor-suggested-table-row:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--wash);
 }
 
 .investor-suggested-table-identity {
@@ -1576,18 +1576,18 @@
 }
 
 .investor-suggested-table-identity strong {
-  color: rgb(242, 245, 242);
+  color: var(--text-1);
   display: block;
   font-size: var(--inv-row, 12.5px);
   font-weight: 600;
 }
 
 .investor-suggested-table-identity:hover strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .investor-suggested-table-identity em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 11.5px;
   font-style: normal;
@@ -1600,19 +1600,19 @@
 }
 
 .investor-suggested-table-score b {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   font-size: 12.5px;
   font-weight: 800;
 }
 
 .investor-suggested-table-why {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: 12.5px;
   line-height: 1.5;
 }
 
 .investor-suggested-table-timing {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -1639,39 +1639,40 @@
   cursor: pointer;
   font: inherit;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 8px 12px;
 }
 
 .investor-suggested-primary {
-  background: var(--fuel-accent, #00B48A);
-  border: 1px solid var(--fuel-accent, #00B48A);
-  color: #07131C;
+  background: var(--btn-primary-bg);
+  border: 1px solid var(--btn-primary-border);
+  color: var(--btn-primary-text);
 }
 
 .investor-suggested-primary.is-done,
 .investor-suggested-primary:disabled {
-  background: rgba(0, 180, 138, 0.14);
-  border-color: rgba(0, 180, 138, 0.28);
-  color: var(--fuel-accent, #00B48A);
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+  color: var(--accent);
   cursor: default;
 }
 
 .investor-suggested-ghost {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--fuel-text, #F2F5F2);
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
+  color: var(--btn-secondary-text);
+  font-weight: 500;
 }
 
 .investor-suggested-ghost:hover {
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: var(--border-strong);
 }
 
 .investor-fuel-badge {
   background: rgba(0, 180, 138, 0.1);
   border: 1px solid rgba(0, 180, 138, 0.24);
   border-radius: 999px;
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -1680,9 +1681,9 @@
 }
 
 .investor-health-pill {
-  border: 1px solid rgb(38, 57, 71);
+  border: 1px solid var(--panel-border);
   border-radius: 999px;
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -1704,10 +1705,10 @@
 
 .investor-card-cta {
   align-self: flex-start;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
   border-radius: 7px;
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
@@ -1717,7 +1718,7 @@
 
 .investor-card-cta:hover {
   border-color: rgba(0, 180, 138, 0.35);
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .investor-company-logo {
@@ -1749,7 +1750,7 @@
   background: transparent;
   border: 0;
   border-bottom: 2px solid transparent;
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
@@ -1758,8 +1759,8 @@
 }
 
 .investor-pipeline-tabs button.is-active {
-  border-bottom-color: rgb(244, 246, 248);
-  color: rgb(244, 246, 248);
+  border-bottom-color: var(--panel-strong);
+  color: var(--panel-strong);
   font-weight: 700;
 }
 
@@ -1771,7 +1772,7 @@
 }
 
 .investor-pipeline-page-head h1 {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: var(--inv-h1, 24px);
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -1779,7 +1780,7 @@
 }
 
 .investor-pipeline-page-head p {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: var(--inv-body, 13px);
   line-height: 1.6;
   margin: 0;
@@ -1793,10 +1794,10 @@
 }
 
 .investor-hubspot-badge {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
   border-radius: 999px;
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -1830,7 +1831,7 @@
 
 .investor-pipeline-col {
   background: rgba(10, 16, 24, 0.55);
-  border: 1px solid rgb(38, 57, 71);
+  border: 1px solid var(--panel-border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -1848,7 +1849,7 @@
 }
 
 .investor-pipeline-col-head {
-  border-bottom: 1px solid rgb(38, 57, 71);
+  border-bottom: 1px solid var(--panel-border);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1864,7 +1865,7 @@
 }
 
 .investor-pipeline-col-head strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0;
@@ -1874,7 +1875,7 @@
 
 .investor-pipeline-col-head em,
 .investor-pipeline-col-title em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   flex-shrink: 0;
   font-size: 12px;
   font-style: normal;
@@ -1882,7 +1883,7 @@
 }
 
 .investor-pipeline-col-total {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 12px;
   font-weight: 600;
 }
@@ -1895,14 +1896,14 @@
 }
 
 .investor-pipeline-empty {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 12px;
   margin: 4px 2px 0;
 }
 
 .investor-pipeline-card {
-  background: rgb(23, 38, 50);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
   color: inherit;
   cursor: pointer;
@@ -1921,7 +1922,7 @@
 }
 
 .investor-pipeline-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--border-strong);
 }
 
 .investor-pipeline-card-top {
@@ -1945,7 +1946,7 @@
 }
 
 .investor-pipeline-card-identity strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.3;
@@ -1959,7 +1960,7 @@
 }
 
 .investor-pipeline-card-meta b {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 13px;
   font-weight: 700;
 }
@@ -1978,7 +1979,7 @@
 }
 
 .investor-pipeline-card-secondary--domain {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
 }
 
 .investor-pipeline-card-secondary--warn {
@@ -1989,7 +1990,7 @@
 }
 
 .investor-pipeline-card-close {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 11px;
   font-weight: 600;
 }
@@ -2002,9 +2003,9 @@
 
 .investor-pipeline-filters button {
   background: transparent;
-  border: 1px solid rgb(38, 57, 71);
+  border: 1px solid var(--panel-border);
   border-radius: 999px;
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
@@ -2015,13 +2016,13 @@
 .investor-pipeline-filters button.active,
 .investor-pipeline-filters button:hover {
   border-color: rgba(0, 180, 138, 0.35);
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .data-room-investor-gate {
   align-items: center;
   background: rgba(31, 49, 64, 0.35);
-  border: 1px dashed rgb(38, 57, 71);
+  border: 1px dashed var(--panel-border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -2032,12 +2033,12 @@
 }
 
 .data-room-investor-gate strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 15px;
 }
 
 .data-room-investor-gate p {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 13px;
   line-height: 1.55;
   margin: 0;
@@ -2045,7 +2046,7 @@
 }
 
 .data-room-investor-gate button {
-  background: rgb(0, 180, 138);
+  background: var(--accent);
   border: none;
   border-radius: 8px;
   color: rgb(7, 19, 28);
@@ -2058,16 +2059,16 @@
 
 .data-room-investor-gate button.is-sent {
   background: transparent;
-  border: 1px solid rgb(38, 57, 71);
-  color: rgb(138, 153, 166);
+  border: 1px solid var(--panel-border);
+  color: var(--panel-muted);
   cursor: default;
 }
 
 .investor-workspace-banner {
   align-items: center;
   background: rgba(31, 49, 64, 0.72);
-  border-bottom: 1px solid rgb(38, 57, 71);
-  color: rgb(138, 153, 166);
+  border-bottom: 1px solid var(--panel-border);
+  color: var(--panel-muted);
   display: flex;
   flex-wrap: wrap;
   font-size: 12px;
@@ -2077,14 +2078,14 @@
 }
 
 .investor-workspace-banner strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 .investor-workspace-banner button {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
   border-radius: 6px;
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
@@ -2095,7 +2096,7 @@
 .sidebar .nav-item.is-active {
   background: rgba(0, 180, 138, 0.1);
   border-color: rgba(0, 180, 138, 0.22);
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
 }
 
 @media (max-width: 1100px) {
@@ -2138,7 +2139,7 @@
   }
 
   .investor-portfolio-total:nth-child(n + 4) {
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--panel-border);
   }
 
   .investor-rank-card-btn {
@@ -2176,7 +2177,7 @@
   }
 
   .investor-portfolio-total {
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid var(--panel-border);
   }
 
   .investor-portfolio-total:nth-child(2n) {
@@ -2184,7 +2185,7 @@
   }
 
   .investor-portfolio-total:nth-child(n + 3) {
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--panel-border);
   }
 
   .investor-rank-metrics {
@@ -2216,7 +2217,7 @@
 }
 
 .investor-bench-section-head span {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   display: block;
   font-size: var(--inv-label, 10.5px);
   font-weight: 800;
@@ -2225,7 +2226,7 @@
 }
 
 .investor-bench-section-head h2 {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -2233,7 +2234,7 @@
 }
 
 .investor-bench-section-head p {
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font-size: var(--inv-body, 13px);
   line-height: 1.55;
   margin: 0;
@@ -2242,15 +2243,15 @@
 
 .investor-bench-filter select {
   appearance: none;
-  background-color: rgb(23, 38, 50);
-  background-image: linear-gradient(45deg, transparent 50%, rgb(138, 153, 166) 50%),
-    linear-gradient(135deg, rgb(138, 153, 166) 50%, transparent 50%);
+  background-color: var(--panel);
+  background-image: linear-gradient(45deg, transparent 50%, var(--panel-muted) 50%),
+    linear-gradient(135deg, var(--panel-muted) 50%, transparent 50%);
   background-position: calc(100% - 14px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
   background-repeat: no-repeat;
   background-size: 5px 5px, 5px 5px;
-  border: 1px solid rgb(38, 57, 71);
+  border: 1px solid var(--panel-border);
   border-radius: 7px;
-  color: rgb(203, 211, 219);
+  color: var(--panel-body);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -2279,8 +2280,8 @@
 }
 
 .investor-bench-card {
-  background: rgb(23, 38, 50);
-  border: 1px solid rgb(38, 57, 71);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -2297,21 +2298,21 @@
 }
 
 .investor-bench-card-head strong {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   display: block;
   font-size: var(--inv-row, 12.5px);
   font-weight: 700;
 }
 
 .investor-bench-n {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 10.5px;
   font-style: normal;
   font-weight: 600;
 }
 
 .investor-bench-card-head > div > em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   display: block;
   font-size: 10.5px;
   font-style: normal;
@@ -2332,26 +2333,26 @@
 }
 
 .investor-bench-card-stats em {
-  color: rgb(138, 153, 166);
+  color: var(--panel-muted);
   font-size: 10px;
   font-style: normal;
   font-weight: 600;
 }
 
 .investor-bench-card-stats b {
-  color: rgb(244, 246, 248);
+  color: var(--panel-strong);
   font-size: 11px;
   font-weight: 800;
   min-width: 3.5rem;
 }
 
 .investor-bench-card-stats i {
-  color: rgb(0, 180, 138);
+  color: var(--accent);
   font-style: normal;
 }
 
 .investor-bench-track {
-  background: #07131C;
+  background: var(--input-bg);
   border-radius: 999px;
   height: 10px;
   margin-top: 10px;
@@ -2368,7 +2369,7 @@
 }
 
 .investor-bench-track-median {
-  background: #F2F5F2;
+  background: var(--surface-3);
   height: 16px;
   position: absolute;
   top: -3px;
@@ -2378,7 +2379,7 @@
 }
 
 .investor-bench-track-dot {
-  border: 2px solid #F2F5F2;
+  border: 2px solid var(--text-1);
   border-radius: 50%;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.35);
   height: 12px;

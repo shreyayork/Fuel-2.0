@@ -101,7 +101,7 @@ export function CreditPopover() {
       body = (
         <>
           <h4>Running low</h4>
-          <p><strong style={{ color: "#F2F5F2" }}>{remaining.toLocaleString()}</strong> credits left · resets {snapshot.monthlyResetLabel}</p>
+          <p><strong style={{ color: "var(--text-1)" }}>{remaining.toLocaleString()}</strong> credits left · resets {snapshot.monthlyResetLabel}</p>
           {willRunOutBeforeReset(snapshot) ? (
             <p>At your current pace, you'll run out in about {daysUntilMonthlyEmpty(snapshot)} days.</p>
           ) : null}

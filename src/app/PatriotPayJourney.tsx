@@ -13,7 +13,15 @@ import {
   useCreditsOptional,
 } from "./credits";
 import { totalRemaining, dailyRemaining } from "./credits/creditLogic";
-import ScorecardV2, { type OverviewBuildPhase } from "./ScorecardV2";
+import ScorecardV2, {
+  type OverviewBuildPhase,
+  BenchmarkEditDrawer,
+  dismissRecActionsTip,
+  isRecActionsTipDismissed,
+  isRecActionsTipPending,
+  markRecActionsTipPending,
+  resetRecActionsTipForOnboarding,
+} from "./ScorecardV2";
 import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 import { AccountSettings } from "./account/AccountSettings.tsx";
@@ -22,6 +30,12 @@ import {
   accountTabLabel,
   type AccountSettingsTab,
 } from "./account/AccountSettingsNav.tsx";
+import {
+  resolveYorkOfferForInitiative,
+  yorkNudgeMessageForInitiative,
+  type YorkServiceOffer,
+} from "./yorkIeUpsell";
+import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import InvestorDashboard, { type InvestorDashboardSection } from "./investor/InvestorDashboard.tsx";
 import {
   INVESTOR_PORTFOLIO,
@@ -39,6 +53,7 @@ import {
   type IntelligenceCustomRange,
   type IntelligenceDatePreset,
 } from "./intelligenceFilters";
+import { DETAIL_QUESTION_LABEL } from "./trackQuestions.ts";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -3131,7 +3146,25 @@ type BenchmarkSubmission = {
 
 const BENCHMARK_PERIOD = "2026-Q2";
 
-const BENCHMARK_TIMELINE_FILTERS = ["All", "efficiency", "finance", "fundraising", "growth", "retention", "team"] as const;
+function formatBenchmarkPeriodLabel(period: string): string {
+  const match = period.trim().match(/^(\d{4})-Q([1-4])$/i);
+  if (match) return `Q${match[2]} ${match[1]}`;
+  return period;
+}
+
+const BENCHMARK_TIMELINE_FILTERS = [
+  "All",
+  "efficiency",
+  "finance",
+  "fundraising",
+  "growth",
+  "retention",
+  "team",
+  "product",
+  "gtm",
+  "strategic",
+  "york",
+] as const;
 
 const WIZARD_DEFAULT_BENCHMARK: BenchmarkFormValues = {
   headcount: "100",
@@ -3221,6 +3254,243 @@ function formValuesToOnboardingBenchmark(form: BenchmarkFormValues): OnboardingB
     headcount: form.headcount,
     payingCustomers: form.paidCustomers,
   };
+}
+
+const BENCHMARK_METRIC_FORM_KEYS: (keyof BenchmarkFormValues)[] = [
+  "headcount",
+  "paidCustomers",
+  "arr",
+  "arrGrowth",
+  "nrr",
+  "logoRetention",
+  "grossMargin",
+  "cacPayback",
+  "burnMultiple",
+  "ruleOf40",
+  "cashOnHand",
+  "monthlyBurn",
+];
+
+function parseBenchmarkMetricValue(raw: string): number | null {
+  const cleaned = raw.replace(/[$,%x,\s]/gi, "").replace(/mo(nths?)?$/i, "");
+  if (!cleaned) return null;
+  const value = Number(cleaned);
+  return Number.isFinite(value) ? value : null;
+}
+
+function hasFilledBenchmarkMetric(form: BenchmarkFormValues): boolean {
+  return BENCHMARK_METRIC_FORM_KEYS.some(key => parseBenchmarkMetricValue(String(form[key] ?? "")) != null);
+}
+
+function mergeBenchmarkFormValues(
+  base: BenchmarkFormValues,
+  overlay: Partial<BenchmarkFormValues>,
+): BenchmarkFormValues {
+  const next = { ...base };
+  (Object.keys(overlay) as (keyof BenchmarkFormValues)[]).forEach(key => {
+    if (key === "openToIntros") {
+      if (overlay.openToIntros != null) next.openToIntros = overlay.openToIntros;
+      return;
+    }
+    const value = String(overlay[key] ?? "").trim();
+    if (value) next[key] = value;
+  });
+  return next;
+}
+
+/** Onboarding + quarterly log + in-app edits — later sources win per field. */
+function resolveBenchmarkFormValues(
+  submission: BenchmarkSubmission | null | undefined,
+  initial: OnboardingBenchmarkInput | null | undefined,
+): BenchmarkFormValues {
+  let merged = { ...EMPTY_BENCHMARK_FORM };
+  if (initial) {
+    merged = mergeBenchmarkFormValues(merged, toBenchmarkFormValues(initial));
+  }
+  if (submission?.formValues) {
+    merged = mergeBenchmarkFormValues(merged, submission.formValues);
+  }
+  return merged;
+}
+
+function createInitialBenchmarkSeed(initial: OnboardingBenchmarkInput | null | undefined) {
+  if (!initial) return null;
+  const form = toBenchmarkFormValues(initial);
+  if (!hasFilledBenchmarkMetric(form)) return null;
+  return createBenchmarkIntelligence(form);
+}
+
+/** Seed Intelligence from onboarding profile + track answers even when metrics are skipped. */
+function formFieldSourceSystem(fieldId: string): string {
+  if (fieldId.startsWith("dev_")) return "R&D";
+  if (fieldId.startsWith("mkt_")) return "GTM";
+  if (fieldId.startsWith("rev_")) return "G&A";
+  if (fieldId.startsWith("profile")) return "Profile";
+  return "Company profile";
+}
+
+function formFieldSourceLabel(fieldId: string, fallback: string): string {
+  return DETAIL_QUESTION_LABEL[fieldId] ?? fallback;
+}
+
+function createFormFieldIntelligenceSource(
+  fieldId: string,
+  fieldLabel: string,
+  value: string,
+  now: number,
+  contactMailto?: string,
+): IntelligenceSource {
+  return {
+    id: `src-field-${fieldId}`,
+    title: fieldLabel,
+    description: value,
+    system: formFieldSourceSystem(fieldId),
+    sourceType: "form_field",
+    meta: "Private · Profile form",
+    date: new Date(now).toLocaleDateString("en-US"),
+    snippet: `${fieldLabel}: ${value}`,
+    ref: contactMailto ?? `form:${fieldId}`,
+  };
+}
+
+function createOnboardingIntelligence(
+  answers: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null | undefined,
+): IntelligenceItem[] {
+  if (!answers) return [];
+
+  const now = Date.now();
+
+  const specs: { id: string; fieldId: string; type: string; label: string; value: string }[] = [
+    {
+      id: "product-desc",
+      fieldId: "profile_product_description",
+      type: "strategic",
+      label: formFieldSourceLabel("profile_product_description", "What they build"),
+      value: answers.profileProductDescription ?? "",
+    },
+    {
+      id: "product-stage",
+      fieldId: "dev_product_stage",
+      type: "product",
+      label: formFieldSourceLabel("dev_product_stage", "Product stage"),
+      value: answers.dev_product_stage ?? "",
+    },
+    {
+      id: "product-type",
+      fieldId: "dev_product_type",
+      type: "product",
+      label: formFieldSourceLabel("dev_product_type", "Product type"),
+      value: answers.dev_product_type ?? "",
+    },
+    {
+      id: "delivery-constraint",
+      fieldId: "dev_delivery_constraint",
+      type: "product",
+      label: formFieldSourceLabel("dev_delivery_constraint", "Delivery constraint"),
+      value: answers.dev_delivery_constraint ?? "",
+    },
+    {
+      id: "sales-motion",
+      fieldId: "mkt_sales_motion",
+      type: "gtm",
+      label: formFieldSourceLabel("mkt_sales_motion", "Sales motion"),
+      value: answers.mkt_sales_motion ?? "",
+    },
+    {
+      id: "funnel-gap",
+      fieldId: "mkt_funnel_gap",
+      type: "gtm",
+      label: formFieldSourceLabel("mkt_funnel_gap", "Funnel gap"),
+      value: answers.mkt_funnel_gap ?? "",
+    },
+    {
+      id: "icp-clarity",
+      fieldId: "mkt_icp_clarity",
+      type: "gtm",
+      label: formFieldSourceLabel("mkt_icp_clarity", "ICP clarity"),
+      value: answers.mkt_icp_clarity ?? "",
+    },
+    {
+      id: "revenue-tracking",
+      fieldId: "mkt_revenue_tracking",
+      type: "gtm",
+      label: formFieldSourceLabel("mkt_revenue_tracking", "Revenue tracking"),
+      value: answers.mkt_revenue_tracking ?? "",
+    },
+    {
+      id: "runway",
+      fieldId: "rev_runway",
+      type: "finance",
+      label: formFieldSourceLabel("rev_runway", "Runway posture"),
+      value: answers.rev_runway ?? "",
+    },
+    {
+      id: "finance-mgmt",
+      fieldId: "rev_finance_management",
+      type: "finance",
+      label: formFieldSourceLabel("rev_finance_management", "Finance management"),
+      value: answers.rev_finance_management ?? "",
+    },
+    {
+      id: "capital-priority",
+      fieldId: "rev_capital_priority",
+      type: "fundraising",
+      label: formFieldSourceLabel("rev_capital_priority", "Capital priority"),
+      value: answers.rev_capital_priority ?? "",
+    },
+  ];
+
+  return specs
+    .filter(spec => spec.value.trim())
+    .map(spec => {
+      const value = spec.value.trim();
+      return {
+        id: `intel-onboard-${spec.id}`,
+        type: spec.type,
+        text: spec.label,
+        highlight: value,
+        date: BENCHMARK_PERIOD.toLowerCase(),
+        age: formatRelativeAge(now),
+        title: `${spec.label}: ${value}`,
+        confidence: "Submitted",
+        sources: [createFormFieldIntelligenceSource(spec.fieldId, spec.label, value, now)],
+        updatedAtMs: now,
+      };
+    });
+}
+
+function createInitialIntelligenceSeed(
+  initialBenchmark: OnboardingBenchmarkInput | null | undefined,
+  onboardingAnswers: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null | undefined,
+) {
+  const benchmarkSeed = createInitialBenchmarkSeed(initialBenchmark);
+  const onboardingItems = createOnboardingIntelligence(onboardingAnswers);
+  return {
+    // Intelligence = operating signals only. York IE reach-out lives in the sidebar, not the feed.
+    items: [...(benchmarkSeed?.items ?? []), ...onboardingItems],
+    submission: benchmarkSeed?.submission ?? null,
+  };
+}
+
+const BENCHMARK_SUBMISSION_STORAGE_KEY = "fuel-benchmark-submission";
+
+function loadStoredBenchmarkSubmission(): BenchmarkSubmission | null {
+  try {
+    const raw = window.localStorage.getItem(BENCHMARK_SUBMISSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as BenchmarkSubmission;
+    return parsed?.formValues ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredBenchmarkSubmission(submission: BenchmarkSubmission) {
+  try {
+    window.localStorage.setItem(BENCHMARK_SUBMISSION_STORAGE_KEY, JSON.stringify(submission));
+  } catch {
+    // Ignore storage failures in preview/demo environments.
+  }
 }
 
 const BENCHMARK_COHORT_ROWS = [
@@ -3570,6 +3840,8 @@ function IntelligenceProvenanceSidebar({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const isYorkUpsell = item.id.startsWith("intel-york-");
+
   return (
     <>
       <button className="context-sidebar-scrim" aria-label="Close intelligence provenance" onClick={onClose} />
@@ -3581,27 +3853,35 @@ function IntelligenceProvenanceSidebar({
         <div className="provenance-body">
           <span className="provenance-type">{item.type}</span>
           <h2>{item.text}</h2>
-          <p className="provenance-highlight">{item.highlight}</p>
+          {item.highlight ? (
+            <p className="provenance-highlight">{item.highlight}</p>
+          ) : null}
           <div className="provenance-meta-line">
             <time>{item.date}</time>
             {item.confidence ? <span>confidence {item.confidence}</span> : null}
           </div>
 
+          {!isYorkUpsell ? (
           <div className="provenance-snippet-section">
             <span>Supporting snippet</span>
             <blockquote>{item.title}</blockquote>
           </div>
+          ) : null}
 
           {item.sources.length > 0 ? (
             <div className="provenance-sources">
               <span className="provenance-sources-label">
                 {item.sources.length} source{item.sources.length > 1 ? "s" : ""}
               </span>
-              {item.sources.map((source, index) => (
+              {item.sources.map((source, index) => {
+                const isFormField = source.sourceType === "form_field";
+                return (
                 <div className="provenance-source-block" key={source.id}>
                   <div className="provenance-source-head">
                     <span>
-                      Source{item.sources.length > 1 ? ` ${index + 1}` : ""} · {source.system}
+                      {isFormField
+                        ? `Form · ${source.system}`
+                        : `Source${item.sources.length > 1 ? ` ${index + 1}` : ""} · ${source.system}`}
                     </span>
                     <span>{source.meta}</span>
                   </div>
@@ -3609,17 +3889,24 @@ function IntelligenceProvenanceSidebar({
                     <strong>{source.title}</strong>
                     <time>{source.date}</time>
                   </div>
-                  <p className="provenance-source-desc">{source.description}</p>
-                  {source.ref ? <code>{source.sourceType} · {source.ref}</code> : null}
-                  {source.snippet ? (
+                  <p className="provenance-source-desc">
+                    {isFormField ? <>Answer: <strong>{source.description}</strong></> : source.description}
+                  </p>
+                  {source.ref && !source.ref.startsWith("mailto:") ? (
+                    <code>{isFormField ? source.ref : `${source.sourceType} · ${source.ref}`}</code>
+                  ) : null}
+                  {source.snippet && !isFormField ? (
                     <blockquote className="provenance-source-snippet">{source.snippet}</blockquote>
                   ) : null}
-                  <div className="provenance-source-actions">
-                    <button type="button">Show content</button>
-                    <button type="button">Open in Private tab →</button>
-                  </div>
+                  {!isFormField ? (
+                    <div className="provenance-source-actions">
+                      <button type="button">Show content</button>
+                      <button type="button">Open in Private tab →</button>
+                    </div>
+                  ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="provenance-no-sources">
@@ -4023,34 +4310,38 @@ function DocumentRowUploadButton({
   );
 }
 
-function PrivateDataCompactStrip({
-  onUpdatePeriod,
+const SIGNALS_COHORT_OPTIONS = [
+  { value: "b2b_saas:growth:us", label: "B2B SaaS · Growth · US", n: 94 },
+  { value: "b2b_saas:seed:us", label: "B2B SaaS · Seed · US", n: 147 },
+  { value: "b2b_saas:series_a:us", label: "B2B SaaS · Series A · US", n: 203 },
+  { value: "dev_tools:series_a:us", label: "Dev Tools · Series A · US", n: 41 },
+] as const;
+
+function SignalsCohortSelect({
+  value,
+  onChange,
+  id = "signals-cohort",
 }: {
-  onUpdatePeriod: () => void;
+  value: string;
+  onChange: (value: string) => void;
+  id?: string;
 }) {
   return (
-    <div className="signals-private-strip">
-      <div className="signals-private-strip-main">
-        <div className="signals-private-strip-meta">
-          <span className="signals-private-strip-label">Private data · 2026-Q2</span>
-          <span className="signals-private-strip-badge">submitted</span>
-        </div>
-        <label className="signals-cohort-select signals-private-strip-cohort">
-              cohort
-              <select defaultValue="b2b_saas:seed:us">
-                <option value="b2b_saas:growth:us">B2B Saas · Growth · US · n=94</option>
-                <option value="b2b_saas:seed:us">B2B Saas · Seed · US · n=147</option>
-                <option value="b2b_saas:series_a:us">B2B Saas · Series A · US · n=203</option>
-                <option value="dev_tools:series_a:us">Dev Tools · Series A · US · n=41</option>
-              </select>
-            </label>
-          </div>
-      <div className="signals-private-strip-actions">
-        <button type="button" className="signals-private-btn primary" onClick={onUpdatePeriod}>
-          Update this period
-        </button>
-        </div>
-    </div>
+    <label className="signals-cohort-field" htmlFor={id}>
+      <span className="visually-hidden">Peer cohort</span>
+      <select
+        id={id}
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        aria-label="Peer cohort"
+      >
+        {SIGNALS_COHORT_OPTIONS.map(option => (
+          <option key={option.value} value={option.value}>
+            {option.label} · n={option.n}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -4500,7 +4791,6 @@ function SourcesListPanel({
 function SignalsPage({
   isProfileComplete,
   onLogBenchmarkData,
-  onUpdatePeriod,
   onLinkConnectors,
   documentSlots,
   processingDocumentTypeId = null,
@@ -4513,17 +4803,19 @@ function SignalsPage({
   onClearIntelligenceFocus,
   onFocusIntelligence,
   benchmarkSubmission = null,
-  onEditBenchmark,
   benchmarkBlinkIds = [],
   activeTourTarget,
   manualPendingSources = [],
   onGenerateFromPending,
   onDismissPendingSource,
   onAttemptSourceGeneration,
+  benchmark,
+  companyName = "This company",
+  onBenchmarkChange,
 }: {
   isProfileComplete: boolean;
   onLogBenchmarkData: () => void;
-  onUpdatePeriod: () => void;
+  onUpdatePeriod?: () => void;
   onLinkConnectors: () => void;
   documentSlots: DataRoomDocumentSlot[];
   processingDocumentTypeId?: string | null;
@@ -4536,7 +4828,6 @@ function SignalsPage({
   onClearIntelligenceFocus?: () => void;
   onFocusIntelligence?: (focus: IntelligenceFocus) => void;
   benchmarkSubmission?: BenchmarkSubmission | null;
-  onEditBenchmark?: () => void;
   benchmarkBlinkIds?: string[];
   activeTourTarget?: string;
   manualPendingSources?: PendingSource[];
@@ -4549,6 +4840,9 @@ function SignalsPage({
     documentMeta?: { typeId: string; typeLabel: string; fileName: string };
     pendingId?: string;
   }) => void;
+  benchmark: OnboardingBenchmarkInput;
+  companyName?: string;
+  onBenchmarkChange?: (benchmark: OnboardingBenchmarkInput) => void;
 }) {
   const timelinePanelRef = useRef<HTMLDivElement>(null);
   const now = useMemo(() => new Date(), []);
@@ -4568,18 +4862,22 @@ function SignalsPage({
   const [signalsView, setSignalsView] = useState<SignalsView>("intelligence");
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
+  const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
+  const [cohortValue, setCohortValue] = useState<string>("b2b_saas:seed:us");
   const intelligenceFocusActive = Boolean(intelligenceFocus?.ids.length);
+  const openBenchmarkDrawer = () => setEditBenchmarkOpen(true);
   const timelineFilters = isProfileComplete
     ? BENCHMARK_TIMELINE_FILTERS
     : (["All", "fundraising", "gtm", "product", "strategic", "team"] as const);
   const yearOptions = useMemo(() => buildYearOptions(now), [now]);
 
   const scopedIntelligenceItems = useMemo(
-    () => (
-      intelligenceFocusActive
-        ? intelligenceItems.filter(item => intelligenceFocus!.ids.includes(item.id))
-        : intelligenceItems
-    ),
+    () => {
+      const withoutPartnerAds = intelligenceItems.filter(item => !item.id.startsWith("intel-york-"));
+      return intelligenceFocusActive
+        ? withoutPartnerAds.filter(item => intelligenceFocus!.ids.includes(item.id))
+        : withoutPartnerAds;
+    },
     [intelligenceFocus, intelligenceFocusActive, intelligenceItems],
   );
 
@@ -4675,6 +4973,8 @@ function SignalsPage({
   const selectedSourceIntelligence = selectedSourceMeta
     ? intelligenceItems.filter(item => selectedSourceMeta.ids.includes(item.id))
     : [];
+  const cohortMeta = SIGNALS_COHORT_OPTIONS.find(option => option.value === cohortValue)
+    ?? SIGNALS_COHORT_OPTIONS[1];
 
   useEffect(() => {
     if (!intelligenceFocus?.ids.length) return;
@@ -4751,20 +5051,6 @@ function SignalsPage({
           </div>
   ) : null;
 
-  const benchmarkRows = [
-    { label: "ARR", values: ["Bot 25% $150k", "Median $500k", "Top 25% $1.2M", "Top 10% $2.5M"] },
-    { label: "CAC payback", hint: "lower is better", values: ["Bot 25% 10.0mo", "Median 16.0mo", "Top 25% 26.0mo", "Top 10% 42.0mo"] },
-    { label: "Burn multiple", hint: "lower is better", values: ["Bot 25% 1.30x", "Median 2.10x", "Top 25% 3.40x", "Top 10% 5.50x"] },
-    { label: "Headcount (FTE)", values: ["Bot 25% 6", "Median 12", "Top 25% 22", "Top 10% 40"] },
-    { label: "Paid customers", values: ["Bot 25% 10", "Median 40", "Top 25% 150", "Top 10% 500"] },
-    { label: "Cash on hand", values: ["Bot 25% $500k", "Median $1.5M", "Top 25% $3.0M", "Top 10% $6.0M"] },
-    { label: "Monthly burn", hint: "lower is better", values: ["Bot 25% $40k", "Median $80k", "Top 25% $180k", "Top 10% $350k"] },
-    { label: "ARR growth YoY", values: ["Bot 25% 120%", "Median 200%", "Top 25% 350%", "Top 10% 600%"] },
-    { label: "Gross margin", values: ["Bot 25% 55%", "Median 72%", "Top 25% 82%", "Top 10% 88%"] },
-    { label: "Net revenue retention", values: ["Bot 25% 95%", "Median 108%", "Top 25% 125%", "Top 10% 145%"] },
-    { label: "Logo retention", values: ["Bot 25% 80%", "Median 88%", "Top 25% 93%", "Top 10% 97%"] },
-  ];
-
   const renderTimelineRow = (row: IntelligenceItem) => {
     const isBenchmarkRow = row.id.startsWith("intel-bench-");
     return (
@@ -4783,7 +5069,7 @@ function SignalsPage({
           }
         }}
       >
-                <span className="signals-row-type">{row.type}</span>
+        <span className="signals-row-type">{row.type}</span>
         {isBenchmarkRow ? (
           <div className="signals-row-benchmark-main">
             <strong>{row.text}</strong>
@@ -4791,22 +5077,22 @@ function SignalsPage({
             <time>{row.date}</time>
           </div>
         ) : (
-                <div className="signals-row-content">
-                  <div className="signals-row-primary">
-                    <strong>{row.text}</strong>
-                    <time>{row.date}</time>
-                    {row.confidence ? <small>conf {row.confidence}</small> : null}
-                  </div>
-                  <p>{row.highlight}</p>
-                </div>
+          <div className="signals-row-content">
+            <div className="signals-row-primary">
+              <strong>{row.text}</strong>
+              <time>{row.date}</time>
+              {row.confidence ? <small>conf {row.confidence}</small> : null}
+            </div>
+            <p>{row.highlight}</p>
+          </div>
         )}
-                <div className="signals-row-meta">
+        <div className="signals-row-meta">
           {!isBenchmarkRow && row.sources.length > 0 ? (
             <span className="signals-source-ref">
-              {row.sources.length} source{row.sources.length > 1 ? "s" : ""}
+              {`${row.sources.length} source${row.sources.length > 1 ? "s" : ""}`}
             </span>
           ) : null}
-                  <span className="signals-row-age">{row.age}</span>
+          <span className="signals-row-age">{row.age}</span>
           {!isBenchmarkRow ? (
             <button
               type="button"
@@ -4827,13 +5113,13 @@ function SignalsPage({
               ×
             </button>
           )}
-                </div>
-              </div>
+        </div>
+      </div>
     );
   };
 
   const intelligenceTimelinePanel = (
-    <div className="signals-timeline-panel" ref={timelinePanelRef}>
+    <div className="signals-board-panel" ref={timelinePanelRef}>
       {intelligenceFocusActive ? (
         <div className="pitch-deck-confirm-banner intelligence-focus-banner">
           <span>
@@ -4845,38 +5131,6 @@ function SignalsPage({
           </div>
               </div>
       ) : null}
-      <div className="signals-timeline-head">
-        <div className="signals-timeline-head-main">
-          <strong>Intelligence timeline</strong>
-          <em className="signals-timeline-event-count">
-            {visibleIntelligenceItems.length} events{!intelligenceFocusActive ? ` · ${dateRange.label}` : ""}
-          </em>
-        </div>
-        {!intelligenceFocusActive && isProfileComplete ? (
-          <div className="signals-timeline-head-actions">
-            {!sourceFormOpen ? (
-              <button
-                type="button"
-                className={`signals-timeline-cta${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
-                data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
-                onClick={() => setSourceFormOpen(true)}
-              >
-                + Add a source
-              </button>
-            ) : null}
-            {!showLogForm ? (
-              <button
-                type="button"
-                className={`signals-timeline-cta${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
-                data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
-                onClick={() => setShowLogForm(true)}
-              >
-                + Log intelligence
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
 
       {!intelligenceFocusActive ? (
         <div className="signals-intel-toolbar">
@@ -4986,7 +5240,7 @@ function SignalsPage({
                 </div>
                 <QuarterlySubmissionPanel
                   submission={block.submission}
-                  onEdit={onEditBenchmark || (() => undefined)}
+                  onEdit={openBenchmarkDrawer}
                   highlight={false}
                 />
               </div>
@@ -5031,7 +5285,7 @@ function SignalsPage({
       </div>
       {isProfileComplete && !benchmarkSubmission ? (
         <div className="signals-footnote">
-          Overlay uses <span>b2b_saas:seed:us</span>. Explore all cohorts on <a>Benchmarks</a>.
+          Overlay uses <span>{cohortMeta.label}</span>. Finish private data to place your company on the cohort.
         </div>
       ) : null}
     </div>
@@ -5039,11 +5293,85 @@ function SignalsPage({
 
   if (isProfileComplete) {
     return (
-      <section className="signals-screenshot-page">
+      <section className="signals-page">
         <CreditBlockBanner />
-        <PrivateDataCompactStrip onUpdatePeriod={onUpdatePeriod} />
+
+        <div className="signals-page-head">
+          <div>
+            <h2>Intelligence</h2>
+            <p>
+              Signals from benchmarks, sources, and logged context — private to your account.
+            </p>
+          </div>
+          <div className="signals-page-head-actions">
+            {!intelligenceFocusActive ? (
+              <>
+                {!sourceFormOpen ? (
+                  <button
+                    type="button"
+                    className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
+                    data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
+                    onClick={() => {
+                      setSignalsView("sources");
+                      setSourceFormOpen(true);
+                    }}
+                  >
+                    + Add a source
+                  </button>
+                ) : null}
+                {!showLogForm ? (
+                  <button
+                    type="button"
+                    className={`initiatives-primary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
+                    data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
+                    onClick={() => {
+                      setSignalsView("intelligence");
+                      setShowLogForm(true);
+                    }}
+                  >
+                    + Log intelligence
+                  </button>
+                ) : null}
+                <button type="button" className="initiatives-secondary-btn" onClick={openBenchmarkDrawer}>
+                  Update benchmark for {formatBenchmarkPeriodLabel(benchmarkSubmission?.period ?? BENCHMARK_PERIOD)}
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
 
         {documentNoticeBanner}
+
+        {!intelligenceFocusActive ? (
+          <div className="initiatives-status-toggle" role="tablist" aria-label="Intelligence view">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={signalsView === "intelligence"}
+              className={`initiatives-status-toggle-btn${signalsView === "intelligence" ? " is-active" : ""}`}
+              onClick={() => {
+                setSignalsView("intelligence");
+                setSelectedSourceId(null);
+              }}
+            >
+              Intelligence
+              <em>{intelligenceItems.length}</em>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={signalsView === "sources"}
+              className={`initiatives-status-toggle-btn${signalsView === "sources" ? " is-active" : ""}`}
+              onClick={() => {
+                setSignalsView("sources");
+                setSelectedIntelligenceId(null);
+              }}
+            >
+              Sources
+              <em>{pendingSources.length}</em>
+            </button>
+          </div>
+        ) : null}
 
         <ContextFeedPage
           onOpenConnectors={onLinkConnectors}
@@ -5055,49 +5383,24 @@ function SignalsPage({
           onSourceFormOpenChange={setSourceFormOpen}
         />
 
-        {!intelligenceFocusActive ? (
-          <div className="signals-view-tabs">
-            <button
-              type="button"
-              className={`signals-view-tab${signalsView === "intelligence" ? " active" : ""}`}
-              onClick={() => {
+        {signalsView === "intelligence" || intelligenceFocusActive ? intelligenceTimelinePanel : (
+          <div className="signals-board-panel signals-board-panel--sources">
+            <SourcesListPanel
+              sources={pendingSources}
+              documentSlots={documentSlots}
+              onSelectSource={(sourceId) => {
+                setSelectedSourceId(sourceId);
+                setSelectedIntelligenceId(null);
+              }}
+              onGenerateFromPending={onGenerateFromPending}
+              onDismissPendingSource={onDismissPendingSource}
+              onFocusIntelligence={(focus) => {
+                onFocusIntelligence?.(focus);
                 setSignalsView("intelligence");
                 setSelectedSourceId(null);
               }}
-            >
-              Intelligence
-              <span>{intelligenceItems.length}</span>
-            </button>
-            <button
-              type="button"
-              className={`signals-view-tab${signalsView === "sources" ? " active" : ""}`}
-              onClick={() => {
-                setSignalsView("sources");
-                setSelectedIntelligenceId(null);
-              }}
-            >
-              Sources
-              <span>{pendingSources.length}</span>
-            </button>
+            />
           </div>
-        ) : null}
-
-        {signalsView === "intelligence" || intelligenceFocusActive ? intelligenceTimelinePanel : (
-          <SourcesListPanel
-            sources={pendingSources}
-            documentSlots={documentSlots}
-            onSelectSource={(sourceId) => {
-              setSelectedSourceId(sourceId);
-              setSelectedIntelligenceId(null);
-            }}
-            onGenerateFromPending={onGenerateFromPending}
-            onDismissPendingSource={onDismissPendingSource}
-            onFocusIntelligence={(focus) => {
-              onFocusIntelligence?.(focus);
-              setSignalsView("intelligence");
-              setSelectedSourceId(null);
-            }}
-          />
         )}
 
         {selectedIntelligence ? (
@@ -5130,60 +5433,56 @@ function SignalsPage({
             }}
           />
         ) : null}
+
+        <BenchmarkEditDrawer
+          open={editBenchmarkOpen}
+          onClose={() => setEditBenchmarkOpen(false)}
+          benchmark={benchmark}
+          companyName={companyName}
+          onSave={next => {
+            onBenchmarkChange?.(next);
+          }}
+        />
       </section>
     );
   }
 
   return (
-    <section className="signals-screenshot-page">
-      <div className="signals-private-panel">
-        <div className="signals-private-panel-copy">
-          <h2>See how Patriot Pay stacks up against peers</h2>
+    <section className="signals-page">
+      <div className="signals-page-head">
+        <div>
+          <h2>Intelligence</h2>
           <p>
-            Below is what the <strong>B2B Saas · Seed · US</strong> looks like across the distribution — bottom 25%,
-            median, top 25%, top 10%. Log ARR, NRR, burn, headcount, challenges, or anything else you know about Patriot
-            Pay to overlay them on this distribution — it&apos;s private to your account and stamps the quarter so you
-            can track changes over time.
+            Log private benchmark data to overlay Patriot Pay on a peer cohort — private to your account, stamped by quarter.
           </p>
-          <label className="signals-cohort-select">
-            cohort
-            <select defaultValue="b2b_saas:seed:us">
-              <option value="b2b_saas:growth:us">B2B Saas · Growth · US · n=94</option>
-              <option value="b2b_saas:seed:us">B2B Saas · Seed · US · n=147</option>
-              <option value="b2b_saas:series_a:us">B2B Saas · Series A · US · n=203</option>
-              <option value="dev_tools:series_a:us">Dev Tools · Series A · US · n=41</option>
-            </select>
-          </label>
         </div>
-        <div className="signals-private-actions">
-          <button type="button" className="signals-private-btn primary" onClick={onLogBenchmarkData}>
-            Log benchmark data →
+        <div className="signals-page-head-actions">
+          <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
+            Log benchmark data
           </button>
         </div>
       </div>
 
       {documentNoticeBanner}
 
-      <div className="signals-benchmark-panel">
-        <div className="signals-panel-heading">
-          <span>Cohort benchmarks · 2026-Q2</span>
-          <em>No overlay yet — finish profile to place patriotpay on these bars</em>
+      <article className="overview-panel signals-gate-panel">
+        <div className="overview-panel-head">
+          <div>
+            <span>Private data</span>
+            <strong>See how you stack up against peers</strong>
+          </div>
         </div>
-        <div className="signals-benchmark-grid">
-          {benchmarkRows.map((row) => (
-            <div className="signals-benchmark-item" key={row.label}>
-              <div className="signals-benchmark-title">
-                {row.label}
-                {row.hint ? <span>{row.hint}</span> : null}
-              </div>
-              <div className="signals-bar"><b /><i /></div>
-              <div className="signals-benchmark-scale">
-                {row.values.map(value => <span key={value}>{value}</span>)}
-              </div>
-            </div>
-          ))}
+        <p>
+          Pick a cohort, then log ARR, retention, burn, and headcount. Fuel places your numbers on the distribution
+          and generates intelligence from what you submit — visible only to you.
+        </p>
+        <div className="signals-gate-controls">
+          <SignalsCohortSelect value={cohortValue} onChange={setCohortValue} id="signals-cohort-gate" />
+          <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
+            Log benchmark data →
+          </button>
         </div>
-      </div>
+      </article>
 
       <ContextFeedPage
         onOpenConnectors={onLinkConnectors}
@@ -5906,23 +6205,48 @@ function InitiativeMilestoneRow({
   );
 }
 
+function emptyInitiativeDraft(): InitiativeRecord {
+  const assignees = [DEFAULT_INITIATIVE_ASSIGNEE];
+  return {
+    id: `draft-${Date.now()}`,
+    title: "",
+    description: "",
+    pillar: "mkt",
+    kind: "continuous",
+    status: "Active",
+    assignees,
+    owner: assignees[0],
+    advisors: [],
+    due: undefined,
+    milestones: [],
+    intelligenceLinks: [],
+  };
+}
+
 function InitiativeDetailDrawer({
   item,
+  mode = "edit",
   availableIntelligence,
+  yorkOffer = null,
   onClose,
   onPatch,
   onDelete,
+  onCreate,
   onLogIntelligence,
   onStatusTabChange,
 }: {
   item: InitiativeRecord;
+  mode?: "edit" | "create";
   availableIntelligence: IntelligenceItem[];
+  yorkOffer?: YorkServiceOffer | null;
   onClose: () => void;
   onPatch: (patch: Partial<InitiativeRecord>) => void;
-  onDelete: () => void;
+  onDelete?: () => void;
+  onCreate?: () => void;
   onLogIntelligence?: (item: IntelligenceItem) => void;
   onStatusTabChange: (status: InitiativeListStatus) => void;
 }) {
+  const isCreate = mode === "create";
   const status = normalizeInitiativeStatus(item.status);
   const assignees = normalizeAssignees(item.owner, item.assignees);
   const advisors = item.advisors ?? [];
@@ -5940,13 +6264,14 @@ function InitiativeDetailDrawer({
   });
   const [advisorDraftId, setAdvisorDraftId] = useState("");
   const [showAdvisorForm, setShowAdvisorForm] = useState(false);
-  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(isCreate);
 
   const availableAdvisors = INITIATIVE_ADVISOR_DIRECTORY.filter(
     advisor => !advisors.some(linked => linked.id === advisor.id),
   );
 
   const listStatus: InitiativeListStatus = status === "Completed" ? "Completed" : "Active";
+  const canCreate = item.title.trim().length > 0;
 
   const setListStatus = (nextStatus: InitiativeListStatus) => {
     onPatch({ status: nextStatus });
@@ -5993,21 +6318,29 @@ function InitiativeDetailDrawer({
   return (
     <div className="bench-drawer-scrim" onClick={onClose}>
       <aside
-        className="bench-drawer initiative-drawer"
+        className={`bench-drawer initiative-drawer${isCreate ? " initiative-create-drawer" : ""}`}
         onClick={event => event.stopPropagation()}
         role="dialog"
-        aria-label={item.title || "Initiative"}
+        aria-label={isCreate ? "New initiative" : (item.title || "Initiative")}
       >
         <header className="bench-drawer-head initiative-drawer-head">
           <div className="initiative-drawer-head-copy">
             <div className="initiative-drawer-eyebrow">Initiative</div>
-            <h2 className="bench-drawer-title">{item.title || "Untitled initiative"}</h2>
+            <h2 className="bench-drawer-title">
+              {isCreate ? "New initiative" : (item.title || "Untitled initiative")}
+            </h2>
             <p className="bench-drawer-sub">
-              {initiativeKindLabel(item.kind)}
-              {" · "}
-              {initiativePillarLabel(item.pillar)}
-              {" · "}
-              {displayInitiativeDue(item.due)}
+              {isCreate
+                ? "Name the work, assign owners, link advisors, and set milestones before you create."
+                : (
+                  <>
+                    {initiativeKindLabel(item.kind)}
+                    {" · "}
+                    {initiativePillarLabel(item.pillar)}
+                    {" · "}
+                    {displayInitiativeDue(item.due)}
+                  </>
+                )}
             </p>
           </div>
           <div className="initiative-drawer-head-actions">
@@ -6029,13 +6362,15 @@ function InitiativeDetailDrawer({
                 Completed
               </button>
             </div>
-            <button
-              type="button"
-              className="initiative-drawer-delete"
-              onClick={onDelete}
-            >
-              Delete
-            </button>
+            {!isCreate && onDelete ? (
+              <button
+                type="button"
+                className="initiative-drawer-delete"
+                onClick={onDelete}
+              >
+                Delete
+              </button>
+            ) : null}
             <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
           </div>
         </header>
@@ -6065,13 +6400,15 @@ function InitiativeDetailDrawer({
           <div className="initiative-card-section">
             <div className="initiative-card-section-head">
               <span className="initiative-card-section-label">Details</span>
-              <button
-                type="button"
-                className="initiative-edit-btn"
-                onClick={() => setIsEditingDetails(previous => !previous)}
-              >
-                {isEditingDetails ? "Done" : "Edit details"}
-              </button>
+              {!isCreate ? (
+                <button
+                  type="button"
+                  className="initiative-edit-btn"
+                  onClick={() => setIsEditingDetails(previous => !previous)}
+                >
+                  {isEditingDetails ? "Done" : "Edit details"}
+                </button>
+              ) : null}
             </div>
 
             {isEditingDetails ? (
@@ -6081,6 +6418,7 @@ function InitiativeDetailDrawer({
                     value={item.title}
                     onChange={event => onPatch({ title: event.target.value })}
                     placeholder="Initiative name"
+                    autoFocus={isCreate}
                   />
                   <select
                     value={item.kind}
@@ -6142,6 +6480,16 @@ function InitiativeDetailDrawer({
               </div>
             )}
           </div>
+
+          {!isCreate && yorkOffer ? (
+            <div className="initiative-card-section initiative-york-nudge-wrap">
+              <YorkPartnerNudge
+                offer={yorkOffer}
+                showHelpSummary
+                message={yorkNudgeMessageForInitiative(item, yorkOffer)}
+              />
+            </div>
+          ) : null}
 
           <div className="initiative-card-section">
             <div className="initiative-card-section-head">
@@ -6434,7 +6782,19 @@ function InitiativeDetailDrawer({
         </div>
 
         <footer className="bench-drawer-actions">
-          <button type="button" className="bench-drawer-cancel" onClick={onClose}>Close</button>
+          <button type="button" className="bench-drawer-cancel" onClick={onClose}>
+            {isCreate ? "Cancel" : "Close"}
+          </button>
+          {isCreate ? (
+            <button
+              type="button"
+              className="bench-drawer-save"
+              onClick={onCreate}
+              disabled={!canCreate}
+            >
+              Create initiative
+            </button>
+          ) : null}
         </footer>
       </aside>
     </div>
@@ -6611,6 +6971,7 @@ function InitiativesPage({
   items = [],
   focusInitiativeId = null,
   availableIntelligence = [],
+  yorkAnswers = null,
   onCreate,
   onUpdate,
   onDelete,
@@ -6621,6 +6982,7 @@ function InitiativesPage({
   items?: InitiativeRecord[];
   focusInitiativeId?: string | null;
   availableIntelligence?: IntelligenceItem[];
+  yorkAnswers?: Record<string, string | undefined | null> | null;
   onCreate?: (initiative: InitiativeRecord) => void;
   onUpdate?: (initiative: InitiativeRecord) => void;
   onDelete?: (id: string) => void;
@@ -6631,12 +6993,7 @@ function InitiativesPage({
   const [statusTab, setStatusTab] = useState<InitiativeListStatus>("Active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [suggestedOpen, setSuggestedOpen] = useState(false);
-  const [draftTitle, setDraftTitle] = useState("");
-  const [draftKind, setDraftKind] = useState<InitiativeKind>("continuous");
-  const [draftPillar, setDraftPillar] = useState<InitiativePillar>("mkt");
-  const [draftDescription, setDraftDescription] = useState("");
-  const [draftAssignees, setDraftAssignees] = useState<string[]>([DEFAULT_INITIATIVE_ASSIGNEE]);
-  const [draftDue, setDraftDue] = useState("");
+  const [createDraft, setCreateDraft] = useState<InitiativeRecord | null>(null);
 
   // One-shot focus from toasts / "View initiative" — consume so tab revisits don't reopen the drawer.
   useEffect(() => {
@@ -6685,28 +7042,52 @@ function InitiativesPage({
   }, [items, selectedId]);
 
   const resetCreateForm = () => {
-    setDraftTitle("");
-    setDraftKind("continuous");
-    setDraftPillar("mkt");
-    setDraftDescription("");
-    setDraftAssignees([DEFAULT_INITIATIVE_ASSIGNEE]);
-    setDraftDue("");
+    setCreateDraft(null);
     setIsCreating(false);
   };
 
-  const handleCreate = () => {
-    if (!draftTitle.trim()) return;
-    const created = createInitiativeRecord({
-      title: draftTitle,
-      description: draftDescription,
-      pillar: draftPillar,
-      kind: draftKind,
-      assignees: draftAssignees,
-      due: draftDue,
-      status: "Active",
+  const openCreateForm = () => {
+    setSuggestedOpen(false);
+    setSelectedId(null);
+    setCreateDraft(emptyInitiativeDraft());
+    setIsCreating(true);
+  };
+
+  const patchCreateDraft = (patch: Partial<InitiativeRecord>) => {
+    setCreateDraft(previous => {
+      if (!previous) return previous;
+      const nextAssignees = normalizeAssignees(
+        patch.owner ?? previous.owner,
+        patch.assignees ?? previous.assignees,
+      );
+      return {
+        ...previous,
+        ...patch,
+        assignees: nextAssignees,
+        owner: nextAssignees[0] ?? DEFAULT_INITIATIVE_ASSIGNEE,
+        advisors: patch.advisors ?? previous.advisors ?? [],
+      };
     });
+  };
+
+  const handleCreate = () => {
+    if (!createDraft?.title.trim()) return;
+    const title = createDraft.title.trim();
+    const pillar = createDraft.pillar;
+    const milestones = createDraft.milestones.length > 0
+      ? createDraft.milestones
+      : buildDefaultMilestones(title, pillar);
+    const created: InitiativeRecord = {
+      ...createDraft,
+      id: `init-${Date.now()}`,
+      title,
+      description: createDraft.description.trim(),
+      status: normalizeInitiativeStatus(createDraft.status),
+      milestones,
+      due: createDraft.due?.trim() || undefined,
+    };
     onCreate?.(created);
-    setStatusTab("Active");
+    setStatusTab(normalizeInitiativeListStatus(created.status));
     setSelectedId(created.id);
     resetCreateForm();
   };
@@ -6731,6 +7112,7 @@ function InitiativesPage({
     patchInitiative(item.id, { status: "Active" });
     setStatusTab("Active");
     setSuggestedOpen(false);
+    resetCreateForm();
     setSelectedId(item.id);
   };
 
@@ -6762,18 +7144,21 @@ function InitiativesPage({
               type="button"
               className="initiatives-secondary-btn"
               onClick={() => {
-                setIsCreating(false);
+                resetCreateForm();
+                setSelectedId(null);
                 setSuggestedOpen(true);
               }}
             >
               Suggested <em>{recommendedItems.length}</em>
             </button>
           ) : null}
-          {isCreating ? (
-            <button type="button" className="initiatives-secondary-btn" onClick={resetCreateForm}>Cancel</button>
-          ) : (
-            <button type="button" className="initiatives-primary-btn" onClick={() => setIsCreating(true)}>+ New initiative</button>
-          )}
+          <button
+            type="button"
+            className="initiatives-primary-btn"
+            onClick={openCreateForm}
+          >
+            + New initiative
+          </button>
         </div>
       </div>
 
@@ -6787,7 +7172,7 @@ function InitiativesPage({
             className={`initiatives-status-toggle-btn${statusTab === tab ? " is-active" : ""}`}
             onClick={() => {
               setStatusTab(tab);
-              setIsCreating(false);
+              resetCreateForm();
             }}
           >
             {tab}
@@ -6796,44 +7181,7 @@ function InitiativesPage({
         ))}
       </div>
 
-      {isCreating ? (
-        <div className="initiative-form-card">
-          <div className="initiative-form-row">
-            <input
-              value={draftTitle}
-              onChange={event => setDraftTitle(event.target.value)}
-              placeholder="Initiative name"
-              autoFocus
-            />
-            <select value={draftKind} onChange={event => setDraftKind(event.target.value as InitiativeKind)}>
-              <option value="continuous">Continuous</option>
-              <option value="one-time">One-time</option>
-            </select>
-            <select value={draftPillar} onChange={event => setDraftPillar(event.target.value as InitiativePillar)}>
-              <option value="mkt">GTM</option>
-              <option value="dev">R&D</option>
-              <option value="rev">G&A</option>
-            </select>
-          </div>
-          <textarea
-            value={draftDescription}
-            onChange={event => setDraftDescription(event.target.value)}
-            placeholder="What's the goal and why now? (optional)"
-          />
-          <div className="initiative-form-row initiative-form-row--owner">
-            <InitiativeAssigneesField assignees={draftAssignees} onChange={setDraftAssignees} />
-            <InitiativeDueQuarterField due={draftDue} onChange={value => setDraftDue(value ?? "")} />
-          </div>
-          <div className="initiative-form-actions">
-            <button type="button" className="initiatives-primary-btn" onClick={handleCreate} disabled={!draftTitle.trim()}>
-              Create initiative
-            </button>
-            <button type="button" className="initiatives-secondary-btn" onClick={resetCreateForm}>Cancel</button>
-          </div>
-        </div>
-      ) : null}
-
-      {visibleItems.length === 0 && !isCreating ? (
+      {visibleItems.length === 0 ? (
         <div className="initiatives-empty-card">
           <strong>{statusTab === "Completed" ? "No completed initiatives" : "No active initiatives"}</strong>
           <p>
@@ -6849,7 +7197,10 @@ function InitiativesPage({
             <button
               type="button"
               className="initiatives-primary-btn"
-              onClick={() => setSuggestedOpen(true)}
+              onClick={() => {
+                resetCreateForm();
+                setSuggestedOpen(true);
+              }}
             >
               View suggested · {recommendedItems.length}
             </button>
@@ -6870,7 +7221,11 @@ function InitiativesPage({
                 <button
                   type="button"
                   className="initiative-card-summary"
-                  onClick={() => setSelectedId(item.id)}
+                  onClick={() => {
+                    resetCreateForm();
+                    setSuggestedOpen(false);
+                    setSelectedId(item.id);
+                  }}
                   aria-pressed={selected}
                 >
                   <div className="initiative-card-summary-main">
@@ -6897,6 +7252,20 @@ function InitiativesPage({
             );
           })}
         </div>
+      ) : null}
+
+      {isCreating && createDraft ? (
+        <InitiativeDetailDrawer
+          key={createDraft.id}
+          mode="create"
+          item={createDraft}
+          availableIntelligence={availableIntelligence}
+          onClose={resetCreateForm}
+          onPatch={patchCreateDraft}
+          onCreate={handleCreate}
+          onLogIntelligence={onLogIntelligence}
+          onStatusTabChange={setStatusTab}
+        />
       ) : null}
 
       {suggestedOpen && showSuggested ? (
@@ -6969,6 +7338,7 @@ function InitiativesPage({
           key={selectedItem.id}
           item={selectedItem}
           availableIntelligence={availableIntelligence}
+          yorkOffer={resolveYorkOfferForInitiative(selectedItem, yorkAnswers)}
           onClose={closeDrawer}
           onPatch={patch => patchInitiative(selectedItem.id, patch)}
           onDelete={() => {
@@ -7319,6 +7689,17 @@ function ContextFeedPage({
   const [sourceTitle, setSourceTitle] = useState("");
   const [sourceDescription, setSourceDescription] = useState("");
   const [attachedDocument, setAttachedDocument] = useState<{ typeId: string; typeLabel: string; file: File } | null>(null);
+  const lastSourceFormOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (showSourceForm && !lastSourceFormOpenRef.current) {
+      setSourceTitle("");
+      setSourceDescription("");
+      setAttachedDocument(null);
+    }
+    lastSourceFormOpenRef.current = showSourceForm;
+  }, [showSourceForm]);
+
   const contextConnectors: ContextConnector[] = [
     {
       id: "google-analytics",
@@ -7559,13 +7940,43 @@ function ContextFeedPage({
   return (
     <>
       {showSourceForm ? (
-        <section className="context-feed-page">
-          <div className="sources-panel">
-            <div className="source-add-form">
-              <label className="source-add-form-title-label">
-                <span>Title</span>
-                <div className="source-add-form-title-row">
+        <div className="bench-drawer-scrim" onClick={cancelAddSource}>
+          <aside
+            className="bench-drawer add-sources-drawer"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-label="Add source"
+          >
+            <header className="bench-drawer-head">
+              <div>
+                <div className="add-sources-eyebrow">Sources</div>
+                <h2 className="bench-drawer-title">Add a source</h2>
+                <p className="bench-drawer-sub">
+                  Capture notes, documents, and context — then turn them into intelligence.
+                </p>
+              </div>
+              <div className="add-sources-actions">
+                <button type="button" className="bench-drawer-cancel" onClick={cancelAddSource}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="bench-drawer-save"
+                  disabled={!sourceTitle.trim()}
+                  onClick={handleAddSource}
+                >
+                  Add source
+                </button>
+              </div>
+            </header>
+
+            <div className="bench-drawer-body">
+              <div className="bench-field">
+                <label className="bench-field-label" htmlFor="context-source-title">Title</label>
+                <div className="add-sources-title-row">
                   <input
+                    id="context-source-title"
+                    className="bench-field-input"
                     type="text"
                     value={sourceTitle}
                     onChange={(event) => setSourceTitle(event.target.value)}
@@ -7581,7 +7992,8 @@ function ContextFeedPage({
                     />
                   ) : null}
                 </div>
-              </label>
+              </div>
+
               {attachedDocument ? (
                 <div className="source-attached-document">
                   <span>
@@ -7591,29 +8003,21 @@ function ContextFeedPage({
                   <button type="button" onClick={() => setAttachedDocument(null)}>Remove</button>
                 </div>
               ) : null}
-              <label>
-                <span>Description</span>
+
+              <div className="bench-field">
+                <label className="bench-field-label" htmlFor="context-source-description">Description</label>
                 <textarea
+                  id="context-source-description"
+                  className="bench-field-input add-sources-textarea"
                   value={sourceDescription}
                   onChange={(event) => setSourceDescription(event.target.value)}
                   placeholder="What should Fuel extract from this source?"
-                  rows={2}
+                  rows={6}
                 />
-              </label>
-              <div className="source-add-form-actions">
-                <button type="button" className="ghost" onClick={cancelAddSource}>Cancel</button>
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={!sourceTitle.trim()}
-                  onClick={handleAddSource}
-                >
-                  Add source
-                </button>
               </div>
             </div>
-          </div>
-        </section>
+          </aside>
+        </div>
       ) : null}
 
       {connectorsOpen ? (
@@ -7678,7 +8082,17 @@ function AskFuelAiButton({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGenerateBrief }: { companyName: string; tourPlaybooksActive?: boolean; onRunPlaybook?: (pb: Playbook) => void; onGenerateBrief?: () => void }) {
+function AiActionsMenu({
+  companyName,
+  tourActive,
+  onRunPlaybook,
+  onGenerateBrief,
+}: {
+  companyName: string;
+  tourActive?: boolean;
+  onRunPlaybook?: (pb: Playbook) => void;
+  onGenerateBrief?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState("");
@@ -7689,10 +8103,23 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
     if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null; }
   };
   const scheduleClose = () => {
+    if (tourActive) return;
     cancelClose();
     closeTimer.current = window.setTimeout(() => { setOpen(false); }, 220);
   };
   const closeAll = () => { setOpen(false); setShowPicker(false); setSearch(""); };
+
+  useEffect(() => {
+    if (tourActive) {
+      cancelClose();
+      setOpen(true);
+      setShowPicker(false);
+      setSearch("");
+      return;
+    }
+    setOpen(false);
+    setShowPicker(false);
+  }, [tourActive]);
 
   useEffect(() => {
     if (!showPicker) return;
@@ -7709,10 +8136,12 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
   );
   const grouped: Record<string, Playbook[]> = {};
   filtered.forEach(p => { (grouped[p.category] ||= []).push(p); });
+  const menuOpen = open || Boolean(tourActive);
 
   return (
     <div
-      className="ai-actions-menu"
+      className={`ai-actions-menu${tourActive ? " tour-highlight" : ""}`}
+      data-tour-target={tourActive ? "ai-actions" : undefined}
       ref={wrapRef}
       onMouseEnter={() => { cancelClose(); setOpen(true); }}
       onMouseLeave={() => { if (!showPicker) scheduleClose(); }}
@@ -7725,12 +8154,11 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
       >
         ✦
       </button>
-      {open ? (
+      {menuOpen ? (
         <div className="ai-actions-dropdown">
           <button
             type="button"
-            className={`ai-dropdown-item has-submenu ${tourPlaybooksActive ? "tour-highlight" : ""} ${showPicker ? "active" : ""}`}
-            data-tour-target={tourPlaybooksActive ? "playbooks" : undefined}
+            className={`ai-dropdown-item has-submenu${showPicker ? " active" : ""}`}
             onClick={() => setShowPicker(v => !v)}
           >
             <span>▤ Playbooks</span>
@@ -7739,7 +8167,7 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
           <button type="button" className="ai-dropdown-item" onClick={() => { onGenerateBrief?.(); closeAll(); }}>
             ≡ Generate brief
           </button>
-                  </div>
+        </div>
       ) : null}
       {showPicker ? (
         <div className="ai-pb-panel">
@@ -7761,7 +8189,7 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
                     <div className="afc-pb-item-head">
                       <span className="afc-pb-name">{pb.name}</span>
                       <span className="afc-pb-kind"> · {pb.kind}</span>
-                </div>
+                    </div>
                     <div className="afc-pb-desc">{pb.description}</div>
                   </button>
                 ))}
@@ -7778,22 +8206,188 @@ function AiActionsMenu({ companyName, tourPlaybooksActive, onRunPlaybook, onGene
   );
 }
 
+function SidebarYorkReachOut() {
+  const href = [
+    "mailto:growth@york.ie",
+    "?subject=",
+    encodeURIComponent("York IE · Talk from Fuel"),
+    "&body=",
+    encodeURIComponent(
+      [
+        "Hi York IE,",
+        "",
+        "I'm reaching out from Fuel — I'd like to talk about how York IE can help close gaps on our scorecard.",
+        "",
+        "Looking forward to talking.",
+      ].join("\n"),
+    ),
+  ].join("");
+
+  return (
+    <a className="sidebar-york-reach" href={href}>
+      <span className="sidebar-york-reach-brand">York IE</span>
+      <span className="sidebar-york-reach-copy">
+        <strong>Need hands on a gap?</strong>
+        <em>Talk with us →</em>
+      </span>
+    </a>
+  );
+}
+
+function applyFuelTheme(theme: "dark" | "light") {
+  document.documentElement.setAttribute("data-theme", theme);
+  try {
+    localStorage.setItem("fuel-ui-theme", theme);
+  } catch {
+    /* ignore */
+  }
+}
+
+function readFuelTheme(): "dark" | "light" {
+  try {
+    const stored = localStorage.getItem("fuel-ui-theme");
+    if (stored === "light" || stored === "dark") return stored;
+  } catch {
+    /* ignore */
+  }
+  return "dark";
+}
+
+function SidebarMenuIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="sidebar-user-menu-icon" aria-hidden="true">
+      {children}
+    </span>
+  );
+}
+
 function SidebarProfileFooter({
   onOpenAccountSettings,
 }: {
   onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
 }) {
   const { snapshot } = useCredits();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">(() => readFuelTheme());
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    applyFuelTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === "dark" ? "light" : "dark"));
+  };
 
   return (
-    <>
+    <div className="sidebar-footer">
+      <SidebarYorkReachOut />
       <CreditIndicator />
-      <div className="sidebar-foot-wrap">
+      <div className="sidebar-foot-wrap" ref={wrapRef}>
+        {menuOpen ? (
+          <div className="sidebar-user-menu" role="menu" aria-label="User menu">
+            <div className="sidebar-user-menu-head">
+              <strong>Shreya Gokani</strong>
+              <span>shreya.g@york.ie</span>
+            </div>
+
+            <div className="sidebar-user-menu-list">
+              <button
+                type="button"
+                role="menuitem"
+                className="sidebar-user-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenAccountSettings("profile");
+                }}
+              >
+                <SidebarMenuIcon>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="5.25" stroke="currentColor" strokeWidth="1.4" />
+                    <path
+                      d="M5.6 9.9a2.5 2.5 0 0 1 4.8 0M8 7.4a1.35 1.35 0 1 0 0-2.7 1.35 1.35 0 0 0 0 2.7Z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </SidebarMenuIcon>
+                <span className="sidebar-user-menu-label">Account settings</span>
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                className="sidebar-user-menu-item"
+                onClick={toggleTheme}
+              >
+                <SidebarMenuIcon>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="5.25" stroke="currentColor" strokeWidth="1.4" />
+                    <path d="M8 2.75v10.5A5.25 5.25 0 0 0 8 2.75Z" fill="currentColor" />
+                  </svg>
+                </SidebarMenuIcon>
+                <span className="sidebar-user-menu-label">Appearance</span>
+                <span className="sidebar-user-menu-meta">
+                  {theme === "dark" ? "Dark" : "Light"}
+                </span>
+              </button>
+            </div>
+
+            <div className="sidebar-user-menu-divider" role="separator" />
+
+            <div className="sidebar-user-menu-list">
+              <button
+                type="button"
+                role="menuitem"
+                className="sidebar-user-menu-item"
+                onClick={() => setMenuOpen(false)}
+              >
+                <SidebarMenuIcon>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M7 3H4.5A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13H7"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M10.5 5.5 13 8l-2.5 2.5M6.5 8H13"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </SidebarMenuIcon>
+                <span className="sidebar-user-menu-label">Log out</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
         <button
           type="button"
-          className="sidebar-foot"
-          aria-label="Open account settings"
-          onClick={() => onOpenAccountSettings("overview")}
+          className={`sidebar-foot${menuOpen ? " open" : ""}`}
+          aria-label="Open user menu"
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          onClick={() => setMenuOpen(open => !open)}
         >
           <div className="sidebar-foot-avatar">SG</div>
           <div className="sidebar-foot-copy">
@@ -7807,7 +8401,7 @@ function SidebarProfileFooter({
           </div>
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -7881,13 +8475,13 @@ function PatriotPayJourneyInner({
       || startsWithScorecard
       || startsWithInvestorShell,
   );
-  const [accountTab, setAccountTab] = useState<AccountSettingsTab>("overview");
+  const [accountTab, setAccountTab] = useState<AccountSettingsTab>("profile");
   const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
   const [processingDocumentTypeId, setProcessingDocumentTypeId] = useState<string | null>(null);
   const [documentHistorySlot, setDocumentHistorySlot] = useState<DataRoomDocumentSlot | null>(null);
-  const initialBenchmarkSeed = initialBenchmark ? createBenchmarkIntelligence(toBenchmarkFormValues(initialBenchmark)) : null;
+  const initialIntelligenceSeed = createInitialIntelligenceSeed(initialBenchmark, initialOnboardingAnswers);
   const [intelligenceItems, setIntelligenceItems] = useState<IntelligenceItem[]>(
-    () => initialBenchmarkSeed?.items ?? [],
+    () => initialIntelligenceSeed.items.filter(item => !item.id.startsWith("intel-york-")),
   );
   const [manualPendingSources, setManualPendingSources] = useState<PendingSource[]>([]);
   const [investorIntelligenceByCompany, setInvestorIntelligenceByCompany] = useState<Record<string, IntelligenceItem[]>>({});
@@ -7901,11 +8495,11 @@ function PatriotPayJourneyInner({
   const [selectedCompany, setSelectedCompany] = useState(FOUNDER_COMPANY);
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
   const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(
-    () => initialBenchmarkSeed?.submission ?? null,
+    () => loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission,
   );
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [askFuelOpen, setAskFuelOpen] = useState(false);
-  const openAccountSettings = useCallback((tab: AccountSettingsTab = "overview") => {
+  const openAccountSettings = useCallback((tab: AccountSettingsTab = "profile") => {
     setAccountTab(tab);
     setActivePage("account");
   }, []);
@@ -8293,6 +8887,7 @@ function PatriotPayJourneyInner({
       return [...items, ...nonBenchmark];
     });
     setBenchmarkSubmission(submission);
+    saveStoredBenchmarkSubmission(submission);
     setBenchmarkBlinkIds(submission.intelligenceIds);
     window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
   };
@@ -8335,6 +8930,12 @@ function PatriotPayJourneyInner({
       text: "The advisor highlights what matters across tracks and points you to details, sources, and initiatives. Open About for the full company summary when you are ready.",
     },
     {
+      page: "scorecard-v2",
+      target: "recommended-actions",
+      title: "Recommended Actions",
+      text: "Start here after onboarding. Update benchmarks, review intelligence sources, and fill track details — each action sharpens your scores and what Fuel recommends next.",
+    },
+    {
       page: "signals",
       target: "signals",
       title: "Intelligence",
@@ -8368,7 +8969,13 @@ function PatriotPayJourneyInner({
       page: "scorecard-v2",
       target: "ask-fuel-ai",
       title: "Ask Fuel AI",
-      text: "Ask questions, run playbooks, and generate briefs from your company context whenever you need a deeper cut.",
+      text: "Chat with Fuel about this company — dig into scores, ask what matters next, and explore the story behind the data.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "ai-actions",
+      title: "AI Actions",
+      text: "From the ✦ menu, run Playbooks for structured analysis or Generate brief for an investor-ready company summary — both use your company context.",
     },
   ] as const;
   const tourSteps = profileComplete
@@ -8386,6 +8993,9 @@ function PatriotPayJourneyInner({
   const [overviewBuildPhase, setOverviewBuildPhase] = useState<OverviewBuildPhase | null>(
     startsWithOverviewBuilding ? "summary" : null,
   );
+  const [recActionsTipOpen, setRecActionsTipOpen] = useState(false);
+  /** True once this post-onboarding Overview build hit "ready" — tip may show even after the ready bar is dismissed. */
+  const overviewContentReadyRef = useRef(false);
 
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
@@ -8445,6 +9055,14 @@ function PatriotPayJourneyInner({
 
   useEffect(() => {
     if (!overviewBuildActive) return;
+    // Fresh post-onboarding build — tip must wait until Overview is fully ready.
+    overviewContentReadyRef.current = false;
+    setRecActionsTipOpen(false);
+    resetRecActionsTipForOnboarding(selectedCompany.displayName);
+  }, [overviewBuildActive, selectedCompany.displayName]);
+
+  useEffect(() => {
+    if (!overviewBuildActive) return;
 
     const timers = [
       window.setTimeout(() => setOverviewBuildPhase("dev"), 4000),
@@ -8458,6 +9076,24 @@ function PatriotPayJourneyInner({
       timers.forEach(timer => window.clearTimeout(timer));
     };
   }, [overviewBuildActive]);
+
+  // Queue tip only when Overview content is fully ready — survives tab switches until Got it.
+  useEffect(() => {
+    if (overviewBuildPhase !== "ready") return;
+    overviewContentReadyRef.current = true;
+    if (isRecActionsTipDismissed(selectedCompany.displayName)) return;
+    markRecActionsTipPending(selectedCompany.displayName);
+    setRecActionsTipOpen(true);
+  }, [overviewBuildPhase, selectedCompany.displayName]);
+
+  // Returning to Overview after ready: show tip again if not yet dismissed.
+  useEffect(() => {
+    if (activePage !== "scorecard-v2") return;
+    if (!overviewContentReadyRef.current) return;
+    if (isRecActionsTipDismissed(selectedCompany.displayName)) return;
+    if (!isRecActionsTipPending(selectedCompany.displayName)) return;
+    setRecActionsTipOpen(true);
+  }, [activePage, selectedCompany.displayName]);
 
   useEffect(() => {
     function closeDropdown(event) {
@@ -8583,6 +9219,23 @@ function PatriotPayJourneyInner({
             ? "Portfolios"
             : "Company";
 
+  const founderBenchmarkForm = useMemo(
+    () => resolveBenchmarkFormValues(benchmarkSubmission, initialBenchmark),
+    [benchmarkSubmission, initialBenchmark],
+  );
+  const investorBenchmarkForm = useMemo(
+    () => resolveBenchmarkFormValues(investorBenchmarkByCompany[selectedCompany.id], null),
+    [investorBenchmarkByCompany, selectedCompany.id],
+  );
+  const scorecardBenchmarkForm = usesPerCompanyWorkspace ? investorBenchmarkForm : founderBenchmarkForm;
+  const scorecardBenchmark = useMemo(
+    () => formValuesToOnboardingBenchmark(scorecardBenchmarkForm),
+    [scorecardBenchmarkForm],
+  );
+  const scorecardBenchmarkPeriod = usesPerCompanyWorkspace
+    ? investorBenchmarkByCompany[selectedCompany.id]?.period
+    : benchmarkSubmission?.period;
+
   return (
     <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
     <div className="app">
@@ -8609,6 +9262,7 @@ function PatriotPayJourneyInner({
           <div className="account-avatar">M</div>
           <div className="account-name">My Account</div>
         </div>
+        <div className="sidebar-nav">
         <div className="nav-section">
           <div className="nav-label">{isInvestorPersona ? "Fund" : "Research"}</div>
           <div
@@ -8686,6 +9340,7 @@ function PatriotPayJourneyInner({
             </div>
           ))}
         </div>
+        </div>
         <SidebarProfileFooter onOpenAccountSettings={openAccountSettings} />
       </aside>
 
@@ -8704,7 +9359,6 @@ function PatriotPayJourneyInner({
                   <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
                 </div>
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-                <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Q2 &apos;26 · Apr 17</span>
               </div>
             </div>
             <div className="content">
@@ -8791,7 +9445,7 @@ function PatriotPayJourneyInner({
               </button>
               <AiActionsMenu
                 companyName={selectedCompany.displayName}
-                tourPlaybooksActive={tourOpen && tourSteps[tourStep].target === "playbooks"}
+                tourActive={tourOpen && tourSteps[tourStep].target === "ai-actions"}
                 onRunPlaybook={(pb) => {
                   setLastPlaybook({ name: pb.name, kind: pb.kind, description: pb.description, category: pb.category });
                   setPendingPlaybook(pb);
@@ -8898,7 +9552,6 @@ function PatriotPayJourneyInner({
             <SignalsPage
               isProfileComplete={profileComplete}
               onLogBenchmarkData={() => setActivePage("profile-wizard")}
-              onUpdatePeriod={() => setActivePage("benchmark-form")}
               onLinkConnectors={() => setActivePage("connectors")}
               documentSlots={documentSlots}
               processingDocumentTypeId={processingDocumentTypeId}
@@ -8913,7 +9566,11 @@ function PatriotPayJourneyInner({
               onClearIntelligenceFocus={() => setIntelligenceFocus(null)}
               onFocusIntelligence={setIntelligenceFocus}
               benchmarkSubmission={benchmarkSubmission}
-              onEditBenchmark={() => setActivePage("benchmark-form")}
+              benchmark={scorecardBenchmark}
+              companyName={selectedCompany.displayName}
+              onBenchmarkChange={(next) => {
+                applyBenchmarkSubmission(toBenchmarkFormValues(next));
+              }}
               benchmarkBlinkIds={benchmarkBlinkIds}
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
               manualPendingSources={manualPendingSources}
@@ -8948,7 +9605,6 @@ function PatriotPayJourneyInner({
             <SignalsPage
               isProfileComplete={profileComplete}
               onLogBenchmarkData={() => setActivePage("profile-wizard")}
-              onUpdatePeriod={() => setActivePage("benchmark-form")}
               onLinkConnectors={() => setActivePage("connectors")}
               documentSlots={documentSlots}
               processingDocumentTypeId={processingDocumentTypeId}
@@ -8963,7 +9619,11 @@ function PatriotPayJourneyInner({
               onClearIntelligenceFocus={() => setIntelligenceFocus(null)}
               onFocusIntelligence={setIntelligenceFocus}
               benchmarkSubmission={benchmarkSubmission}
-              onEditBenchmark={() => setActivePage("benchmark-form")}
+              benchmark={scorecardBenchmark}
+              companyName={selectedCompany.displayName}
+              onBenchmarkChange={(next) => {
+                applyBenchmarkSubmission(toBenchmarkFormValues(next));
+              }}
               benchmarkBlinkIds={benchmarkBlinkIds}
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
               manualPendingSources={manualPendingSources}
@@ -8980,6 +9640,7 @@ function PatriotPayJourneyInner({
               focusInitiativeId={focusInitiativeId}
               onClearFocus={() => setFocusInitiativeId(null)}
               availableIntelligence={investorScopedIntelligence}
+              yorkAnswers={initialOnboardingAnswers}
               onLogIntelligence={item => {
                 setScopedIntelligenceItems(previous => [item, ...previous]);
               }}
@@ -9037,11 +9698,10 @@ function PatriotPayJourneyInner({
             />
           ) : activePage === "scorecard-v2" ? (
             <ScorecardV2
-              benchmark={formValuesToOnboardingBenchmark(
-                usesPerCompanyWorkspace
-                  ? investorBenchmarkByCompany[selectedCompany.id]?.formValues ?? EMPTY_BENCHMARK_FORM
-                  : benchmarkSubmission?.formValues ?? (initialBenchmark ? toBenchmarkFormValues(initialBenchmark) : WIZARD_DEFAULT_BENCHMARK),
-              )}
+              benchmark={scorecardBenchmark}
+              onBenchmarkChange={(next) => {
+                applyBenchmarkSubmission(toBenchmarkFormValues(next));
+              }}
               cohortLabel={selectedCompany.meta}
               companyName={selectedCompany.displayName}
               journeyStage="Early Revenue"
@@ -9083,17 +9743,11 @@ function PatriotPayJourneyInner({
                 current: slot.current ? { name: slot.current.name } : null,
               }))}
               efficiencyExtras={(() => {
-                const form = usesPerCompanyWorkspace
-                  ? investorBenchmarkByCompany[selectedCompany.id]?.formValues
-                  : benchmarkSubmission?.formValues ?? (initialBenchmark ? toBenchmarkFormValues(initialBenchmark) : null);
-                const period = usesPerCompanyWorkspace
-                  ? investorBenchmarkByCompany[selectedCompany.id]?.period
-                  : benchmarkSubmission?.period;
-                if (!form && !period) return undefined;
+                if (!hasFilledBenchmarkMetric(scorecardBenchmarkForm) && !scorecardBenchmarkPeriod) return undefined;
                 return {
-                  cacPayback: form?.cacPayback,
-                  burnMultiple: form?.burnMultiple,
-                  period: period ?? BENCHMARK_PERIOD,
+                  cacPayback: scorecardBenchmarkForm.cacPayback,
+                  burnMultiple: scorecardBenchmarkForm.burnMultiple,
+                  period: scorecardBenchmarkPeriod ?? BENCHMARK_PERIOD,
                 };
               })()}
               activeInitiatives={(usesPerCompanyWorkspace
@@ -9164,6 +9818,11 @@ function PatriotPayJourneyInner({
               onWorkspaceActivity={() => tryUnlockInvestorOverview(selectedCompany.id)}
               privateWorkspaceLabel={usesPerCompanyWorkspace ? "Your private workspace" : undefined}
               overviewBuildPhase={overviewBuildPhase}
+              recActionsTipOpen={recActionsTipOpen}
+              onDismissRecActionsTip={() => {
+                dismissRecActionsTip(selectedCompany.displayName);
+                setRecActionsTipOpen(false);
+              }}
               onStartOptionalTour={() => {
                 setOverviewBuildPhase(null);
                 setOverviewBuildActive(false);
@@ -9189,7 +9848,7 @@ function PatriotPayJourneyInner({
                 </div>
               </div>
 
-              <div style={{ background: "#1F3140", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "6px 22px 8px" }}>
+              <div style={{ background: "var(--surface-3)", border: "1px solid var(--panel-border)", borderRadius: "10px", padding: "6px 22px 8px" }}>
                 <div className="tracks" id="tracks">
                   {displayTracks.map((track, index) => (
                     <TrackRow
@@ -9242,7 +9901,7 @@ function PatriotPayJourneyInner({
         open={askFuelOpen}
         onClose={() => setAskFuelOpen(false)}
         companyName={selectedCompany.displayName}
-        benchmark={benchmarkSubmission?.formValues ?? (initialBenchmark ? toBenchmarkFormValues(initialBenchmark) : WIZARD_DEFAULT_BENCHMARK)}
+        benchmark={scorecardBenchmarkForm}
         onBriefGenerated={setGeneratedBrief}
         onViewInitiatives={() => { setAskFuelOpen(false); setActivePage("initiatives"); }}
         focusBriefSignal={briefFocusSignal}

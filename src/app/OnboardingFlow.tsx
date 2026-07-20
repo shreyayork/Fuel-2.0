@@ -292,7 +292,7 @@ function CompanySearch({
       {open && !disabled && suggestions.length > 0 && (
         <div className="of-suggest-panel" style={{
           position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 20,
-          background: "#172632", border: "1px solid rgba(255,255,255,0.1)",
+          background: "var(--panel)", border: "1px solid rgba(255,255,255,0.1)",
           borderRadius: 12, overflow: "hidden",
           boxShadow: "0 16px 48px rgba(0,0,0,0.35)",
         }}>
@@ -321,7 +321,7 @@ function CompanySearch({
                 fontSize: 14, fontWeight: 800, color: "#fff",
               }}>{c.name[0]}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2" }}>{c.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{c.name}</div>
                 <div style={{ fontSize: 12, color: "#556878", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {c.industry} · {c.city}, {c.stateRegion}
                 </div>
@@ -367,11 +367,11 @@ const css = `
     width: 100%;
     box-sizing: border-box;
     background: #1A2D3F;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--border-strong);
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 13px;
-    color: #F2F5F2;
+    color: var(--text-1);
     font-family: inherit;
     outline: none;
     transition: border-color 0.2s;
@@ -379,21 +379,21 @@ const css = `
   .of-input:focus { border-color: rgba(61,214,140,0.4) !important; outline: none; }
 
   .of-chip { transition: all 0.15s; }
-  .of-chip:hover { border-color: rgba(255,255,255,0.2) !important; color: #F2F5F2 !important; }
+  .of-chip:hover { border-color: var(--border-strong) !important; color: var(--text-1) !important; }
 
   .of-figma-opt { transition: all 0.15s ease; }
-  .of-figma-opt:hover { border-color: rgba(255,255,255,0.22) !important; color: #F2F5F2 !important; background: rgba(255,255,255,0.03) !important; }
-  .of-figma-opt--on:hover { border-color: #3DD68C !important; background: rgba(61,214,140,0.08) !important; color: #F2F5F2 !important; }
+  .of-figma-opt:hover { border-color: var(--border-strong) !important; color: var(--text-1) !important; background: rgba(255,255,255,0.03) !important; }
+  .of-figma-opt--on:hover { border-color: #3DD68C !important; background: rgba(61,214,140,0.08) !important; color: var(--text-1) !important; }
 
-  .of-figma-q-title { font-size: clamp(26px, 2.8vw, 36px); font-weight: 800; color: #F2F5F2; margin: 0; letter-spacing: -0.5px; line-height: 1.12; }
-  .of-figma-q-grouped { font-size: clamp(15px, 2vw, 16px); font-weight: 500; color: #8FA99A; margin: 0; line-height: 1.5; }
+  .of-figma-q-title { font-size: clamp(26px, 2.8vw, 36px); font-weight: 800; color: var(--text-1); margin: 0; letter-spacing: -0.5px; line-height: 1.12; }
+  .of-figma-q-grouped { font-size: clamp(15px, 2vw, 16px); font-weight: 500; color: var(--text-2); margin: 0; line-height: 1.5; }
   .of-figma-q-sub { font-size: clamp(13px, 1.8vw, 15px); color: #556878; margin: 12px 0 0; line-height: 1.55; }
   .of-step-heading h2 { font-size: clamp(28px, 3vw, 36px); }
   .of-step-heading p { font-size: clamp(13px, 1.8vw, 15px); }
 
-  .of-add-round:hover { border-color: rgba(255,255,255,0.2) !important; color: #8FA99A !important; }
+  .of-add-round:hover { border-color: var(--border-strong) !important; color: var(--text-2) !important; }
 
-  .of-back:hover { color: #8FA99A !important; }
+  .of-back:hover { color: var(--text-2) !important; }
 
   .of-suggest-item:hover { background: rgba(61,214,140,0.08) !important; }
 
@@ -426,7 +426,7 @@ const css = `
     display: block;
     font-size: 11px;
     font-weight: 700;
-    color: #8FA99A;
+    color: var(--text-2);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 7px;
@@ -441,7 +441,7 @@ const css = `
     border: 1px solid rgba(61,214,140,0.12);
     border-radius: 10px;
     font-size: 13px;
-    color: #8FA99A;
+    color: var(--text-2);
     line-height: 1.65;
     font-style: italic;
   }
@@ -600,7 +600,7 @@ function FigmaQuestion({
                 lineHeight: 1.35,
                 background: on ? `${accent}14` : "transparent",
                 border: on ? `1.5px solid ${accent}` : "1.5px solid rgba(255,255,255,0.12)",
-                color: on ? "#F2F5F2" : "#8FA99A",
+                color: on ? "var(--text-1)" : "var(--text-2)",
                 letterSpacing: "-0.1px",
               }}
             >{opt}</button>
@@ -655,8 +655,8 @@ function FigmaDescMultiSelect({
                 {on ? <span style={{ color: accent, fontSize: 12, fontWeight: 800, lineHeight: 1 }}>✓</span> : null}
               </div>
               <div style={{ minWidth: 0 }}>
-                <div className="of-opt-title" style={{ fontWeight: on ? 600 : 500, color: on ? "#F2F5F2" : "#C8D4CE" }}>{opt.label}</div>
-                <div className="of-opt-desc" style={{ color: on ? "#8FA99A" : "#556878" }}>{opt.desc}</div>
+                <div className="of-opt-title" style={{ fontWeight: on ? 600 : 500, color: on ? "var(--text-1)" : "var(--panel-body)" }}>{opt.label}</div>
+                <div className="of-opt-desc" style={{ color: on ? "var(--text-2)" : "#556878" }}>{opt.desc}</div>
               </div>
             </button>
           );
@@ -667,7 +667,7 @@ function FigmaDescMultiSelect({
           {selected.length} region{selected.length === 1 ? "" : "s"} selected
         </p>
       ) : null}
-      {hint && <p style={{ fontSize: 12, color: "#8FA99A", marginTop: 12, lineHeight: 1.55 }}>{hint}</p>}
+      {hint && <p style={{ fontSize: 12, color: "var(--text-2)", marginTop: 12, lineHeight: 1.55 }}>{hint}</p>}
     </div>
   );
 }
@@ -710,14 +710,14 @@ function FigmaDescQuestion({
                 {on && <div style={{ width: 7, height: 7, borderRadius: "50%", background: accent }} />}
               </div>
               <div style={{ minWidth: 0 }}>
-                <div className="of-opt-title" style={{ fontWeight: on ? 600 : 500, color: on ? "#F2F5F2" : "#C8D4CE" }}>{opt.label}</div>
-                <div className="of-opt-desc" style={{ color: on ? "#8FA99A" : "#556878" }}>{opt.desc}</div>
+                <div className="of-opt-title" style={{ fontWeight: on ? 600 : 500, color: on ? "var(--text-1)" : "var(--panel-body)" }}>{opt.label}</div>
+                <div className="of-opt-desc" style={{ color: on ? "var(--text-2)" : "#556878" }}>{opt.desc}</div>
               </div>
             </button>
           );
         })}
       </div>
-      {hint && <p style={{ fontSize: 12, color: "#8FA99A", marginTop: 12, lineHeight: 1.55 }}>{hint}</p>}
+      {hint && <p style={{ fontSize: 12, color: "var(--text-2)", marginTop: 12, lineHeight: 1.55 }}>{hint}</p>}
     </div>
   );
 }
@@ -754,7 +754,7 @@ function FigmaMultiSelect({
                 lineHeight: 1.35,
                 background: on ? `${accent}14` : "transparent",
                 border: on ? `1.5px solid ${accent}` : "1.5px solid rgba(255,255,255,0.12)",
-                color: on ? "#F2F5F2" : "#8FA99A",
+                color: on ? "var(--text-1)" : "var(--text-2)",
                 opacity: disabled ? 0.35 : 1,
                 letterSpacing: "-0.1px",
               }}
@@ -839,7 +839,7 @@ export function OnboardingBenchmarkFieldList({
         return (
           <div key={m.key} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.4px" }}>{m.label}</label>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.4px" }}>{m.label}</label>
             </div>
             <input
               className={inputClassName}
@@ -849,15 +849,15 @@ export function OnboardingBenchmarkFieldList({
               style={{ ...inp, padding: "8px 12px", fontSize: 13, marginBottom: 7, borderColor: hasVal ? `${dc}55` : undefined, transition: "border-color 0.3s" }}
             />
             <div style={{ position: "relative", height: 7, background: "rgba(255,255,255,0.04)", borderRadius: 4 }}>
-              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: `${p75pct - p25pct}%`, height: "100%", background: "rgba(61,214,140,0.28)", borderRadius: 2 }} />
-              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: 1, height: "100%", background: "rgba(61,214,140,0.3)" }} />
-              <div style={{ position: "absolute", left: `${p75pct}%`, top: 0, width: 1, height: "100%", background: "rgba(61,214,140,0.45)" }} />
+              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: `${p75pct - p25pct}%`, height: "100%", background: "var(--status-good, #12b886)", borderRadius: 2 }} />
+              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: 1, height: "100%", background: "var(--status-good, #12b886)" }} />
+              <div style={{ position: "absolute", left: `${p75pct}%`, top: 0, width: 1, height: "100%", background: "var(--status-good, #12b886)" }} />
               {dotPct !== null ? (
                 <div style={{
                   position: "absolute", top: -5, zIndex: 2,
                   left: `calc(${dotPct}% - 8px)`,
                   width: 17, height: 17, borderRadius: "50%",
-                  background: dc, border: "2px solid #0F1E2B",
+                  background: dc,
                   boxShadow: dotGlow(val!, m.p25, m.p50, m.p75, lowerIsBetter),
                   transition: "left 0.5s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, box-shadow 0.3s",
                 }} />
@@ -882,7 +882,7 @@ const SUB_Q_COUNT: Partial<Record<StepId, number>> = {
 function StepHeading({ meta }: { meta: { label: string; sub: string } }) {
   return (
     <div className="of-step-heading" style={{ marginBottom: 36 }}>
-      <h2 style={{ fontWeight: 800, color: "#F2F5F2", margin: "0 0 10px", letterSpacing: "-0.5px", lineHeight: 1.1 }}>{meta.label}</h2>
+      <h2 style={{ fontWeight: 800, color: "var(--text-1)", margin: "0 0 10px", letterSpacing: "-0.5px", lineHeight: 1.1 }}>{meta.label}</h2>
       <p style={{ color: "#556878", margin: 0, fontWeight: 400, lineHeight: 1.5 }}>{meta.sub}</p>
     </div>
   );
@@ -1189,7 +1189,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
             {/* Logo — top left */}
             <div style={{ position:"absolute", top:28, left:48, display:"flex", alignItems:"center", gap:8, zIndex:2 }}>
               <div style={{ width:24, height:24, borderRadius:6, background:"linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#0a1a12" }}>F</div>
-              <span style={{ fontSize:13, fontWeight:700, color:"#F2F5F2", letterSpacing:"-0.2px" }}>Fuel</span>
+              <span style={{ fontSize:13, fontWeight:700, color:"var(--text-1)", letterSpacing:"-0.2px" }}>Fuel</span>
               <span style={{ fontSize:11, color:"#2A3D4E" }}>by York IE</span>
             </div>
 
@@ -1233,7 +1233,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                             <div className="of-spin" style={{ width:80, height:80, borderRadius:"50%", border:"3px solid rgba(61,214,140,0.1)", borderTop:"3px solid #3DD68C", position:"absolute" }} />
                             <div className="of-spin" style={{ width:56, height:56, borderRadius:"50%", border:"2px solid rgba(61,214,140,0.06)", borderBottom:"2px solid rgba(61,214,140,0.4)", position:"absolute", top:12, left:12, animationDirection:"reverse", animationDuration:"0.65s" }} />
                           </div>
-                          <div style={{ fontSize:17, fontWeight:700, color:"#F2F5F2", marginBottom:6 }}>Building {companyQuery}'s profile…</div>
+                          <div style={{ fontSize:17, fontWeight:700, color:"var(--text-1)", marginBottom:6 }}>Building {companyQuery}'s profile…</div>
                           <div style={{ fontSize:13, color:"#556878" }}>Pulling Crunchbase, LinkedIn, funding, and cohort signals</div>
                         </div>
                       )}
@@ -1245,7 +1245,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                               <div className="of-pulse" style={{ width:8, height:8, borderRadius:"50%", background:"#3DD68C" }} />
                               <span style={{ fontSize:11, fontWeight:700, color:"#3DD68C", textTransform:"uppercase", letterSpacing:"0.5px" }}>Profile ready</span>
                             </div>
-                            <h2 style={{ fontSize:34, fontWeight:800, color:"#F2F5F2", margin:"0 0 8px", letterSpacing:"-0.4px", lineHeight:1.15 }}>Review your {profileForm.company} profile.</h2>
+                            <h2 style={{ fontSize:34, fontWeight:800, color:"var(--text-1)", margin:"0 0 8px", letterSpacing:"-0.4px", lineHeight:1.15 }}>Review your {profileForm.company} profile.</h2>
                             <p style={{ fontSize:15, color:"#556878", margin:0, lineHeight:1.6 }}>The more accurate this is, the tighter your peer cohort. Garbage in, garbage out.</p>
                           </div>
 
@@ -1266,7 +1266,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                           </Field>
 
                           <div style={{ marginBottom:20 }}>
-                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>
+                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-2)", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>
                               Organization type<span style={{ color:"#E56B6B", marginLeft:3 }}>*</span>
                             </label>
                             <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
@@ -1278,7 +1278,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                                       {on && <div style={{ width:7, height:7, borderRadius:"50%", background:SELECT_ACCENT }} />}
                                     </div>
                                     <div>
-                                      <div style={{ fontSize:13, fontWeight:700, color: on?"#F2F5F2":"#8FA99A", marginBottom:2 }}>{bm.label}</div>
+                                      <div style={{ fontSize:13, fontWeight:700, color: on?"var(--text-1)":"var(--text-2)", marginBottom:2 }}>{bm.label}</div>
                                       <div style={{ fontSize:12, color:"#3A4F5E", lineHeight:1.5 }}>{bm.desc}</div>
                                     </div>
                                   </button>
@@ -1316,7 +1316,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
 
                           {/* Funding rounds */}
                           <div style={{ marginBottom:20 }}>
-                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#8FA99A", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>Funding history</label>
+                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-2)", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>Funding history</label>
                             <p style={{ fontSize:12, color:"#556878", margin:"0 0 10px", lineHeight:1.55 }}>From Crunchbase — confirm rounds, amounts, and dates. No need to re-enter if this looks right.</p>
                             {fundingRounds.length>0 && (
                               <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:8 }}>
@@ -1452,13 +1452,13 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                   {stepId==="benchmarking" && (
                     <div>
                       <div style={{ marginBottom:20 }}>
-                        <h2 style={{ fontSize:38, fontWeight:800, color:"#F2F5F2", margin:"0 0 10px", letterSpacing:"-0.5px", lineHeight:1.1 }}>How do you stack up?</h2>
+                        <h2 style={{ fontSize:38, fontWeight:800, color:"var(--text-1)", margin:"0 0 10px", letterSpacing:"-0.5px", lineHeight:1.1 }}>How do you stack up?</h2>
                         <p style={{ fontSize:16, color:"#556878", margin:0, lineHeight:1.55 }}>Enter your numbers — the graph shows where you sit. Fuel builds your intelligence, initiatives, and playbooks behind the scenes. You unlock everything in your scorecard.</p>
                       </div>
 
                       <div style={{ background:"linear-gradient(135deg, rgba(43,184,160,0.1) 0%, rgba(61,214,140,0.06) 100%)", border:"1px solid rgba(43,184,160,0.25)", borderRadius:12, padding:"14px 18px", marginBottom:22 }}>
                         <div style={{ fontSize:12, fontWeight:700, color:"#2BB8A0", marginBottom:4 }}>✦ The more you share, the sharper your intelligence</div>
-                        <div style={{ fontSize:12, color:"#8FA99A", lineHeight:1.6 }}>Every number narrows your cohort. Fuel queues your <strong style={{ color:"#F2F5F2" }}>intelligence</strong>, <strong style={{ color:"#F2F5F2" }}>initiatives</strong>, and <strong style={{ color:"#F2F5F2" }}>playbooks</strong> — you see the full stack when you launch. This step is optional.</div>
+                        <div style={{ fontSize:12, color:"var(--text-2)", lineHeight:1.6 }}>Every number narrows your cohort. Fuel queues your <strong style={{ color:"var(--text-1)" }}>intelligence</strong>, <strong style={{ color:"var(--text-1)" }}>initiatives</strong>, and <strong style={{ color:"var(--text-1)" }}>playbooks</strong> — you see the full stack when you launch. This step is optional.</div>
                       </div>
 
                       <OnboardingBenchmarkFieldList
@@ -1490,8 +1490,8 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                             fontSize: 13, fontWeight: 800, color: "#FF7A59",
                           }}>HS</div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: "#F2F5F2" }}>HubSpot CRM</div>
-                            <div style={{ fontSize: 12, color: "#8FA99A", marginTop: 2 }}>Deal pipeline · contacts · companies</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-1)" }}>HubSpot CRM</div>
+                            <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>Deal pipeline · contacts · companies</div>
                           </div>
                           <span style={{
                             fontSize: 10, fontWeight: 600,
@@ -1537,13 +1537,13 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                         )}
                       </div>
 
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
                         What Fuel pulls in
                       </div>
                       {["Deal stages & pipeline health", "Contacts & company records", "Activity notes & task history", "Owner assignments & deal values"].map(item => (
                         <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF7A59", flexShrink: 0 }} />
-                          <span style={{ fontSize: 13, color: "#8FA99A" }}>{item}</span>
+                          <span style={{ fontSize: 13, color: "var(--text-2)" }}>{item}</span>
                         </div>
                       ))}
                     </div>
@@ -1557,7 +1557,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
             <div style={{ position:"absolute", bottom:0, left:0, right:0, height:64, display:"flex", alignItems:"center", padding:"0 48px", justifyContent:"space-between" }}>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                 {showBack && (
-                  <button className="of-back" onClick={back} style={{ background:"none", border:"none", color:"#8FA99A", fontSize:18, cursor:"pointer", fontFamily:"inherit", lineHeight:1, padding:0, flexShrink:0 }}>←</button>
+                  <button className="of-back" onClick={back} style={{ background:"none", border:"none", color:"var(--text-2)", fontSize:18, cursor:"pointer", fontFamily:"inherit", lineHeight:1, padding:0, flexShrink:0 }}>←</button>
                 )}
                 <div style={{ width:160, height:3, background:"rgba(255,255,255,0.07)", borderRadius:2, overflow:"hidden" }}>
                   <div style={{ height:"100%", borderRadius:2, background:"linear-gradient(90deg, rgb(0,180,138), rgb(61,214,140))", width:`${progressPct}%`, transition:"width 0.4s ease" }} />
@@ -1577,7 +1577,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                     onClick={skipConnectors}
                     style={{
                       fontSize: 12,
-                      color: "#F2F5F2",
+                      color: "var(--text-1)",
                       textDecoration: "underline",
                       background: "none",
                       border: "none",
@@ -1590,7 +1590,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                   </button>
                 )}
                 <button onClick={next} disabled={!canAdvance()} style={{
-                  background: canAdvance() ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "rgba(255,255,255,0.05)",
+                  background: canAdvance() ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)" : "var(--border)",
                   color: canAdvance() ? "#0a1a12" : "#2A3D4E",
                   border:"none", borderRadius:10, padding:"12px 32px",
                   fontSize:14, fontWeight:700,

@@ -207,11 +207,11 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
   const isConnected  = statuses[active.id] === "connected";
 
   return (
-    <div style={{ flex: embedded ? 1 : undefined, height: embedded ? "100%" : undefined, minHeight: embedded ? "unset" : "100vh", background: "#132130", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
+    <div style={{ flex: embedded ? 1 : undefined, height: embedded ? "100%" : undefined, minHeight: embedded ? "unset" : "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
 
       {/* Top bar */}
       <div style={{
-        height: 52, background: "#1F3140", borderBottom: "1px solid rgba(255,255,255,0.07)",
+        height: 52, background: "var(--surface-3)", borderBottom: "1px solid rgba(255,255,255,0.07)",
         display: "flex", alignItems: "center", padding: "0 24px", justifyContent: "space-between", flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -223,7 +223,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 12, fontWeight: 900, color: "#0a1a12",
               }}>F</div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#F2F5F2" }}>Fuel</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Fuel</span>
               <span style={{ fontSize: 11, color: "#3A4F5E" }}>by York IE</span>
             </>
           )}
@@ -257,7 +257,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
           {!embedded && (
             <button onClick={onComplete} style={{
               background: "none", border: "1px solid rgba(255,255,255,0.1)",
-              color: "#8FA99A", fontSize: 12, borderRadius: 6, padding: "5px 12px", cursor: "pointer",
+              color: "var(--text-2)", fontSize: 12, borderRadius: 6, padding: "5px 12px", cursor: "pointer",
             }}>Skip to journey →</button>
           )}
         </div>
@@ -273,10 +273,10 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
           <div style={{ flex: 1, overflowY: "auto", padding: "40px 48px 24px" }}>
             <div style={{ maxWidth: 850, margin: "0 auto" }}>
               <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 24, fontWeight: 800, color: "#F2F5F2", margin: "0 0 8px" }}>
+                <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-1)", margin: "0 0 8px" }}>
                   Choose your integrations
                 </h1>
-                <p style={{ fontSize: 14, color: "#8FA99A", margin: 0, lineHeight: 1.6 }}>
+                <p style={{ fontSize: 14, color: "var(--text-2)", margin: 0, lineHeight: 1.6 }}>
                   Select the tools you use. Premium connectors are summarized in the sidebar before setup.
                   York IE integrations are included automatically.
                 </p>
@@ -304,7 +304,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                             style={{
                               display: "flex", alignItems: "flex-start", gap: 10,
                               padding: "14px 13px",
-                              background: isSel ? "rgba(61,214,140,0.06)" : "#172632",
+                              background: isSel ? "rgba(61,214,140,0.06)" : "var(--panel)",
                               border: isSel ? "1px solid rgba(61,214,140,0.25)" : "1px solid rgba(255,255,255,0.06)",
                               borderRadius: 11, cursor: isYork ? "default" : "pointer",
                               textAlign: "left", transition: "all 0.15s",
@@ -318,10 +318,10 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                               fontSize: 12, fontWeight: 800, color: item.color,
                             }}>{item.abbr}</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 15, fontWeight: 800, color: isSel ? "#F2F5F2" : "#8FA99A", marginBottom: 6 }}>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: isSel ? "var(--text-1)" : "var(--text-2)", marginBottom: 6 }}>
                                 {item.name}
                               </div>
-                              <div style={{ fontSize: 12.5, color: "#8FA99A", lineHeight: 1.45, marginBottom: 10 }}>
+                              <div style={{ fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.45, marginBottom: 10 }}>
                                 {item.description}
                               </div>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -359,7 +359,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
           </div>
 
           <div style={{
-            width: 280, flexShrink: 0, background: "#1F3140",
+            width: 280, flexShrink: 0, background: "var(--surface-3)",
             borderLeft: "1px solid rgba(255,255,255,0.07)",
             padding: "20px 16px", overflowY: "auto",
           }}>
@@ -370,22 +370,22 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
               background: "rgba(19,33,48,0.72)", border: "1px solid rgba(255,255,255,0.07)",
               borderRadius: 11, padding: "13px 14px", marginBottom: 16,
             }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8FA99A", marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
                 <span>Selected</span>
-                <strong style={{ color: "#F2F5F2" }}>{selectedIds.length}</strong>
+                <strong style={{ color: "var(--text-1)" }}>{selectedIds.length}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8FA99A", marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
                 <span>Free connectors</span>
                 <strong style={{ color: "#3DD68C" }}>{selectedFree.length}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8FA99A" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)" }}>
                 <span>Premium add-ons</span>
                 <strong style={{ color: "#D4924A" }}>{selectedPremium.length}</strong>
               </div>
-              <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "13px 0" }} />
+              <div style={{ height: 1, background: "var(--panel-border)", margin: "13px 0" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#F2F5F2" }}>Monthly add-on</span>
-                <span style={{ fontSize: 22, fontWeight: 900, color: "#F2F5F2" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-1)" }}>Monthly add-on</span>
+                <span style={{ fontSize: 22, fontWeight: 900, color: "var(--text-1)" }}>
                   ${premiumMonthlyTotal}<span style={{ fontSize: 11, color: "#556878", fontWeight: 600 }}>/mo</span>
                 </span>
               </div>
@@ -399,7 +399,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                 {selectedPremium.map(item => (
                   <div key={item.id} style={{
                     display: "flex", alignItems: "center", gap: 9,
-                    background: "#172632", border: "1px solid rgba(255,255,255,0.06)",
+                    background: "var(--panel)", border: "1px solid rgba(255,255,255,0.06)",
                     borderRadius: 9, padding: "9px 10px",
                   }}>
                     <span style={{
@@ -408,7 +408,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 9, fontWeight: 800, color: item.color,
                     }}>{item.abbr}</span>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#F2F5F2", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
                     <span style={{ fontSize: 11, fontWeight: 800, color: "#D4924A" }}>${item.addOnPrice}/mo</span>
                   </div>
                 ))}
@@ -422,7 +422,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
             <div style={{ fontSize: 11, fontWeight: 800, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.55px", marginBottom: 10 }}>
               Included
             </div>
-            <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.55 }}>
+            <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.55 }}>
               York IE connectors and free connectors do not change the subscription total.
             </div>
           </div>
@@ -431,7 +431,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
           {/* Fixed bottom bar */}
           <div style={{
             flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.07)",
-            background: "#1F3140", padding: "16px 48px",
+            background: "var(--surface-3)", padding: "16px 48px",
             display: "flex", alignItems: "center", gap: 16,
             position: "sticky", bottom: 0, zIndex: 5,
             boxShadow: "0 -18px 36px rgba(0,0,0,0.18)",
@@ -464,7 +464,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
           <>
             {/* Sidebar — only selected integrations */}
             <div style={{
-              width: 232, flexShrink: 0, background: "#1F3140",
+              width: 232, flexShrink: 0, background: "var(--surface-3)",
               borderRight: "1px solid rgba(255,255,255,0.07)",
               overflowY: "auto", padding: "14px 0", display: "flex", flexDirection: "column",
             }}>
@@ -502,7 +502,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                               fontSize: 8.5, fontWeight: 800, color: item.color,
                             }}>{item.abbr}</div>
                             <span style={{
-                              flex: 1, fontSize: 12, color: isActive ? "#F2F5F2" : "#8FA99A",
+                              flex: 1, fontSize: 12, color: isActive ? "var(--text-1)" : "var(--text-2)",
                               fontWeight: isActive ? 600 : 400,
                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}>{item.name}</span>
@@ -533,9 +533,9 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                   onClick={() => setView("select")}
                   style={{
                     width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgba(255,255,255,0.04)", border: "1px solid var(--panel-border)",
                     borderRadius: 7, padding: "8px 12px",
-                    fontSize: 11, fontWeight: 600, color: "#8FA99A", cursor: "pointer",
+                    fontSize: 11, fontWeight: 600, color: "var(--text-2)", cursor: "pointer",
                     transition: "all 0.15s",
                   }}
                 >
@@ -558,7 +558,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                   }}>{active.abbr}</div>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 18, fontWeight: 800, color: "#F2F5F2" }}>{active.name}</span>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: "var(--text-1)" }}>{active.name}</span>
                       <span style={{
                         fontSize: 9.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
                         background: active.color + "18", color: active.color, border: `1px solid ${active.color}30`,
@@ -582,13 +582,13 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                 </div>
 
                 {/* Description */}
-                <p style={{ fontSize: 13, color: "#8FA99A", lineHeight: 1.65, margin: "0 0 18px" }}>
+                <p style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.65, margin: "0 0 18px" }}>
                   {active.description}
                 </p>
 
                 {/* What Fuel pulls */}
                 <div style={{
-                  background: "#1F3140", border: "1px solid rgba(255,255,255,0.07)",
+                  background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.07)",
                   borderRadius: 10, padding: "13px 16px", marginBottom: 22,
                 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
@@ -598,7 +598,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                     {active.dataProvided.map(d => (
                       <div key={d} style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
                         <span style={{ color: active.color, fontSize: 10, marginTop: 2, flexShrink: 0 }}>·</span>
-                        <span style={{ fontSize: 12, color: "#8FA99A" }}>{d}</span>
+                        <span style={{ fontSize: 12, color: "var(--text-2)" }}>{d}</span>
                       </div>
                     ))}
                   </div>
@@ -613,21 +613,21 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                     <span style={{ fontSize: 18, marginTop: 1 }}>✓</span>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#3DD68C", marginBottom: 4 }}>Automatically connected via York IE</div>
-                      <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.55 }}>This integration is part of your York IE relationship and requires no additional setup.</div>
+                      <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.55 }}>This integration is part of your York IE relationship and requires no additional setup.</div>
                     </div>
                   </div>
                 )}
 
                 {active.method === "oauth" && (
-                  <div style={{ background: "#1F3140", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "18px" }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5F2", marginBottom: 6 }}>Authenticate via {active.name}</div>
-                    <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.6, marginBottom: 18 }}>
+                  <div style={{ background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "18px" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-1)", marginBottom: 6 }}>Authenticate via {active.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.6, marginBottom: 18 }}>
                       {"You'll be redirected to "}{active.name}{" to authorise Fuel's read-only access. We request only the minimum permissions needed to pull your data."}
                     </div>
                     {!isConnected ? (
                       <button onClick={handleOAuth} disabled={isConnecting} style={{
                         display: "flex", alignItems: "center", gap: 9,
-                        background: isConnecting ? "rgba(255,255,255,0.05)" : active.color,
+                        background: isConnecting ? "var(--border)" : active.color,
                         color: isConnecting ? "#556878" : "#fff",
                         border: "none", borderRadius: 8, padding: "10px 22px",
                         fontSize: 13, fontWeight: 700, cursor: isConnecting ? "default" : "pointer", transition: "all 0.2s",
@@ -648,11 +648,11 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                 )}
 
                 {active.method === "apikey" && (
-                  <div style={{ background: "#1F3140", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "18px", display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#F2F5F2" }}>API credentials</div>
+                  <div style={{ background: "var(--surface-3)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "18px", display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-1)" }}>API credentials</div>
                     {(active.apiFields ?? []).map(field => (
                       <div key={field.key}>
-                        <label style={{ display: "block", fontSize: 10.5, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 7 }}>
+                        <label style={{ display: "block", fontSize: 10.5, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 7 }}>
                           {field.label}
                         </label>
                         <input
@@ -662,9 +662,9 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                           placeholder={field.placeholder}
                           style={{
                             width: "100%", boxSizing: "border-box",
-                            background: "#132130", border: "1px solid rgba(255,255,255,0.1)",
+                            background: "var(--bg)", border: "1px solid rgba(255,255,255,0.1)",
                             borderRadius: 7, padding: "9px 12px",
-                            fontSize: 12, color: "#F2F5F2", outline: "none",
+                            fontSize: 12, color: "var(--text-1)", outline: "none",
                           }}
                         />
                         {field.hint && <div style={{ fontSize: 11, color: "#3A4F5E", marginTop: 5 }}>💡 {field.hint}</div>}
@@ -710,10 +710,10 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                     padding: "22px", textAlign: "center",
                   }}>
                     <div style={{ fontSize: 24, marginBottom: 10 }}>🎉</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#F2F5F2", marginBottom: 6 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)", marginBottom: 6 }}>
                       {connectedCount} integration{connectedCount !== 1 ? "s" : ""} connected
                     </div>
-                    <div style={{ fontSize: 12, color: "#8FA99A", marginBottom: 18, lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 18, lineHeight: 1.6 }}>
                       Your Fuel journey tracks are ready. Intelligence will start flowing as your integrations sync.
                     </div>
                     <button onClick={onComplete} style={{
@@ -728,7 +728,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
 
             {/* Right progress rail */}
             <div style={{
-              width: 210, flexShrink: 0, background: "#1F3140",
+              width: 210, flexShrink: 0, background: "var(--surface-3)",
               borderLeft: "1px solid rgba(255,255,255,0.07)",
               padding: "20px 16px", overflowY: "auto",
             }}>
@@ -752,8 +752,8 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                   <div style={{ fontSize: 10, fontWeight: 800, color: "#D4924A", textTransform: "uppercase", letterSpacing: "0.45px", marginBottom: 5 }}>
                     Premium usage
                   </div>
-                  <div style={{ fontSize: 12, color: "#8FA99A", lineHeight: 1.45 }}>
-                    <strong style={{ color: "#F2F5F2" }}>{configuredPremiumCount}</strong> connected · ${premiumMonthlyTotal}/mo approved
+                  <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.45 }}>
+                    <strong style={{ color: "var(--text-1)" }}>{configuredPremiumCount}</strong> connected · ${premiumMonthlyTotal}/mo approved
                   </div>
                 </div>
               )}
@@ -772,7 +772,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                           <span style={{ fontSize: 13, color: s === "connected" ? "#3DD68C" : s === "skipped" ? "#3A4F5E" : s === "connecting" ? "#D4924A" : "#3A4F5E" }}>
                             {s === "connected" ? "✓" : s === "skipped" ? "–" : s === "connecting" ? "●" : "○"}
                           </span>
-                          <span style={{ fontSize: 13, color: s === "connected" ? "#8FA99A" : "#3A4F5E" }}>{item.name}</span>
+                          <span style={{ fontSize: 13, color: s === "connected" ? "var(--text-2)" : "#3A4F5E" }}>{item.name}</span>
                         </div>
                       );
                     })}

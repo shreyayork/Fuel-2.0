@@ -21,6 +21,8 @@ export type DetailSection = {
   id: DetailSectionId;
   title: string;
   subtitle: string;
+  /** One-line scope shown on investor brief pillar cards — matches View details section. */
+  definition?: string;
   icon: string;
   questions: DetailQuestion[];
 };
@@ -87,6 +89,7 @@ export const DETAIL_SECTIONS: DetailSection[] = [
     id: "dev",
     title: "R&D",
     subtitle: "Research & development",
+    definition: "Your product and technical foundation — stage, team, ship cadence, and build quality.",
     icon: "⚙",
     questions: [
       {
@@ -212,6 +215,7 @@ export const DETAIL_SECTIONS: DetailSection[] = [
     id: "mkt",
     title: "GTM",
     subtitle: "Go-to-market",
+    definition: "How you sell and grow — motion, pipeline, ideal customer, pricing, and demand.",
     icon: "↗",
     questions: [
       {
@@ -381,6 +385,7 @@ export const DETAIL_SECTIONS: DetailSection[] = [
     id: "rev",
     title: "G&A",
     subtitle: "General & administrative",
+    definition: "How you run the business day to day — cash, runway, finance, and capital plans.",
     icon: "◎",
     questions: [
       {
