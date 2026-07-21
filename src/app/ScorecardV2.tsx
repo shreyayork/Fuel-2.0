@@ -31,8 +31,10 @@ import {
 } from "./trackQuestions.ts";
 import {
   resolveYorkOfferForPillar,
+  YORK_COMMON_OFFER,
   type YorkServiceOffer,
 } from "./yorkIeUpsell";
+import { isYorkOfferDismissed } from "./yorkDismiss";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import "./PatriotPayJourney.css";
 
@@ -1980,16 +1982,33 @@ function humanizeWeakContributor(c: ScoreContributor): string | null {
   return null;
 }
 
+/** Founder-facing metric names for insight chips and glance prose — never one cryptic word. */
 const METRIC_FRIENDLY: Record<string, string> = {
-  "ARR": "revenue",
+  "ARR": "annual recurring revenue",
   "ARR growth (YoY)": "revenue growth",
-  "Net revenue retention": "net retention",
+  "Net revenue retention": "net revenue retention",
   "Logo retention": "customer retention",
   "Gross margin": "gross margin",
-  "Monthly net burn": "burn",
-  "Cash on hand": "cash",
+  "Monthly net burn": "monthly cash burn",
+  "Cash on hand": "cash in the bank",
   "FTE headcount": "team size",
   "Paying customers": "paying customers",
+  "CAC payback": "payback on customer acquisition",
+  "Burn multiple": "burn multiple",
+  "Rule of 40": "growth vs. burn balance",
+};
+
+/** Fix leftover ultra-short chip stubs from older friendly maps. */
+const INSIGHT_CHIP_FIXUPS: Record<string, string> = {
+  cash: "Cash in the bank",
+  burn: "Monthly cash burn",
+  revenue: "Annual recurring revenue",
+  "net retention": "Net revenue retention",
+  "customer retention": "Customer retention",
+  "team size": "Team size",
+  "paying customers": "Paying customers",
+  "gross margin": "Gross margin",
+  "revenue growth": "Revenue growth",
 };
 
 function friendlyMetricLabel(label: string): string {
@@ -2008,14 +2027,20 @@ function insightTopicKey(label: string): string {
   return friendlyMetricLabel(base).toLowerCase();
 }
 
-/** Chip titles must stay short — intel titles are often "Field: long answer". */
+/**
+ * Chip titles — clear phrases a founder can read at a glance.
+ * Prefer full friendly metric names; never leave a one-word stub like “Cash”.
+ */
 function shortInsightChipLabel(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "Insight";
   const colon = trimmed.indexOf(": ");
   const head = colon > 0 && colon <= 56 ? trimmed.slice(0, colon) : trimmed;
-  const plain = toSentenceCase(friendlyMetricLabel(head));
-  return plain.length > 40 ? `${plain.slice(0, 40)}…` : plain;
+  const friendly = friendlyMetricLabel(head);
+  const fixup = INSIGHT_CHIP_FIXUPS[friendly.toLowerCase()]
+    ?? INSIGHT_CHIP_FIXUPS[head.toLowerCase()];
+  const plain = fixup ?? toSentenceCase(friendly);
+  return plain.length > 42 ? `${plain.slice(0, 42)}…` : plain;
 }
 
 function insightChipDetailFromIntel(item: ScorecardIntelligenceItem): string {
@@ -2257,14 +2282,14 @@ function buildTrackInsightLists(
     });
 
   metricWeights
-    .filter(m => (m.tier === "bottom" || m.tier === "lower") && m.display !== "—" && m.display !== "Not logged")
+    .filter(m => (m.tier === "bottom" || m.tier === "lower" || m.tier === "mid") && m.display !== "—" && m.display !== "Not logged")
     .forEach(m => {
       addWeakness(
         `bench-${m.key}`,
         friendlyMetricLabel(m.label),
         m.positionLabel,
         "benchmark",
-        m.tier === "bottom" ? 10 : 25,
+        m.tier === "bottom" ? 10 : m.tier === "lower" ? 25 : 40,
       );
     });
 
@@ -2320,13 +2345,13 @@ function buildTrackInsightLists(
           "intelligence",
           m.tier === "top" ? 90 : 75,
         );
-      } else if (m?.value != null && (m.tier === "bottom" || m.tier === "lower")) {
+      } else if (m?.value != null && (m.tier === "bottom" || m.tier === "lower" || m.tier === "mid")) {
         addWeakness(
           item.id,
           friendlyMetricLabel(m.label),
           item.highlight ?? m.positionLabel,
           "intelligence",
-          m.tier === "bottom" ? 12 : 28,
+          m.tier === "bottom" ? 12 : m.tier === "lower" ? 28 : 42,
         );
       }
       return;
@@ -4542,16 +4567,33 @@ function CategoryDetailInsightsPanel({
   weaknesses: TrackInsightItem[];
   yorkOffer?: YorkServiceOffer | null;
 }) {
+  const gapLabels = weaknesses.map(item => item.label).filter(Boolean);
   const hasAny = strengths.length > 0 || weaknesses.length > 0;
+  const [yorkHidden, setYorkHidden] = useState(
+    () => !yorkOffer || isYorkOfferDismissed(yorkOffer.id),
+  );
+  useEffect(() => {
+    setYorkHidden(!yorkOffer || isYorkOfferDismissed(yorkOffer.id));
+  }, [yorkOffer?.id]);
+  const yorkNudge = yorkOffer && !yorkHidden ? (
+    <YorkPartnerNudge
+      offer={yorkOffer}
+      variant="bar"
+      className="york-nudge--detail"
+      firstName="Shreya"
+      gapLabels={gapLabels}
+      cta="Talk to York IE"
+      onDismissed={() => setYorkHidden(true)}
+    />
+  ) : null;
+
   if (!hasAny) {
     return (
       <>
         <p className="sc-cat-sw-empty sc-detail-insights-empty">
           No track insights yet — add profile answers, benchmarks, or sources.
         </p>
-        {yorkOffer ? (
-          <YorkPartnerNudge offer={yorkOffer} className="york-nudge--detail" showHelpSummary />
-        ) : null}
+        {yorkNudge}
       </>
     );
   }
@@ -4570,9 +4612,7 @@ function CategoryDetailInsightsPanel({
         items={weaknesses}
         empty="No gaps flagged yet."
       />
-      {yorkOffer ? (
-        <YorkPartnerNudge offer={yorkOffer} className="york-nudge--detail" showHelpSummary />
-      ) : null}
+      {yorkNudge}
     </div>
   );
 }
@@ -5815,6 +5855,19 @@ export default function ScorecardV2({
   const isCategoryDetail = activeView === "dev" || activeView === "mkt" || activeView === "rev";
   const activeCategory = isCategoryDetail ? categoryData.find(c => c.id === activeView) : undefined;
   const suggestionsReady = overviewSuggestionsReady(overviewBuildPhase);
+  const yorkOverviewOffer = useMemo(() => {
+    // Overview stays company-wide — common partner card, not a single-track offer/gap.
+    const weakTrackLabels = categoryData
+      .filter(cat => cat.glanceWeaknessItems.length > 0 || Boolean(cat.glanceNeedsWork?.trim()))
+      .map(cat => cat.label);
+    return { offer: YORK_COMMON_OFFER, weakTrackLabels };
+  }, [categoryData]);
+  const [yorkOverviewHidden, setYorkOverviewHidden] = useState(
+    () => isYorkOfferDismissed(YORK_COMMON_OFFER.id),
+  );
+  useEffect(() => {
+    setYorkOverviewHidden(isYorkOfferDismissed(YORK_COMMON_OFFER.id));
+  }, []);
   /** Tip + scrim only on Overview — never on R&D / GTM / G&A detail or full brief. */
   const showRecActionsTip =
     recActionsTipOpen
@@ -6017,6 +6070,18 @@ export default function ScorecardV2({
               <CategoryGlanceRowSkeleton key={cat.id} label={cat.label} />
             )
           ))}
+          {suggestionsReady && !yorkOverviewHidden ? (
+            <div className="york-overview-suggest" aria-label="Suggested for you">
+              <YorkPartnerNudge
+                offer={yorkOverviewOffer.offer}
+                variant="overview"
+                firstName="Shreya"
+                weakTrackLabels={yorkOverviewOffer.weakTrackLabels}
+                cta="Talk to York IE"
+                onDismissed={() => setYorkOverviewHidden(true)}
+              />
+            </div>
+          ) : null}
         </div>
       )}
         </>

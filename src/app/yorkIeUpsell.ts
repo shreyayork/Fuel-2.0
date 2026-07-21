@@ -934,121 +934,166 @@ export function resolveYorkOfferForPillar(
   return resolveYorkOffersForPillar(pillar, answers)[0] ?? null;
 }
 
-/** Keyword hints so the nudge tracks the initiative topic, not just the pillar. */
-const OFFER_INITIATIVE_KEYWORDS: Record<string, string[]> = {
-  "york-rd-capacity": ["capacity", "hiring", "hire", "bandwidth", "headcount", "staff", "engineer"],
-  "york-rd-quality": ["quality", "reliability", "qa", "bug", "incident", "stability"],
-  "york-rd-architecture": ["architecture", "debt", "tech debt", "refactor", "platform", "scale-readiness", "scale"],
-  "york-rd-planning": ["planning", "prioritization", "roadmap", "sprint", "backlog", "scope"],
-  "york-rd-idea": ["idea", "discovery", "mvp", "validate", "prototype"],
-  "york-rd-building": ["build", "development", "feature", "embedded"],
-  "york-rd-prelaunch": ["launch", "pre-launch", "go-live", "polish"],
-  "york-rd-early": ["activation", "retention", "iteration", "early user"],
-  "york-rd-build-model": ["agency", "contract", "offshore", "founders building"],
-  "york-rd-eng-size": ["engineering size", "founders only", "small team"],
-  "york-rd-ship-cadence": ["ship", "cadence", "release", "deploy", "checklist"],
-  "york-rd-bottleneck": ["bottleneck", "blocked", "constraint"],
-  "york-rd-default": ["product", "design", "engineering"],
-  "york-gtm-awareness": ["awareness", "website", "content", "social", "seo", "demand", "traffic", "top of funnel"],
-  "york-gtm-conversion": ["conversion", "demo", "landing", "close", "cro", "sales process"],
-  "york-gtm-retention": ["retention", "expansion", "nrr", "lifecycle", "churn", "upsell"],
-  "york-gtm-revops": ["crm", "pipeline", "forecast", "revops", "hubspot", "tracking"],
-  "york-gtm-revops-process": ["sales process", "stage", "ae", "sdr", "forecast"],
-  "york-gtm-icp": ["icp", "messaging", "ideal customer", "positioning", "segment", "qualification", "enterprise"],
-  "york-gtm-founder": ["founder-led", "outbound", "calendar", "founder"],
-  "york-gtm-sales-led": ["sales-led", "ae", "demand gen"],
-  "york-gtm-plg": ["product-led", "plg", "self-serve", "signup", "activation"],
-  "york-gtm-marketing-pod": ["marketing", "campaign", "fractional"],
-  "york-gtm-deal-stall": ["deal", "stall", "pricing", "budget", "demo"],
-  "york-gtm-pipeline-defs": ["mql", "sql", "pipeline definition", "stage criteria"],
-  "york-gtm-default": ["gtm", "website", "demand", "pipeline"],
-  "york-ga-books-none": ["bookkeeping", "books", "finance setup", "chart of accounts"],
-  "york-ga-books-founder": ["bookkeeping", "founder-managed", "close", "books"],
-  "york-ga-books-upgrade": ["spreadsheet", "finops", "close", "reporting", "bookkeeper"],
-  "york-ga-runway-critical": ["runway", "cash", "burn", "bridge", "under 6"],
-  "york-ga-runway-tight": ["runway", "cash", "burn", "operating plan"],
-  "york-ga-fundraising": ["fundraising", "raise", "investor", "data room"],
-  "york-ga-intros": ["intro", "investor", "check"],
-  "york-ga-profitability": ["profitability", "path to profit", "efficiency"],
-  "york-ga-forecast": ["forecast", "budget", "historicals"],
-  "york-ga-unit-econ": ["unit economics", "cac", "ltv", "payback"],
-  "york-ga-cap-table": ["cap table", "equity", "carta"],
-  "york-ga-default": ["finops", "bookkeeping", "finance", "runway"],
-};
-
-function tokenizeInitiativeText(text: string): string[] {
-  return text
-    .toLowerCase()
-    .split(/[^a-z0-9+]+/)
-    .filter(token => token.length > 2);
-}
-
-function scoreOfferForInitiative(offer: YorkServiceOffer, haystack: string, tokens: string[]): number {
-  let score = 0;
-  const keywords = OFFER_INITIATIVE_KEYWORDS[offer.id] ?? [];
-  for (const keyword of keywords) {
-    if (haystack.includes(keyword)) score += keyword.includes(" ") ? 4 : 3;
-  }
-
-  const offerBlob = [
-    offer.headline,
-    offer.pitch,
-    offer.triggerValue,
-    offer.triggerField,
-    ...offer.howWeHelp,
-  ].join(" ").toLowerCase();
-
-  for (const token of tokens) {
-    if (token.length < 4) continue;
-    if (offerBlob.includes(token)) score += 1;
-  }
-
-  // Prefer answer-triggered offers over track defaults when scores tie later.
-  if (offer.triggerField !== "pillar") score += 0.5;
-  return score;
-}
-
 /**
- * Best York offer for a specific initiative — matches title/description to the offer,
- * not only the pillar (so ICP work doesn't get a generic awareness pitch).
+ * Initiative / Intelligence — pillar (category) only.
+ * Do not score free-typed title or description text.
  */
 export function resolveYorkOfferForInitiative(
-  initiative: { title: string; description?: string; pillar: "dev" | "mkt" | "rev" },
+  initiative: { pillar: "dev" | "mkt" | "rev" },
   answers: YorkUpsellAnswers | null | undefined,
 ): YorkServiceOffer | null {
-  const offers = resolveYorkOffersForPillar(initiative.pillar, answers);
-  if (!offers.length) return null;
+  return resolveYorkOfferForPillar(initiative.pillar, answers);
+}
 
-  const haystack = `${initiative.title} ${initiative.description ?? ""}`.toLowerCase();
-  const tokens = tokenizeInitiativeText(haystack);
+/** Category-scoped line for initiatives / intelligence (no free-text NLP). */
+export function yorkNudgeMessageForPillar(
+  pillar: "dev" | "mkt" | "rev",
+  offer: YorkServiceOffer,
+  maxLen = 72,
+): string {
+  const cat = pillar === "dev" ? "R&D" : pillar === "mkt" ? "GTM" : "G&A";
+  const tailored = `Move ${cat} work forward with York IE`;
+  if (tailored.length <= maxLen) return tailored;
+  return yorkNudgeMessage(offer, maxLen);
+}
 
-  let best = offers[0];
-  let bestScore = -1;
-  for (const offer of offers) {
-    const score = scoreOfferForInitiative(offer, haystack, tokens);
-    if (score > bestScore) {
-      bestScore = score;
-      best = offer;
-    }
-  }
-  return best;
+/** @deprecated Prefer yorkNudgeMessageForPillar — kept for call-site compatibility. */
+export function yorkNudgeMessageForInitiative(
+  initiative: { pillar?: "dev" | "mkt" | "rev"; title?: string },
+  offer: YorkServiceOffer,
+  maxLen = 72,
+): string {
+  if (initiative.pillar) return yorkNudgeMessageForPillar(initiative.pillar, offer, maxLen);
+  return yorkNudgeMessage(offer, maxLen);
 }
 
 /**
- * Nudge headline tailored to the initiative (still backed by the matched offer's mailto).
+ * Track detail — personalize from that screen’s “Needs improvement” labels only
+ * (structured insights for the open category), not free-form chat text.
  */
-export function yorkNudgeMessageForInitiative(
-  initiative: { title: string },
+export function yorkNudgeMessageForTrackGaps(
+  gaps: Array<{ label: string }>,
   offer: YorkServiceOffer,
-  maxLen = 64,
+  maxLen = 88,
 ): string {
-  const title = initiative.title.replace(/\s+/g, " ").trim();
-  if (title) {
-    const tailored = `Close this initiative faster: ${title}`;
-    if (tailored.length <= maxLen) return tailored;
-    return `${tailored.slice(0, Math.max(0, maxLen - 1)).trimEnd()}…`;
+  const labels = gaps
+    .map(g => g.label.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .slice(0, 2);
+  if (!labels.length) return yorkNudgeMessage(offer, maxLen);
+
+  const gapBit = labels.length === 1 ? labels[0] : `${labels[0]} and ${labels[1]}`;
+  const tailored = `York IE can help close the gap on ${gapBit}`;
+  if (tailored.length <= maxLen) return tailored;
+  return `${tailored.slice(0, Math.max(0, maxLen - 1)).trimEnd()}…`;
+}
+
+/** Shared partner offer for left sidebar + Overview (one common message). */
+export const YORK_COMMON_OFFER: YorkServiceOffer = offer({
+  id: "york-common-partner",
+  track: "rd",
+  pillar: "dev",
+  triggerField: "placement",
+  triggerValue: "common",
+  headline: "York IE — operating partner for founders",
+  pitch:
+    "York IE pairs with founders on product, go-to-market, and finance — scoped to what Fuel already surfaced.",
+  howWeHelp: [
+    "Web / product build",
+    "Full GTM and RevOps",
+    "Books and finance ops",
+  ],
+  contactSubject: "York IE · Talk from Fuel",
+  ctaLabel: "Talk to York IE",
+});
+
+/** Soft personal opener for LinkedIn-style sidebar / Overview cards. */
+export function yorkCommonLead(firstName?: string): string {
+  const name = firstName?.trim();
+  if (name) return `${name}, turn Fuel gaps into a plan you can ship`;
+  return "Turn Fuel gaps into a plan you can ship";
+}
+
+export function yorkCommonHeadline(): string {
+  return "Hands-on help across R&D, GTM, and finance";
+}
+
+/**
+ * Best single offer for sidebar when a field gate fires; Overview always uses the common card.
+ */
+export function resolveYorkPartnerOfferForSurface(
+  answers: YorkUpsellAnswers | null | undefined,
+): YorkServiceOffer {
+  const ranked = resolveYorkServiceOffers(answers);
+  return ranked[0] ?? YORK_COMMON_OFFER;
+}
+
+/**
+ * Overview / sidebar — company-wide copy (never a single-track gap like “ship cadence on R&D”).
+ * Track-detail / initiative keep yorkPersonalizedPartnerCopy for category-scoped lines.
+ */
+export function yorkOverviewPartnerCopy(opts: {
+  firstName?: string;
+  weakTrackLabels?: string[];
+}): { lead: string; headline: string } {
+  const name = opts.firstName?.trim();
+  const tracks = (opts.weakTrackLabels ?? []).filter(Boolean).slice(0, 3);
+  const headline = yorkCommonHeadline();
+
+  if (tracks.length >= 3 && name) {
+    return {
+      lead: `${name}, Fuel sees gaps across ${tracks[0]}, ${tracks[1]}, and ${tracks[2]}`,
+      headline,
+    };
   }
-  return yorkNudgeMessage(offer, maxLen);
+  if (tracks.length === 2 && name) {
+    return {
+      lead: `${name}, Fuel sees gaps on ${tracks[0]} and ${tracks[1]}`,
+      headline,
+    };
+  }
+  if (tracks.length === 1 && name) {
+    return {
+      lead: `${name}, Fuel flagged work on ${tracks[0]} — York IE helps across R&D, GTM, and finance`,
+      headline,
+    };
+  }
+  return { lead: yorkCommonLead(name), headline };
+}
+
+/**
+ * Compact, intriguing copy grounded in structured Fuel data
+ * (offer trigger + optional “needs improvement” labels) — not free-text NLP.
+ * Use for track detail / initiatives only — not Overview.
+ */
+export function yorkPersonalizedPartnerCopy(opts: {
+  firstName?: string;
+  offer: YorkServiceOffer;
+  gapLabels?: string[];
+  weakTrackLabels?: string[];
+}): { lead: string; headline: string } {
+  const name = opts.firstName?.trim();
+  const track = trackLabel(opts.offer.track);
+  const gap = opts.gapLabels?.map(g => g.replace(/\s+/g, " ").trim()).filter(Boolean)[0];
+  const weakTracks = (opts.weakTrackLabels ?? []).filter(Boolean).slice(0, 2);
+  const outcome = yorkNudgeMessage(opts.offer, 72);
+
+  let lead: string;
+  if (gap && name) {
+    lead = `${name}, Fuel flagged “${gap}” on ${track}`;
+  } else if (gap) {
+    lead = `Fuel flagged “${gap}” on ${track}`;
+  } else if (weakTracks.length === 2 && name) {
+    lead = `${name}, ${weakTracks[0]} and ${weakTracks[1]} need a closer look`;
+  } else if (weakTracks.length === 1 && name) {
+    lead = `${name}, your ${weakTracks[0]} track is asking for help`;
+  } else if (name) {
+    lead = `${name}, your ${track} answers point to a clear next move`;
+  } else {
+    lead = `Your ${track} answers point to a clear next move`;
+  }
+
+  return { lead, headline: outcome };
 }
 
 export function trackLabel(track: YorkOfferTrack): string {
@@ -1228,6 +1273,11 @@ const YORK_NUDGE_COPY: Record<string, { headline: string; summary: string }> = {
     headline: "Bookkeeping and FinOps that board members trust",
     summary: "York IE owns close, cash, and forecast so G&A becomes a control system — not a monthly scramble.",
   },
+  "york-common-partner": {
+    headline: "Hands-on help across R&D, GTM, and finance",
+    summary:
+      "York IE partners with founders on web/product build, full GTM, RevOps, and books — scoped to your Fuel scorecard.",
+  },
 };
 
 /**
@@ -1247,17 +1297,18 @@ export function yorkNudgeMessage(offer: YorkServiceOffer, maxLen = 64): string {
  */
 export function yorkNudgeSummary(offer: YorkServiceOffer): string {
   const curated = YORK_NUDGE_COPY[offer.id]?.summary?.trim();
-  if (curated) return curated;
+  const clean = (text: string) => text.replace(/\s+/g, " ").trim();
+  if (curated) return clean(curated);
 
   const helps = offer.howWeHelp.map(s => s.trim()).filter(Boolean).slice(0, 3);
   if (!helps.length) {
-    return offer.pitch.replace(/\s+/g, " ").trim();
+    return clean(offer.pitch);
   }
   if (helps.length === 1) {
-    return `York IE delivers ${helps[0].replace(/^\w/, c => c.toLowerCase())} so this gap moves this quarter.`;
+    return clean(`York IE delivers ${helps[0].replace(/^\w/, c => c.toLowerCase())} so this gap moves this quarter.`);
   }
   if (helps.length === 2) {
-    return `York IE delivers ${helps[0].replace(/^\w/, c => c.toLowerCase())} and ${helps[1].replace(/^\w/, c => c.toLowerCase())} — commercial outcomes, not a slide deck.`;
+    return clean(`York IE delivers ${helps[0].toLowerCase()} and ${helps[1].toLowerCase()}.`);
   }
-  return `York IE delivers ${helps[0].replace(/^\w/, c => c.toLowerCase())}, ${helps[1].replace(/^\w/, c => c.toLowerCase())}, and ${helps[2].replace(/^\w/, c => c.toLowerCase())}.`;
+  return clean(`York IE delivers ${helps[0].toLowerCase()}, ${helps[1].toLowerCase()}, and ${helps[2].toLowerCase()}.`);
 }

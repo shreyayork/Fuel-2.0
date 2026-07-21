@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { SIGNAL_CATALOG, SIGNAL_CATALOG_BY_KEY } from "./signalCatalog";
 import { createPortal } from "react-dom";
 import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
@@ -12,7 +13,7 @@ import {
   useCredits,
   useCreditsOptional,
 } from "./credits";
-import { totalRemaining, dailyRemaining } from "./credits/creditLogic";
+import { dailyRemaining, totalRemaining } from "./credits/creditLogic";
 import ScorecardV2, {
   type OverviewBuildPhase,
   BenchmarkEditDrawer,
@@ -32,9 +33,10 @@ import {
 } from "./account/AccountSettingsNav.tsx";
 import {
   resolveYorkOfferForInitiative,
-  yorkNudgeMessageForInitiative,
+  YORK_COMMON_OFFER,
   type YorkServiceOffer,
 } from "./yorkIeUpsell";
+import { isYorkOfferDismissed } from "./yorkDismiss";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import InvestorDashboard, { type InvestorDashboardSection } from "./investor/InvestorDashboard.tsx";
 import {
@@ -2670,6 +2672,8 @@ type IntelligenceSource = {
 type IntelligenceItem = {
   id: string;
   type: string;
+  /** Signal name within the category — e.g. "ARR", "Burn multiple". Used for subcategory grouping. */
+  subtype?: string;
   text: string;
   highlight: string;
   date: string;
@@ -2697,6 +2701,37 @@ type PendingSource = {
   processedAtLabel?: string;
 };
 
+function inferMainCategoryFromSource(
+  title: string,
+  description: string,
+  document?: { typeId: string; typeLabel: string; fileName?: string },
+): string {
+  if (document?.typeId) return inferIntelligenceTypeFromDocument(document.typeId);
+
+  const blob = `${title} ${description}`.toLowerCase();
+  if (/fundrais|investor|pitch|deck|raise|seed|series [abc]|dilution|cap table/.test(blob)) {
+    return "fundraising";
+  }
+  if (/gtm|pipeline|sales|outbound|icp|marketing|customer|deal|crm|revenue|conversion|pricing/.test(blob)) {
+    return "gtm";
+  }
+  if (/r&d|product|roadmap|engineering|ship|qa|technical|architecture|release|sprint|design/.test(blob)) {
+    return "product";
+  }
+  if (/g&a|finance|burn|runway|cash|hiring|ops|headcount|payroll|budget|efficiency/.test(blob)) {
+    return "finance";
+  }
+  return "strategic";
+}
+
+const SOURCE_CATEGORY_COPY: Record<string, { text: string; label: string }> = {
+  fundraising: { text: "Fundraising signal", label: "Fundraising" },
+  gtm: { text: "GTM signal", label: "Go-to-market" },
+  product: { text: "Product signal", label: "Product / R&D" },
+  finance: { text: "Finance signal", label: "Finance / G&A" },
+  strategic: { text: "Strategic signal", label: "Strategy" },
+};
+
 function evaluateSourceIntelligenceGeneration({
   title,
   description,
@@ -2705,29 +2740,24 @@ function evaluateSourceIntelligenceGeneration({
   title: string;
   description: string;
   document?: { typeId: string; typeLabel: string; fileName: string };
-}): { item: IntelligenceItem | null; emptyReason?: string } {
+}): { item: IntelligenceItem | null; emptyReason?: string; category?: string } {
   const trimmedTitle = title.trim();
   const trimmedDescription = description.trim();
-  const hasDocument = Boolean(document);
+  const category = inferMainCategoryFromSource(trimmedTitle, trimmedDescription, document);
+
+  if (!trimmedTitle) {
+    return {
+      item: null,
+      emptyReason: "Source saved without a title, so no intelligence was generated.",
+      category,
+    };
+  }
 
   if (/no.?signal|empty source|blank doc/i.test(`${trimmedTitle} ${trimmedDescription}`)) {
     return {
       item: null,
       emptyReason: "Fuel reviewed this source but nothing met the confidence threshold for timeline intelligence.",
-    };
-  }
-
-  if (!hasDocument && trimmedDescription.length < 20) {
-    return {
-      item: null,
-      emptyReason: "Source saved without intelligence.",
-    };
-  }
-
-  if (hasDocument && !trimmedDescription && trimmedTitle.length < 10) {
-    return {
-      item: null,
-      emptyReason: "Source saved without intelligence.",
+      category,
     };
   }
 
@@ -2736,7 +2766,9 @@ function evaluateSourceIntelligenceGeneration({
       title: trimmedTitle,
       description: trimmedDescription,
       document,
+      category,
     }),
+    category,
   };
 }
 
@@ -2994,39 +3026,39 @@ function createDocumentIntelligence(typeId: string, typeLabel: string, fileName:
     ref: `private:${typeId}:${fileName}`,
   };
 
-  const templates: Record<string, { type: string; text: string; highlight: string; title: string }[]> = {
+  // Every entry maps to an exact catalog signal: type = category key, subtype = signal name.
+  const templates: Record<string, { type: string; subtype: string; highlight: string; title: string }[]> = {
     pitch_deck: [
-      { type: "fundraising", text: "Active Seed raise", highlight: "$4.2M raised · $1.5M extension target", title: "Deck positions the company for a Seed extension with enterprise pipeline momentum." },
-      { type: "gtm", text: "Enterprise GTM focus", highlight: "Workshop-led onboarding · 3 enterprise pilots", title: "Sales motion emphasizes customer discovery workshops before standardized rollout." },
-      { type: "product", text: "Platform roadmap", highlight: "Customer portal and AI reporting on H2 roadmap", title: "Product slides highlight portal standardization to reduce bespoke implementations." },
+      { type: "fundraising", subtype: "Round stage", highlight: "Seed extension · $1.5M target", title: "Deck positions the company for a Seed extension with enterprise pipeline momentum." },
+      { type: "gtm", subtype: "Primary GTM motion", highlight: "Workshop-led onboarding · 3 enterprise pilots", title: "Sales motion emphasizes customer discovery workshops before standardized rollout." },
     ],
     investor_notes: [
-      { type: "fundraising", text: "Investor feedback", highlight: "Strong product narrative · clarify CAC payback", title: "Notes highlight investor interest with questions on GTM efficiency and retention proof." },
-      { type: "strategic", text: "Positioning gap", highlight: "Differentiate vs legacy billing incumbents", title: "Investors want sharper category framing before the next raise conversation." },
+      { type: "fundraising", subtype: "Fundraise timing", highlight: "Active raise · Q3 2026 target close", title: "Notes highlight investor interest with questions on GTM efficiency and retention proof." },
+      { type: "strategic", subtype: "Competitive moat", highlight: "Vertical workflow depth vs legacy billing", title: "Investors want sharper category framing before the next raise conversation." },
     ],
     investment_memo: [
-      { type: "fundraising", text: "Memo thesis", highlight: "Large TAM · underpenetrated mid-market", title: "Memo frames the opportunity as workflow consolidation in a fragmented buyer segment." },
-      { type: "finance", text: "Unit economics", highlight: "Payback improving · expansion potential", title: "Financial narrative ties retention expansion to margin improvement over 18 months." },
+      { type: "fundraising", subtype: "Target round size", highlight: "$4.2M Seed · large TAM · underpenetrated mid-market", title: "Memo frames the opportunity as workflow consolidation in a fragmented buyer segment." },
+      { type: "finance", subtype: "ARR : capital raised", highlight: "Payback improving · expansion potential", title: "Financial narrative ties retention expansion to margin improvement over 18 months." },
     ],
     board_deck: [
-      { type: "strategic", text: "Board priorities", highlight: "Hit $1M ARR · reduce implementation time", title: "Board deck centers on revenue milestone and delivery efficiency for the next two quarters." },
-      { type: "team", text: "Org plan", highlight: "2 GTM hires · 1 senior engineer", title: "Hiring plan weighted toward repeatable enterprise sales and platform stability." },
+      { type: "board_reporting", subtype: "Other updates (period)", highlight: "Hit $1M ARR · reduce implementation time", title: "Board deck centers on revenue milestone and delivery efficiency for the next two quarters." },
+      { type: "team", subtype: "Hiring needs", highlight: "2 GTM hires · 1 senior engineer", title: "Hiring plan weighted toward repeatable enterprise sales and platform stability." },
     ],
     financial_model: [
-      { type: "finance", text: "Forecast update", highlight: "Base case 2.1x ARR growth · 18mo runway", title: "Model assumes steady enterprise expansion with controlled burn through year end." },
-      { type: "efficiency", text: "Burn profile", highlight: "Burn multiple improving in H2", title: "Efficiency metrics suggest GTM spend converts better after onboarding changes." },
+      { type: "finance", subtype: "Runway", highlight: "18 months · base case", title: "Model assumes steady enterprise expansion with controlled burn through year end." },
+      { type: "efficiency", subtype: "Burn multiple", highlight: "Improving in H2", title: "Efficiency metrics suggest GTM spend converts better after onboarding changes." },
     ],
     cap_table: [
-      { type: "fundraising", text: "Ownership snapshot", highlight: "Founders 62% · Seed investors 28%", title: "Cap table supports a clean extension round without heavy dilution pressure." },
+      { type: "fundraising", subtype: "Pre-money at last round", highlight: "Founders 62% · Seed investors 28%", title: "Cap table supports a clean extension round without heavy dilution pressure." },
     ],
     product_roadmap: [
-      { type: "product", text: "Roadmap focus", highlight: "Portal v2 · AI reporting · billing automation", title: "Roadmap prioritizes self-serve workflows that reduce services-heavy implementations." },
+      { type: "product", subtype: "AI classification", highlight: "Portal v2 · AI reporting · billing automation", title: "Roadmap prioritizes self-serve workflows that reduce services-heavy implementations." },
     ],
     customer_contract: [
-      { type: "gtm", text: "Contract pattern", highlight: "Multi-year enterprise · expansion clause", title: "Contract structure supports land-and-expand with built-in upsell triggers." },
+      { type: "gtm", subtype: "Primary contract length", highlight: "Multi-year enterprise · expansion clause", title: "Contract structure supports land-and-expand with built-in upsell triggers." },
     ],
     due_diligence: [
-      { type: "strategic", text: "Diligence themes", highlight: "Security review · revenue quality · churn", title: "Diligence pack focuses on enterprise readiness and retention durability." },
+      { type: "strategic", subtype: "Key risks", highlight: "Security review · revenue quality · churn", title: "Diligence pack focuses on enterprise readiness and retention durability." },
     ],
   };
 
@@ -3037,7 +3069,8 @@ function createDocumentIntelligence(typeId: string, typeLabel: string, fileName:
   return rows.map((row, index) => ({
     id: `intel-doc-${typeId}-${createdAtMs + index}`,
     type: row.type,
-    text: row.text,
+    subtype: row.subtype,
+    text: row.subtype,
     highlight: row.highlight,
     date: "2026-q2",
     age: "Just now",
@@ -3069,10 +3102,12 @@ function createSourceIntelligence({
   title,
   description,
   document,
+  category,
 }: {
   title: string;
   description: string;
   document?: { typeId: string; typeLabel: string; fileName: string };
+  category?: string;
 }): IntelligenceItem {
   const now = Date.now();
   const trimmedTitle = title.trim();
@@ -3095,9 +3130,34 @@ function createSourceIntelligence({
 
   const highlight = trimmedDescription || documentContext || "Manual source entry";
 
+  // Prefer catalog mapping from document type; for notes use inferred category → a real catalog signal.
+  const docSignalMap: Record<string, { type: string; subtype: string }> = {
+    pitch_deck: { type: "fundraising", subtype: "Round stage" },
+    investor_notes: { type: "fundraising", subtype: "Fundraise timing" },
+    investment_memo: { type: "fundraising", subtype: "Target round size" },
+    cap_table: { type: "fundraising", subtype: "Pre-money at last round" },
+    board_deck: { type: "board_reporting", subtype: "Other updates (period)" },
+    financial_model: { type: "finance", subtype: "Runway" },
+    product_roadmap: { type: "product", subtype: "AI classification" },
+    customer_contract: { type: "gtm", subtype: "Primary contract length" },
+    due_diligence: { type: "strategic", subtype: "Key risks" },
+  };
+  const noteCategorySignal: Record<string, { type: string; subtype: string }> = {
+    fundraising: { type: "fundraising", subtype: "Fundraise timing" },
+    gtm: { type: "gtm", subtype: "Channel / GTM challenges" },
+    product: { type: "product", subtype: "AI classification" },
+    finance: { type: "finance", subtype: "Runway" },
+    strategic: { type: "strategic", subtype: "Key opportunities" },
+  };
+  const baseDocKey = document ? (document.typeId.startsWith("custom:") ? "custom" : document.typeId) : null;
+  const catalogHint = baseDocKey
+    ? (docSignalMap[baseDocKey] ?? { type: "strategic", subtype: "Key opportunities" })
+    : (noteCategorySignal[category ?? "strategic"] ?? { type: "strategic", subtype: "Key opportunities" });
+
   return {
     id: `intel-manual-${now}`,
-    type: document ? inferIntelligenceTypeFromDocument(document.typeId) : "strategic",
+    type: catalogHint.type,
+    subtype: catalogHint.subtype,
     text: trimmedTitle,
     highlight,
     date: "2026-q2",
@@ -3154,16 +3214,18 @@ function formatBenchmarkPeriodLabel(period: string): string {
 
 const BENCHMARK_TIMELINE_FILTERS = [
   "All",
+  "growth",
+  "retention",
   "efficiency",
   "finance",
   "fundraising",
-  "growth",
-  "retention",
-  "team",
-  "product",
   "gtm",
+  "product",
+  "team",
   "strategic",
-  "york",
+  "customer_success",
+  "board_reporting",
+  "vendor_stack",
 ] as const;
 
 const WIZARD_DEFAULT_BENCHMARK: BenchmarkFormValues = {
@@ -3360,83 +3422,50 @@ function createOnboardingIntelligence(
 
   const now = Date.now();
 
-  const specs: { id: string; fieldId: string; type: string; label: string; value: string }[] = [
-    {
-      id: "product-desc",
-      fieldId: "profile_product_description",
-      type: "strategic",
-      label: formFieldSourceLabel("profile_product_description", "What they build"),
-      value: answers.profileProductDescription ?? "",
-    },
-    {
-      id: "product-stage",
-      fieldId: "dev_product_stage",
-      type: "product",
-      label: formFieldSourceLabel("dev_product_stage", "Product stage"),
-      value: answers.dev_product_stage ?? "",
-    },
-    {
-      id: "product-type",
-      fieldId: "dev_product_type",
-      type: "product",
-      label: formFieldSourceLabel("dev_product_type", "Product type"),
-      value: answers.dev_product_type ?? "",
-    },
-    {
-      id: "delivery-constraint",
-      fieldId: "dev_delivery_constraint",
-      type: "product",
-      label: formFieldSourceLabel("dev_delivery_constraint", "Delivery constraint"),
-      value: answers.dev_delivery_constraint ?? "",
-    },
+  // Only emit intelligence for answers that map to a named catalog signal.
+  // type = catalog category key, subtype = exact signal name in that category.
+  const specs: { id: string; fieldId: string; type: string; subtype: string; value: string }[] = [
     {
       id: "sales-motion",
       fieldId: "mkt_sales_motion",
       type: "gtm",
-      label: formFieldSourceLabel("mkt_sales_motion", "Sales motion"),
+      subtype: "Primary GTM motion",
       value: answers.mkt_sales_motion ?? "",
     },
     {
       id: "funnel-gap",
       fieldId: "mkt_funnel_gap",
       type: "gtm",
-      label: formFieldSourceLabel("mkt_funnel_gap", "Funnel gap"),
+      subtype: "Channel / GTM challenges",
       value: answers.mkt_funnel_gap ?? "",
     },
     {
       id: "icp-clarity",
       fieldId: "mkt_icp_clarity",
       type: "gtm",
-      label: formFieldSourceLabel("mkt_icp_clarity", "ICP clarity"),
+      subtype: "Competitive pressure",
       value: answers.mkt_icp_clarity ?? "",
-    },
-    {
-      id: "revenue-tracking",
-      fieldId: "mkt_revenue_tracking",
-      type: "gtm",
-      label: formFieldSourceLabel("mkt_revenue_tracking", "Revenue tracking"),
-      value: answers.mkt_revenue_tracking ?? "",
     },
     {
       id: "runway",
       fieldId: "rev_runway",
       type: "finance",
-      label: formFieldSourceLabel("rev_runway", "Runway posture"),
+      subtype: "Runway",
       value: answers.rev_runway ?? "",
-    },
-    {
-      id: "finance-mgmt",
-      fieldId: "rev_finance_management",
-      type: "finance",
-      label: formFieldSourceLabel("rev_finance_management", "Finance management"),
-      value: answers.rev_finance_management ?? "",
     },
     {
       id: "capital-priority",
       fieldId: "rev_capital_priority",
       type: "fundraising",
-      label: formFieldSourceLabel("rev_capital_priority", "Capital priority"),
+      subtype: "Actively fundraising",
       value: answers.rev_capital_priority ?? "",
+    },
+    {
+      id: "software-sector",
+      fieldId: "profile_product_description",
+      type: "strategic",
+      subtype: "Software sector",
+      value: answers.profileProductDescription ?? "",
     },
   ];
 
@@ -3447,13 +3476,14 @@ function createOnboardingIntelligence(
       return {
         id: `intel-onboard-${spec.id}`,
         type: spec.type,
-        text: spec.label,
+        subtype: spec.subtype,
+        text: spec.subtype,
         highlight: value,
         date: BENCHMARK_PERIOD.toLowerCase(),
         age: formatRelativeAge(now),
-        title: `${spec.label}: ${value}`,
+        title: `${spec.subtype}: ${value}`,
         confidence: "Submitted",
-        sources: [createFormFieldIntelligenceSource(spec.fieldId, spec.label, value, now)],
+        sources: [createFormFieldIntelligenceSource(spec.fieldId, spec.subtype, value, now)],
         updatedAtMs: now,
       };
     });
@@ -3597,6 +3627,7 @@ function createBenchmarkIntelligence(values: BenchmarkFormValues, period = BENCH
       return {
         id: `intel-bench-${spec.key}`,
         type: spec.type,
+        subtype: spec.label,
         text: spec.label,
         highlight: formatted,
         date: period.toLowerCase(),
@@ -3825,11 +3856,36 @@ function QuarterlySubmissionPanel({
   );
 }
 
+function formatProvenanceCategory(type: string): string {
+  const fromCatalog = SIGNAL_CATALOG_BY_KEY[type]?.label;
+  if (fromCatalog) return fromCatalog;
+  if (!type) return "Signal";
+  return type
+    .split(/[_-]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function isRedundantProvenanceNote(item: IntelligenceItem, signalLabel: string): boolean {
+  const note = (item.title || "").trim();
+  if (!note) return true;
+  const value = (item.highlight || "").trim();
+  const signal = signalLabel.trim();
+  const normalized = note.toLowerCase();
+  if (value && normalized === value.toLowerCase()) return true;
+  if (signal && value && normalized === `${signal}: ${value}`.toLowerCase()) return true;
+  if (signal && normalized === signal.toLowerCase()) return true;
+  return false;
+}
+
 function IntelligenceProvenanceSidebar({
   item,
+  siblingItems = [],
   onClose,
 }: {
   item: IntelligenceItem;
+  siblingItems?: IntelligenceItem[];
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -3841,89 +3897,119 @@ function IntelligenceProvenanceSidebar({
   }, [onClose]);
 
   const isYorkUpsell = item.id.startsWith("intel-york-");
+  const signalLabel = item.subtype || item.text;
+  const categoryLabel = formatProvenanceCategory(item.type);
+  const hasHistory = siblingItems.length > 1;
+  const showNote = !isYorkUpsell && !isRedundantProvenanceNote(item, signalLabel);
+  const sourceCount = item.sources.length;
 
   return (
     <>
-      <button className="context-sidebar-scrim" aria-label="Close intelligence provenance" onClick={onClose} />
+      <button className="context-sidebar-scrim" aria-label="Close signal detail" onClick={onClose} />
       <aside className="intelligence-provenance-sidebar">
         <div className="provenance-head">
-          <strong>Intelligence provenance</strong>
+          <strong>Signal detail</strong>
           <button type="button" onClick={onClose}>Close · Esc</button>
         </div>
         <div className="provenance-body">
-          <span className="provenance-type">{item.type}</span>
-          <h2>{item.text}</h2>
-          {item.highlight ? (
-            <p className="provenance-highlight">{item.highlight}</p>
-          ) : null}
-          <div className="provenance-meta-line">
-            <time>{item.date}</time>
-            {item.confidence ? <span>confidence {item.confidence}</span> : null}
-          </div>
-
-          {!isYorkUpsell ? (
-          <div className="provenance-snippet-section">
-            <span>Supporting snippet</span>
-            <blockquote>{item.title}</blockquote>
-          </div>
-          ) : null}
-
-          {item.sources.length > 0 ? (
-            <div className="provenance-sources">
-              <span className="provenance-sources-label">
-                {item.sources.length} source{item.sources.length > 1 ? "s" : ""}
-              </span>
-              {item.sources.map((source, index) => {
-                const isFormField = source.sourceType === "form_field";
-                return (
-                <div className="provenance-source-block" key={source.id}>
-                  <div className="provenance-source-head">
-                    <span>
-                      {isFormField
-                        ? `Form · ${source.system}`
-                        : `Source${item.sources.length > 1 ? ` ${index + 1}` : ""} · ${source.system}`}
-                    </span>
-                    <span>{source.meta}</span>
-                  </div>
-                  <div className="provenance-source-title-row">
-                    <strong>{source.title}</strong>
-                    <time>{source.date}</time>
-                  </div>
-                  <p className="provenance-source-desc">
-                    {isFormField ? <>Answer: <strong>{source.description}</strong></> : source.description}
-                  </p>
-                  {source.ref && !source.ref.startsWith("mailto:") ? (
-                    <code>{isFormField ? source.ref : `${source.sourceType} · ${source.ref}`}</code>
-                  ) : null}
-                  {source.snippet && !isFormField ? (
-                    <blockquote className="provenance-source-snippet">{source.snippet}</blockquote>
-                  ) : null}
-                  {!isFormField ? (
-                    <div className="provenance-source-actions">
-                      <button type="button">Show content</button>
-                      <button type="button">Open in Private tab →</button>
-                    </div>
-                  ) : null}
+          <section className="provenance-summary">
+            <span className="provenance-category">{categoryLabel}</span>
+            <h2 className="provenance-signal-name">{signalLabel}</h2>
+            {item.highlight ? (
+              <p className="provenance-value">{item.highlight}</p>
+            ) : null}
+            <dl className="provenance-facts">
+              <div>
+                <dt>Period</dt>
+                <dd><time>{item.date}</time></dd>
+              </div>
+              {item.confidence ? (
+                <div>
+                  <dt>Confidence</dt>
+                  <dd>{item.confidence}</dd>
                 </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="provenance-no-sources">
-              <span>No linked sources</span>
-              <p>This intelligence was inferred from profile and benchmark context only.</p>
-            </div>
-          )}
-
-          <div className="provenance-extraction">
-            <span>Extraction</span>
-            <dl>
-              <div><dt>model</dt><dd>us.anthropic.claude-haiku-4-5-20251001-v1:0</dd></div>
-              <div><dt>tokens</dt><dd>6453 in · 152 out</dd></div>
-              <div><dt>when</dt><dd>12/05/2026, 19:46:23</dd></div>
-              <div><dt>run id</dt><dd>arun_8dbc9b8d-65b7-4796-ae8d-fa7ba9e8a321</dd></div>
+              ) : null}
             </dl>
-          </div>
+          </section>
+
+          {showNote ? (
+            <section className="provenance-section">
+              <h3 className="provenance-section-title">Note</h3>
+              <div className="provenance-note-well">
+                <p className="provenance-note">{item.title}</p>
+              </div>
+            </section>
+          ) : null}
+
+          <section className="provenance-section">
+            <h3 className="provenance-section-title">
+              {sourceCount > 0
+                ? `${sourceCount} source${sourceCount === 1 ? "" : "s"}`
+                : "Sources"}
+            </h3>
+            {sourceCount > 0 ? (
+              <div className="provenance-sources">
+                {item.sources.map((source) => {
+                  const isFormField = source.sourceType === "form_field";
+                  return (
+                    <article className="provenance-source-block" key={source.id}>
+                      <div className="provenance-source-title-row">
+                        <strong>{source.title}</strong>
+                        <time>{source.date}</time>
+                      </div>
+                      <p className="provenance-source-kind">
+                        {isFormField ? `Form field · ${source.system}` : source.meta || source.system}
+                      </p>
+                      {source.description ? (
+                        <p className="provenance-source-desc">
+                          {isFormField ? (
+                            <>Answered: <strong>{source.description}</strong></>
+                          ) : (
+                            source.description
+                          )}
+                        </p>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="provenance-empty-well">
+                <p className="provenance-empty">
+                  No linked sources. This value came from profile or benchmark context.
+                </p>
+              </div>
+            )}
+          </section>
+
+          {hasHistory ? (
+            <section className="provenance-section provenance-history-section">
+              <h3 className="provenance-section-title">
+                History · {siblingItems.length}
+              </h3>
+              <div className="provenance-history-list">
+                {siblingItems.map((entry) => {
+                  const isCurrent = entry.id === item.id;
+                  return (
+                    <div
+                      key={entry.id}
+                      className={`provenance-history-entry${isCurrent ? " is-current" : ""}`}
+                    >
+                      <p className="provenance-history-value">
+                        {entry.highlight || entry.text}
+                      </p>
+                      <div className="provenance-history-meta">
+                        {isCurrent ? (
+                          <span className="provenance-history-current-badge">Current</span>
+                        ) : null}
+                        <time className="provenance-history-date">{entry.date}</time>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
         </div>
       </aside>
     </>
@@ -4563,7 +4649,6 @@ function DataRoomPage({
 }
 
 
-type SignalsView = "intelligence" | "sources";
 
 function SourceDetailSidebar({
   source,
@@ -4754,7 +4839,7 @@ function SourcesListPanel({
                   </button>
                 ) : meta.status === "empty" ? (
                   <span className="data-room-intelligence-pending data-room-intelligence-empty">
-                    No intelligence identified
+                    0
                   </span>
                 ) : (
                   <span className="data-room-intelligence-pending">Awaiting generation</span>
@@ -4784,6 +4869,330 @@ function SourcesListPanel({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── Single subtype row: latest value + history/source counts ────────────────
+function SubtypeRow({
+  subtypeKey,
+  items,
+  blinkingIds,
+  renderTimelineRow,
+  onSelectItem,
+}: {
+  subtypeKey: string;
+  items: IntelligenceItem[];
+  blinkingIds: string[];
+  renderTimelineRow: (item: IntelligenceItem) => React.ReactNode;
+  onSelectItem?: (id: string) => void;
+}) {
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const latest = items[0];
+  const history = items.slice(1);
+  const isBlink = blinkingIds.includes(latest.id);
+  const sourceCount = latest.sources?.length ?? 0;
+
+  return (
+    <div className={`intel-signal-row${isBlink ? " blink-once" : ""}`}>
+      <div
+        className="intel-signal-latest"
+        role="button"
+        tabIndex={0}
+        onClick={() => onSelectItem?.(latest.id)}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectItem?.(latest.id); } }}
+      >
+        <span className="intel-signal-name">{subtypeKey}</span>
+        <strong className="intel-signal-value">{latest.highlight}</strong>
+        <time className="intel-signal-period">{latest.date}</time>
+        <div className="intel-signal-meta-slot">
+          {sourceCount > 0 ? (
+            <span
+              className="intel-signal-meta-chip intel-signal-meta-chip--sources"
+              title={`${sourceCount} linked source${sourceCount === 1 ? "" : "s"}`}
+              aria-label={`${sourceCount} source${sourceCount === 1 ? "" : "s"}`}
+            >
+              <span className="intel-signal-meta-label">Sources</span>
+              <span className="intel-signal-meta-count">{sourceCount}</span>
+            </span>
+          ) : null}
+          {history.length > 0 ? (
+            <button
+              type="button"
+              className={`intel-signal-meta-chip intel-signal-meta-chip--history${historyOpen ? " is-open" : ""}`}
+              onClick={e => { e.stopPropagation(); setHistoryOpen(o => !o); }}
+              aria-expanded={historyOpen}
+              title={`${history.length} earlier entr${history.length === 1 ? "y" : "ies"}`}
+            >
+              <span className="intel-signal-meta-label">History</span>
+              <span className="intel-signal-meta-count">{history.length}</span>
+              <span className="intel-signal-meta-chevron" aria-hidden="true">{historyOpen ? "▴" : "▾"}</span>
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {historyOpen ? (
+        <div className="intel-signal-history">
+          {history.map(item => renderTimelineRow(item))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ─── Intelligence category group accordion ───────────────────────────────────
+const CATEGORY_COLORS: Record<string, string> = {
+  growth: "#34d399",
+  finance: "#fbbf24",
+  retention: "#4fd1c5",
+  efficiency: "#a78bfa",
+  fundraising: "#60a5fa",
+  gtm: "#fb923c",
+  product: "#818cf8",
+  strategic: "#94a3b8",
+  team: "#f472b6",
+  york: "#fde68a",
+  customer_success: "#2dd4bf",
+  board_reporting: "#c4b5fd",
+  vendor_stack: "#86efac",
+};
+
+function IntelligenceCategoryGroup({
+  categoryKey,
+  label,
+  icon,
+  items,
+  benchmarkSubmission,
+  benchmarkBlinkIds,
+  blinkingIds,
+  selectedId,
+  onSelectItem,
+  onRemoveItem,
+  renderTimelineRow,
+  openBenchmarkDrawer,
+}: {
+  categoryKey: string;
+  label: string;
+  icon: string;
+  items: IntelligenceItem[];
+  benchmarkSubmission: BenchmarkSubmission | null;
+  benchmarkBlinkIds: string[];
+  blinkingIds: string[];
+  selectedId: string | null;
+  onSelectItem: (id: string) => void;
+  onRemoveItem: (id: string, event: React.MouseEvent) => void;
+  renderTimelineRow: (item: IntelligenceItem) => React.ReactNode;
+  openBenchmarkDrawer: () => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const isBenchmarkCategory = ["finance", "growth", "retention", "efficiency"].includes(categoryKey);
+
+  const subtypeGroups = useMemo(() => {
+    const map = new Map<string, IntelligenceItem[]>();
+    for (const item of items) {
+      const key = item.subtype || item.text || "Other";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(item);
+    }
+    map.forEach(group => group.sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0)));
+    return [...map.entries()];
+  }, [items]);
+
+  const signalCount = subtypeGroups.length;
+  const latestItem = items.reduce<IntelligenceItem | null>((best, item) =>
+    !best || (item.updatedAtMs ?? 0) > (best.updatedAtMs ?? 0) ? item : best, null);
+
+  const benchmarkSubtypes = subtypeGroups.filter(([, grp]) => grp[0].id.startsWith("intel-bench-"));
+  const nonBenchmarkSubtypes = subtypeGroups.filter(([, grp]) => !grp[0].id.startsWith("intel-bench-"));
+  const hasBenchmarkBlink = items.some(i => blinkingIds.includes(i.id) || benchmarkBlinkIds.includes(i.id));
+
+  return (
+    <div
+      className={`intel-cat-group${expanded ? " is-expanded" : ""}`}
+    >
+      <button
+        type="button"
+        className="intel-cat-group-head"
+        onClick={() => setExpanded(o => !o)}
+        aria-expanded={expanded}
+      >
+        <span className="intel-cat-icon">{icon}</span>
+        <span className="intel-cat-label">{label}</span>
+        <span className="intel-cat-count">{signalCount} signal{signalCount !== 1 ? "s" : ""}</span>
+        {latestItem ? <time className="intel-cat-latest">Updated {latestItem.date}</time> : null}
+        <span className="intel-cat-chevron">{expanded ? "▴" : "▾"}</span>
+      </button>
+
+      {expanded ? (
+        <div className="intel-cat-body">
+          {isBenchmarkCategory && benchmarkSubtypes.length > 0 ? (
+            <div className={`signals-benchmark-block${hasBenchmarkBlink ? " blink-once" : ""}`}>
+              <div className="signals-benchmark-block-entries">
+                {benchmarkSubtypes.map(([subtypeKey, grp]) => (
+                  <SubtypeRow
+                    key={subtypeKey}
+                    subtypeKey={subtypeKey}
+                    items={grp}
+                    blinkingIds={[...blinkingIds, ...benchmarkBlinkIds]}
+                    renderTimelineRow={renderTimelineRow}
+                    onSelectItem={onSelectItem}
+                  />
+                ))}
+              </div>
+              {benchmarkSubmission ? (
+                <QuarterlySubmissionPanel
+                  submission={benchmarkSubmission}
+                  onEdit={openBenchmarkDrawer}
+                  highlight={false}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {nonBenchmarkSubtypes.map(([subtypeKey, grp]) => (
+            <SubtypeRow
+              key={subtypeKey}
+              subtypeKey={subtypeKey}
+              items={grp}
+              blinkingIds={blinkingIds}
+              renderTimelineRow={renderTimelineRow}
+              onSelectItem={onSelectItem}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ─── Inline sources section (replaces the Sources tab) ───────────────────────
+function SourcesDrawer({
+  sources,
+  documentSlots,
+  onClose,
+  onSelectSource,
+  onGenerateFromPending,
+  onDismissPendingSource,
+  onFocusIntelligence,
+}: {
+  sources: PendingSource[];
+  documentSlots: DataRoomDocumentSlot[];
+  onClose: () => void;
+  onSelectSource: (id: string) => void;
+  onGenerateFromPending?: (id: string) => void;
+  onDismissPendingSource?: (id: string) => void;
+  onFocusIntelligence?: (focus: IntelligenceFocus) => void;
+}) {
+  return (
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside className="bench-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Sources">
+        <header className="bench-drawer-head">
+          <div>
+            <h2 className="bench-drawer-title">Sources</h2>
+            <p className="bench-drawer-sub">Notes and documents that feed intelligence. Notes are reference-only; documents can generate intelligence.</p>
+          </div>
+          <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+        <div className="bench-drawer-body">
+          {sources.length === 0 ? (
+            <p style={{ color: "var(--text-3)", fontSize: 13 }}>No sources added yet.</p>
+          ) : (
+            <div className="sources-drawer-list">
+              {sources.map(source => {
+                const meta = getSourceIntelligenceMeta(source, documentSlots);
+                const isNote = source.kind === "note";
+                const hasIntel = meta.status === "generated" && meta.count > 0;
+                const canGenerate = !isNote && meta.status === "awaiting";
+                return (
+                  <div
+                    key={source.id}
+                    className="sources-drawer-row"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => { onSelectSource(source.id); onClose(); }}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectSource(source.id); onClose(); } }}
+                  >
+                    <span className={`sources-drawer-kind${isNote ? " note" : " doc"}`}>{isNote ? "Note" : "Doc"}</span>
+                    <div className="sources-drawer-info">
+                      <strong className="sources-drawer-title">{source.title}</strong>
+                      <span className="sources-drawer-meta">{source.addedAtLabel}</span>
+                    </div>
+                    <div className="sources-drawer-action" onClick={e => e.stopPropagation()}>
+                      {hasIntel ? (
+                        <button
+                          type="button"
+                          className="sources-drawer-intel-link"
+                          onClick={() => { onFocusIntelligence?.({ ids: meta.ids, label: source.title }); onClose(); }}
+                        >
+                          {meta.count} signal{meta.count === 1 ? "" : "s"} →
+                        </button>
+                      ) : isNote ? (
+                        <span className="sources-drawer-ref-badge">Reference only</span>
+                      ) : canGenerate ? (
+                        <button
+                          type="button"
+                          className="sources-drawer-generate"
+                          onClick={() => onGenerateFromPending?.(source.id)}
+                        >
+                          Extract →
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="sources-drawer-remove"
+                        aria-label="Remove source"
+                        onClick={() => onDismissPendingSource?.(source.id)}
+                      >×</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function LogIntelligenceDrawer({
+  onLog,
+  onClose,
+}: {
+  onLog: (item: IntelligenceItem) => void;
+  onClose: () => void;
+}) {
+  const submitRef = useRef<(() => void) | null>(null);
+
+  return (
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside className="bench-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Log intelligence">
+        <header className="bench-drawer-head">
+          <div>
+            <h2 className="bench-drawer-title">Log intelligence</h2>
+            <p className="bench-drawer-sub">Record a metric value against a catalog signal. Select the signal and enter the value — it will appear in your intelligence timeline.</p>
+          </div>
+          <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+        <div className="bench-drawer-body">
+          <IntelligenceLogForm
+            onLog={onLog}
+            onCancel={onClose}
+            hideActions
+            submitRef={submitRef}
+          />
+        </div>
+        <footer className="bench-drawer-actions">
+          <button type="button" className="bench-drawer-cancel" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="bench-drawer-save"
+            onClick={() => submitRef.current?.()}
+          >
+            Log intelligence
+          </button>
+        </footer>
+      </aside>
     </div>
   );
 }
@@ -4848,6 +5257,7 @@ function SignalsPage({
   const now = useMemo(() => new Date(), []);
   const [selectedIntelligenceId, setSelectedIntelligenceId] = useState<string | null>(null);
   const [showLogForm, setShowLogForm] = useState(false);
+  const [showSourcesDrawer, setShowSourcesDrawer] = useState(false);
   const [documentNotice, setDocumentNotice] = useState<string | null>(null);
   const [blinkingIntelligenceIds, setBlinkingIntelligenceIds] = useState<string[]>([]);
   const [activeTimelineFilter, setActiveTimelineFilter] = useState("All");
@@ -4859,7 +5269,6 @@ function SignalsPage({
     endMonth: now.getMonth(),
     endYear: now.getFullYear(),
   });
-  const [signalsView, setSignalsView] = useState<SignalsView>("intelligence");
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
@@ -4966,6 +5375,19 @@ function SignalsPage({
     || Boolean(benchmarkSubmission)
     || intelligenceItems.some(item => !item.id.startsWith("intel-bench-"));
   const selectedIntelligence = intelligenceItems.find(item => item.id === selectedIntelligenceId) || null;
+
+  // All items with the same category + signal as the selected item, sorted latest→oldest
+  const selectedIntelligenceHistory = useMemo(() => {
+    if (!selectedIntelligence) return [];
+    const signalKey = selectedIntelligence.subtype || selectedIntelligence.text;
+    return intelligenceItems
+      .filter(item =>
+        item.type === selectedIntelligence.type &&
+        (item.subtype || item.text) === signalKey
+      )
+      .sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0));
+  }, [selectedIntelligence, intelligenceItems]);
+
   const selectedSource = pendingSources.find(source => source.id === selectedSourceId) || null;
   const selectedSourceMeta = selectedSource
     ? getSourceIntelligenceMeta(selectedSource, documentSlots)
@@ -4978,7 +5400,6 @@ function SignalsPage({
 
   useEffect(() => {
     if (!intelligenceFocus?.ids.length) return;
-    setSignalsView("intelligence");
     setSelectedSourceId(null);
     setBlinkingIntelligenceIds(intelligenceFocus.ids);
     const blinkTimer = window.setTimeout(() => setBlinkingIntelligenceIds([]), 900);
@@ -5118,6 +5539,43 @@ function SignalsPage({
     );
   };
 
+  // Derived directly from SIGNAL_CATALOG — the single source of truth.
+  // Nothing shows in the accordion that isn't a valid catalog category.
+  const CATEGORY_META = useMemo(() => {
+    const meta: Record<string, { label: string; icon: string }> = {};
+    SIGNAL_CATALOG.forEach(cat => { meta[cat.key] = { label: cat.label, icon: cat.icon }; });
+    return meta;
+  }, []);
+
+  // Valid catalog signal names per category key, for subtype validation.
+  const CATALOG_SIGNAL_SET = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    SIGNAL_CATALOG.forEach(cat => {
+      map.set(cat.key, new Set(cat.signals.map(s => s.name)));
+    });
+    return map;
+  }, []);
+
+  // Group items by type. Only catalog-valid category keys are included.
+  // Items with an unknown type OR unknown subtype for that category are silently dropped.
+  const categoryGroups = useMemo(() => {
+    const groups = new Map<string, IntelligenceItem[]>();
+    filteredIntelligenceItems.forEach(item => {
+      const catKey = item.type;
+      if (!catKey || !CATALOG_SIGNAL_SET.has(catKey)) return; // unknown category
+      const validSignals = CATALOG_SIGNAL_SET.get(catKey)!;
+      const subtypeKey = item.subtype || item.text;
+      if (subtypeKey && !validSignals.has(subtypeKey)) return; // unknown subtype
+      if (!groups.has(catKey)) groups.set(catKey, []);
+      groups.get(catKey)!.push(item);
+    });
+    // Order matches SIGNAL_CATALOG order
+    const catalogOrder = SIGNAL_CATALOG.map(c => c.key);
+    return [...groups.entries()].sort(
+      ([a], [b]) => catalogOrder.indexOf(a) - catalogOrder.indexOf(b)
+    );
+  }, [filteredIntelligenceItems, CATALOG_SIGNAL_SET]);
+
   const intelligenceTimelinePanel = (
     <div className="signals-board-panel" ref={timelinePanelRef}>
       {intelligenceFocusActive ? (
@@ -5129,160 +5587,97 @@ function SignalsPage({
           <div className="pitch-deck-confirm-actions">
             <button type="button" onClick={() => onClearIntelligenceFocus?.()}>Show all intelligence</button>
           </div>
-              </div>
+        </div>
       ) : null}
 
       {!intelligenceFocusActive ? (
         <div className="signals-intel-toolbar">
-          <select
-            className="signals-intel-toolbar-select"
-            value={datePreset}
-            onChange={event => setDatePreset(event.target.value as IntelligenceDatePreset)}
-            aria-label="Intelligence date range"
-          >
-            {INTELLIGENCE_DATE_PRESETS.map(preset => (
-              <option key={preset.id} value={preset.id}>{preset.label}</option>
-            ))}
-          </select>
+          <label className="signals-intel-search">
+            <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={event => setSearchQuery(event.target.value)}
+              placeholder="Search signals…"
+              aria-label="Search intelligence"
+            />
+          </label>
 
-          {datePreset === "custom" ? (
-            <div className="signals-intel-custom-range signals-intel-custom-range--inline">
-              <select
-                value={customRange.startMonth}
-                onChange={event => setCustomRange(current => ({ ...current, startMonth: Number(event.target.value) }))}
-                aria-label="Custom range start month"
-              >
-                {MONTH_OPTIONS.map((month, index) => (
-                  <option key={`start-${month}`} value={index}>{month.slice(0, 3)}</option>
-                ))}
-              </select>
-              <select
-                value={customRange.startYear}
-                onChange={event => setCustomRange(current => ({ ...current, startYear: Number(event.target.value) }))}
-                aria-label="Custom range start year"
-              >
-                {yearOptions.map(year => (
-                  <option key={`start-year-${year}`} value={year}>{year}</option>
-                ))}
-              </select>
-              <span className="signals-intel-custom-sep">–</span>
-              <select
-                value={customRange.endMonth}
-                onChange={event => setCustomRange(current => ({ ...current, endMonth: Number(event.target.value) }))}
-                aria-label="Custom range end month"
-              >
-                {MONTH_OPTIONS.map((month, index) => (
-                  <option key={`end-${month}`} value={index}>{month.slice(0, 3)}</option>
-                ))}
-              </select>
-              <select
-                value={customRange.endYear}
-                onChange={event => setCustomRange(current => ({ ...current, endYear: Number(event.target.value) }))}
-                aria-label="Custom range end year"
-              >
-                {yearOptions.map(year => (
-                  <option key={`end-year-${year}`} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-
-
-          <div className="signals-intel-search-cluster">
+          <div className="signals-intel-toolbar-right">
             <select
               className="signals-intel-category-select"
               value={activeTimelineFilter}
               onChange={event => setActiveTimelineFilter(event.target.value)}
-              aria-label="Filter intelligence by category"
+              aria-label="Filter by category"
             >
               {timelineFilters.map(filter => (
                 <option key={filter} value={filter}>
-                  {filter === "All" ? "All categories" : filter}
+                  {filter === "All" ? "All categories" : (CATEGORY_META[filter]?.label ?? filter)}
                 </option>
               ))}
             </select>
-            <label className="signals-intel-search">
-              <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={event => setSearchQuery(event.target.value)}
-                placeholder="Search intelligence"
-                aria-label="Search intelligence"
-              />
-            </label>
+
+            <select
+              className="signals-intel-toolbar-select"
+              value={datePreset}
+              onChange={event => setDatePreset(event.target.value as IntelligenceDatePreset)}
+              aria-label="Date range"
+            >
+              {INTELLIGENCE_DATE_PRESETS.map(preset => (
+                <option key={preset.id} value={preset.id}>{preset.label}</option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className={`intel-sources-toolbar-btn${showSourcesDrawer ? " is-active" : ""}`}
+              onClick={() => setShowSourcesDrawer(o => !o)}
+            >
+              Sources
+              <span className="intel-sources-toolbar-count">{pendingSources.length}</span>
+            </button>
           </div>
         </div>
       ) : null}
 
-      {showLogForm && isProfileComplete && !intelligenceFocusActive ? (
-        <IntelligenceLogForm
-          onLog={item => {
-            handleIntelligenceGenerated(item);
-            setShowLogForm(false);
-          }}
-          onCancel={() => setShowLogForm(false)}
-        />
-      ) : null}
-      <div className="signals-timeline-list">
-        {timelineBlocks.map((block) => {
-          if (block.kind === "benchmark") {
-            const benchmarkBlinking = block.items.some(item => (
-              blinkingIntelligenceIds.includes(item.id) || benchmarkBlinkIds.includes(item.id)
-            ));
-            return (
-              <div
-                className={`signals-benchmark-block${benchmarkBlinking ? " blink-once" : ""}`}
-                key={`benchmark-${block.submission.submittedAtMs}`}
-              >
-                <div className="signals-benchmark-block-entries">
-                  {block.items.map(renderTimelineRow)}
-                </div>
-                <QuarterlySubmissionPanel
-                  submission={block.submission}
-                  onEdit={openBenchmarkDrawer}
-                  highlight={false}
-                />
-              </div>
-            );
-          }
-          return renderTimelineRow(block.item);
-        })}
-        {!visibleIntelligenceItems.length ? (
-          <div className="signals-intel-empty">
-            {pendingSources.length > 0 && !filtersActive ? (
-              <>
-                <strong>No intelligence generated yet</strong>
-                <p>
-                  {pendingSources.length} source{pendingSources.length === 1 ? " is" : "s are"} in Sources.
-                  {" "}
-                  <button
-                    type="button"
-                    className="signals-intel-empty-link"
-                    onClick={() => {
-                      setSignalsView("sources");
-                      setSelectedSourceId(null);
-                    }}
-                  >
-                    Open Sources
-                  </button>
-                  {" "}to generate intelligence.
-                </p>
-              </>
-            ) : filtersActive ? (
-              <>
-                <strong>No intelligence matches these filters</strong>
-                <p>Try widening the date range, clearing search, or switching the intelligence category.</p>
-              </>
-            ) : (
-              <>
-                <strong>No intelligence yet</strong>
-                <p>Add a source or log intelligence to start building your timeline.</p>
-              </>
-            )}
-          </div>
-        ) : null}
-      </div>
+      {/* Category-grouped intelligence timeline */}
+      {filteredIntelligenceItems.length > 0 ? (
+        <div className="intel-category-feed">
+          {categoryGroups.map(([categoryKey, items]) => (
+            <IntelligenceCategoryGroup
+              key={categoryKey}
+              categoryKey={categoryKey}
+              label={CATEGORY_META[categoryKey]?.label ?? categoryKey}
+              icon={CATEGORY_META[categoryKey]?.icon ?? "·"}
+              items={items}
+              benchmarkSubmission={benchmarkSubmission}
+              benchmarkBlinkIds={benchmarkBlinkIds}
+              blinkingIds={blinkingIntelligenceIds}
+              selectedId={selectedIntelligenceId}
+              onSelectItem={(id) => { setSelectedIntelligenceId(id); setSelectedSourceId(null); }}
+              onRemoveItem={handleRemoveIntelligence}
+              renderTimelineRow={renderTimelineRow}
+              openBenchmarkDrawer={openBenchmarkDrawer}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="signals-intel-empty">
+          {filtersActive ? (
+            <>
+              <strong>No intelligence matches these filters</strong>
+              <p>Try widening the date range, clearing search, or switching the category.</p>
+            </>
+          ) : (
+            <>
+              <strong>No intelligence yet</strong>
+              <p>Add a source or log intelligence to start building your timeline.</p>
+            </>
+          )}
+        </div>
+      )}
+
+
       {isProfileComplete && !benchmarkSubmission ? (
         <div className="signals-footnote">
           Overlay uses <span>{cohortMeta.label}</span>. Finish private data to place your company on the cohort.
@@ -5299,79 +5694,34 @@ function SignalsPage({
         <div className="signals-page-head">
           <div>
             <h2>Intelligence</h2>
-            <p>
-              Signals from benchmarks, sources, and logged context — private to your account.
-            </p>
+            <p>Metrics from benchmarks, sources, and logged context — private to your account.</p>
           </div>
-          <div className="signals-page-head-actions">
-            {!intelligenceFocusActive ? (
-              <>
-                {!sourceFormOpen ? (
-                  <button
-                    type="button"
-                    className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
-                    data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
-                    onClick={() => {
-                      setSignalsView("sources");
-                      setSourceFormOpen(true);
-                    }}
-                  >
-                    + Add a source
-                  </button>
-                ) : null}
-                {!showLogForm ? (
-                  <button
-                    type="button"
-                    className={`initiatives-primary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
-                    data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
-                    onClick={() => {
-                      setSignalsView("intelligence");
-                      setShowLogForm(true);
-                    }}
-                  >
-                    + Log intelligence
-                  </button>
-                ) : null}
-                <button type="button" className="initiatives-secondary-btn" onClick={openBenchmarkDrawer}>
-                  Update benchmark for {formatBenchmarkPeriodLabel(benchmarkSubmission?.period ?? BENCHMARK_PERIOD)}
-                </button>
-              </>
-            ) : null}
-          </div>
+          {!intelligenceFocusActive ? (
+            <div className="signals-page-head-actions">
+              <button
+                type="button"
+                className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
+                data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
+                onClick={() => setSourceFormOpen(true)}
+              >
+                Add source
+              </button>
+              <button
+                type="button"
+                className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
+                data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
+                onClick={() => setShowLogForm(true)}
+              >
+                Log intelligence
+              </button>
+              <button type="button" className="initiatives-secondary-btn" onClick={openBenchmarkDrawer}>
+                Update benchmark
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {documentNoticeBanner}
-
-        {!intelligenceFocusActive ? (
-          <div className="initiatives-status-toggle" role="tablist" aria-label="Intelligence view">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={signalsView === "intelligence"}
-              className={`initiatives-status-toggle-btn${signalsView === "intelligence" ? " is-active" : ""}`}
-              onClick={() => {
-                setSignalsView("intelligence");
-                setSelectedSourceId(null);
-              }}
-            >
-              Intelligence
-              <em>{intelligenceItems.length}</em>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={signalsView === "sources"}
-              className={`initiatives-status-toggle-btn${signalsView === "sources" ? " is-active" : ""}`}
-              onClick={() => {
-                setSignalsView("sources");
-                setSelectedIntelligenceId(null);
-              }}
-            >
-              Sources
-              <em>{pendingSources.length}</em>
-            </button>
-          </div>
-        ) : null}
 
         <ContextFeedPage
           onOpenConnectors={onLinkConnectors}
@@ -5383,29 +5733,12 @@ function SignalsPage({
           onSourceFormOpenChange={setSourceFormOpen}
         />
 
-        {signalsView === "intelligence" || intelligenceFocusActive ? intelligenceTimelinePanel : (
-          <div className="signals-board-panel signals-board-panel--sources">
-            <SourcesListPanel
-              sources={pendingSources}
-              documentSlots={documentSlots}
-              onSelectSource={(sourceId) => {
-                setSelectedSourceId(sourceId);
-                setSelectedIntelligenceId(null);
-              }}
-              onGenerateFromPending={onGenerateFromPending}
-              onDismissPendingSource={onDismissPendingSource}
-              onFocusIntelligence={(focus) => {
-                onFocusIntelligence?.(focus);
-                setSignalsView("intelligence");
-                setSelectedSourceId(null);
-              }}
-            />
-          </div>
-        )}
+        {intelligenceTimelinePanel}
 
         {selectedIntelligence ? (
           <IntelligenceProvenanceSidebar
             item={selectedIntelligence}
+            siblingItems={selectedIntelligenceHistory}
             onClose={() => setSelectedIntelligenceId(null)}
           />
         ) : null}
@@ -5423,14 +5756,31 @@ function SignalsPage({
             }}
             onViewIntelligence={() => {
               onFocusIntelligence?.({ ids: selectedSourceMeta.ids, label: selectedSource.title });
-              setSignalsView("intelligence");
               setSelectedSourceId(null);
             }}
             onSelectIntelligence={(id) => {
               setSelectedSourceId(null);
-              setSignalsView("intelligence");
               setSelectedIntelligenceId(id);
             }}
+          />
+        ) : null}
+
+        {showLogForm ? (
+          <LogIntelligenceDrawer
+            onLog={item => { handleIntelligenceGenerated(item); setShowLogForm(false); }}
+            onClose={() => setShowLogForm(false)}
+          />
+        ) : null}
+
+        {showSourcesDrawer ? (
+          <SourcesDrawer
+            sources={pendingSources}
+            documentSlots={documentSlots}
+            onClose={() => setShowSourcesDrawer(false)}
+            onSelectSource={(id) => { setSelectedSourceId(id); setSelectedIntelligenceId(null); }}
+            onGenerateFromPending={onGenerateFromPending}
+            onDismissPendingSource={onDismissPendingSource}
+            onFocusIntelligence={onFocusIntelligence}
           />
         ) : null}
 
@@ -5500,7 +5850,20 @@ function SignalsPage({
       {selectedIntelligence ? (
         <IntelligenceProvenanceSidebar
           item={selectedIntelligence}
+          siblingItems={selectedIntelligenceHistory}
           onClose={() => setSelectedIntelligenceId(null)}
+        />
+      ) : null}
+
+      {showSourcesDrawer ? (
+        <SourcesDrawer
+          sources={pendingSources}
+          documentSlots={documentSlots}
+          onClose={() => setShowSourcesDrawer(false)}
+          onSelectSource={(id) => { setSelectedSourceId(id); setSelectedIntelligenceId(null); }}
+          onGenerateFromPending={onGenerateFromPending}
+          onDismissPendingSource={onDismissPendingSource}
+          onFocusIntelligence={onFocusIntelligence}
         />
       ) : null}
     </section>
@@ -5818,108 +6181,272 @@ function TourPromptBanner({
   );
 }
 
-const MANUAL_INTELLIGENCE_CATEGORIES = [
-  "Fundraising",
-  "GTM",
-  "Product",
-  "Strategic",
-  "Team",
-  "Finance",
-  "Growth",
-  "Retention",
-  "Efficiency",
-] as const;
+const INTELLIGENCE_QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
+
+function currentIntelligencePeriod(now = new Date()): string {
+  const quarter = Math.floor(now.getMonth() / 3) + 1;
+  return `${now.getFullYear()}-q${quarter}`;
+}
+
+function parseIntelligencePeriod(period?: string): { quarter: string; year: string } {
+  if (!period) return { quarter: "", year: "" };
+  const normalized = period.trim().toUpperCase().replace(/\s+/g, "");
+  const yearFirst = normalized.match(/^(20\d{2})-?Q([1-4])$/);
+  if (yearFirst) return { quarter: `Q${yearFirst[2]}`, year: yearFirst[1] };
+  const quarterFirst = normalized.match(/^Q([1-4])-?(20\d{2})$/);
+  if (quarterFirst) return { quarter: `Q${quarterFirst[1]}`, year: quarterFirst[2] };
+  return { quarter: "", year: "" };
+}
+
+function formatIntelligencePeriod(quarter: string, year: string): string {
+  const q = quarter.trim().toUpperCase().replace(/^Q/, "");
+  return `${year}-q${q}`.toLowerCase();
+}
+
+function normalizeIntelligencePeriod(period?: string): string {
+  const parsed = parseIntelligencePeriod(period);
+  if (parsed.quarter && parsed.year) {
+    return formatIntelligencePeriod(parsed.quarter, parsed.year);
+  }
+  return currentIntelligencePeriod();
+}
+
+function intelligencePeriodYearOptions(preferredYear?: string, now = new Date()): number[] {
+  const current = now.getFullYear();
+  const years = [current - 2, current - 1, current, current + 1];
+  const preferred = preferredYear ? Number(preferredYear) : NaN;
+  if (Number.isFinite(preferred) && !years.includes(preferred)) {
+    years.push(preferred);
+    years.sort((a, b) => a - b);
+  }
+  return years;
+}
 
 function IntelligenceLogForm({
   onLog,
   onCancel,
-  submitLabel = "Log",
-  defaultPeriod = "2026-q2",
+  submitLabel = "Log intelligence",
+  defaultPeriod = currentIntelligencePeriod(),
+  hideActions = false,
+  submitRef,
 }: {
   onLog: (item: IntelligenceItem) => void;
   onCancel: () => void;
   submitLabel?: string;
   defaultPeriod?: string;
+  hideActions?: boolean;
+  submitRef?: React.MutableRefObject<(() => void) | null>;
 }) {
-  const [category, setCategory] = useState("");
-  const [period, setPeriod] = useState(defaultPeriod);
+  const [categoryKey, setCategoryKey] = useState("");
+  const [signalName, setSignalName] = useState("");
+  const [period, setPeriod] = useState(() => normalizeIntelligencePeriod(defaultPeriod));
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
 
+  const periodParts = parseIntelligencePeriod(period);
+  const periodYears = intelligencePeriodYearOptions(periodParts.year);
+
   const reset = () => {
-    setCategory("");
-    setPeriod(defaultPeriod);
+    setCategoryKey("");
+    setSignalName("");
+    setPeriod(normalizeIntelligencePeriod(defaultPeriod));
     setValue("");
     setNote("");
   };
 
+  const canSubmit = categoryKey && signalName && value.trim() && periodParts.quarter && periodParts.year;
+
+  const doSubmit = () => {
+    if (!canSubmit) return;
+    onLog({
+      id: `intel-log-${Date.now()}`,
+      type: categoryKey,
+      subtype: signalName,
+      text: signalName,
+      highlight: value.trim(),
+      date: formatIntelligencePeriod(periodParts.quarter, periodParts.year),
+      age: "Just now",
+      title: note.trim() || `${signalName}: ${value.trim()}`,
+      confidence: "Manual",
+      sources: [],
+      updatedAtMs: Date.now(),
+    });
+    reset();
+  };
+
+  if (submitRef) submitRef.current = doSubmit;
+
   return (
-    <div className="signals-log-form-row">
-      <select value={category} onChange={event => setCategory(event.target.value)}>
-        <option value="">Pick a category...</option>
-        {MANUAL_INTELLIGENCE_CATEGORIES.map(option => (
-          <option key={option} value={option}>{option}</option>
-        ))}
-      </select>
-      <input
-        type="text"
-        value={period}
-        onChange={event => setPeriod(event.target.value)}
-        aria-label="Period"
-      />
-      <input
-        type="text"
-        value={value}
-        onChange={event => setValue(event.target.value)}
-        placeholder="Value (free text)"
-      />
-      <input
-        type="text"
-        value={note}
-        onChange={event => setNote(event.target.value)}
-        placeholder="Note (optional)"
-      />
-      <button
-        type="button"
-        className="signals-log-submit"
-        disabled={!category || !value.trim()}
-        onClick={() => {
-          if (!category || !value.trim()) return;
-          onLog({
-            id: `intel-log-${Date.now()}`,
-            type: category.toLowerCase(),
-            text: category,
-            highlight: value.trim(),
-            date: period,
-            age: "Just now",
-            title: note.trim() || value.trim(),
-            confidence: "Manual",
-            sources: [],
-            updatedAtMs: Date.now(),
-          });
-          reset();
-        }}
-      >
-        {submitLabel}
-      </button>
-      <button
-        type="button"
-        className="signals-log-cancel"
-        onClick={() => {
-          reset();
-          onCancel();
-        }}
-      >
-        Cancel
-      </button>
+    <div className="signals-log-form">
+      <div className="signals-log-form-row">
+        {/* Single grouped signal dropdown */}
+        <div className="signals-log-field signals-log-field--signal">
+          <label className="signals-log-label">Signal</label>
+          <select
+            className="signals-log-select"
+            value={categoryKey && signalName ? `${categoryKey}::${signalName}` : ""}
+            onChange={e => {
+              const val = e.target.value;
+              if (!val) { setCategoryKey(""); setSignalName(""); return; }
+              const [cat, sig] = val.split("::");
+              setCategoryKey(cat);
+              setSignalName(sig);
+            }}
+          >
+            <option value="">Select a signal…</option>
+            {SIGNAL_CATALOG.map(cat => (
+              <optgroup key={cat.key} label={`${cat.icon}  ${cat.label}`}>
+                {cat.signals.map(sig => (
+                  <option key={sig.name} value={`${cat.key}::${sig.name}`}>
+                    {sig.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+
+        {/* Value */}
+        <div className="signals-log-field">
+          <label className="signals-log-label">Value</label>
+          <input
+            className="signals-log-input"
+            type="text"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            placeholder="e.g. 2.4M"
+          />
+        </div>
+
+        {/* Period — quarter + year */}
+        <div className="signals-log-field signals-log-field--period">
+          <label className="signals-log-label">Period</label>
+          <div className="signals-log-period-selects">
+            <select
+              className="signals-log-select"
+              value={periodParts.quarter}
+              aria-label="Period quarter"
+              onChange={e => {
+                setPeriod(formatIntelligencePeriod(
+                  e.target.value,
+                  periodParts.year || String(periodYears[periodYears.length - 2] ?? periodYears[0]),
+                ));
+              }}
+            >
+              {INTELLIGENCE_QUARTERS.map(quarter => (
+                <option key={quarter} value={quarter}>{quarter}</option>
+              ))}
+            </select>
+            <select
+              className="signals-log-select"
+              value={periodParts.year}
+              aria-label="Period year"
+              onChange={e => {
+                setPeriod(formatIntelligencePeriod(
+                  periodParts.quarter || "Q1",
+                  e.target.value,
+                ));
+              }}
+            >
+              {periodYears.map(year => (
+                <option key={year} value={String(year)}>{year}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Optional note */}
+      <div className="signals-log-form-row signals-log-form-row--note">
+        <div className="signals-log-field signals-log-field--full">
+          <label className="signals-log-label">Note <span className="signals-log-optional">(optional)</span></label>
+          <input
+            className="signals-log-input"
+            type="text"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Context or commentary…"
+          />
+        </div>
+      </div>
+
+      {!hideActions ? (
+        <div className="signals-log-form-actions">
+          <button type="button" className="signals-log-submit" disabled={!canSubmit} onClick={doSubmit}>
+            {submitLabel}
+          </button>
+          <button type="button" className="signals-log-cancel" onClick={() => { reset(); onCancel(); }}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
+
 
 type InitiativePillar = "dev" | "mkt" | "rev";
 type InitiativeKind = "continuous" | "one-time";
 type InitiativeStatus = "Suggested" | "Active" | "Completed";
 type InitiativeProgressRole = "baseline" | "current" | "target";
+
+/**
+ * Initiative taxonomy — same pattern as Intelligence signal logging:
+ * one dropdown, optgroups by track (R&D / GTM / G&A), options = work themes.
+ * Pillar stays the York / scorecard join key.
+ */
+type InitiativeTopic = {
+  id: string;
+  label: string;
+};
+
+const INITIATIVE_PILLAR_ORDER: InitiativePillar[] = ["dev", "mkt", "rev"];
+
+const INITIATIVE_TOPIC_CATALOG: Record<InitiativePillar, InitiativeTopic[]> = {
+  // Broad buckets — security, infra, QA, design, etc. all fit under these.
+  dev: [
+    { id: "product-eng", label: "Product & engineering" },
+    { id: "quality-security", label: "Quality, security & reliability" },
+    { id: "roadmap", label: "Roadmap & delivery" },
+  ],
+  mkt: [
+    { id: "acquisition", label: "Acquisition & demand" },
+    { id: "sales-retention", label: "Sales & retention" },
+    { id: "revops", label: "RevOps & systems" },
+  ],
+  rev: [
+    { id: "finance-ops", label: "Finance & ops" },
+    { id: "fundraising", label: "Fundraising" },
+    { id: "people", label: "Hiring & team" },
+  ],
+};
+
+function initiativeTaxonomyValue(pillar: InitiativePillar, topicId?: string): string {
+  return `${pillar}::${normalizeInitiativeTopic(pillar, topicId)}`;
+}
+
+function parseInitiativeTaxonomyValue(value: string): { pillar: InitiativePillar; topic: string } | null {
+  const [pillarRaw, topicRaw] = value.split("::");
+  if (pillarRaw !== "dev" && pillarRaw !== "mkt" && pillarRaw !== "rev") return null;
+  if (!topicRaw) return null;
+  return { pillar: pillarRaw, topic: normalizeInitiativeTopic(pillarRaw, topicRaw) };
+}
+
+function defaultInitiativeTopic(pillar: InitiativePillar): string {
+  return INITIATIVE_TOPIC_CATALOG[pillar][0]?.id ?? "product-eng";
+}
+
+function initiativeTopicLabel(pillar: InitiativePillar, topicId?: string): string {
+  const topics = INITIATIVE_TOPIC_CATALOG[pillar];
+  const match = topics.find(t => t.id === topicId);
+  return match?.label ?? topics[0]?.label ?? "Topic";
+}
+
+function normalizeInitiativeTopic(pillar: InitiativePillar, topicId?: string): string {
+  const topics = INITIATIVE_TOPIC_CATALOG[pillar];
+  if (topicId && topics.some(t => t.id === topicId)) return topicId;
+  return defaultInitiativeTopic(pillar);
+}
 
 type InitiativeListStatus = "Active" | "Completed";
 
@@ -5965,6 +6492,8 @@ type InitiativeRecord = {
   title: string;
   description: string;
   pillar: InitiativePillar;
+  /** Work theme under pillar — like Intelligence signal under category. */
+  topic: string;
   kind: InitiativeKind;
   status: InitiativeStatus;
   /** @deprecated Prefer assignees — kept for summary compatibility. */
@@ -6207,11 +6736,13 @@ function InitiativeMilestoneRow({
 
 function emptyInitiativeDraft(): InitiativeRecord {
   const assignees = [DEFAULT_INITIATIVE_ASSIGNEE];
+  const pillar: InitiativePillar = "mkt";
   return {
     id: `draft-${Date.now()}`,
     title: "",
     description: "",
-    pillar: "mkt",
+    pillar,
+    topic: defaultInitiativeTopic(pillar),
     kind: "continuous",
     status: "Active",
     assignees,
@@ -6265,6 +6796,13 @@ function InitiativeDetailDrawer({
   const [advisorDraftId, setAdvisorDraftId] = useState("");
   const [showAdvisorForm, setShowAdvisorForm] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(isCreate);
+  const [yorkNudgeHidden, setYorkNudgeHidden] = useState(
+    () => !yorkOffer || isYorkOfferDismissed(yorkOffer.id),
+  );
+
+  useEffect(() => {
+    setYorkNudgeHidden(!yorkOffer || isYorkOfferDismissed(yorkOffer.id));
+  }, [yorkOffer?.id]);
 
   const availableAdvisors = INITIATIVE_ADVISOR_DIRECTORY.filter(
     advisor => !advisors.some(linked => linked.id === advisor.id),
@@ -6337,6 +6875,8 @@ function InitiativeDetailDrawer({
                     {initiativeKindLabel(item.kind)}
                     {" · "}
                     {initiativePillarLabel(item.pillar)}
+                    {" · "}
+                    {initiativeTopicLabel(item.pillar, item.topic)}
                     {" · "}
                     {displayInitiativeDue(item.due)}
                   </>
@@ -6423,18 +6963,34 @@ function InitiativeDetailDrawer({
                   <select
                     value={item.kind}
                     onChange={event => onPatch({ kind: event.target.value as InitiativeKind })}
+                    aria-label="Kind"
                   >
                     <option value="continuous">Continuous</option>
                     <option value="one-time">One-time</option>
                   </select>
-                  <select
-                    value={item.pillar}
-                    onChange={event => onPatch({ pillar: event.target.value as InitiativePillar })}
-                  >
-                    <option value="mkt">GTM</option>
-                    <option value="dev">R&D</option>
-                    <option value="rev">G&A</option>
-                  </select>
+                </div>
+                <div className="initiative-form-row initiative-form-row--taxonomy">
+                  <label className="initiative-taxonomy-field">
+                    <span>Category</span>
+                    <select
+                      value={initiativeTaxonomyValue(item.pillar, item.topic)}
+                      onChange={event => {
+                        const parsed = parseInitiativeTaxonomyValue(event.target.value);
+                        if (!parsed) return;
+                        onPatch({ pillar: parsed.pillar, topic: parsed.topic });
+                      }}
+                    >
+                      {INITIATIVE_PILLAR_ORDER.map(pillar => (
+                        <optgroup key={pillar} label={initiativePillarLabel(pillar)}>
+                          {INITIATIVE_TOPIC_CATALOG[pillar].map(topic => (
+                            <option key={topic.id} value={`${pillar}::${topic.id}`}>
+                              {topic.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 <textarea
                   value={item.description}
@@ -6465,8 +7021,12 @@ function InitiativeDetailDrawer({
                     <dd>{initiativeKindLabel(item.kind)}</dd>
                   </div>
                   <div>
-                    <dt>Pillar</dt>
-                    <dd>{initiativePillarLabel(item.pillar)}</dd>
+                    <dt>Category</dt>
+                    <dd>
+                      {initiativePillarLabel(item.pillar)}
+                      {" · "}
+                      {initiativeTopicLabel(item.pillar, item.topic)}
+                    </dd>
                   </div>
                   <div>
                     <dt>Assigned to</dt>
@@ -6481,12 +7041,17 @@ function InitiativeDetailDrawer({
             )}
           </div>
 
-          {!isCreate && yorkOffer ? (
+          {!isCreate && yorkOffer && !yorkNudgeHidden ? (
             <div className="initiative-card-section initiative-york-nudge-wrap">
               <YorkPartnerNudge
                 offer={yorkOffer}
-                showHelpSummary
-                message={yorkNudgeMessageForInitiative(item, yorkOffer)}
+                variant="bar"
+                firstName="Shreya"
+                weakTrackLabels={[
+                  item.pillar === "dev" ? "R&D" : item.pillar === "mkt" ? "GTM" : "G&A",
+                ]}
+                cta="Talk to York IE"
+                onDismissed={() => setYorkNudgeHidden(true)}
               />
             </div>
           ) : null}
@@ -6806,6 +7371,7 @@ function createInitiativeRecord(input: {
   title: string;
   description?: string;
   pillar?: InitiativePillar;
+  topic?: string;
   kind?: InitiativeKind;
   status?: InitiativeStatus;
   owner?: string;
@@ -6821,6 +7387,7 @@ function createInitiativeRecord(input: {
     title,
     description: input.description?.trim() ?? "",
     pillar,
+    topic: normalizeInitiativeTopic(pillar, input.topic),
     kind: input.kind ?? "continuous",
     status: normalizeInitiativeStatus(input.status ?? "Active"),
     assignees,
@@ -6839,6 +7406,7 @@ function buildDefaultRecommendedInitiatives(): InitiativeRecord[] {
       title: "Tighten ICP messaging for enterprise deals",
       description: "Rewrite homepage and outbound copy around the highest-converting ICP segment from recent intel.",
       pillar: "mkt",
+      topic: "icp",
       status: "Suggested",
     }),
     createInitiativeRecord({
@@ -6846,6 +7414,7 @@ function buildDefaultRecommendedInitiatives(): InitiativeRecord[] {
       title: "Run a scale-readiness checklist",
       description: "Audit ship cadence, critical debt, and on-call coverage before the next hiring wave.",
       pillar: "dev",
+      topic: "planning",
       status: "Suggested",
     }),
     createInitiativeRecord({
@@ -6853,6 +7422,7 @@ function buildDefaultRecommendedInitiatives(): InitiativeRecord[] {
       title: "Build a 6-month cash runway plan",
       description: "Model burn scenarios and decide which G&A levers to pull if pipeline slips a quarter.",
       pillar: "rev",
+      topic: "runway",
       status: "Suggested",
     }),
   ];
@@ -7060,9 +7630,16 @@ function InitiativesPage({
         patch.owner ?? previous.owner,
         patch.assignees ?? previous.assignees,
       );
+      const pillar = patch.pillar ?? previous.pillar;
+      const topic = normalizeInitiativeTopic(
+        pillar,
+        patch.topic ?? (patch.pillar && patch.pillar !== previous.pillar ? undefined : previous.topic),
+      );
       return {
         ...previous,
         ...patch,
+        pillar,
+        topic,
         assignees: nextAssignees,
         owner: nextAssignees[0] ?? DEFAULT_INITIATIVE_ASSIGNEE,
         advisors: patch.advisors ?? previous.advisors ?? [],
@@ -7074,6 +7651,7 @@ function InitiativesPage({
     if (!createDraft?.title.trim()) return;
     const title = createDraft.title.trim();
     const pillar = createDraft.pillar;
+    const topic = normalizeInitiativeTopic(pillar, createDraft.topic);
     const milestones = createDraft.milestones.length > 0
       ? createDraft.milestones
       : buildDefaultMilestones(title, pillar);
@@ -7082,6 +7660,8 @@ function InitiativesPage({
       id: `init-${Date.now()}`,
       title,
       description: createDraft.description.trim(),
+      pillar,
+      topic,
       status: normalizeInitiativeStatus(createDraft.status),
       milestones,
       due: createDraft.due?.trim() || undefined,
@@ -7099,9 +7679,16 @@ function InitiativesPage({
       patch.owner ?? current.owner,
       patch.assignees ?? current.assignees,
     );
+    const pillar = patch.pillar ?? current.pillar;
+    const topic = normalizeInitiativeTopic(
+      pillar,
+      patch.topic ?? (patch.pillar && patch.pillar !== current.pillar ? undefined : current.topic),
+    );
     onUpdate({
       ...current,
       ...patch,
+      pillar,
+      topic,
       assignees: nextAssignees,
       owner: nextAssignees[0] ?? DEFAULT_INITIATIVE_ASSIGNEE,
       advisors: patch.advisors ?? current.advisors ?? [],
@@ -7239,6 +7826,8 @@ function InitiativesPage({
                         {" · "}
                         {initiativePillarLabel(item.pillar)}
                         {" · "}
+                        {initiativeTopicLabel(item.pillar, item.topic)}
+                        {" · "}
                         {assignees.join(", ")}
                         {milestonesTotal > 0
                           ? ` · ${milestonesDone}/${milestonesTotal} milestones`
@@ -7301,6 +7890,8 @@ function InitiativesPage({
                       <strong>{item.title}</strong>
                       <span>
                         {initiativePillarLabel(item.pillar)}
+                        {" · "}
+                        {initiativeTopicLabel(item.pillar, item.topic)}
                         {item.description.trim() ? ` · ${item.description}` : ""}
                       </span>
                     </div>
@@ -7544,34 +8135,73 @@ function GuidedTourOverlay({ step, total, title, text, highlightTarget, onNext, 
   onPrevious: () => void;
   onSkip: () => void;
 }) {
-  const [popoverStyle, setPopoverStyle] = useState({});
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
+  const [backdropStyle, setBackdropStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
-    function positionPopover() {
+    function layoutTourChrome() {
       const highlighted = highlightTarget
         ? document.querySelector(`[data-tour-target="${highlightTarget}"]`)
         : document.querySelector(".tour-highlight");
       if (!highlighted) {
         setPopoverStyle({});
+        setBackdropStyle({});
         return;
       }
 
-      highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
+      highlighted.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
       const rect = highlighted.getBoundingClientRect();
+      /* Match tour ring (~3px + ~8px glow) so the cutout doesn’t clip the border */
+      const pad = 12;
+      const hole = {
+        left: Math.max(0, rect.left - pad),
+        top: Math.max(0, rect.top - pad),
+        right: Math.min(window.innerWidth, rect.right + pad),
+        bottom: Math.min(window.innerHeight, rect.bottom + pad),
+      };
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // Full-viewport dim with a rectangular cutout so parents' overflow never clips the veil
+      setBackdropStyle({
+        clipPath: `polygon(evenodd, 0px 0px, ${vw}px 0px, ${vw}px ${vh}px, 0px ${vh}px, 0px 0px, ${hole.left}px ${hole.top}px, ${hole.left}px ${hole.bottom}px, ${hole.right}px ${hole.bottom}px, ${hole.right}px ${hole.top}px, ${hole.left}px ${hole.top}px)`,
+      });
+
       const popoverWidth = 306;
       const popoverHeight = 200;
       const pageMargin = 24;
       const gap = 16;
-      const left = Math.min(
-        Math.max(rect.left, pageMargin),
-        window.innerWidth - popoverWidth - pageMargin,
-      );
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const placeAbove = spaceBelow < popoverHeight + gap + pageMargin;
-      const top = placeAbove
-        ? Math.max(pageMargin, rect.top - popoverHeight - gap)
-        : rect.bottom + gap;
+      const spaceRight = vw - hole.right;
+      const spaceLeft = hole.left;
+      const spaceBelow = vh - hole.bottom;
+      const spaceAbove = hole.top;
+
+      let left: number;
+      let top: number;
+
+      // Prefer beside the target when there's room; otherwise below/above — never under the hole
+      if (spaceRight >= popoverWidth + gap + pageMargin) {
+        left = hole.right + gap;
+        top = Math.min(Math.max(pageMargin, hole.top), vh - popoverHeight - pageMargin);
+      } else if (spaceLeft >= popoverWidth + gap + pageMargin) {
+        left = hole.left - popoverWidth - gap;
+        top = Math.min(Math.max(pageMargin, hole.top), vh - popoverHeight - pageMargin);
+      } else if (spaceBelow >= popoverHeight + gap + pageMargin) {
+        left = Math.min(
+          Math.max(pageMargin, hole.left),
+          vw - popoverWidth - pageMargin,
+        );
+        top = hole.bottom + gap;
+      } else if (spaceAbove >= popoverHeight + gap + pageMargin) {
+        left = Math.min(
+          Math.max(pageMargin, hole.left),
+          vw - popoverWidth - pageMargin,
+        );
+        top = hole.top - popoverHeight - gap;
+      } else {
+        left = vw - popoverWidth - pageMargin;
+        top = Math.min(Math.max(pageMargin, hole.bottom + gap), vh - popoverHeight - pageMargin);
+      }
 
       setPopoverStyle({
         left,
@@ -7580,22 +8210,24 @@ function GuidedTourOverlay({ step, total, title, text, highlightTarget, onNext, 
       });
     }
 
-    positionPopover();
-    const frame = window.requestAnimationFrame(positionPopover);
-    const retry = window.setTimeout(positionPopover, 120);
-    const retryLate = window.setTimeout(positionPopover, 320);
-    window.addEventListener("resize", positionPopover);
+    layoutTourChrome();
+    const frame = window.requestAnimationFrame(layoutTourChrome);
+    const retry = window.setTimeout(layoutTourChrome, 120);
+    const retryLate = window.setTimeout(layoutTourChrome, 320);
+    window.addEventListener("resize", layoutTourChrome);
+    window.addEventListener("scroll", layoutTourChrome, true);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(retry);
       window.clearTimeout(retryLate);
-      window.removeEventListener("resize", positionPopover);
+      window.removeEventListener("resize", layoutTourChrome);
+      window.removeEventListener("scroll", layoutTourChrome, true);
     };
   }, [step, highlightTarget]);
 
   return (
     <div className="guided-tour-overlay">
-      <div className="guided-tour-backdrop" />
+      <div className="guided-tour-backdrop" style={backdropStyle} />
       <div className="guided-tour-popover" style={popoverStyle}>
         <div className="guided-tour-step-count">Step {step + 1} of {total}</div>
         <h3>{title}</h3>
@@ -8085,11 +8717,13 @@ function AskFuelAiButton({ onOpen }: { onOpen: () => void }) {
 function AiActionsMenu({
   companyName,
   tourActive,
+  tourHighlightItem,
   onRunPlaybook,
   onGenerateBrief,
 }: {
   companyName: string;
   tourActive?: boolean;
+  tourHighlightItem?: "playbooks" | "brief";
   onRunPlaybook?: (pb: Playbook) => void;
   onGenerateBrief?: () => void;
 }) {
@@ -8137,11 +8771,12 @@ function AiActionsMenu({
   const grouped: Record<string, Playbook[]> = {};
   filtered.forEach(p => { (grouped[p.category] ||= []).push(p); });
   const menuOpen = open || Boolean(tourActive);
+  const highlightPlaybooks = tourHighlightItem === "playbooks";
+  const highlightBrief = tourHighlightItem === "brief";
 
   return (
     <div
-      className={`ai-actions-menu${tourActive ? " tour-highlight" : ""}`}
-      data-tour-target={tourActive ? "ai-actions" : undefined}
+      className={`ai-actions-menu${tourActive ? " is-tour-open" : ""}`}
       ref={wrapRef}
       onMouseEnter={() => { cancelClose(); setOpen(true); }}
       onMouseLeave={() => { if (!showPicker) scheduleClose(); }}
@@ -8158,13 +8793,19 @@ function AiActionsMenu({
         <div className="ai-actions-dropdown">
           <button
             type="button"
-            className={`ai-dropdown-item has-submenu${showPicker ? " active" : ""}`}
+            className={`ai-dropdown-item has-submenu${showPicker ? " active" : ""}${highlightPlaybooks ? " tour-highlight" : ""}`}
+            data-tour-target={highlightPlaybooks ? "ai-actions-playbooks" : undefined}
             onClick={() => setShowPicker(v => !v)}
           >
             <span>▤ Playbooks</span>
             <span className="ai-submenu-caret">▸</span>
           </button>
-          <button type="button" className="ai-dropdown-item" onClick={() => { onGenerateBrief?.(); closeAll(); }}>
+          <button
+            type="button"
+            className={`ai-dropdown-item${highlightBrief ? " tour-highlight" : ""}`}
+            data-tour-target={highlightBrief ? "ai-actions-brief" : undefined}
+            onClick={() => { onGenerateBrief?.(); closeAll(); }}
+          >
             ≡ Generate brief
           </button>
         </div>
@@ -8206,31 +8847,40 @@ function AiActionsMenu({
   );
 }
 
-function SidebarYorkReachOut() {
-  const href = [
-    "mailto:growth@york.ie",
-    "?subject=",
-    encodeURIComponent("York IE · Talk from Fuel"),
-    "&body=",
-    encodeURIComponent(
-      [
-        "Hi York IE,",
-        "",
-        "I'm reaching out from Fuel — I'd like to talk about how York IE can help close gaps on our scorecard.",
-        "",
-        "Looking forward to talking.",
-      ].join("\n"),
-    ),
-  ].join("");
+function SidebarYorkReachOut({
+  ready,
+}: {
+  /** Only after Overview finishes loading — not during / right after onboarding build. */
+  ready: boolean;
+}) {
+  const [visible, setVisible] = useState(false);
+  const [dismissed, setDismissed] = useState(() => isYorkOfferDismissed(YORK_COMMON_OFFER.id));
+
+  useEffect(() => {
+    if (!ready) {
+      setVisible(false);
+      return;
+    }
+    // Brief settle after Overview is ready so the rail doesn’t compete with first paint.
+    const timer = window.setTimeout(() => setVisible(true), 2800);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
+
+  useEffect(() => {
+    setDismissed(isYorkOfferDismissed(YORK_COMMON_OFFER.id));
+  }, []);
+
+  if (!visible || dismissed) return null;
 
   return (
-    <a className="sidebar-york-reach" href={href}>
-      <span className="sidebar-york-reach-brand">York IE</span>
-      <span className="sidebar-york-reach-copy">
-        <strong>Need hands on a gap?</strong>
-        <em>Talk with us →</em>
-      </span>
-    </a>
+    <YorkPartnerNudge
+      offer={YORK_COMMON_OFFER}
+      variant="sidebar"
+      className="sidebar-york-nudge"
+      firstName="Shreya"
+      cta="Talk to York IE"
+      onDismissed={() => setDismissed(true)}
+    />
   );
 }
 
@@ -8263,8 +8913,10 @@ function SidebarMenuIcon({ children }: { children: React.ReactNode }) {
 
 function SidebarProfileFooter({
   onOpenAccountSettings,
+  yorkUpsellReady = false,
 }: {
   onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
+  yorkUpsellReady?: boolean;
 }) {
   const { snapshot } = useCredits();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -8297,7 +8949,7 @@ function SidebarProfileFooter({
 
   return (
     <div className="sidebar-footer">
-      <SidebarYorkReachOut />
+      <SidebarYorkReachOut ready={yorkUpsellReady} />
       <CreditIndicator />
       <div className="sidebar-foot-wrap" ref={wrapRef}>
         {menuOpen ? (
@@ -8662,18 +9314,39 @@ function PatriotPayJourneyInner({
         }
       }
 
-      if (pendingId && !document) {
-        setManualPendingSources(previous => previous.map(source => (
-          source.id === pendingId
-            ? {
-                ...source,
-                status: "saved",
-                intelligenceGenerated: true,
-                intelligenceIds: [item.id],
-                processedAtLabel,
-              }
-            : source
-        )));
+      // Always keep the source in Sources (notes + docs), matching import design.
+      if (pendingId) {
+        setManualPendingSources(previous => {
+          const nextEntry: PendingSource = {
+            id: pendingId,
+            title: title.trim(),
+            description: description.trim(),
+            kind: document ? "document" : "note",
+            document: document
+              ? { typeId: document.typeId, typeLabel: document.typeLabel, fileName: document.fileName }
+              : undefined,
+            addedAtMs: processedAtMs,
+            addedAtLabel: processedAtLabel,
+            processedAtLabel,
+            status: "saved",
+            intelligenceGenerated: true,
+            intelligenceIds: [item.id],
+          };
+          const exists = previous.some(source => source.id === pendingId);
+          if (exists) {
+            return previous.map(source => (source.id === pendingId
+              ? {
+                  ...source,
+                  status: "saved",
+                  intelligenceGenerated: true,
+                  intelligenceIds: [item.id],
+                  processedAtLabel,
+                  emptyReason: undefined,
+                }
+              : source));
+          }
+          return [nextEntry, ...previous];
+        });
       } else if (!document) {
         setManualPendingSources(previous => [{
           id: `source-note-${processedAtMs}`,
@@ -8691,18 +9364,40 @@ function PatriotPayJourneyInner({
       return;
     }
 
-    if (pendingId && !document) {
-      setManualPendingSources(previous => previous.map(source => (
-        source.id === pendingId
-          ? {
-              ...source,
-              status: "saved",
-              intelligenceGenerated: false,
-              processedAtLabel,
-            }
-          : source
-      )));
-      return;
+    if (pendingId) {
+      setManualPendingSources(previous => {
+        const exists = previous.some(source => source.id === pendingId);
+        if (exists) {
+          return previous.map(source => (
+            source.id === pendingId
+              ? {
+                  ...source,
+                  status: "saved",
+                  intelligenceGenerated: false,
+                  intelligenceIds: [],
+                  emptyReason: result.emptyReason || "No intelligence identified from this source.",
+                  processedAtLabel,
+                }
+              : source
+          ));
+        }
+        return [{
+          id: pendingId,
+          title: title.trim(),
+          description: description.trim(),
+          kind: document ? "document" : "note",
+          document: document
+            ? { typeId: document.typeId, typeLabel: document.typeLabel, fileName: document.fileName }
+            : undefined,
+          addedAtMs: processedAtMs,
+          addedAtLabel: processedAtLabel,
+          processedAtLabel,
+          status: "saved",
+          intelligenceGenerated: false,
+          intelligenceIds: [],
+          emptyReason: result.emptyReason || "No intelligence identified from this source.",
+        }, ...previous];
+      });
     }
 
     if (document) {
@@ -8711,22 +9406,23 @@ function PatriotPayJourneyInner({
         document.typeId,
         result.emptyReason || "No intelligence identified from this source.",
       ));
-      return;
     }
 
-    setManualPendingSources(previous => [{
-      id: `source-note-${processedAtMs}`,
-      title: title.trim(),
-      description: description.trim(),
-      kind: "note",
-      addedAtMs: processedAtMs,
-      addedAtLabel: processedAtLabel,
-      processedAtLabel,
-      status: "saved",
-      intelligenceGenerated: false,
-      intelligenceIds: [],
-      emptyReason: result.emptyReason,
-    }, ...previous]);
+    if (!pendingId && !document) {
+      setManualPendingSources(previous => [{
+        id: `source-note-${processedAtMs}`,
+        title: title.trim(),
+        description: description.trim(),
+        kind: "note",
+        addedAtMs: processedAtMs,
+        addedAtLabel: processedAtLabel,
+        processedAtLabel,
+        status: "saved",
+        intelligenceGenerated: false,
+        intelligenceIds: [],
+        emptyReason: result.emptyReason,
+      }, ...previous]);
+    }
   }, [usesPerCompanyWorkspace, selectedCompany.id, investorIntelligenceByCompany, investorInitiativesByCompany, investorBenchmarkByCompany, investorWorkspaceStarted, markInvestorWorkspaceStarted]);
   const handleAttemptSourceGeneration = useCallback((params: {
     title: string;
@@ -8737,21 +9433,34 @@ function PatriotPayJourneyInner({
   }) => {
     const sourceAddedAtMs = Date.now();
     const sourceAddedAtLabel = new Date(sourceAddedAtMs).toLocaleString("en-US");
+    const documentForEval = params.document
+      ? {
+          typeId: params.document.typeId,
+          typeLabel: params.document.typeLabel,
+          fileName: params.document.file.name,
+        }
+      : params.documentMeta;
+    // Always assign an id so Sources count updates for notes and documents (import design).
     const sourceId = params.pendingId
-      ?? (!params.document ? `source-note-${sourceAddedAtMs}` : undefined);
+      ?? (params.document
+        ? `source-doc-${params.document.typeId}-${sourceAddedAtMs}`
+        : `source-note-${sourceAddedAtMs}`);
 
-    if (!params.pendingId && !params.document && sourceId) {
+    // Register in Sources immediately — intelligence may stay at 0.
+    if (!params.pendingId) {
       setManualPendingSources(previous => [{
         id: sourceId,
-        title: params.title.trim(),
+        title: params.title.trim() || (params.document?.file.name ?? "Untitled source"),
         description: params.description.trim(),
-        kind: "note",
+        kind: params.document ? "document" : "note",
+        document: documentForEval,
         addedAtMs: sourceAddedAtMs,
         addedAtLabel: sourceAddedAtLabel,
         processedAtLabel: sourceAddedAtLabel,
         status: "saved",
         intelligenceGenerated: false,
-      }, ...previous]);
+        intelligenceIds: [],
+      }, ...previous.filter(source => source.id !== sourceId)]);
     }
 
     if (params.document && !params.pendingId) {
@@ -8764,30 +9473,33 @@ function PatriotPayJourneyInner({
       );
     }
 
-    tryAction("generateSource", () => {
-      const documentForEval = params.document
-        ? {
-            typeId: params.document.typeId,
-            typeLabel: params.document.typeLabel,
-            fileName: params.document.file.name,
-          }
-        : params.documentMeta;
-
-      const result = evaluateSourceIntelligenceGeneration({
-        title: params.title,
-        description: params.description,
-        document: documentForEval,
-      });
-
+    const applyResult = (result: { item: IntelligenceItem | null; emptyReason?: string }) => {
       applySourceGenerationResult({
         title: params.title,
         description: params.description,
         document: documentForEval,
-        documentFile: undefined,
+        documentFile: params.document?.file,
         pendingId: sourceId,
         result,
       });
+    };
+
+    let generated = false;
+    tryAction("generateSource", () => {
+      generated = true;
+      applyResult(evaluateSourceIntelligenceGeneration({
+        title: params.title,
+        description: params.description,
+        document: documentForEval,
+      }));
     });
+
+    if (!generated) {
+      applyResult({
+        item: null,
+        emptyReason: "Source saved. Generate intelligence when credits are available.",
+      });
+    }
   }, [applySourceGenerationResult, tryAction]);
   const handleGenerateFromPending = (pendingId: string) => {
     const pending = getPendingSources(manualPendingSources, documentSlots).find(source => source.id === pendingId);
@@ -8939,19 +9651,19 @@ function PatriotPayJourneyInner({
       page: "signals",
       target: "signals",
       title: "Intelligence",
-      text: "Intelligence is your evidence timeline — benchmarks, uploads, and logged signals. Fuel is still assembling the first set from onboarding in the background.",
+      text: "Intelligence groups benchmarks, uploads, and logged signals by category — open any row for provenance and history. Fuel is still assembling the first set from onboarding in the background.",
     },
     {
       page: "signals",
       target: "add-source",
       title: "Add a source",
-      text: "Add a note or document anytime to generate more intelligence without waiting on connectors.",
+      text: "Use Add source to attach a note or document and generate intelligence without waiting on connectors.",
     },
     {
       page: "signals",
       target: "log-intelligence",
       title: "Log intelligence",
-      text: "Capture a signal yourself — a hire, a deal, a risk, a win. Drop it here and it lands on the timeline alongside everything Fuel generates.",
+      text: "Use Log intelligence to capture a catalog signal — ARR, burn, retention, and more — so it lands in the feed with history.",
     },
     {
       page: "initiatives",
@@ -8973,9 +9685,15 @@ function PatriotPayJourneyInner({
     },
     {
       page: "scorecard-v2",
-      target: "ai-actions",
-      title: "AI Actions",
-      text: "From the ✦ menu, run Playbooks for structured analysis or Generate brief for an investor-ready company summary — both use your company context.",
+      target: "ai-actions-playbooks",
+      title: "Playbooks",
+      text: "Open ✦ then Playbooks for structured runbooks — diligence, pricing, audits, and planning frameworks run against this company’s context.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "ai-actions-brief",
+      title: "Generate brief",
+      text: "Generate brief opens Ask Fuel AI and drafts your company overview in chat so you can read it, ask follow-ups, and refine it there.",
     },
   ] as const;
   const tourSteps = profileComplete
@@ -9341,7 +10059,10 @@ function PatriotPayJourneyInner({
           ))}
         </div>
         </div>
-        <SidebarProfileFooter onOpenAccountSettings={openAccountSettings} />
+        <SidebarProfileFooter
+          onOpenAccountSettings={openAccountSettings}
+          yorkUpsellReady={overviewBuildPhase == null || overviewBuildPhase === "ready"}
+        />
       </aside>
 
       <div className="main">
@@ -9445,7 +10166,18 @@ function PatriotPayJourneyInner({
               </button>
               <AiActionsMenu
                 companyName={selectedCompany.displayName}
-                tourActive={tourOpen && tourSteps[tourStep].target === "ai-actions"}
+                tourActive={
+                  tourOpen
+                  && (tourSteps[tourStep].target === "ai-actions-playbooks"
+                    || tourSteps[tourStep].target === "ai-actions-brief")
+                }
+                tourHighlightItem={
+                  tourOpen && tourSteps[tourStep].target === "ai-actions-playbooks"
+                    ? "playbooks"
+                    : tourOpen && tourSteps[tourStep].target === "ai-actions-brief"
+                      ? "brief"
+                      : undefined
+                }
                 onRunPlaybook={(pb) => {
                   setLastPlaybook({ name: pb.name, kind: pb.kind, description: pb.description, category: pb.category });
                   setPendingPlaybook(pb);

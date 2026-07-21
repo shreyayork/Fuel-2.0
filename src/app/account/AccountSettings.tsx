@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useCredits } from "../credits/CreditProvider";
 import { totalRemaining } from "../credits/creditLogic";
-import { TOP_UP_OPTIONS } from "../credits/constants";
-import type { CreditSnapshot } from "../credits/types";
+import { ACTION_LABELS, CREDIT_COSTS, TOP_UP_OPTIONS } from "../credits/constants";
+import type { CreditActionType, CreditSnapshot } from "../credits/types";
 import {
   ACCOUNT_SETTINGS_TABS,
   type AccountSettingsTab,
@@ -24,12 +24,12 @@ type TopUpPurchaseRow = {
 
 type UsagePeriod = "1d" | "7d" | "30d" | "mtd" | "last-month";
 
-type DailyActivityRow = {
-  date: string;
-  dateKey: string;
-  email: string;
+type ActionUsageRow = {
+  action: CreditActionType;
+  label: string;
+  unitCost: number;
   credits: number;
-  runs: number;
+  count: number;
 };
 
 const USAGE_PERIOD_OPTIONS: { id: UsagePeriod; label: string }[] = [
@@ -50,6 +50,15 @@ const TEAM_USAGE_WEIGHTS = [
   { email: "casey.l@york.ie", share: 0.05, runs: 3 },
 ];
 
+/** Demo mix of where credits land in a typical workspace period. */
+const USAGE_ACTION_MIX: { action: CreditActionType; share: number }[] = [
+  { action: "aiChat", share: 0.34 },
+  { action: "generateSource", share: 0.24 },
+  { action: "docUpload", share: 0.2 },
+  { action: "playbookRun", share: 0.14 },
+  { action: "crunchbaseEnrichment", share: 0.08 },
+];
+
 function formatCompact(value: number): string {
   if (value >= 1000) return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k`;
   return value.toLocaleString();
@@ -61,6 +70,36 @@ function formatCurrency(value: number): string {
   return `$${Math.round(value).toLocaleString()}`;
 }
 
+function buildActionBreakdown(totalCredits: number): ActionUsageRow[] {
+  if (totalCredits <= 0) {
+    return USAGE_ACTION_MIX.map(entry => ({
+      action: entry.action,
+      label: ACTION_LABELS[entry.action],
+      unitCost: CREDIT_COSTS[entry.action],
+      credits: 0,
+      count: 0,
+    }));
+  }
+
+  let allocated = 0;
+  return USAGE_ACTION_MIX.map((entry, index) => {
+    const unitCost = CREDIT_COSTS[entry.action];
+    const remaining = Math.max(0, totalCredits - allocated);
+    const raw = index === USAGE_ACTION_MIX.length - 1
+      ? remaining
+      : Math.min(remaining, Math.round(totalCredits * entry.share));
+    const credits = Math.max(0, raw);
+    allocated += credits;
+    const count = unitCost > 0 ? Math.max(credits > 0 ? 1 : 0, Math.round(credits / unitCost)) : 0;
+    return {
+      action: entry.action,
+      label: ACTION_LABELS[entry.action],
+      unitCost,
+      credits,
+      count,
+    };
+  });
+}
 
 function startOfDay(date: Date): Date {
   const next = new Date(date);
@@ -117,68 +156,6 @@ function periodScale(period: UsagePeriod, now = new Date()): number {
     return Math.min(1, days / monthDays);
   }
   return Math.min(1, days / 30);
-}
-
-function dayWeight(index: number, seed: number): number {
-  return 0.55 + ((Math.sin(index * 1.7 + seed) + 1) / 2) * 0.9;
-}
-
-function buildDailyActivity(
-  totalCredits: number,
-  totalRuns: number,
-  start: Date,
-  end: Date,
-  userFilter: string,
-): DailyActivityRow[] {
-  const dayCount = daysInRange(start, end);
-  const dayWeights = Array.from({ length: dayCount }, (_, index) => dayWeight(index, userFilter.length));
-  const dayWeightSum = dayWeights.reduce((sum, weight) => sum + weight, 0);
-  const users = userFilter === "all"
-    ? TEAM_USAGE_WEIGHTS
-    : TEAM_USAGE_WEIGHTS.filter(user => user.email === userFilter);
-
-  const rows: DailyActivityRow[] = [];
-
-  Array.from({ length: dayCount }, (_, index) => {
-    const day = new Date(start);
-    day.setDate(start.getDate() + index);
-    const dateLabel = day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    const dateKey = day.toISOString().slice(0, 10);
-    const dayCredits = dayWeightSum > 0 ? Math.round((dayWeights[index] / dayWeightSum) * totalCredits) : 0;
-    const dayRuns = dayWeightSum > 0 ? Math.max(0, Math.round((dayWeights[index] / dayWeightSum) * totalRuns)) : 0;
-
-    if (userFilter !== "all") {
-      if (dayCredits > 0 || dayRuns > 0) {
-        rows.push({
-          date: dateLabel,
-          dateKey,
-          email: userFilter,
-          credits: dayCredits,
-          runs: dayRuns,
-        });
-      }
-      return;
-    }
-
-    let allocatedCredits = 0;
-    users.forEach((user, userIndex) => {
-      const credits = userIndex === users.length - 1
-        ? dayCredits - allocatedCredits
-        : Math.round(dayCredits * user.share);
-      allocatedCredits += credits;
-      const runs = Math.max(0, Math.round(dayRuns * user.share));
-      if (credits <= 0 && runs <= 0) return;
-      rows.push({
-        date: dateLabel,
-        dateKey,
-        email: user.email,
-        credits,
-        runs,
-      });
-    });
-  });
-
-  return rows.reverse();
 }
 
 function buildUsageRows(snapshot: CreditSnapshot, scale = 1, userFilter = "all"): UsageUserRow[] {
@@ -255,24 +232,21 @@ function AccountUsageTab({ snapshot }: { snapshot: CreditSnapshot }) {
   const topUpPurchases = useMemo(() => buildTopUpPurchases(snapshot), [snapshot]);
   const billing = useMemo(() => computeBilling(snapshot, topUpPurchases), [snapshot, topUpPurchases]);
 
-  const baseCredits = Math.round(snapshot.monthlyUsed * scale);
-  const baseRuns = useMemo(() => {
-    const allRows = buildUsageRows(snapshot, scale, "all");
-    return allRows.reduce((n, row) => n + row.runs, 0);
-  }, [snapshot, scale]);
-
-  const dailyActivity = useMemo(
-    () => buildDailyActivity(baseCredits, baseRuns, range.start, range.end, userFilter),
-    [baseCredits, baseRuns, userFilter, range],
+  const usageRows = useMemo(
+    () => buildUsageRows(snapshot, scale, userFilter),
+    [snapshot, scale, userFilter],
   );
+  const totalCredits = usageRows.reduce((n, row) => n + row.credits, 0);
+  const totalRuns = usageRows.reduce((n, row) => n + row.runs, 0);
+  const actionBreakdown = useMemo(() => buildActionBreakdown(totalCredits), [totalCredits]);
 
-  const totalCredits = dailyActivity.reduce((n, row) => n + row.credits, 0);
-  const totalRuns = dailyActivity.reduce((n, row) => n + row.runs, 0);
   const cap = snapshot.monthlyLimit + snapshot.topUpBalance;
   const remaining = totalRemaining(snapshot);
   const creditsFromPlan = Math.min(snapshot.monthlyUsed, snapshot.monthlyLimit);
   const creditsFromTopUps = Math.max(0, snapshot.monthlyUsed - snapshot.monthlyLimit);
-  const includedPct = cap > 0 ? Math.min(100, (snapshot.monthlyUsed / snapshot.monthlyLimit) * 100) : 0;
+  const includedPct = snapshot.monthlyLimit > 0
+    ? Math.min(100, (snapshot.monthlyUsed / snapshot.monthlyLimit) * 100)
+    : 0;
   const periodSpend = billing.totalSpent * scale;
 
   const limitNote = snapshot.plan === "free" && snapshot.topUpBalance <= 0
@@ -283,10 +257,6 @@ function AccountUsageTab({ snapshot }: { snapshot: CreditSnapshot }) {
     () => [{ email: "all", label: "All users" }, ...TEAM_USAGE_WEIGHTS.map(row => ({ email: row.email, label: row.email }))],
     [],
   );
-
-  const dailySectionTitle = userFilter === "all"
-    ? "Daily activity"
-    : `Daily activity · ${userFilter}`;
 
   return (
     <div className="acct-usage">
@@ -400,39 +370,27 @@ function AccountUsageTab({ snapshot }: { snapshot: CreditSnapshot }) {
 
       <section className="acct-usage-section">
         <div className="acct-usage-section-head">
-          <span className="acct-usage-eyebrow">Activity</span>
-          <h3 className="acct-usage-section-title">{dailySectionTitle}</h3>
+          <span className="acct-usage-eyebrow">By action</span>
+          <h3 className="acct-usage-section-title">Credit usage</h3>
           <p className="acct-usage-section-sub">
-            {userFilter === "all"
-              ? "Team-wide credits and runs per day for the selected period."
-              : "Credits and runs per day for this teammate in the selected period."}
+            Credits used per action type this period.
           </p>
         </div>
         <div className="acct-usage-list">
-          <div className="acct-usage-row acct-usage-row-head acct-usage-row-daily">
-            <span>Date</span>
-            <span>User</span>
-            <span>Credits</span>
-            <span>Runs</span>
-            <span>Share</span>
+          <div className="acct-usage-row acct-usage-row-head acct-usage-row-actions">
+            <span>Action</span>
+            <span>Cost</span>
+            <span>Times used</span>
+            <span>Credits used</span>
           </div>
-          {dailyActivity.map(row => {
-            const share = totalCredits > 0 ? (row.credits / totalCredits) * 100 : 0;
-            return (
-              <div className="acct-usage-row acct-usage-row-daily" key={`${row.dateKey}-${row.email}`}>
-                <strong>{row.date}</strong>
-                <span className="acct-usage-user-email">{row.email}</span>
-                <span className="acct-usage-num">{formatCompact(row.credits)}</span>
-                <span className="acct-usage-num">{row.runs}</span>
-                <span className="acct-usage-share-cell">
-                  <em className="acct-usage-share-pct">{share.toFixed(1)}%</em>
-                  <div className="acct-usage-share-track" aria-hidden="true">
-                    <div className="acct-usage-share-fill" style={{ width: `${share}%` }} />
-                  </div>
-                </span>
-              </div>
-            );
-          })}
+          {actionBreakdown.map(row => (
+            <div className="acct-usage-row acct-usage-row-actions" key={row.action}>
+              <strong>{row.label}</strong>
+              <span className="acct-usage-num">{row.unitCost}</span>
+              <span className="acct-usage-num">{row.count}</span>
+              <span className="acct-usage-num">{formatCompact(row.credits)}</span>
+            </div>
+          ))}
         </div>
       </section>
 
