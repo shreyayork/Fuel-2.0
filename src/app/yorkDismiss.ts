@@ -12,6 +12,8 @@
  */
 
 const STORAGE_KEY = "fuel.york.dismiss.v1";
+/** One-time flag — clears hide/don’t-show state so partner rails can resurface after testing. */
+const RESTORE_KEY = "fuel.york.dismiss.restored.v2";
 export const YORK_HIDE_FOR_MS = 14 * 24 * 60 * 60 * 1000;
 
 type DismissEntry = {
@@ -67,7 +69,33 @@ export function clearYorkOfferDismiss(offerId: string) {
   writeMap(map);
 }
 
+/** Clear every York partner dismiss (hide-for-14-days and don’t-show-again). */
+export function clearAllYorkOfferDismissals() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * If partner rails were hidden during polish/testing, restore them once.
+ * Safe to call on app boot — no-ops after the first successful restore.
+ */
+export function restoreYorkPartnerNudgesOnce() {
+  try {
+    if (localStorage.getItem(RESTORE_KEY) === "1") return;
+    clearAllYorkOfferDismissals();
+    localStorage.setItem(RESTORE_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Filter offers the user has hidden (for carousels / ranked lists). */
 export function filterDismissedYorkOffers<T extends { id: string }>(offers: T[], now = Date.now()): T[] {
   return offers.filter(offer => !isYorkOfferDismissed(offer.id, now));
 }
+
+// Run before React mounts so initial useState(isYorkOfferDismissed) sees a clean map.
+restoreYorkPartnerNudgesOnce();

@@ -134,7 +134,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   },
   {
     key: "product",
-    label: "R&D",
+    label: "Product",
     icon: "⚙",
     signals: [
       { name: "AI classification" },

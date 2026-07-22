@@ -633,7 +633,7 @@ export const DETAIL_QUESTION_LABEL: Partial<Record<string, string>> = {
   dev_build_model: "Build model",
   dev_engineering_size: "Engineering size",
   dev_ship_cadence: "Ship cadence",
-  dev_ai_role: "AI role",
+  dev_ai_role: "AI Role",
   dev_compliance: "Compliance",
   dev_prioritization: "Prioritization",
   dev_feature_debt_split: "Feature vs debt split",

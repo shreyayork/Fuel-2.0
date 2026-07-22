@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   yorkContactMailto,
+  yorkInitiativeMilestoneHelpBullets,
+  yorkInitiativePartnerCopy,
   yorkOverviewPartnerCopy,
   yorkPersonalizedPartnerCopy,
   type YorkServiceOffer,
@@ -11,7 +13,8 @@ import { dismissYorkOffer, isYorkOfferDismissed } from "./yorkDismiss";
  * York partner nudge — compact LinkedIn / Claude-style placements:
  * - `sidebar` — thin left-rail promo (gated by parent until Overview is ready)
  * - `overview` — horizontal “Suggested” strip under loaded advisor/tracks
- * - `bar` — inline strip for track detail / initiatives
+ * - `bar` — inline strip for track detail
+ * - `initiative` — infused drawer section with per-milestone help bullets
  */
 export function YorkPartnerNudge({
   offer,
@@ -25,6 +28,9 @@ export function YorkPartnerNudge({
   headline,
   gapLabels,
   weakTrackLabels,
+  initiativeTitle,
+  topicLabel,
+  milestones,
   onDismissed,
 }: {
   offer: YorkServiceOffer;
@@ -34,12 +40,16 @@ export function YorkPartnerNudge({
   /** @deprecated Unused — kept for call-site compatibility. */
   showHelpSummary?: boolean;
   message?: string;
-  variant?: "card" | "sidebar" | "overview" | "bar";
+  variant?: "card" | "sidebar" | "overview" | "bar" | "initiative";
   firstName?: string;
   lead?: string;
   headline?: string;
   gapLabels?: string[];
   weakTrackLabels?: string[];
+  /** When set, copy names this initiative and how York IE can help ship it. */
+  initiativeTitle?: string;
+  topicLabel?: string;
+  milestones?: Array<{ title: string }>;
   onDismissed?: () => void;
 }) {
   const [hidden, setHidden] = useState(() => isYorkOfferDismissed(offer.id));
@@ -71,12 +81,19 @@ export function YorkPartnerNudge({
   const isCompanyWide = variant === "overview" || variant === "sidebar" || variant === "card";
   const personalized = isCompanyWide
     ? yorkOverviewPartnerCopy({ firstName, weakTrackLabels })
-    : yorkPersonalizedPartnerCopy({
-        firstName,
-        offer,
-        gapLabels,
-        weakTrackLabels,
-      });
+    : (initiativeTitle?.trim() || topicLabel?.trim())
+      ? yorkInitiativePartnerCopy({
+          firstName,
+          offer,
+          initiativeTitle,
+          topicLabel,
+        })
+      : yorkPersonalizedPartnerCopy({
+          firstName,
+          offer,
+          gapLabels,
+          weakTrackLabels,
+        });
   const mailto = yorkContactMailto(offer);
   const railLead = lead?.trim() || personalized.lead;
   const railHeadline = headline?.trim() || personalized.headline;
@@ -115,6 +132,34 @@ export function YorkPartnerNudge({
       ) : null}
     </div>
   );
+
+  if (variant === "initiative") {
+    const bullets = yorkInitiativeMilestoneHelpBullets(milestones ?? [], offer);
+    return (
+      <div
+        className={`initiative-york-help${className ? ` ${className}` : ""}`}
+        aria-label="How York IE can help"
+      >
+        <div className="initiative-card-section-head">
+          <span className="initiative-card-section-label initiative-york-help-label">
+            How York IE can help
+          </span>
+          {menu}
+        </div>
+        <ul className="initiative-york-help-list">
+          {bullets.map((bullet, index) => (
+            <li key={`${bullet.milestone}-${index}`}>
+              <strong>{bullet.milestone}</strong>
+              <span>{bullet.help}</span>
+            </li>
+          ))}
+        </ul>
+        <a className="ask-ai-btn initiative-york-help-cta" href={mailto} onClick={onClick}>
+          {cta}
+        </a>
+      </div>
+    );
+  }
 
   if (variant === "bar") {
     return (

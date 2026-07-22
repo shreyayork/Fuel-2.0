@@ -1064,7 +1064,7 @@ export function yorkOverviewPartnerCopy(opts: {
 /**
  * Compact, intriguing copy grounded in structured Fuel data
  * (offer trigger + optional “needs improvement” labels) — not free-text NLP.
- * Use for track detail / initiatives only — not Overview.
+ * Use for track detail only — not Overview or initiatives.
  */
 export function yorkPersonalizedPartnerCopy(opts: {
   firstName?: string;
@@ -1094,6 +1094,100 @@ export function yorkPersonalizedPartnerCopy(opts: {
   }
 
   return { lead, headline: outcome };
+}
+
+/**
+ * Initiative drawer — name the initiative, then say how York IE helps ship it.
+ * Uses title + structured topic only (no NLP on free-typed description).
+ */
+export function yorkInitiativePartnerCopy(opts: {
+  firstName?: string;
+  offer: YorkServiceOffer;
+  initiativeTitle?: string;
+  topicLabel?: string;
+}): { lead: string; headline: string } {
+  const name = opts.firstName?.trim();
+  const rawTitle = opts.initiativeTitle?.replace(/\s+/g, " ").trim() || "";
+  const title = rawTitle.length > 52 ? `${rawTitle.slice(0, 51).trimEnd()}…` : rawTitle;
+  const topic = opts.topicLabel?.replace(/\s+/g, " ").trim() || "";
+
+  let lead: string;
+  if (title && name) {
+    lead = `${name}, York IE can help with “${title}”`;
+  } else if (title) {
+    lead = `York IE can help with “${title}”`;
+  } else if (topic && name) {
+    lead = `${name}, York IE can help on ${topic}`;
+  } else if (name) {
+    lead = `${name}, York IE can help move this initiative forward`;
+  } else {
+    lead = "York IE can help move this initiative forward";
+  }
+
+  // How York helps on this work — curated offer summary, clipped for the rail.
+  const summary = yorkNudgeSummary(opts.offer);
+  const headline = summary.length <= 120
+    ? summary
+    : `${summary.slice(0, 119).trimEnd()}…`;
+
+  return { lead, headline };
+}
+
+export type YorkMilestoneHelpBullet = {
+  milestone: string;
+  help: string;
+};
+
+function lowerHelpPhrase(help: string): string {
+  const cleaned = help.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "the work";
+  return cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
+}
+
+/** Rotate sell lines so each milestone reads like a delivery pitch, not a checklist. */
+function yorkMilestoneSellLine(helpBit: string, index: number): string {
+  const work = lowerHelpPhrase(helpBit);
+  const lines = [
+    `York IE owns ${work} end-to-end — off your plate, delivered with named owners and weekly demos.`,
+    `Hand ${work} to York IE and get finished work back into this milestone — not another vendor loop.`,
+    `York IE embeds on ${work} so your team keeps moving while we clear and deliver this step.`,
+  ];
+  return lines[index % lines.length];
+}
+
+/**
+ * One help line per initiative milestone (title + offer how-we-help).
+ * No NLP on free-typed notes — structured milestone titles only.
+ */
+export function yorkInitiativeMilestoneHelpBullets(
+  milestones: Array<{ title: string }>,
+  offer: YorkServiceOffer,
+): YorkMilestoneHelpBullet[] {
+  const helps = offer.howWeHelp.map(h => h.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const titles = milestones
+    .map(m => m.title.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  if (!titles.length) {
+    if (helps.length) {
+      return helps.slice(0, 3).map((help, index) => ({
+        milestone: help,
+        help: yorkMilestoneSellLine(help, index),
+      }));
+    }
+    return [{
+      milestone: yorkNudgeMessage(offer, 56),
+      help: yorkNudgeSummary(offer),
+    }];
+  }
+
+  return titles.map((title, index) => {
+    const helpBit = helps[index % Math.max(helps.length, 1)] || yorkNudgeMessage(offer, 40);
+    return {
+      milestone: title,
+      help: yorkMilestoneSellLine(helpBit, index),
+    };
+  });
 }
 
 export function trackLabel(track: YorkOfferTrack): string {

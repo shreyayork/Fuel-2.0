@@ -1453,8 +1453,6 @@ function CategoryGlanceHeaderBar({
   onRunPlaybook?: (id: string) => void;
   suggestionsReady?: boolean;
 }) {
-  const intelCount = Math.max(cat.intelligenceCount, cat.intelDisplayCount);
-
   return (
     <div className="sc-glance-header-bar" onClick={e => e.stopPropagation()}>
       <div className="sc-glance-header-bar-start">
@@ -1465,9 +1463,7 @@ function CategoryGlanceHeaderBar({
             </button>
           ) : null}
           <button type="button" className="sc-cat-header-btn" onClick={() => onOpenIntelligence?.()}>
-            {intelCount > 0
-              ? `${intelCount} intelligence signal${intelCount === 1 ? "" : "s"}`
-              : "Intelligence"} <span aria-hidden="true">→</span>
+            Intelligence <span aria-hidden="true">→</span>
           </button>
           {suggestionsReady && cat.suggestedPlaybooks.length > 0 ? (
             <button type="button" className="sc-cat-header-btn" onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}>
@@ -2009,6 +2005,7 @@ const INSIGHT_CHIP_FIXUPS: Record<string, string> = {
   "paying customers": "Paying customers",
   "gross margin": "Gross margin",
   "revenue growth": "Revenue growth",
+  "ai role": "AI Role",
 };
 
 function friendlyMetricLabel(label: string): string {
@@ -4379,11 +4376,11 @@ function OverviewAdvisorPanel({
             </span>
             <button
               type="button"
-              className="sc-wiki-expand-btn"
+              className="ask-ai-btn sc-wiki-expand-btn"
               onClick={() => onOpenWikiSummary()}
-              aria-label="Open full company brief"
+              aria-label="Open company brief"
             >
-              Full summary
+              ✦ Open brief
             </button>
           </div>
           <p className="sc-adv-summary sc-wiki-summary-compact">
@@ -4394,7 +4391,7 @@ function OverviewAdvisorPanel({
             className="sc-wiki-view-more"
             onClick={() => onOpenWikiSummary()}
           >
-            View full summary with references
+            View brief with references
           </button>
           <div className="sc-adv-tags-label">Recent signals</div>
           <div className="sc-adv-tags">

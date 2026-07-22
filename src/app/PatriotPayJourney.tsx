@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { SIGNAL_CATALOG, SIGNAL_CATALOG_BY_KEY } from "./signalCatalog";
+import { SIGNAL_CATALOG, SIGNAL_CATALOG_BY_KEY, SIGNAL_CATEGORY_KEYS } from "./signalCatalog";
 import { createPortal } from "react-dom";
 import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
@@ -2727,7 +2727,7 @@ function inferMainCategoryFromSource(
 const SOURCE_CATEGORY_COPY: Record<string, { text: string; label: string }> = {
   fundraising: { text: "Fundraising signal", label: "Fundraising" },
   gtm: { text: "GTM signal", label: "Go-to-market" },
-  product: { text: "Product signal", label: "Product / R&D" },
+  product: { text: "Product signal", label: "Product" },
   finance: { text: "Finance signal", label: "Finance / G&A" },
   strategic: { text: "Strategic signal", label: "Strategy" },
 };
@@ -3211,22 +3211,6 @@ function formatBenchmarkPeriodLabel(period: string): string {
   if (match) return `Q${match[2]} ${match[1]}`;
   return period;
 }
-
-const BENCHMARK_TIMELINE_FILTERS = [
-  "All",
-  "growth",
-  "retention",
-  "efficiency",
-  "finance",
-  "fundraising",
-  "gtm",
-  "product",
-  "team",
-  "strategic",
-  "customer_success",
-  "board_reporting",
-  "vendor_stack",
-] as const;
 
 const WIZARD_DEFAULT_BENCHMARK: BenchmarkFormValues = {
   headcount: "100",
@@ -3801,61 +3785,6 @@ function formatBenchmarkSummaryValue(key: string, raw: string) {
   return formatted;
 }
 
-function formatBenchmarkTableValue(metric: string, value: string) {
-  if (metric === "Burn multiple") return value.replace(/x$/i, "");
-  return value;
-}
-
-function QuarterlySubmissionPanel({
-  submission,
-  onEdit,
-  highlight = false,
-}: {
-  submission: BenchmarkSubmission;
-  onEdit: () => void;
-  highlight?: boolean;
-}) {
-  return (
-    <div className={`quarterly-submission-panel${highlight ? " blink-once" : ""}`}>
-      <div className="quarterly-submission-head">
-        <div className="quarterly-submission-title-row">
-          <strong>Quarterly submission · {submission.period}</strong>
-          <span className="quarterly-submission-summary">
-            ARR: <b>{submission.summary.arr}</b>
-            {" · "}
-            NRR: <b>{submission.summary.nrr}</b>
-            {" · "}
-            Burn multiple: <b>{formatBenchmarkSummaryValue("burnMultiple", submission.formValues.burnMultiple)}</b>
-          </span>
-        </div>
-        <em>Submitted · {submission.submittedAt}</em>
-      </div>
-      <div className="quarterly-submission-table">
-        <div className="quarterly-submission-row head">
-          <span>Metric</span>
-          <span>Value</span>
-          <span>Bot 25%</span>
-          <span>Median</span>
-          <span>Top 25%</span>
-        </div>
-        {submission.rows.map(row => (
-          <div className="quarterly-submission-row" key={row.metric}>
-            <span className="quarterly-submission-metric">{row.metric}</span>
-            <strong>{formatBenchmarkTableValue(row.metric, row.value)}</strong>
-            <span>{row.bot25}</span>
-            <span>{row.median}</span>
-            <span>{row.top25}</span>
-          </div>
-        ))}
-      </div>
-      <div className="quarterly-submission-foot">
-        <span>cohort · b2b_saas:seed:us</span>
-        <button type="button" onClick={onEdit}>Edit</button>
-      </div>
-    </div>
-  );
-}
-
 function formatProvenanceCategory(type: string): string {
   const fromCatalog = SIGNAL_CATALOG_BY_KEY[type]?.label;
   if (fromCatalog) return fromCatalog;
@@ -3921,7 +3850,7 @@ function IntelligenceProvenanceSidebar({
             <dl className="provenance-facts">
               <div>
                 <dt>Period</dt>
-                <dd><time>{item.date}</time></dd>
+                <dd><time dateTime={item.date}>{formatBenchmarkPeriodLabel(item.date)}</time></dd>
               </div>
               {item.confidence ? (
                 <div>
@@ -4002,7 +3931,9 @@ function IntelligenceProvenanceSidebar({
                         {isCurrent ? (
                           <span className="provenance-history-current-badge">Current</span>
                         ) : null}
-                        <time className="provenance-history-date">{entry.date}</time>
+                        <time className="provenance-history-date" dateTime={entry.date}>
+                          {formatBenchmarkPeriodLabel(entry.date)}
+                        </time>
                       </div>
                     </div>
                   );
@@ -4334,7 +4265,7 @@ function DocumentUploadDropdown({
       >
         <button
           type="button"
-          className={`${inline ? "document-upload-trigger-inline" : isCustomOnly ? "data-room-add-custom-btn" : "signals-private-btn secondary"} document-upload-trigger${isProcessing ? " processing" : ""}${open ? " is-open" : ""}${creditBlocked ? " credit-action-disabled" : ""}`}
+          className={`${inline ? "document-upload-trigger-inline" : isCustomOnly ? "data-room-add-custom-btn" : "initiatives-primary-btn"} document-upload-trigger${isProcessing ? " processing" : ""}${open ? " is-open" : ""}${creditBlocked ? " credit-action-disabled" : ""}`}
           disabled={isProcessing}
           aria-expanded={open}
           aria-haspopup="listbox"
@@ -4522,7 +4453,6 @@ function DataRoomInvestorGate({
     <section className="data-room-page">
       <div className="data-room-head">
         <div>
-          <span>Private documents</span>
           <h2>Data Room</h2>
           <p>
             {companyName}&apos;s data room is private to the founding team. Request access to specific files —
@@ -4582,27 +4512,27 @@ function DataRoomPage({
     <section className="data-room-page">
       <div className="data-room-head">
         <div>
-          <span>Private documents</span>
           <h2>Data Room</h2>
           <p>
             Pitch decks, investor notes, financial models, and other private files Fuel uses to generate intelligence.
-            Add a document from the dropdown — one latest file per type.
+            One latest file per type.
           </p>
-          </div>
+        </div>
         <div className="data-room-head-actions">
           <DocumentUploadDropdown
             documentSlots={documentSlots}
             processingTypeId={processingDocumentTypeId}
             onUpload={onUploadDocument}
           />
-          {activeCount > 0 ? <em>{activeCount} active</em> : null}
-                </div>
-                </div>
+        </div>
+      </div>
       {activeCount === 0 ? (
         <div className="data-room-empty">
           <strong>No documents yet</strong>
-          <p>Choose a document type from Upload document — the same list as Intelligence — to add your first file.</p>
-              </div>
+          <p>
+            Choose a document type from <span>Upload document</span> — the same list as Intelligence — to add your first file.
+          </p>
+        </div>
       ) : (
         <div className="data-room-list">
           <div className="data-room-row data-room-row-head">
@@ -4876,12 +4806,14 @@ function SourcesListPanel({
 // ─── Single subtype row: latest value + history/source counts ────────────────
 function SubtypeRow({
   subtypeKey,
+  categoryLabel,
   items,
   blinkingIds,
   renderTimelineRow,
   onSelectItem,
 }: {
   subtypeKey: string;
+  categoryLabel: string;
   items: IntelligenceItem[];
   blinkingIds: string[];
   renderTimelineRow: (item: IntelligenceItem) => React.ReactNode;
@@ -4902,10 +4834,15 @@ function SubtypeRow({
         onClick={() => onSelectItem?.(latest.id)}
         onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectItem?.(latest.id); } }}
       >
-        <span className="intel-signal-name">{subtypeKey}</span>
+        <div className="intel-signal-title">
+          <span className="intel-signal-category">{categoryLabel}</span>
+          <span className="intel-signal-name">{subtypeKey}</span>
+        </div>
         <strong className="intel-signal-value">{latest.highlight}</strong>
-        <time className="intel-signal-period">{latest.date}</time>
-        <div className="intel-signal-meta-slot">
+        <time className="intel-signal-period" dateTime={latest.date}>
+          {formatBenchmarkPeriodLabel(latest.date)}
+        </time>
+        <div className={`intel-signal-meta-slot${sourceCount > 0 || history.length > 0 ? "" : " is-empty"}`}>
           {sourceCount > 0 ? (
             <span
               className="intel-signal-meta-chip intel-signal-meta-chip--sources"
@@ -4940,52 +4877,21 @@ function SubtypeRow({
   );
 }
 
-// ─── Intelligence category group accordion ───────────────────────────────────
-const CATEGORY_COLORS: Record<string, string> = {
-  growth: "#34d399",
-  finance: "#fbbf24",
-  retention: "#4fd1c5",
-  efficiency: "#a78bfa",
-  fundraising: "#60a5fa",
-  gtm: "#fb923c",
-  product: "#818cf8",
-  strategic: "#94a3b8",
-  team: "#f472b6",
-  york: "#fde68a",
-  customer_success: "#2dd4bf",
-  board_reporting: "#c4b5fd",
-  vendor_stack: "#86efac",
-};
-
-function IntelligenceCategoryGroup({
+// ─── Intelligence category panel (flat body — category chosen via tabs) ───────
+function IntelligenceCategoryPanel({
   categoryKey,
-  label,
-  icon,
   items,
-  benchmarkSubmission,
-  benchmarkBlinkIds,
   blinkingIds,
-  selectedId,
   onSelectItem,
-  onRemoveItem,
   renderTimelineRow,
-  openBenchmarkDrawer,
 }: {
   categoryKey: string;
-  label: string;
-  icon: string;
   items: IntelligenceItem[];
-  benchmarkSubmission: BenchmarkSubmission | null;
-  benchmarkBlinkIds: string[];
   blinkingIds: string[];
-  selectedId: string | null;
   onSelectItem: (id: string) => void;
-  onRemoveItem: (id: string, event: React.MouseEvent) => void;
   renderTimelineRow: (item: IntelligenceItem) => React.ReactNode;
-  openBenchmarkDrawer: () => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
-  const isBenchmarkCategory = ["finance", "growth", "retention", "efficiency"].includes(categoryKey);
+  const categoryLabel = SIGNAL_CATALOG_BY_KEY[categoryKey]?.label ?? categoryKey;
 
   const subtypeGroups = useMemo(() => {
     const map = new Map<string, IntelligenceItem[]>();
@@ -4998,69 +4904,19 @@ function IntelligenceCategoryGroup({
     return [...map.entries()];
   }, [items]);
 
-  const signalCount = subtypeGroups.length;
-  const latestItem = items.reduce<IntelligenceItem | null>((best, item) =>
-    !best || (item.updatedAtMs ?? 0) > (best.updatedAtMs ?? 0) ? item : best, null);
-
-  const benchmarkSubtypes = subtypeGroups.filter(([, grp]) => grp[0].id.startsWith("intel-bench-"));
-  const nonBenchmarkSubtypes = subtypeGroups.filter(([, grp]) => !grp[0].id.startsWith("intel-bench-"));
-  const hasBenchmarkBlink = items.some(i => blinkingIds.includes(i.id) || benchmarkBlinkIds.includes(i.id));
-
   return (
-    <div
-      className={`intel-cat-group${expanded ? " is-expanded" : ""}`}
-    >
-      <button
-        type="button"
-        className="intel-cat-group-head"
-        onClick={() => setExpanded(o => !o)}
-        aria-expanded={expanded}
-      >
-        <span className="intel-cat-icon">{icon}</span>
-        <span className="intel-cat-label">{label}</span>
-        <span className="intel-cat-count">{signalCount} signal{signalCount !== 1 ? "s" : ""}</span>
-        {latestItem ? <time className="intel-cat-latest">Updated {latestItem.date}</time> : null}
-        <span className="intel-cat-chevron">{expanded ? "▴" : "▾"}</span>
-      </button>
-
-      {expanded ? (
-        <div className="intel-cat-body">
-          {isBenchmarkCategory && benchmarkSubtypes.length > 0 ? (
-            <div className={`signals-benchmark-block${hasBenchmarkBlink ? " blink-once" : ""}`}>
-              <div className="signals-benchmark-block-entries">
-                {benchmarkSubtypes.map(([subtypeKey, grp]) => (
-                  <SubtypeRow
-                    key={subtypeKey}
-                    subtypeKey={subtypeKey}
-                    items={grp}
-                    blinkingIds={[...blinkingIds, ...benchmarkBlinkIds]}
-                    renderTimelineRow={renderTimelineRow}
-                    onSelectItem={onSelectItem}
-                  />
-                ))}
-              </div>
-              {benchmarkSubmission ? (
-                <QuarterlySubmissionPanel
-                  submission={benchmarkSubmission}
-                  onEdit={openBenchmarkDrawer}
-                  highlight={false}
-                />
-              ) : null}
-            </div>
-          ) : null}
-
-          {nonBenchmarkSubtypes.map(([subtypeKey, grp]) => (
-            <SubtypeRow
-              key={subtypeKey}
-              subtypeKey={subtypeKey}
-              items={grp}
-              blinkingIds={blinkingIds}
-              renderTimelineRow={renderTimelineRow}
-              onSelectItem={onSelectItem}
-            />
-          ))}
-        </div>
-      ) : null}
+    <div className="intel-cat-panel">
+      {subtypeGroups.map(([subtypeKey, grp]) => (
+        <SubtypeRow
+          key={subtypeKey}
+          subtypeKey={subtypeKey}
+          categoryLabel={categoryLabel}
+          items={grp}
+          blinkingIds={blinkingIds}
+          renderTimelineRow={renderTimelineRow}
+          onSelectItem={onSelectItem}
+        />
+      ))}
     </div>
   );
 }
@@ -5275,9 +5131,11 @@ function SignalsPage({
   const [cohortValue, setCohortValue] = useState<string>("b2b_saas:seed:us");
   const intelligenceFocusActive = Boolean(intelligenceFocus?.ids.length);
   const openBenchmarkDrawer = () => setEditBenchmarkOpen(true);
-  const timelineFilters = isProfileComplete
-    ? BENCHMARK_TIMELINE_FILTERS
-    : (["All", "fundraising", "gtm", "product", "strategic", "team"] as const);
+  // Same parent categories + order as the Log intelligence signal dropdown.
+  const timelineFilters = useMemo(
+    () => ["All", ...SIGNAL_CATEGORY_KEYS] as const,
+    [],
+  );
   const yearOptions = useMemo(() => buildYearOptions(now), [now]);
 
   const scopedIntelligenceItems = useMemo(
@@ -5326,50 +5184,6 @@ function SignalsPage({
     || activeTimelineFilter !== "All"
     || datePreset !== "current-quarter",
   );
-  const benchmarkIntelligenceItems = useMemo(
-    () => visibleIntelligenceItems.filter(item => item.id.startsWith("intel-bench-")),
-    [visibleIntelligenceItems],
-  );
-  const otherIntelligenceItems = useMemo(
-    () => visibleIntelligenceItems.filter(item => !item.id.startsWith("intel-bench-")),
-    [visibleIntelligenceItems],
-  );
-  const showQuarterlySubmission = Boolean(
-    benchmarkSubmission
-    && !intelligenceFocusActive
-    && benchmarkIntelligenceItems.length > 0,
-  );
-  type TimelineBlock =
-    | { kind: "benchmark"; updatedAtMs: number; items: IntelligenceItem[]; submission: BenchmarkSubmission }
-    | { kind: "intelligence"; updatedAtMs: number; item: IntelligenceItem };
-
-  const timelineBlocks = useMemo(() => {
-    const blocks: TimelineBlock[] = [];
-
-    if (showQuarterlySubmission && benchmarkSubmission && benchmarkIntelligenceItems.length > 0) {
-      blocks.push({
-        kind: "benchmark",
-        updatedAtMs: benchmarkSubmission.submittedAtMs,
-        items: benchmarkIntelligenceItems,
-        submission: benchmarkSubmission,
-      });
-    }
-
-    otherIntelligenceItems.forEach(item => {
-      blocks.push({
-        kind: "intelligence",
-        updatedAtMs: getIntelligenceUpdatedAtMs(item, benchmarkSubmission?.submittedAtMs),
-        item,
-      });
-    });
-
-    return blocks.sort((left, right) => right.updatedAtMs - left.updatedAtMs);
-  }, [
-    benchmarkIntelligenceItems,
-    benchmarkSubmission,
-    otherIntelligenceItems,
-    showQuarterlySubmission,
-  ]);
   const showIntelligenceTimeline = isProfileComplete
     || intelligenceFocusActive
     || Boolean(benchmarkSubmission)
@@ -5540,7 +5354,6 @@ function SignalsPage({
   };
 
   // Derived directly from SIGNAL_CATALOG — the single source of truth.
-  // Nothing shows in the accordion that isn't a valid catalog category.
   const CATEGORY_META = useMemo(() => {
     const meta: Record<string, { label: string; icon: string }> = {};
     SIGNAL_CATALOG.forEach(cat => { meta[cat.key] = { label: cat.label, icon: cat.icon }; });
@@ -5557,24 +5370,30 @@ function SignalsPage({
   }, []);
 
   // Group items by type. Only catalog-valid category keys are included.
-  // Items with an unknown type OR unknown subtype for that category are silently dropped.
   const categoryGroups = useMemo(() => {
     const groups = new Map<string, IntelligenceItem[]>();
     filteredIntelligenceItems.forEach(item => {
       const catKey = item.type;
-      if (!catKey || !CATALOG_SIGNAL_SET.has(catKey)) return; // unknown category
+      if (!catKey || !CATALOG_SIGNAL_SET.has(catKey)) return;
       const validSignals = CATALOG_SIGNAL_SET.get(catKey)!;
       const subtypeKey = item.subtype || item.text;
-      if (subtypeKey && !validSignals.has(subtypeKey)) return; // unknown subtype
+      if (subtypeKey && !validSignals.has(subtypeKey)) return;
       if (!groups.has(catKey)) groups.set(catKey, []);
       groups.get(catKey)!.push(item);
     });
-    // Order matches SIGNAL_CATALOG order
     const catalogOrder = SIGNAL_CATALOG.map(c => c.key);
     return [...groups.entries()].sort(
       ([a], [b]) => catalogOrder.indexOf(a) - catalogOrder.indexOf(b)
     );
   }, [filteredIntelligenceItems, CATALOG_SIGNAL_SET]);
+
+  const categoryTabOptions = useMemo(
+    () => timelineFilters.map(filter => ({
+      id: filter,
+      label: filter === "All" ? "All" : (CATEGORY_META[filter]?.label ?? filter),
+    })),
+    [CATEGORY_META, timelineFilters],
+  );
 
   const intelligenceTimelinePanel = (
     <div className="signals-board-panel" ref={timelinePanelRef}>
@@ -5587,6 +5406,23 @@ function SignalsPage({
           <div className="pitch-deck-confirm-actions">
             <button type="button" onClick={() => onClearIntelligenceFocus?.()}>Show all intelligence</button>
           </div>
+        </div>
+      ) : null}
+
+      {!intelligenceFocusActive ? (
+        <div className="intel-category-tabs" role="tablist" aria-label="Intelligence categories">
+          {categoryTabOptions.map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTimelineFilter === tab.id}
+              className={`intel-category-tab${activeTimelineFilter === tab.id ? " is-active" : ""}`}
+              onClick={() => setActiveTimelineFilter(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       ) : null}
 
@@ -5604,19 +5440,6 @@ function SignalsPage({
           </label>
 
           <div className="signals-intel-toolbar-right">
-            <select
-              className="signals-intel-category-select"
-              value={activeTimelineFilter}
-              onChange={event => setActiveTimelineFilter(event.target.value)}
-              aria-label="Filter by category"
-            >
-              {timelineFilters.map(filter => (
-                <option key={filter} value={filter}>
-                  {filter === "All" ? "All categories" : (CATEGORY_META[filter]?.label ?? filter)}
-                </option>
-              ))}
-            </select>
-
             <select
               className="signals-intel-toolbar-select"
               value={datePreset}
@@ -5640,24 +5463,16 @@ function SignalsPage({
         </div>
       ) : null}
 
-      {/* Category-grouped intelligence timeline */}
       {filteredIntelligenceItems.length > 0 ? (
         <div className="intel-category-feed">
           {categoryGroups.map(([categoryKey, items]) => (
-            <IntelligenceCategoryGroup
+            <IntelligenceCategoryPanel
               key={categoryKey}
               categoryKey={categoryKey}
-              label={CATEGORY_META[categoryKey]?.label ?? categoryKey}
-              icon={CATEGORY_META[categoryKey]?.icon ?? "·"}
               items={items}
-              benchmarkSubmission={benchmarkSubmission}
-              benchmarkBlinkIds={benchmarkBlinkIds}
-              blinkingIds={blinkingIntelligenceIds}
-              selectedId={selectedIntelligenceId}
+              blinkingIds={[...blinkingIntelligenceIds, ...benchmarkBlinkIds]}
               onSelectItem={(id) => { setSelectedIntelligenceId(id); setSelectedSourceId(null); }}
-              onRemoveItem={handleRemoveIntelligence}
               renderTimelineRow={renderTimelineRow}
-              openBenchmarkDrawer={openBenchmarkDrawer}
             />
           ))}
         </div>
@@ -5676,7 +5491,6 @@ function SignalsPage({
           )}
         </div>
       )}
-
 
       {isProfileComplete && !benchmarkSubmission ? (
         <div className="signals-footnote">
@@ -5723,6 +5537,8 @@ function SignalsPage({
 
         {documentNoticeBanner}
 
+        {intelligenceTimelinePanel}
+
         <ContextFeedPage
           onOpenConnectors={onLinkConnectors}
           onIntelligenceGenerated={handleIntelligenceGenerated}
@@ -5732,8 +5548,6 @@ function SignalsPage({
           sourceFormOpen={sourceFormOpen}
           onSourceFormOpenChange={setSourceFormOpen}
         />
-
-        {intelligenceTimelinePanel}
 
         {selectedIntelligence ? (
           <IntelligenceProvenanceSidebar
@@ -6228,6 +6042,10 @@ function IntelligenceLogForm({
   submitLabel = "Log intelligence",
   defaultPeriod = currentIntelligencePeriod(),
   hideActions = false,
+  hidePeriod = false,
+  progressMarker,
+  sourceMode = "catalog",
+  existingItems = [],
   submitRef,
 }: {
   onLog: (item: IntelligenceItem) => void;
@@ -6235,36 +6053,69 @@ function IntelligenceLogForm({
   submitLabel?: string;
   defaultPeriod?: string;
   hideActions?: boolean;
+  hidePeriod?: boolean;
+  /** Initiative progress: Baseline / Current — shown as "Mark as". */
+  progressMarker?: {
+    value: "baseline" | "current";
+    onChange: (role: "baseline" | "current") => void;
+  };
+  /** catalog = pick from signal catalog; existing = pick already-logged intelligence. */
+  sourceMode?: "catalog" | "existing";
+  existingItems?: IntelligenceItem[];
   submitRef?: React.MutableRefObject<(() => void) | null>;
 }) {
   const [categoryKey, setCategoryKey] = useState("");
   const [signalName, setSignalName] = useState("");
+  const [existingId, setExistingId] = useState("");
   const [period, setPeriod] = useState(() => normalizeIntelligencePeriod(defaultPeriod));
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
 
   const periodParts = parseIntelligencePeriod(period);
   const periodYears = intelligencePeriodYearOptions(periodParts.year);
+  const selectedExisting = existingItems.find(item => item.id === existingId) || null;
 
   const reset = () => {
     setCategoryKey("");
     setSignalName("");
+    setExistingId("");
     setPeriod(normalizeIntelligencePeriod(defaultPeriod));
     setValue("");
     setNote("");
   };
 
-  const canSubmit = categoryKey && signalName && value.trim() && periodParts.quarter && periodParts.year;
+  const canSubmit = sourceMode === "existing"
+    ? Boolean(existingId && selectedExisting)
+    : Boolean(
+      categoryKey
+      && signalName
+      && value.trim()
+      && (hidePeriod || (periodParts.quarter && periodParts.year)),
+    );
 
   const doSubmit = () => {
     if (!canSubmit) return;
+
+    if (sourceMode === "existing" && selectedExisting) {
+      onLog({
+        ...selectedExisting,
+        highlight: value.trim() || selectedExisting.highlight,
+        title: note.trim() || selectedExisting.title || selectedExisting.text,
+      });
+      reset();
+      return;
+    }
+
+    const date = hidePeriod
+      ? normalizeIntelligencePeriod(defaultPeriod)
+      : formatIntelligencePeriod(periodParts.quarter, periodParts.year);
     onLog({
       id: `intel-log-${Date.now()}`,
       type: categoryKey,
       subtype: signalName,
       text: signalName,
       highlight: value.trim(),
-      date: formatIntelligencePeriod(periodParts.quarter, periodParts.year),
+      date,
       age: "Just now",
       title: note.trim() || `${signalName}: ${value.trim()}`,
       confidence: "Manual",
@@ -6276,38 +6127,91 @@ function IntelligenceLogForm({
 
   if (submitRef) submitRef.current = doSubmit;
 
-  return (
-    <div className="signals-log-form">
-      <div className="signals-log-form-row">
-        {/* Single grouped signal dropdown */}
-        <div className="signals-log-field signals-log-field--signal">
-          <label className="signals-log-label">Signal</label>
-          <select
-            className="signals-log-select"
-            value={categoryKey && signalName ? `${categoryKey}::${signalName}` : ""}
-            onChange={e => {
-              const val = e.target.value;
-              if (!val) { setCategoryKey(""); setSignalName(""); return; }
-              const [cat, sig] = val.split("::");
-              setCategoryKey(cat);
-              setSignalName(sig);
-            }}
-          >
-            <option value="">Select a signal…</option>
-            {SIGNAL_CATALOG.map(cat => (
-              <optgroup key={cat.key} label={`${cat.icon}  ${cat.label}`}>
-                {cat.signals.map(sig => (
-                  <option key={sig.name} value={`${cat.key}::${sig.name}`}>
-                    {sig.name}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
+  const selectExisting = (id: string) => {
+    setExistingId(id);
+    const item = existingItems.find(entry => entry.id === id);
+    if (!item) {
+      setValue("");
+      setNote("");
+      return;
+    }
+    setValue(item.highlight || "");
+    const signalLabel = item.subtype || item.text;
+    const title = item.title?.trim() || "";
+    const redundant = !title
+      || title === signalLabel
+      || title === `${signalLabel}: ${item.highlight}`
+      || title === item.highlight;
+    setNote(redundant ? "" : title);
+  };
 
-        {/* Value */}
-        <div className="signals-log-field">
+  return (
+    <div className={`signals-log-form${progressMarker ? " signals-log-form--initiative" : ""}`}>
+      <div className="signals-log-form-row">
+        {progressMarker ? (
+          <div className="signals-log-field signals-log-field--marker">
+            <label className="signals-log-label">Mark as</label>
+            <select
+              className="signals-log-select"
+              value={progressMarker.value}
+              aria-label="Mark as baseline or current"
+              onChange={event => {
+                const next = event.target.value;
+                if (next === "baseline" || next === "current") progressMarker.onChange(next);
+              }}
+            >
+              <option value="baseline">Baseline</option>
+              <option value="current">Current</option>
+            </select>
+          </div>
+        ) : null}
+
+        {sourceMode === "existing" ? (
+          <div className="signals-log-field signals-log-field--signal">
+            <label className="signals-log-label">Intelligence</label>
+            <select
+              className="signals-log-select"
+              value={existingId}
+              onChange={event => selectExisting(event.target.value)}
+            >
+              <option value="">Pick logged intelligence…</option>
+              {existingItems.map(intel => (
+                <option key={intel.id} value={intel.id}>
+                  {(intel.subtype || intel.text)}
+                  {intel.highlight ? ` · ${intel.highlight}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="signals-log-field signals-log-field--signal">
+            <label className="signals-log-label">Signal</label>
+            <select
+              className="signals-log-select"
+              value={categoryKey && signalName ? `${categoryKey}::${signalName}` : ""}
+              onChange={e => {
+                const val = e.target.value;
+                if (!val) { setCategoryKey(""); setSignalName(""); return; }
+                const [cat, sig] = val.split("::");
+                setCategoryKey(cat);
+                setSignalName(sig);
+              }}
+            >
+              <option value="">Select a signal…</option>
+              {SIGNAL_CATALOG.map(cat => (
+                <optgroup key={cat.key} label={cat.label}>
+                  {cat.signals.map(sig => (
+                    <option key={sig.name} value={`${cat.key}::${sig.name}`}>
+                      {sig.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="signals-log-field signals-log-field--value">
           <label className="signals-log-label">Value</label>
           <input
             className="signals-log-input"
@@ -6315,48 +6219,49 @@ function IntelligenceLogForm({
             value={value}
             onChange={e => setValue(e.target.value)}
             placeholder="e.g. 2.4M"
+            readOnly={sourceMode === "existing" && !existingId}
           />
         </div>
 
-        {/* Period — quarter + year */}
-        <div className="signals-log-field signals-log-field--period">
-          <label className="signals-log-label">Period</label>
-          <div className="signals-log-period-selects">
-            <select
-              className="signals-log-select"
-              value={periodParts.quarter}
-              aria-label="Period quarter"
-              onChange={e => {
-                setPeriod(formatIntelligencePeriod(
-                  e.target.value,
-                  periodParts.year || String(periodYears[periodYears.length - 2] ?? periodYears[0]),
-                ));
-              }}
-            >
-              {INTELLIGENCE_QUARTERS.map(quarter => (
-                <option key={quarter} value={quarter}>{quarter}</option>
-              ))}
-            </select>
-            <select
-              className="signals-log-select"
-              value={periodParts.year}
-              aria-label="Period year"
-              onChange={e => {
-                setPeriod(formatIntelligencePeriod(
-                  periodParts.quarter || "Q1",
-                  e.target.value,
-                ));
-              }}
-            >
-              {periodYears.map(year => (
-                <option key={year} value={String(year)}>{year}</option>
-              ))}
-            </select>
+        {!hidePeriod ? (
+          <div className="signals-log-field signals-log-field--period">
+            <label className="signals-log-label">Period</label>
+            <div className="signals-log-period-selects">
+              <select
+                className="signals-log-select"
+                value={periodParts.quarter}
+                aria-label="Period quarter"
+                onChange={e => {
+                  setPeriod(formatIntelligencePeriod(
+                    e.target.value,
+                    periodParts.year || String(periodYears[periodYears.length - 2] ?? periodYears[0]),
+                  ));
+                }}
+              >
+                {INTELLIGENCE_QUARTERS.map(quarter => (
+                  <option key={quarter} value={quarter}>{quarter}</option>
+                ))}
+              </select>
+              <select
+                className="signals-log-select"
+                value={periodParts.year}
+                aria-label="Period year"
+                onChange={e => {
+                  setPeriod(formatIntelligencePeriod(
+                    periodParts.quarter || "Q1",
+                    e.target.value,
+                  ));
+                }}
+              >
+                {periodYears.map(year => (
+                  <option key={year} value={String(year)}>{year}</option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
-      {/* Optional note */}
       <div className="signals-log-form-row signals-log-form-row--note">
         <div className="signals-log-field signals-log-field--full">
           <label className="signals-log-label">Note <span className="signals-log-optional">(optional)</span></label>
@@ -6366,17 +6271,18 @@ function IntelligenceLogForm({
             value={note}
             onChange={e => setNote(e.target.value)}
             placeholder="Context or commentary…"
+            readOnly={sourceMode === "existing" && !existingId}
           />
         </div>
       </div>
 
       {!hideActions ? (
         <div className="signals-log-form-actions">
-          <button type="button" className="signals-log-submit" disabled={!canSubmit} onClick={doSubmit}>
-            {submitLabel}
-          </button>
           <button type="button" className="signals-log-cancel" onClick={() => { reset(); onCancel(); }}>
             Cancel
+          </button>
+          <button type="button" className="signals-log-submit" disabled={!canSubmit} onClick={doSubmit}>
+            {submitLabel}
           </button>
         </div>
       ) : null}
@@ -6388,7 +6294,7 @@ function IntelligenceLogForm({
 type InitiativePillar = "dev" | "mkt" | "rev";
 type InitiativeKind = "continuous" | "one-time";
 type InitiativeStatus = "Suggested" | "Active" | "Completed";
-type InitiativeProgressRole = "baseline" | "current" | "target";
+type InitiativeProgressRole = "baseline" | "current";
 
 /**
  * Initiative taxonomy — same pattern as Intelligence signal logging:
@@ -6563,23 +6469,31 @@ function isoToDisplayDate(value?: string): string {
   return `${match[2]}/${match[3]}/${match[1]}`;
 }
 
-/** Digits-only typing → MM/DD/YYYY as the user types. */
-function formatMilestoneDueInput(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+/** Normalize stored due (ISO or MM/DD/YYYY) to `YYYY-MM-DD` for `<input type="date">`. */
+function toMilestoneDateInputValue(value?: string): string {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return "";
+  return `${match[3]}-${match[1]}-${match[2]}`;
 }
 
-function isValidMilestoneDue(value: string): boolean {
-  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!match) return false;
-  const month = Number(match[1]);
-  const day = Number(match[2]);
-  const year = Number(match[3]);
+function isValidMilestoneIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
   if (month < 1 || month > 12 || day < 1 || day > 31 || year < 2000 || year > 2100) return false;
   const date = new Date(year, month - 1, day);
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+/** Prefer MM/DD/YYYY when persisting from a date input (ISO → display). */
+function milestoneDueFromDateInput(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (isValidMilestoneIsoDate(trimmed)) return isoToDisplayDate(trimmed);
+  return undefined;
 }
 
 function normalizeAssignees(owner?: string, assignees?: string[]): string[] {
@@ -6611,7 +6525,7 @@ function buildDefaultMilestones(title: string, pillar: InitiativePillar): Initia
 }
 
 function nextProgressRole(links: InitiativeIntelligenceLink[]): InitiativeProgressRole {
-  const roles: InitiativeProgressRole[] = ["baseline", "current", "target"];
+  const roles: InitiativeProgressRole[] = ["baseline", "current"];
   return roles.find(role => !links.some(link => link.role === role)) ?? "current";
 }
 
@@ -6621,21 +6535,37 @@ function InitiativeMilestoneRow({
   onToggle,
   onRemove,
   onNoteChange,
+  onSave,
 }: {
   milestone: InitiativeMilestone;
   onToggle: () => void;
   onRemove: () => void;
   onNoteChange: (note?: string) => void;
+  onSave: (patch: { title: string; due?: string }) => void;
 }) {
   const [noteEditing, setNoteEditing] = useState(false);
   const [noteDraft, setNoteDraft] = useState(milestone.note ?? "");
+  const [editing, setEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(milestone.title);
+  const [dueDraft, setDueDraft] = useState(() => toMilestoneDateInputValue(milestone.due));
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const skipCommitRef = useRef(false);
   const noteText = milestone.note?.trim() ?? "";
+  const dueLabel = milestone.due ? isoToDisplayDate(milestone.due) : "No due date";
+  const canSaveEdit = Boolean(titleDraft.trim())
+    && (!dueDraft || isValidMilestoneIsoDate(dueDraft));
 
   useEffect(() => {
     if (!noteEditing) setNoteDraft(milestone.note ?? "");
   }, [milestone.note, noteEditing]);
+
+  useEffect(() => {
+    if (!editing) {
+      setTitleDraft(milestone.title);
+      setDueDraft(toMilestoneDateInputValue(milestone.due));
+    }
+  }, [milestone.title, milestone.due, editing]);
 
   useEffect(() => {
     if (!noteEditing) return;
@@ -6646,6 +6576,12 @@ function InitiativeMilestoneRow({
       el.selectionEnd = el.value.length;
     }
   }, [noteEditing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    titleInputRef.current?.focus();
+    titleInputRef.current?.select();
+  }, [editing]);
 
   const commitNote = () => {
     if (skipCommitRef.current) {
@@ -6663,8 +6599,27 @@ function InitiativeMilestoneRow({
     setNoteEditing(false);
   };
 
+  const startEdit = () => {
+    setTitleDraft(milestone.title);
+    setDueDraft(toMilestoneDateInputValue(milestone.due));
+    setEditing(true);
+  };
+
+  const commitEdit = () => {
+    const nextTitle = titleDraft.trim();
+    if (!nextTitle || (dueDraft && !isValidMilestoneIsoDate(dueDraft))) return;
+    onSave({ title: nextTitle, due: milestoneDueFromDateInput(dueDraft) });
+    setEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setTitleDraft(milestone.title);
+    setDueDraft(toMilestoneDateInputValue(milestone.due));
+    setEditing(false);
+  };
+
   return (
-    <div className={`initiative-milestone-item${milestone.done ? " is-done" : ""}`}>
+    <div className={`initiative-milestone-item${milestone.done ? " is-done" : ""}${editing ? " is-editing" : ""}`}>
       <div className="initiative-milestone-row">
         <button
           type="button"
@@ -6674,61 +6629,142 @@ function InitiativeMilestoneRow({
         >
           {milestone.done ? "✓" : ""}
         </button>
-        <div className="initiative-milestone-main">
-          <span className={`initiative-milestone-title${milestone.done ? " is-done" : ""}`}>
-            {milestone.title}
-          </span>
-          {noteEditing ? (
-            <div className="initiative-milestone-note-edit">
-              <textarea
-                ref={noteInputRef}
-                className="initiative-milestone-note-input"
-                value={noteDraft}
-                rows={2}
-                maxLength={280}
-                placeholder="Add a short note…"
-                aria-label={`Note for ${milestone.title}`}
-                onChange={event => setNoteDraft(event.target.value)}
-                onBlur={commitNote}
-                onKeyDown={event => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    cancelNote();
-                  } else if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    commitNote();
-                  }
-                }}
-              />
-              <span className="initiative-milestone-note-hint">Enter to save · Esc to cancel</span>
+
+        {editing ? (
+          <div className="initiative-milestone-edit">
+            <div className="initiative-milestone-edit-fields">
+              <label className="initiative-milestone-edit-field initiative-milestone-edit-field--title">
+                <span>Milestone</span>
+                <input
+                  ref={titleInputRef}
+                  className="initiative-milestone-title-input"
+                  type="text"
+                  value={titleDraft}
+                  aria-label="Milestone title"
+                  onChange={event => setTitleDraft(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelEdit();
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitEdit();
+                    }
+                  }}
+                />
+              </label>
+              <label className="initiative-milestone-edit-field initiative-milestone-edit-field--due">
+                <span>Due date</span>
+                <input
+                  className="initiative-milestone-date-input"
+                  type="date"
+                  value={dueDraft}
+                  aria-label="Milestone due date"
+                  onChange={event => setDueDraft(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelEdit();
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitEdit();
+                    }
+                  }}
+                />
+              </label>
             </div>
-          ) : noteText ? (
+            <div className="initiative-milestone-edit-actions">
+              <button
+                type="button"
+                className="initiatives-secondary-btn initiative-card-mini-btn"
+                onClick={cancelEdit}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="initiatives-primary-btn initiative-card-mini-btn"
+                disabled={!canSaveEdit}
+                onClick={commitEdit}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="initiative-milestone-main">
+              <button
+                type="button"
+                className={`initiative-milestone-title${milestone.done ? " is-done" : ""}`}
+                onClick={startEdit}
+              >
+                {milestone.title}
+              </button>
+              {noteEditing ? (
+                <div className="initiative-milestone-note-edit">
+                  <textarea
+                    ref={noteInputRef}
+                    className="initiative-milestone-note-input"
+                    value={noteDraft}
+                    rows={2}
+                    maxLength={280}
+                    placeholder="Add a short note…"
+                    aria-label={`Note for ${milestone.title}`}
+                    onChange={event => setNoteDraft(event.target.value)}
+                    onBlur={commitNote}
+                    onKeyDown={event => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelNote();
+                      } else if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        commitNote();
+                      }
+                    }}
+                  />
+                  <span className="initiative-milestone-note-hint">Enter to save · Esc to cancel</span>
+                </div>
+              ) : noteText ? (
+                <button
+                  type="button"
+                  className="initiative-milestone-note"
+                  onClick={() => setNoteEditing(true)}
+                >
+                  {noteText}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="initiative-milestone-note-add"
+                  onClick={() => setNoteEditing(true)}
+                >
+                  + Note
+                </button>
+              )}
+            </div>
+            <span className={`initiative-milestone-due${milestone.due ? "" : " is-empty"}`}>
+              {dueLabel}
+            </span>
             <button
               type="button"
-              className="initiative-milestone-note"
-              onClick={() => setNoteEditing(true)}
+              className="initiative-milestone-edit-btn"
+              aria-label={`Edit ${milestone.title}`}
+              title="Edit milestone"
+              onClick={startEdit}
             >
-              {noteText}
+              ✎
             </button>
-          ) : (
             <button
               type="button"
-              className="initiative-milestone-note-add"
-              onClick={() => setNoteEditing(true)}
+              className="initiative-milestone-remove"
+              aria-label="Remove milestone"
+              onClick={onRemove}
             >
-              + Note
+              ×
             </button>
-          )}
-        </div>
-        {milestone.due ? <em className="initiative-milestone-due">{isoToDisplayDate(milestone.due)}</em> : null}
-        <button
-          type="button"
-          className="initiative-milestone-remove"
-          aria-label="Remove milestone"
-          onClick={onRemove}
-        >
-          ×
-        </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -6784,12 +6820,15 @@ function InitiativeDetailDrawer({
   const milestonesDone = item.milestones.filter(m => m.done).length;
   const milestonesTotal = item.milestones.length;
   const milestonesPct = milestonesTotal > 0 ? Math.round((milestonesDone / milestonesTotal) * 100) : 0;
-  const roleOrder: InitiativeProgressRole[] = ["baseline", "current", "target"];
+  const roleOrder: InitiativeProgressRole[] = ["baseline", "current"];
 
   const [milestoneDraft, setMilestoneDraft] = useState({ title: "", due: "" });
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
   const [intelPanel, setIntelPanel] = useState<"log" | "link" | null>(null);
-  const [linkDraft, setLinkDraft] = useState<{ role: InitiativeProgressRole; intelligenceId: string }>({
+  const [linkDraft, setLinkDraft] = useState<{
+    role: InitiativeProgressRole;
+    intelligenceId: string;
+  }>({
     role: nextProgressRole(item.intelligenceLinks),
     intelligenceId: "",
   });
@@ -6816,7 +6855,10 @@ function InitiativeDetailDrawer({
     onStatusTabChange(nextStatus);
   };
 
-  const attachIntelligence = (logged: IntelligenceItem, role: InitiativeProgressRole) => {
+  const attachIntelligence = (
+    logged: IntelligenceItem,
+    role: InitiativeProgressRole,
+  ) => {
     const withoutRole = item.intelligenceLinks.filter(link => link.role !== role);
     onPatch({
       intelligenceLinks: [
@@ -6834,17 +6876,24 @@ function InitiativeDetailDrawer({
     });
   };
 
+  const resetLinkDraft = (links: InitiativeIntelligenceLink[] = item.intelligenceLinks) => {
+    setLinkDraft({
+      role: nextProgressRole(links),
+      intelligenceId: "",
+    });
+  };
+
   const addMilestone = () => {
     if (!milestoneDraft.title.trim()) return;
     const dueRaw = milestoneDraft.due.trim();
-    if (dueRaw && !isValidMilestoneDue(dueRaw)) return;
+    if (dueRaw && !isValidMilestoneIsoDate(dueRaw)) return;
     onPatch({
       milestones: [
         ...item.milestones,
         {
           id: `ms-${Date.now()}`,
           title: milestoneDraft.title.trim(),
-          due: dueRaw || undefined,
+          due: milestoneDueFromDateInput(dueRaw),
           done: false,
         },
       ],
@@ -6937,7 +6986,7 @@ function InitiativeDetailDrawer({
         </div>
 
         <div className="bench-drawer-body initiative-drawer-body">
-          <div className="initiative-card-section">
+          <div className="initiative-card-section initiative-card-section--details">
             <div className="initiative-card-section-head">
               <span className="initiative-card-section-label">Details</span>
               {!isCreate ? (
@@ -7029,8 +7078,8 @@ function InitiativeDetailDrawer({
                     </dd>
                   </div>
                   <div>
-                    <dt>Assigned to</dt>
-                    <dd>{assignees.join(", ")}</dd>
+                    <dt>Owner</dt>
+                    <dd>{assignees.length ? assignees.join(", ") : "—"}</dd>
                   </div>
                   <div>
                     <dt>Target</dt>
@@ -7039,221 +7088,6 @@ function InitiativeDetailDrawer({
                 </dl>
               </div>
             )}
-          </div>
-
-          {!isCreate && yorkOffer && !yorkNudgeHidden ? (
-            <div className="initiative-card-section initiative-york-nudge-wrap">
-              <YorkPartnerNudge
-                offer={yorkOffer}
-                variant="bar"
-                firstName="Shreya"
-                weakTrackLabels={[
-                  item.pillar === "dev" ? "R&D" : item.pillar === "mkt" ? "GTM" : "G&A",
-                ]}
-                cta="Talk to York IE"
-                onDismissed={() => setYorkNudgeHidden(true)}
-              />
-            </div>
-          ) : null}
-
-          <div className="initiative-card-section">
-            <div className="initiative-card-section-head">
-              <span className="initiative-card-section-label">Advisors</span>
-              <div className="initiative-card-section-actions">
-                {showAdvisorForm ? (
-                  <button
-                    type="button"
-                    className="initiatives-secondary-btn initiative-card-mini-btn"
-                    onClick={() => {
-                      setShowAdvisorForm(false);
-                      setAdvisorDraftId("");
-                    }}
-                  >
-                    Cancel
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="initiatives-secondary-btn initiative-card-mini-btn"
-                    onClick={() => setShowAdvisorForm(true)}
-                  >
-                    + Link advisor
-                  </button>
-                )}
-              </div>
-            </div>
-            {advisors.length > 0 ? (
-              <div className="initiative-advisor-list">
-                {advisors.map(advisor => (
-                  <div key={advisor.id} className="initiative-advisor-row">
-                    <div className="initiative-advisor-copy">
-                      <strong>{advisor.name}</strong>
-                      {advisor.title ? <em>{advisor.title}</em> : null}
-                    </div>
-                    <button
-                      type="button"
-                      className="initiative-milestone-remove"
-                      aria-label={`Remove ${advisor.name}`}
-                      onClick={() => onPatch({
-                        advisors: advisors.filter(entry => entry.id !== advisor.id),
-                      })}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="initiative-card-section-empty">No advisors linked.</p>
-            )}
-            {showAdvisorForm ? (
-              <div className="initiative-link-advisor-row">
-                <select
-                  value={advisorDraftId}
-                  aria-label="Advisor"
-                  onChange={event => setAdvisorDraftId(event.target.value)}
-                >
-                  <option value="">Pick an advisor…</option>
-                  {availableAdvisors.map(advisor => (
-                    <option key={advisor.id} value={advisor.id}>
-                      {advisor.name}{advisor.title ? ` · ${advisor.title}` : ""}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="initiatives-primary-btn"
-                  disabled={!advisorDraftId}
-                  onClick={() => {
-                    const selected = INITIATIVE_ADVISOR_DIRECTORY.find(advisor => advisor.id === advisorDraftId);
-                    if (!selected) return;
-                    onPatch({ advisors: [...advisors, selected] });
-                    setAdvisorDraftId("");
-                    setShowAdvisorForm(false);
-                  }}
-                >
-                  Link
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="initiative-card-section">
-            <div className="initiative-card-section-head">
-              <span className="initiative-card-section-label">Progress — baseline · current · target</span>
-              <div className="initiative-card-section-actions">
-                <button
-                  type="button"
-                  className="initiatives-secondary-btn initiative-card-mini-btn"
-                  onClick={() => setIntelPanel(intelPanel === "log" ? null : "log")}
-                >
-                  + Log intelligence
-                </button>
-                <button
-                  type="button"
-                  className="initiatives-secondary-btn initiative-card-mini-btn"
-                  onClick={() => setIntelPanel(intelPanel === "link" ? null : "link")}
-                >
-                  + Link intelligence
-                </button>
-              </div>
-            </div>
-
-            {item.intelligenceLinks.length > 0 ? (
-              <div className="initiative-intel-links">
-                {roleOrder.map(role => {
-                  const link = item.intelligenceLinks.find(entry => entry.role === role);
-                  if (!link) return null;
-                  return (
-                    <div key={link.id} className="initiative-intel-link-row">
-                      <span className="initiative-intel-role">{role}</span>
-                      <div className="initiative-intel-link-copy">
-                        <strong>{link.title}</strong>
-                        <em>{link.type} · {link.date}{link.highlight ? ` · ${link.highlight}` : ""}</em>
-                      </div>
-                      <button
-                        type="button"
-                        className="initiative-milestone-remove"
-                        aria-label={`Remove ${role} intelligence`}
-                        onClick={() => onPatch({
-                          intelligenceLinks: item.intelligenceLinks.filter(entry => entry.id !== link.id),
-                        })}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="initiative-card-progress-empty">
-                No intelligence tracked yet. Log or link a baseline and a target so progress can be narrated from the timeline.
-              </div>
-            )}
-
-            {intelPanel === "log" ? (
-              <IntelligenceLogForm
-                onCancel={() => setIntelPanel(null)}
-                onLog={logged => {
-                  onLogIntelligence?.(logged);
-                  attachIntelligence(logged, nextProgressRole(item.intelligenceLinks));
-                  setIntelPanel(null);
-                }}
-              />
-            ) : null}
-
-            {intelPanel === "link" ? (
-              <div className="initiative-link-intel-row">
-                <select
-                  value={linkDraft.role}
-                  onChange={event => setLinkDraft(previous => ({
-                    ...previous,
-                    role: event.target.value as InitiativeProgressRole,
-                  }))}
-                  aria-label="Progress role"
-                >
-                  <option value="baseline">Baseline</option>
-                  <option value="current">Current</option>
-                  <option value="target">Target</option>
-                </select>
-                <select
-                  value={linkDraft.intelligenceId}
-                  onChange={event => setLinkDraft(previous => ({
-                    ...previous,
-                    intelligenceId: event.target.value,
-                  }))}
-                  aria-label="Intelligence item"
-                >
-                  <option value="">Pick intelligence…</option>
-                  {availableIntelligence.map(intel => (
-                    <option key={intel.id} value={intel.id}>
-                      {intel.title || intel.text}{intel.highlight ? ` · ${intel.highlight}` : ""}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="initiatives-primary-btn"
-                  disabled={!linkDraft.intelligenceId}
-                  onClick={() => {
-                    const selected = availableIntelligence.find(intel => intel.id === linkDraft.intelligenceId);
-                    if (!selected) return;
-                    attachIntelligence(selected, linkDraft.role);
-                    setIntelPanel(null);
-                    setLinkDraft({ role: "current", intelligenceId: "" });
-                  }}
-                >
-                  Link
-                </button>
-                <button
-                  type="button"
-                  className="initiatives-secondary-btn"
-                  onClick={() => setIntelPanel(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : null}
           </div>
 
           <div className="initiative-card-section">
@@ -7298,6 +7132,11 @@ function InitiativeDetailDrawer({
                     onRemove={() => onPatch({
                       milestones: item.milestones.filter(entry => entry.id !== milestone.id),
                     })}
+                    onSave={({ title, due }) => onPatch({
+                      milestones: item.milestones.map(entry => (
+                        entry.id === milestone.id ? { ...entry, title, due } : entry
+                      )),
+                    })}
                     onNoteChange={note => onPatch({
                       milestones: item.milestones.map(entry => (
                         entry.id === milestone.id ? { ...entry, note } : entry
@@ -7309,39 +7148,263 @@ function InitiativeDetailDrawer({
             </div>
             {showMilestoneForm ? (
               <div className="initiative-milestone-form">
-                <input
-                  value={milestoneDraft.title}
-                  onChange={event => setMilestoneDraft(previous => ({
-                    ...previous,
-                    title: event.target.value,
-                  }))}
-                  placeholder="Milestone"
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="MM/DD/YYYY"
-                  value={milestoneDraft.due}
-                  onChange={event => setMilestoneDraft(previous => ({
-                    ...previous,
-                    due: formatMilestoneDueInput(event.target.value),
-                  }))}
-                  aria-label="Milestone due date"
-                  aria-invalid={Boolean(milestoneDraft.due && !isValidMilestoneDue(milestoneDraft.due))}
-                />
+                <div className="initiative-milestone-form-fields">
+                  <label className="initiative-milestone-form-field initiative-milestone-form-field--title">
+                    <span>Milestone</span>
+                    <input
+                      value={milestoneDraft.title}
+                      onChange={event => setMilestoneDraft(previous => ({
+                        ...previous,
+                        title: event.target.value,
+                      }))}
+                      placeholder="What needs to get done?"
+                    />
+                  </label>
+                  <label className="initiative-milestone-form-field initiative-milestone-form-field--due">
+                    <span>Due date</span>
+                    <input
+                      type="date"
+                      value={milestoneDraft.due}
+                      onChange={event => setMilestoneDraft(previous => ({
+                        ...previous,
+                        due: event.target.value,
+                      }))}
+                      aria-label="Milestone due date"
+                    />
+                  </label>
+                </div>
+                <div className="initiative-milestone-form-actions">
+                  <button
+                    type="button"
+                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    onClick={() => {
+                      setShowMilestoneForm(false);
+                      setMilestoneDraft({ title: "", due: "" });
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="initiatives-primary-btn initiative-card-mini-btn"
+                    onClick={addMilestone}
+                    disabled={
+                      !milestoneDraft.title.trim()
+                      || Boolean(milestoneDraft.due && !isValidMilestoneIsoDate(milestoneDraft.due))
+                    }
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {!isCreate && yorkOffer && !yorkNudgeHidden ? (
+            <div className="initiative-card-section initiative-york-help-wrap">
+              <YorkPartnerNudge
+                offer={yorkOffer}
+                variant="initiative"
+                firstName="Shreya"
+                initiativeTitle={item.title}
+                topicLabel={initiativeTopicLabel(item.pillar, item.topic)}
+                milestones={item.milestones.map(milestone => ({ title: milestone.title }))}
+                cta="Talk to York IE"
+                onDismissed={() => setYorkNudgeHidden(true)}
+              />
+            </div>
+          ) : null}
+
+          <div className="initiative-card-section">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Advisors</span>
+              <div className="initiative-card-section-actions">
+                {showAdvisorForm ? (
+                  <button
+                    type="button"
+                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    onClick={() => {
+                      setShowAdvisorForm(false);
+                      setAdvisorDraftId("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    onClick={() => setShowAdvisorForm(true)}
+                  >
+                    + Link advisor
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="initiative-card-section-hint">
+              Link an advisor so this work has a named coach — someone who can challenge the plan, unblock milestones, and keep you honest when progress stalls.
+            </p>
+            {advisors.length > 0 ? (
+              <div className="initiative-advisor-list">
+                {advisors.map(advisor => (
+                  <div key={advisor.id} className="initiative-advisor-row">
+                    <div className="initiative-advisor-copy">
+                      <strong>{advisor.name}</strong>
+                      {advisor.title ? <em>{advisor.title}</em> : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="initiative-milestone-remove"
+                      aria-label={`Remove ${advisor.name}`}
+                      onClick={() => onPatch({
+                        advisors: advisors.filter(entry => entry.id !== advisor.id),
+                      })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="initiative-card-section-empty">No advisors linked yet.</p>
+            )}
+            {showAdvisorForm ? (
+              <div className="initiative-link-advisor-row">
+                <select
+                  value={advisorDraftId}
+                  aria-label="Advisor"
+                  onChange={event => setAdvisorDraftId(event.target.value)}
+                >
+                  <option value="">Pick an advisor…</option>
+                  {availableAdvisors.map(advisor => (
+                    <option key={advisor.id} value={advisor.id}>
+                      {advisor.name}{advisor.title ? ` · ${advisor.title}` : ""}
+                    </option>
+                  ))}
+                </select>
                 <button
                   type="button"
                   className="initiatives-primary-btn"
-                  onClick={addMilestone}
-                  disabled={
-                    !milestoneDraft.title.trim()
-                    || Boolean(milestoneDraft.due && !isValidMilestoneDue(milestoneDraft.due))
-                  }
+                  disabled={!advisorDraftId}
+                  onClick={() => {
+                    const selected = INITIATIVE_ADVISOR_DIRECTORY.find(advisor => advisor.id === advisorDraftId);
+                    if (!selected) return;
+                    onPatch({ advisors: [...advisors, selected] });
+                    setAdvisorDraftId("");
+                    setShowAdvisorForm(false);
+                  }}
                 >
-                  Add
+                  Link
                 </button>
               </div>
+            ) : null}
+          </div>
+
+          <div className="initiative-card-section">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Progress — baseline · current</span>
+              <div className="initiative-card-section-actions">
+                <button
+                  type="button"
+                  className="initiatives-secondary-btn initiative-card-mini-btn"
+                  onClick={() => {
+                    if (intelPanel === "log") {
+                      setIntelPanel(null);
+                      return;
+                    }
+                    resetLinkDraft();
+                    setIntelPanel("log");
+                  }}
+                >
+                  + Log intelligence
+                </button>
+                <button
+                  type="button"
+                  className="initiatives-secondary-btn initiative-card-mini-btn"
+                  onClick={() => {
+                    if (intelPanel === "link") {
+                      setIntelPanel(null);
+                      return;
+                    }
+                    resetLinkDraft();
+                    setIntelPanel("link");
+                  }}
+                >
+                  + Link intelligence
+                </button>
+              </div>
+            </div>
+
+            {item.intelligenceLinks.some(link => link.role === "baseline" || link.role === "current") ? (
+              <div className="initiative-intel-links">
+                {roleOrder.map(role => {
+                  const link = item.intelligenceLinks.find(entry => entry.role === role);
+                  if (!link) return null;
+                  return (
+                    <div key={link.id} className="initiative-intel-link-row">
+                      <span className="initiative-intel-role">{role}</span>
+                      <div className="initiative-intel-link-copy">
+                        <strong>{link.title}</strong>
+                        <em>
+                          {link.type}
+                          {link.highlight ? ` · ${link.highlight}` : ""}
+                        </em>
+                      </div>
+                      <button
+                        type="button"
+                        className="initiative-milestone-remove"
+                        aria-label={`Remove ${role} intelligence`}
+                        onClick={() => onPatch({
+                          intelligenceLinks: item.intelligenceLinks.filter(entry => entry.id !== link.id),
+                        })}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="initiative-card-progress-empty">
+                No intelligence tracked yet. Log or link a baseline and a current reading so progress can be narrated from the timeline.
+              </div>
+            )}
+
+            {intelPanel === "log" ? (
+              <IntelligenceLogForm
+                hidePeriod
+                progressMarker={{
+                  value: linkDraft.role,
+                  onChange: role => setLinkDraft(previous => ({ ...previous, role })),
+                }}
+                submitLabel="Log intelligence"
+                onCancel={() => setIntelPanel(null)}
+                onLog={logged => {
+                  onLogIntelligence?.(logged);
+                  attachIntelligence(logged, linkDraft.role);
+                  setIntelPanel(null);
+                  resetLinkDraft();
+                }}
+              />
+            ) : null}
+
+            {intelPanel === "link" ? (
+              <IntelligenceLogForm
+                hidePeriod
+                sourceMode="existing"
+                existingItems={availableIntelligence}
+                progressMarker={{
+                  value: linkDraft.role,
+                  onChange: role => setLinkDraft(previous => ({ ...previous, role })),
+                }}
+                submitLabel="Link intelligence"
+                onCancel={() => setIntelPanel(null)}
+                onLog={logged => {
+                  attachIntelligence(logged, linkDraft.role);
+                  setIntelPanel(null);
+                  resetLinkDraft();
+                }}
+              />
             ) : null}
           </div>
         </div>
@@ -7454,7 +7517,7 @@ function InitiativeAssigneesField({
 
   return (
     <div className="initiative-assignees-field">
-      <span className="initiative-field-label">Assigned to</span>
+      <span className="initiative-field-label">Owner</span>
       <div className="initiative-assignees-box">
         {assignees.map(name => (
           <span key={name} className="initiative-assignee-chip">
@@ -7481,7 +7544,7 @@ function InitiativeAssigneesField({
           }}
           onBlur={() => { if (draft.trim()) commitName(draft); }}
           placeholder={assignees.length ? "Add another name" : "Add a name"}
-          aria-label="Assigned to"
+          aria-label="Owner"
         />
       </div>
       {draft.trim() && suggestions.length > 0 ? (
