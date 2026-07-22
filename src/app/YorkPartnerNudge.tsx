@@ -94,9 +94,15 @@ export function YorkPartnerNudge({
           gapLabels,
           weakTrackLabels,
         });
-  const mailto = yorkContactMailto(offer);
+  const contactHref = yorkContactMailto(offer);
   const railLead = lead?.trim() || personalized.lead;
   const railHeadline = headline?.trim() || personalized.headline;
+  const contactLinkProps = {
+    href: contactHref,
+    target: "_blank" as const,
+    rel: "noopener noreferrer",
+    onClick,
+  };
 
   const hide = (mode: "hide" | "forever") => {
     dismissYorkOffer(offer.id, mode);
@@ -154,7 +160,7 @@ export function YorkPartnerNudge({
             </li>
           ))}
         </ul>
-        <a className="ask-ai-btn initiative-york-help-cta" href={mailto} onClick={onClick}>
+        <a className="ask-ai-btn initiative-york-help-cta" {...contactLinkProps}>
           {cta}
         </a>
       </div>
@@ -173,7 +179,7 @@ export function YorkPartnerNudge({
         </div>
         <p className="york-rail-lead">{railLead}</p>
         <p className="york-rail-headline">{message?.trim() || railHeadline}</p>
-        <a className="ask-ai-btn york-rail-cta" href={mailto} onClick={onClick}>
+        <a className="ask-ai-btn york-rail-cta" {...contactLinkProps}>
           {cta}
         </a>
       </aside>
@@ -192,7 +198,7 @@ export function YorkPartnerNudge({
           <strong className="york-rail-headline">{railHeadline}</strong>
           <em className="york-rail-lead">{railLead}</em>
         </div>
-        <a className="ask-ai-btn york-rail-cta" href={mailto} onClick={onClick}>
+        <a className="ask-ai-btn york-rail-cta" {...contactLinkProps}>
           {cta}
         </a>
         {menu}
@@ -212,7 +218,7 @@ export function YorkPartnerNudge({
       </div>
       <p className="york-rail-lead">{railLead}</p>
       <p className="york-rail-headline">{railHeadline}</p>
-      <a className="ask-ai-btn york-rail-cta" href={mailto} onClick={onClick}>
+      <a className="ask-ai-btn york-rail-cta" {...contactLinkProps}>
         {cta}
       </a>
     </aside>

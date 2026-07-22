@@ -27,24 +27,15 @@ export type YorkServiceOffer = {
 /** Answers bag — onboarding + detail drawer fields we key off. */
 export type YorkUpsellAnswers = Record<string, string | undefined | null>;
 
-const CONTACT_EMAIL = "growth@york.ie";
+/** Public growth services request form — all “Talk to York IE” CTAs open this. */
+export const YORK_SERVICES_REQUEST_URL = "https://york.ie/services-request/";
 
-export function yorkContactMailto(offer: YorkServiceOffer): string {
-  const subject = encodeURIComponent(offer.contactSubject);
-  const body = encodeURIComponent(
-    [
-      `Hi York IE,`,
-      ``,
-      `I'm reaching out about: ${offer.headline}`,
-      ``,
-      `Context from Fuel: ${offer.triggerField} = "${offer.triggerValue}"`,
-      ``,
-      offer.pitch,
-      ``,
-      `Looking forward to talking.`,
-    ].join("\n"),
-  );
-  return `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+/**
+ * Contact destination for York partner CTAs.
+ * Opens the services request page (offer kept for call-site compatibility / future UTM).
+ */
+export function yorkContactMailto(_offer?: YorkServiceOffer): string {
+  return YORK_SERVICES_REQUEST_URL;
 }
 
 function offer(
