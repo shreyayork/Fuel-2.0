@@ -8,3 +8,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+# Launchpad local credentials (do not commit)
+**/.env
+!**/.env.example
+**/parameters.json
+**/terraform.tfvars
+**/credentials.json

@@ -1,0 +1,1065 @@
+{
+  "name": "@figma/my-make-file",
+  "description": "Fuel 2.0 frontend: a React + Vite app for print/design workflows and onboarding, built from a Figma Make export with Tailwind and component libraries. Note: this project has over 100 source files; consider scoping analysis to a subdirectory for faster results.",
+  "languages": [
+    "css",
+    "html",
+    "javascript",
+    "json",
+    "markdown",
+    "typescript",
+    "unknown",
+    "yaml"
+  ],
+  "frameworks": [
+    "React",
+    "Vite",
+    "Tailwind CSS",
+    "MUI",
+    "React Router"
+  ],
+  "files": [
+    {
+      "path": ".cursor/skills/benchmark-components/SKILL.md",
+      "language": "markdown",
+      "sizeLines": 245,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".cursor/skills/feature-handoff-prompt/examples.md",
+      "language": "markdown",
+      "sizeLines": 55,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".cursor/skills/feature-handoff-prompt/SKILL.md",
+      "language": "markdown",
+      "sizeLines": 146,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".cursor/skills/fuel-design-system/SKILL.md",
+      "language": "markdown",
+      "sizeLines": 155,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".cursor/skills/fuel-founder-copy/SKILL.md",
+      "language": "markdown",
+      "sizeLines": 92,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".cursor/skills/fuel-onboarding-voice/examples.md",
+      "language": "markdown",
+      "sizeLines": 72,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".cursor/skills/fuel-onboarding-voice/SKILL.md",
+      "language": "markdown",
+      "sizeLines": 138,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".cursor/skills/fuel-scorecard-ui/SKILL.md",
+      "language": "markdown",
+      "sizeLines": 59,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".cursor/skills/README.md",
+      "language": "markdown",
+      "sizeLines": 35,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".understand-anything/.understandignore",
+      "language": "unknown",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".understand-anything/config.json",
+      "language": "json",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "ATTRIBUTIONS.md",
+      "language": "markdown",
+      "sizeLines": 3,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "default_shadcn_theme.css",
+      "language": "css",
+      "sizeLines": 120,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "docs/credit-system-spec.md",
+      "language": "markdown",
+      "sizeLines": 85,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/fuel-demo-v1-context.md",
+      "language": "markdown",
+      "sizeLines": 367,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/product-overview.md",
+      "language": "markdown",
+      "sizeLines": 644,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "guidelines/Guidelines.md",
+      "language": "markdown",
+      "sizeLines": 61,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "index.html",
+      "language": "html",
+      "sizeLines": 21,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "onboarding-story-review.md",
+      "language": "markdown",
+      "sizeLines": 133,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "package.json",
+      "language": "json",
+      "sizeLines": 89,
+      "fileCategory": "config"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "language": "yaml",
+      "sizeLines": 1,
+      "fileCategory": "config"
+    },
+    {
+      "path": "postcss.config.mjs",
+      "language": "javascript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 10,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/app/account/accountSettings.css",
+      "language": "css",
+      "sizeLines": 1010,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/app/account/AccountSettings.tsx",
+      "language": "typescript",
+      "sizeLines": 615,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/account/AccountSettingsNav.tsx",
+      "language": "typescript",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/App.tsx",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/AskFuelChat.tsx",
+      "language": "typescript",
+      "sizeLines": 402,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/benchmark-peer.css",
+      "language": "css",
+      "sizeLines": 163,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/app/components/figma/ImageWithFallback.tsx",
+      "language": "typescript",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/accordion.tsx",
+      "language": "typescript",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/alert-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 157,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/alert.tsx",
+      "language": "typescript",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/aspect-ratio.tsx",
+      "language": "typescript",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/avatar.tsx",
+      "language": "typescript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/badge.tsx",
+      "language": "typescript",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/breadcrumb.tsx",
+      "language": "typescript",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/button.tsx",
+      "language": "typescript",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/calendar.tsx",
+      "language": "typescript",
+      "sizeLines": 75,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/card.tsx",
+      "language": "typescript",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/carousel.tsx",
+      "language": "typescript",
+      "sizeLines": 241,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/chart.tsx",
+      "language": "typescript",
+      "sizeLines": 353,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/checkbox.tsx",
+      "language": "typescript",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/collapsible.tsx",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/command.tsx",
+      "language": "typescript",
+      "sizeLines": 177,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/context-menu.tsx",
+      "language": "typescript",
+      "sizeLines": 252,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 135,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/drawer.tsx",
+      "language": "typescript",
+      "sizeLines": 132,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/dropdown-menu.tsx",
+      "language": "typescript",
+      "sizeLines": 257,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/form.tsx",
+      "language": "typescript",
+      "sizeLines": 168,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/hover-card.tsx",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/input-otp.tsx",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/input.tsx",
+      "language": "typescript",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/label.tsx",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/menubar.tsx",
+      "language": "typescript",
+      "sizeLines": 276,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/navigation-menu.tsx",
+      "language": "typescript",
+      "sizeLines": 168,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/pagination.tsx",
+      "language": "typescript",
+      "sizeLines": 127,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/popover.tsx",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/progress.tsx",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/radio-group.tsx",
+      "language": "typescript",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/resizable.tsx",
+      "language": "typescript",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/scroll-area.tsx",
+      "language": "typescript",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/select.tsx",
+      "language": "typescript",
+      "sizeLines": 189,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/separator.tsx",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/sheet.tsx",
+      "language": "typescript",
+      "sizeLines": 139,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/sidebar.tsx",
+      "language": "typescript",
+      "sizeLines": 726,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/skeleton.tsx",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/slider.tsx",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/sonner.tsx",
+      "language": "typescript",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/switch.tsx",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/table.tsx",
+      "language": "typescript",
+      "sizeLines": 116,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/tabs.tsx",
+      "language": "typescript",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/textarea.tsx",
+      "language": "typescript",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/toggle-group.tsx",
+      "language": "typescript",
+      "sizeLines": 73,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/toggle.tsx",
+      "language": "typescript",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/tooltip.tsx",
+      "language": "typescript",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/use-mobile.ts",
+      "language": "typescript",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/components/ui/utils.ts",
+      "language": "typescript",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/constants.ts",
+      "language": "typescript",
+      "sizeLines": 91,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/CreditBlockBanner.tsx",
+      "language": "typescript",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/CreditIndicator.tsx",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/creditLogic.ts",
+      "language": "typescript",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/CreditPopover.tsx",
+      "language": "typescript",
+      "sizeLines": 175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/CreditProvider.tsx",
+      "language": "typescript",
+      "sizeLines": 247,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/credits.css",
+      "language": "css",
+      "sizeLines": 532,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/app/credits/CreditToast.tsx",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/demoFlow.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/index.ts",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/isDemoMode.ts",
+      "language": "typescript",
+      "sizeLines": 2,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/types.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/credits/UpgradeModal.tsx",
+      "language": "typescript",
+      "sizeLines": 134,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/fuelBrief.ts",
+      "language": "typescript",
+      "sizeLines": 249,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/FuelOnboardingChat.tsx",
+      "language": "typescript",
+      "sizeLines": 8708,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/fuelTokens.ts",
+      "language": "typescript",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/IntegrationSetupPage.tsx",
+      "language": "typescript",
+      "sizeLines": 788,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/intelligenceFilters.ts",
+      "language": "typescript",
+      "sizeLines": 200,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/investGeography.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/investor/investor.css",
+      "language": "css",
+      "sizeLines": 2408,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/app/investor/InvestorDashboard.tsx",
+      "language": "typescript",
+      "sizeLines": 1856,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/investor/investorData.ts",
+      "language": "typescript",
+      "sizeLines": 1068,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/OnboardingFlow.tsx",
+      "language": "typescript",
+      "sizeLines": 1618,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/OnboardingMotionGraphics.tsx",
+      "language": "typescript",
+      "sizeLines": 2343,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/PatriotPayJourney.css",
+      "language": "css",
+      "sizeLines": 25952,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/app/PatriotPayJourney.tsx",
+      "language": "typescript",
+      "sizeLines": 10709,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/ScorecardV2.tsx",
+      "language": "typescript",
+      "sizeLines": 6122,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/signalCatalog.ts",
+      "language": "typescript",
+      "sizeLines": 230,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/trackQuestions.ts",
+      "language": "typescript",
+      "sizeLines": 671,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/yorkDismiss.ts",
+      "language": "typescript",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/yorkIeUpsell.ts",
+      "language": "typescript",
+      "sizeLines": 1399,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/YorkPartnerNudge.tsx",
+      "language": "typescript",
+      "sizeLines": 226,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/imports/pasted_text/fuel-2-0-product-brief.md",
+      "language": "markdown",
+      "sizeLines": 207,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/imports/pasted_text/york-ie-value-creation-engine.md",
+      "language": "markdown",
+      "sizeLines": 95,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/main.tsx",
+      "language": "typescript",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/styles/fonts.css",
+      "language": "css",
+      "sizeLines": 0,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/styles/fuel-tokens.css",
+      "language": "css",
+      "sizeLines": 29,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/styles/globals.css",
+      "language": "css",
+      "sizeLines": 0,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/styles/index.css",
+      "language": "css",
+      "sizeLines": 4,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/styles/tailwind.css",
+      "language": "css",
+      "sizeLines": 4,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/styles/theme.css",
+      "language": "css",
+      "sizeLines": 181,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "vite.config.ts",
+      "language": "typescript",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    }
+  ],
+  "totalFiles": 120,
+  "filteredByIgnore": 0,
+  "estimatedComplexity": "moderate",
+  "importMap": {
+    ".cursor/skills/benchmark-components/SKILL.md": [],
+    ".cursor/skills/feature-handoff-prompt/examples.md": [],
+    ".cursor/skills/feature-handoff-prompt/SKILL.md": [],
+    ".cursor/skills/fuel-design-system/SKILL.md": [],
+    ".cursor/skills/fuel-founder-copy/SKILL.md": [],
+    ".cursor/skills/fuel-onboarding-voice/examples.md": [],
+    ".cursor/skills/fuel-onboarding-voice/SKILL.md": [],
+    ".cursor/skills/fuel-scorecard-ui/SKILL.md": [],
+    ".cursor/skills/README.md": [],
+    ".understand-anything/.understandignore": [],
+    ".understand-anything/config.json": [],
+    "ATTRIBUTIONS.md": [],
+    "default_shadcn_theme.css": [],
+    "docs/credit-system-spec.md": [],
+    "docs/fuel-demo-v1-context.md": [],
+    "docs/product-overview.md": [],
+    "guidelines/Guidelines.md": [],
+    "index.html": [],
+    "onboarding-story-review.md": [],
+    "package.json": [],
+    "pnpm-workspace.yaml": [],
+    "postcss.config.mjs": [],
+    "README.md": [],
+    "src/app/account/accountSettings.css": [],
+    "src/app/account/AccountSettings.tsx": [
+      "src/app/account/accountSettings.css",
+      "src/app/account/AccountSettingsNav.tsx",
+      "src/app/credits/constants.ts",
+      "src/app/credits/creditLogic.ts",
+      "src/app/credits/CreditProvider.tsx",
+      "src/app/credits/types.ts"
+    ],
+    "src/app/account/AccountSettingsNav.tsx": [],
+    "src/app/App.tsx": [
+      "src/app/IntegrationSetupPage.tsx",
+      "src/app/OnboardingFlow.tsx",
+      "src/app/PatriotPayJourney.tsx"
+    ],
+    "src/app/AskFuelChat.tsx": [
+      "src/app/fuelBrief.ts",
+      "src/app/PatriotPayJourney.tsx"
+    ],
+    "src/app/benchmark-peer.css": [],
+    "src/app/components/figma/ImageWithFallback.tsx": [],
+    "src/app/components/ui/accordion.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/alert-dialog.tsx": [
+      "src/app/components/ui/button.tsx",
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/alert.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/aspect-ratio.tsx": [],
+    "src/app/components/ui/avatar.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/badge.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/breadcrumb.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/button.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/calendar.tsx": [
+      "src/app/components/ui/button.tsx",
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/card.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/carousel.tsx": [
+      "src/app/components/ui/button.tsx",
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/chart.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/checkbox.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/collapsible.tsx": [],
+    "src/app/components/ui/command.tsx": [
+      "src/app/components/ui/dialog.tsx",
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/context-menu.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/dialog.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/drawer.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/dropdown-menu.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/form.tsx": [
+      "src/app/components/ui/label.tsx",
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/hover-card.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/input-otp.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/input.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/label.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/menubar.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/navigation-menu.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/pagination.tsx": [
+      "src/app/components/ui/button.tsx",
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/popover.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/progress.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/radio-group.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/resizable.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/scroll-area.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/select.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/separator.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/sheet.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/sidebar.tsx": [
+      "src/app/components/ui/button.tsx",
+      "src/app/components/ui/input.tsx",
+      "src/app/components/ui/separator.tsx",
+      "src/app/components/ui/sheet.tsx",
+      "src/app/components/ui/skeleton.tsx",
+      "src/app/components/ui/tooltip.tsx",
+      "src/app/components/ui/use-mobile.ts",
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/skeleton.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/slider.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/sonner.tsx": [],
+    "src/app/components/ui/switch.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/table.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/tabs.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/textarea.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/toggle-group.tsx": [
+      "src/app/components/ui/toggle.tsx",
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/toggle.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/tooltip.tsx": [
+      "src/app/components/ui/utils.ts"
+    ],
+    "src/app/components/ui/use-mobile.ts": [],
+    "src/app/components/ui/utils.ts": [],
+    "src/app/credits/constants.ts": [
+      "src/app/credits/types.ts"
+    ],
+    "src/app/credits/CreditBlockBanner.tsx": [
+      "src/app/credits/creditLogic.ts",
+      "src/app/credits/CreditProvider.tsx"
+    ],
+    "src/app/credits/CreditIndicator.tsx": [
+      "src/app/account/AccountSettingsNav.tsx",
+      "src/app/credits/creditLogic.ts",
+      "src/app/credits/CreditPopover.tsx",
+      "src/app/credits/CreditProvider.tsx"
+    ],
+    "src/app/credits/creditLogic.ts": [
+      "src/app/credits/constants.ts",
+      "src/app/credits/demoFlow.ts",
+      "src/app/credits/types.ts"
+    ],
+    "src/app/credits/CreditPopover.tsx": [
+      "src/app/credits/constants.ts",
+      "src/app/credits/creditLogic.ts",
+      "src/app/credits/CreditProvider.tsx"
+    ],
+    "src/app/credits/CreditProvider.tsx": [
+      "src/app/credits/constants.ts",
+      "src/app/credits/creditLogic.ts",
+      "src/app/credits/demoFlow.ts",
+      "src/app/credits/types.ts"
+    ],
+    "src/app/credits/credits.css": [],
+    "src/app/credits/CreditToast.tsx": [
+      "src/app/credits/CreditProvider.tsx"
+    ],
+    "src/app/credits/demoFlow.ts": [
+      "src/app/credits/constants.ts",
+      "src/app/credits/isDemoMode.ts",
+      "src/app/credits/types.ts"
+    ],
+    "src/app/credits/index.ts": [],
+    "src/app/credits/isDemoMode.ts": [],
+    "src/app/credits/types.ts": [],
+    "src/app/credits/UpgradeModal.tsx": [
+      "src/app/credits/constants.ts",
+      "src/app/credits/CreditProvider.tsx"
+    ],
+    "src/app/fuelBrief.ts": [
+      "src/app/PatriotPayJourney.tsx"
+    ],
+    "src/app/FuelOnboardingChat.tsx": [
+      "src/app/benchmark-peer.css",
+      "src/app/fuelTokens.ts"
+    ],
+    "src/app/fuelTokens.ts": [],
+    "src/app/IntegrationSetupPage.tsx": [],
+    "src/app/intelligenceFilters.ts": [],
+    "src/app/investGeography.ts": [],
+    "src/app/investor/investor.css": [],
+    "src/app/investor/InvestorDashboard.tsx": [
+      "src/app/investor/investor.css",
+      "src/app/investor/investorData.ts"
+    ],
+    "src/app/investor/investorData.ts": [],
+    "src/app/OnboardingFlow.tsx": [
+      "src/app/investGeography.ts",
+      "src/app/OnboardingMotionGraphics.tsx",
+      "src/app/PatriotPayJourney.tsx",
+      "src/app/trackQuestions.ts"
+    ],
+    "src/app/OnboardingMotionGraphics.tsx": [
+      "src/app/investGeography.ts"
+    ],
+    "src/app/PatriotPayJourney.css": [],
+    "src/app/PatriotPayJourney.tsx": [
+      "src/app/account/AccountSettings.tsx",
+      "src/app/account/AccountSettingsNav.tsx",
+      "src/app/AskFuelChat.tsx",
+      "src/app/credits/creditLogic.ts",
+      "src/app/credits/credits.css",
+      "src/app/credits/index.ts",
+      "src/app/fuelBrief.ts",
+      "src/app/IntegrationSetupPage.tsx",
+      "src/app/intelligenceFilters.ts",
+      "src/app/investor/InvestorDashboard.tsx",
+      "src/app/investor/investorData.ts",
+      "src/app/PatriotPayJourney.css",
+      "src/app/ScorecardV2.tsx",
+      "src/app/signalCatalog.ts",
+      "src/app/trackQuestions.ts",
+      "src/app/yorkDismiss.ts",
+      "src/app/yorkIeUpsell.ts",
+      "src/app/YorkPartnerNudge.tsx"
+    ],
+    "src/app/ScorecardV2.tsx": [
+      "src/app/FuelOnboardingChat.tsx",
+      "src/app/OnboardingFlow.tsx",
+      "src/app/PatriotPayJourney.css",
+      "src/app/PatriotPayJourney.tsx",
+      "src/app/trackQuestions.ts",
+      "src/app/yorkDismiss.ts",
+      "src/app/yorkIeUpsell.ts",
+      "src/app/YorkPartnerNudge.tsx"
+    ],
+    "src/app/signalCatalog.ts": [],
+    "src/app/trackQuestions.ts": [
+      "src/app/PatriotPayJourney.tsx"
+    ],
+    "src/app/yorkDismiss.ts": [],
+    "src/app/yorkIeUpsell.ts": [],
+    "src/app/YorkPartnerNudge.tsx": [
+      "src/app/yorkDismiss.ts",
+      "src/app/yorkIeUpsell.ts"
+    ],
+    "src/imports/pasted_text/fuel-2-0-product-brief.md": [],
+    "src/imports/pasted_text/york-ie-value-creation-engine.md": [],
+    "src/main.tsx": [
+      "src/app/App.tsx",
+      "src/styles/index.css"
+    ],
+    "src/styles/fonts.css": [],
+    "src/styles/fuel-tokens.css": [],
+    "src/styles/globals.css": [],
+    "src/styles/index.css": [],
+    "src/styles/tailwind.css": [],
+    "src/styles/theme.css": [],
+    "vite.config.ts": []
+  }
+}
