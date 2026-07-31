@@ -1,0 +1,460 @@
+---
+name: "playwright-automation"
+description: "Playwright generator: Ten suite files per page/feature (smoke/ui/form/api/error/edge/mobile/a11y), fixtures mock-data module, no smoke-only shortcuts"
+globs:
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "src/**/*.js"
+  - "src/**/*.jsx"
+  - "src/**/*.vue"
+  - "src/**/*.svelte"
+  - "src/**/*.html"
+  - "automation-tests/**/*.ts"
+alwaysApply: true
+---
+
+# UNIVERSAL PLAYWRIGHT FULL-COVERAGE RULE
+
+## LaunchPad QA workspace override (mandatory when OutputDirectory header is present)
+
+When the agent prompt header includes **`OutputDirectory: tests/{topic}/{chat}/{messageId}`**, this QA layout **replaces** all `automation-tests/` paths in this rule:
+
+- Write specs **only** under that `OutputDirectory`.
+- Mock data: `{OutputDirectory}/fixtures/mock-data/<slug>.data.ts` — import in specs as `./fixtures/mock-data/<slug>.data`.
+- Helpers: `{OutputDirectory}/helpers/<slug>.helper.ts` — import as `./helpers/<slug>.helper`.
+- **Specs only:** platform auth (LaunchPad-synced, never agent-authored) — use **exact** paths from the prompt header (`PlatformAuthFixtureImport`, `PlatformAuthHelperImport`).
+- **Helpers only:** import `expect` and Playwright types from `@playwright/test` — **never** import `fixtures/authenticated-test` or `utils/auth.helper` inside `{OutputDirectory}/helpers/`.
+- **Forbidden:** repo-root `fixtures/`, `fixtures/mock-data/`, `helpers/`, or `automation-tests/` for this message's files.
+
+If no `OutputDirectory` header, legacy `automation-tests/` layout below still applies.
+
+Use this rule to generate production-grade Playwright tests for any frontend stack:
+- React
+- Angular
+- Vue
+- Svelte
+- Next/Nuxt
+- Plain HTML/JS
+
+## Trigger Phrases
+
+Run this workflow when user asks:
+- `generate playwright tests`
+- `generate all tests`
+- `scan and generate tests`
+- any equivalent request for complete e2e coverage
+
+If this rule is not auto-attached for a chat-only prompt, **@mention** `.cursor/rules/playwright-automation.mdc` so the agent loads the full contract (Ten files + mock data).
+
+## Non-Negotiable Contract
+
+Never do these:
+- Skip files without explicit reason
+- Skip forms, create/edit/config modals, drawers, or wizards
+- Skip sort/filter/search/tab/pagination behavior when present
+- Use placeholder pseudocode or `...`
+- Use `page.waitForTimeout()`
+- Use CSS/XPath selectors when role/label/testid is available
+
+Always do these:
+- Read source first, generate tests second
+- When writing specs, follow **`.cursor/rules/playwright-spec-templates.mdc`** (sections 4a–4h) — that file holds the full templates so this rule stays smaller
+- Produce runnable TypeScript Playwright specs
+- Include valid data, invalid data, and edge cases
+- Mock external API dependencies where needed
+- Add mobile coverage variants for applicable flows
+- **Create or update the feature mock-data module first** (see **Central mock data module** below), then import it from every generated spec — no duplicated literals across files
+- **Emit separate physical spec files per suite type** for pages/features (see **Mandatory physical file split** below) — never “only smoke + ui” in a single file
+
+## Mandatory physical file split (fixes under-generation)
+
+When the user triggers generation for a **route page, feature module, or view** (anything that mounts a screen users navigate to), you **must** create **Ten sibling files** next to each other under `automation-tests/` (mirror `src/` path), **not** one combined `feature.spec.ts`:
+
+| File suffix | Purpose |
+|---|---|
+| `*.smoke.spec.ts` | Load, console/title, primary heading, timing, critical shell |
+| `*.ui.spec.ts` | Mocked happy-path API, visible controls, loading/empty states |
+| `*.form.spec.ts` | **Always** if the screen has any user-editable field + submit/next/save — includes validation, happy path, whitespace/long text; if there is no `<form>`, still treat wizard steps / field groups as form surfaces |
+| `*.api.spec.ts` | `page.route()` success, 4xx/5xx, malformed JSON, network abort, slow response |
+| `*.error.spec.ts` | UI error states, toast/error text, blocked actions, retry where applicable |
+| `*.edge.spec.ts` | Navigation away, rapid input, XSS-ish strings, oversized payloads, double-submit |
+| `*.mobile.spec.ts` | At minimum viewports **375×812**, **390×844**, **360×800**, **768×1024** (use `test.use({ viewport })` or project) |
+| `*.accessibility.spec.ts` | Headings, labels, keyboard tab order, dialog focus, `aria-*` on errors |
+
+**Forbidden shortcuts (treat as failure):**
+- Delivering only `something.spec.ts` with `test("smoke:…")` and `test("ui:…")` prefixes **instead of** the Ten files above for a page/feature
+- Skipping `form`, `api`, `error`, `edge`, `mobile`, or `accessibility` because “the screen is simple” — **generate them**; scope tests to what the UI actually does (e.g. api specs still mock `GET` with 404/500 even if the page is mostly static)
+
+**Components** (non-route): follow the table in **Phase 5** (complex vs simple); still add **`.interaction.spec.ts`** when there are handlers, and **never** skip **accessibility**.
+
+## Central mock data module (mandatory)
+
+For **each** generated feature (or each major route slug), add **one** TypeScript module that every spec imports:
+
+- **Path:** `automation-tests/fixtures/mock-data/<feature-slug>.data.ts`  
+  Example: `automation-tests/fixtures/mock-data/add-new-company.data.ts`
+- **Exports (minimum):** structured objects — no scatter of magic strings in specs
+
+```typescript
+/** Example shape — extend per real fields from source */
+export const addNewCompanyData = {
+  valid: {
+    companyLegalName: "Acme Holdings LLC",
+    companyPhone: "+1 555 123 4567",
+    // …every required field for happy path
+  },
+  invalid: {
+    email: "not-an-email",
+    phone: "abcdefghij",
+    url: "not-a-url",
+    // …one representative invalid value per validated type
+  },
+  edge: {
+    longName: "A".repeat(500),
+    unicodeDba: "Acme & Co. — 日本",
+    search200: "A".repeat(200),
+    whitespaceOnly: "   ",
+    xssLikeText: "<script>alert(1)</script>",
+  },
+  api: {
+    listSuccess: [{ id: "1", name: "Sample Corp" }],
+    listEmpty: [],
+    errorMessage: "Request failed",
+  },
+} as const;
+```
+
+**Rules:**
+- **All** `fill()`, `selectOption()`, route `body: JSON.stringify(...)`, and expected labels in assertions that represent domain data **must** pull from this file (or small helpers exported next to it).
+- **Valid / invalid / edge** sections are **required** even if some values are unused in v1 — they prevent the agent from inventing `foo`/`bar` strings at write time.
+- When adding new tests, **update the data module first**, then wire specs.
+
+**Completion gate:** list the mock-data path in `SOURCE_COVERAGE_REPORT` next to the feature’s specs.
+
+## Linked persona sessions (Launchpad QA)
+
+When the test-generation context includes a persona with a linked browser session:
+
+- Import `test` / `expect` from `fixtures/authenticated-test` (not raw `@playwright/test`).
+- Use `clearAppStorage(page)` in `beforeEach` — it seeds linked cookies/storage instead of wiping them.
+- **Never** call `localStorage.clear()` directly in generated specs.
+
+### Google OAuth (`Authentication type: google`)
+
+- **Do not** generate `signInWithCredentials`, email/password fills, or demo role-button login unless the repo explicitly uses role shortcuts.
+- Use `clearAppStorage` + `ensureAppAuthenticated` from `utils/auth.helper` in `beforeEach`.
+- Rely on the linked `.auth` storage state (app + `accounts.google.com` cookies) — no interactive Google sign-in in tests.
+
+See **`.cursor/rules/playwright-spec-templates.mdc`** for the exact `beforeEach` snippet.
+
+## Phase 1 - Full Source Scan
+
+Recursively scan:
+- `src/**/*.{ts,tsx,js,jsx,vue,svelte,html}`
+
+Process in this order:
+1. Layout/shell/router files
+2. Auth/guard files
+3. Route/page/view files
+4. Feature module files
+5. Shared components and UI primitives
+
+Build and print `FILES_TO_PROCESS`.
+
+## Phase 2 - Feature Extraction Map
+
+For every file, extract:
+- Routes and navigation paths
+- Forms and fields
+- Create/update/config actions
+- Sort/filter/search controls
+- Tabs/steppers/accordion groups
+- Tables/lists and row actions
+- Modals/dialogs/drawers
+- Loading, empty, and error states
+- API calls and request methods
+- Role/permission guards
+- Accessibility hooks (role/aria/keyboard handlers)
+
+Create:
+
+`FEATURE_MAP[file] = { routes, forms, fields, actions, filters, search, sort, tabs, pagination, modals, api, states, a11y }`
+
+## Phase 3 - Mandatory Form Coverage Lock
+
+This is a blocking gate. Do not finish if unmet.
+
+For every detected form surface (including embedded forms and modal/panel forms), create a row in:
+
+`FORM_COVERAGE_TABLE`
+
+Each row must include:
+- `formId`
+- `location` (route + component/modal)
+- `fields[]`
+- `requiredFields[]`
+- `submitTrigger`
+- `testFiles[]`
+
+Required test minimum per form:
+1. Valid submit with all required valid values
+2. Empty submit required validation
+3. Invalid format/type validation (where applicable)
+4. Edge input test (whitespace, long input, special chars, etc.)
+
+Required for modal/drawer/wizard forms:
+1. Open form
+2. Submit blocked when required fields missing
+3. Error/warning shown correctly
+4. Error/warning clears after correction
+5. Successful submit/close behavior
+
+Hard completion rule:
+- `UNTESTED_FORMS: 0`
+
+## Phase 4 - Universal Data Matrix
+
+Use realistic values only.
+
+| Type | Valid | Invalid | Edge |
+|---|---|---|---|
+| name | John Doe | "" | 500-char value |
+| email | john.doe@testmail.com | not-an-email | a@b.c |
+| password | Test@1234! | short | spaces-only |
+| phone | 9876543210 | abcdefghij | 0000000000 |
+| number | 25 | abc | -1, 999999, 3.14 |
+| date | 2026-04-01 | 32-13-2026 | far past/future |
+| textarea | useful summary text | "" | 1000-char + special chars |
+| select | first valid option | none selected | last option |
+| checkbox | checked | unchecked when required | toggle repeatedly |
+| file | valid pdf/png | exe | oversized file |
+| search | valid keyword | nonsense term | trimmed/special/200-char |
+
+## Phase 5 - Test Generation Rules
+
+Mirror source structure under:
+- `automation-tests/` (plural — **never** `automation-test/`)
+
+**Pages / routes / views / feature modules:** always emit the **Ten** suite files listed in **Mandatory physical file split** (smoke, ui, form, api, error, edge, mobile, accessibility). **Do not** substitute a single `feature.spec.ts` with prefixed test names.
+
+**Optional / scoped extras** (in addition to the Ten, when behavior exists):
+- `*.integration.spec.ts` — multi-step flows across routes or real orchestration
+- Extra `*.interaction.spec.ts` only for **components** (not a substitute for page-level `form`/`api`/`error` files)
+
+| Source file type | Spec files to generate |
+|---|---|
+| Page / Route / View | **smoke + ui + form + api + error + edge + mobile + accessibility** (Ten files) |
+| Feature module (screen-level) | **same Ten** |
+| Component (complex: Modal, Table, Drawer) | ui + interaction + error + edge + accessibility (+ form if it contains a form) |
+| Component (simple: Button, Badge, Input) | ui + interaction + accessibility |
+| Layout / Shell | smoke + ui + accessibility |
+
+**Form detection:** any screen with inputs, selects, textareas, toggles, uploads, or wizard **Next** / **Save** / **Submit** → **must** have `*.form.spec.ts` (even if there is no native `<form>`).
+
+### Single Entrypoint Requirement (MANDATORY)
+
+After generating all spec files, always create/update:
+- `automation-tests/index.ts`
+
+`automation-tests/index.ts` must:
+1. Import every generated `*.spec.ts` file exactly once.
+2. Be the single file a user can run to execute the full suite.
+3. Stay in sync when new spec files are added.
+
+Example run command:
+- `npx playwright test automation-tests/index.ts`
+
+## Phase 6 - Behavior Matrices (Mandatory If Detected)
+
+### Forms
+- Required/optional validation
+- Valid submit
+- Invalid format submit
+- Whitespace handling
+- Enter-key submit
+- Double-submit protection
+
+### Search
+- Valid term results
+- No-result state
+- Clear search resets
+- Leading/trailing spaces
+- Special characters
+- Single-char query
+- Very long query
+- Debounce behavior (if implemented)
+
+### Filters
+- Single filter
+- Multi-filter (AND behavior)
+- Reset all
+- Filter + search combination
+- Filter persistence across pagination (if any)
+- Invalid range handling (for date/range filters)
+
+### Sorting
+- Initial sort state
+- Asc/desc toggle
+- Column-specific sort behavior
+- Sort persists with filter/search where expected
+
+### Tabs/Steppers
+- Switch each tab and verify panel content
+- Active state styling/indicator
+- Keyboard activation (Enter/Space where applicable)
+- Step progression rules and blocked skipping (if wizard)
+
+### Tables/Lists
+- Header rendering
+- Row rendering
+- Empty state
+- Error state
+- Row actions (view/edit/delete if present)
+- Pagination boundaries (first/last/next/prev when present)
+
+### Modals/Dialogs/Drawers
+- Open
+- Close by X
+- Close by Escape (if supported)
+- Backdrop close (if supported)
+- Form submit valid/invalid
+- Background interaction lock (if implemented)
+
+## Phase 7 - API + State Testing
+
+For each API-dependent feature, include:
+- Success response
+- 4xx/5xx error response
+- Network failure
+- Slow response/loading state
+- Empty response
+
+Use deterministic `page.route()` mocks.
+
+## Phase 8 - Accessibility Baseline
+
+Include checks for:
+- Reachable interactive elements via keyboard
+- Visible labels/accessible names on controls
+- Single primary heading where applicable
+- Dialog focus behavior when open
+- Error message association (`aria-describedby` or equivalent)
+
+## Phase 9 - Mobile Coverage
+
+Run relevant scenarios on:
+- 375x812
+- 390x844
+- 360x800
+- 768x1024
+
+Mobile checks:
+- Navigation usability
+- Form interaction stability
+- Dialog/panel fit
+- Table/list overflow handling
+
+## Phase 10 - Selector Policy
+
+Priority order:
+1. `getByTestId`
+2. `getByRole`
+3. `getByLabel`
+4. `getByPlaceholder`
+5. text match only when semantically stable
+
+If stable selector is missing on critical actions, include:
+- `// TODO: add data-testid="..."`
+
+## Phase 11 - Completion Gate
+
+Before final output, emit:
+1. `SOURCE_COVERAGE_REPORT` — each `src/` file → list of generated `automation-tests/**/*.spec.ts` **and** `automation-tests/fixtures/mock-data/*.data.ts`
+2. `FORM_COVERAGE_TABLE`
+3. `UNTESTED_FORMS` count
+4. `BEHAVIOR_COVERAGE_SUMMARY` for search/filter/sort/tab/modal/table/api/mobile/a11y
+5. `SUITE_FILE_CHECK` — for every page/feature: confirm **Ten** physical files exist (not one mega-spec); list any gap
+
+Fail completion if any is true:
+- `UNTESTED_FORMS > 0`
+- detected behavior exists but no corresponding tests
+- tests contain placeholders/pseudocode
+- tests are not runnable TypeScript
+- a page/feature is missing any of the **Ten** required suite files or its **mock-data** module
+- domain strings are duplicated across specs instead of being imported from the feature’s `*.data.ts`
+
+## Final Rule
+
+When in doubt, generate more targeted tests rather than skipping behavior.
+Coverage completeness is higher priority than brevity.
+
+
+## Appendix — Execution order (single document; no duplicate front matter)
+
+When a trigger phrase is used: **stop passively summarizing** — run Phase 1 → 11, then the blocks below, then the **Execution checklist**.
+
+### Analysis card — output path (use everywhere)
+
+- Use **`automation-tests/`** mirroring `src/` (plural). Do **not** use `automation-test/`.
+- **Before specs:** add/update `automation-tests/fixtures/mock-data/<slug>.data.ts` with `valid`, `invalid`, `edge`, `api` (see **Central mock data module**).
+- **Each spec file** starts with imports from that module for fills, route bodies, and repeated strings.
+
+### Spec templates
+
+Read **`.cursor/rules/playwright-spec-templates.mdc`** sections **4a–4h** and substitute `[FeatureName]`, routes, endpoints. Prefer `page.goto('/path')` when `playwright.config.ts` defines `baseURL`.
+
+### CRUD minimum test counts (distribute across form / api / error / edge)
+
+**CREATE (≥11):** all required valid; all fields optional+required; all empty; partial required; duplicate error; max length; invalid format per type; Enter submit; double-submit; whitespace-only; 1000-char text.
+
+**READ (≥5):** list + headers; empty list UI; API 500 UI; single row edge.
+
+**UPDATE (≥9):** prefill; one-field save; all-field save; clear required; invalid in edit; cancel; navigate-away warning if any; concurrent tabs if feasible; special chars.
+
+**DELETE (≥7):** confirm open; confirm success; direct URL after delete; cancel; stale delete; delete last; delete from filtered list.
+
+### Search / filter / pagination (when detected)
+
+**Search (≥8):** valid term; no results; clear; leading/trailing spaces; special chars; single char; 200-char; debounce if implemented.
+
+**Filters (≥6):** single; multi AND; reset; filter+search; filter+paginate; invalid date range.
+
+**Pagination (≥8):** page 1; next + URL; prev; last page next disabled; first prev disabled; page size change; search resets page; filter resets page.
+
+### Master index and docs
+
+- Create/update **`automation-tests/index.ts`** — import every `*.spec.ts` once.
+- Optionally document commands in **`automation-tests/README.md`** (only if the repo does not already document E2E).
+
+### Playwright tooling (project root)
+
+1. Ensure **`@playwright/test`** in `package.json`; run **`npx playwright install`** when needed.
+2. Align **`playwright.config.ts`** `baseURL` / `webServer` port with the real dev server.
+3. Add scripts if missing: `test:e2e`, `test:e2e:headed`, `test:e2e:ui`, `test:e2e:debug`, `test:e2e:chromium`, `test:e2e:report`, `playwright:install`.
+
+### Dummy data reference (also codified per feature in `*.data.ts`)
+
+| Field type | Valid | Invalid | Edge |
+|---|---|---|---|
+| name | John Doe, Jane Smith | "", "  " | "A".repeat(500) |
+| email | john.doe@testmail.com | not-an-email, a@ | a@b.c, "" |
+| password | Test@1234! | short | "", " " |
+| phone | 9876543210, +1-555-0100 | 123, abcdefghij | 0000000000 |
+| number | 25, 1, 100 | -1, 0 if min 1 | 999999, 3.14, abc |
+| date | 2026-06-15 | 32-13-2026, "" | far past/future |
+| url | https://example.com | not-a-url | "" |
+| textarea | Valid description | "", "  " | 1000 chars, `<script>alert(1)</script>` |
+| search | valid term | "", "!@#$%" | "a", "A".repeat(200) |
+
+### Execution checklist (verify before finishing)
+
+- [ ] Every targeted `src/` file has analysis + `FEATURE_MAP` row
+- [ ] Every page/feature has **Ten** `*.smoke|ui|form|api|error|edge|mobile|accessibility.spec.ts` files (not one mega-file)
+- [ ] `automation-tests/fixtures/mock-data/<slug>.data.ts` exists with **valid / invalid / edge / api**
+- [ ] Specs import mock data; no `foo` / `bar` / `test123`
+- [ ] `FORM_COVERAGE_TABLE` + `UNTESTED_FORMS: 0`
+- [ ] CRUD/search/filter/pagination minimums met when those behaviors exist
+- [ ] API: success, 404/4xx, 500, network abort, slow/timeout where applicable
+- [ ] `automation-tests/index.ts` imports all new specs
+- [ ] Selectors: `getByTestId` / `getByRole` / `getByLabel` / `getByPlaceholder` only (no CSS/XPath when avoidable)
+- [ ] No `page.waitForTimeout()`

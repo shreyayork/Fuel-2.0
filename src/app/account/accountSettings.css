@@ -1,0 +1,1468 @@
+.account-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.account-settings-hero {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.account-settings-title {
+  color: var(--text-1);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 6px;
+}
+
+.account-settings-sub {
+  color: var(--text-3);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+.account-settings-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-settings-badge {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  text-transform: lowercase;
+}
+
+.account-settings-badge.trial {
+  border-color: rgba(212, 146, 74, 0.45);
+  color: #d4924a;
+}
+
+.account-settings-tabs {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 28px;
+}
+
+.account-settings-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  margin-bottom: -1px;
+  padding: 10px 14px;
+  transition: color 0.14s, border-color 0.14s;
+}
+
+.account-settings-tab:hover {
+  color: var(--text-1);
+}
+
+.account-settings-tab.is-active {
+  border-bottom-color: var(--tab-active, var(--text-1));
+  color: var(--tab-active, var(--text-1));
+  font-weight: 600;
+}
+
+.account-settings-body {
+  min-height: 320px;
+}
+
+.acct-settings-placeholder {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 24px;
+}
+
+.acct-settings-placeholder-title {
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.acct-settings-placeholder-copy {
+  color: var(--text-3);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+/* ─── My Profile tab ─── */
+.acct-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.acct-profile-identity {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  justify-content: space-between;
+  padding: 20px 22px;
+}
+
+.acct-profile-identity-main {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+}
+
+.acct-profile-avatar {
+  align-items: center;
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  color: var(--text-1);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  height: 52px;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  width: 52px;
+}
+
+.acct-profile-identity-copy {
+  min-width: 0;
+}
+
+.acct-profile-name-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.acct-profile-name {
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.acct-profile-role-badge {
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  text-transform: lowercase;
+}
+
+.acct-profile-email {
+  color: var(--text-3);
+  font-size: 13.5px;
+  margin: 4px 0 0;
+}
+
+.acct-profile-signout {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text-1);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  transition: border-color 0.14s, background 0.14s;
+}
+
+.acct-profile-signout:hover {
+  background: var(--panel-inset);
+  border-color: var(--border-strong);
+}
+
+.acct-profile-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+}
+
+.acct-profile-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.acct-profile-card {
+  padding: 20px 22px;
+}
+
+.acct-profile-card-head {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.acct-profile-card-title {
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+}
+
+.acct-profile-card-head .acct-profile-card-title {
+  margin-bottom: 0;
+}
+
+.acct-profile-card-meta {
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.acct-profile-soon {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.acct-profile-card-copy {
+  color: var(--panel-body);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.acct-profile-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+}
+
+.acct-profile-field {
+  display: grid;
+  gap: 4px;
+}
+
+.acct-profile-field dt {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.acct-profile-field dd {
+  color: var(--text-1);
+  font-size: 14px;
+  margin: 0;
+}
+
+.acct-profile-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12.5px;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.acct-profile-usage-metrics {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.acct-profile-usage-label {
+  color: var(--text-3);
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.acct-profile-usage-value {
+  color: var(--text-1);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.acct-profile-link,
+.acct-profile-inline-link {
+  background: none;
+  border: 0;
+  color: var(--fuel-accent, #00b48a);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.acct-profile-link:hover,
+.acct-profile-inline-link:hover {
+  text-decoration: underline;
+}
+
+.acct-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.acct-profile-list-row {
+  align-items: center;
+  background: var(--panel-inset);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  color: var(--text-1);
+  display: flex;
+  font-size: 13.5px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+@media (max-width: 900px) {
+  .acct-profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Usage tab ─── */
+.acct-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+
+.acct-usage-plan-cards {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.acct-usage-plan-card {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 132px;
+  padding: 18px 20px;
+}
+
+.acct-usage-plan-card-label {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.acct-usage-plan-card-value {
+  color: var(--text-1);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.acct-usage-plan-progress {
+  background: var(--progress-track, var(--wash-strong));
+  border-radius: 999px;
+  height: 7px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.acct-usage-plan-progress-fill {
+  background: linear-gradient(90deg, rgba(0, 180, 138, 0.42), rgba(0, 180, 138, 0.95));
+  border-radius: 999px;
+  height: 100%;
+  min-width: 2px;
+}
+
+.acct-usage-plan-card-copy {
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 2px 0 0;
+  padding-top: 10px;
+}
+
+.acct-usage-plan-card-meta {
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+
+.acct-usage-filters {
+  align-items: center;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+.acct-usage-filters-left {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.acct-usage-range-btn {
+  align-items: center;
+  background: var(--wash);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-1);
+  cursor: default;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  gap: 8px;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+
+.acct-usage-filter-info {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.acct-usage-period-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.acct-usage-period-pill {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-3);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  transition: background 0.14s, color 0.14s;
+}
+
+.acct-usage-period-pill:hover {
+  background: var(--wash);
+  color: var(--text-1);
+}
+
+.acct-usage-period-pill.is-active {
+  background: var(--panel-border);
+  color: var(--text-1);
+}
+
+.acct-usage-user-filter {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.acct-usage-user-filter-label {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.acct-usage-user-filter select {
+  background: var(--wash);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  min-width: 180px;
+  padding: 7px 10px;
+}
+
+.acct-usage-user-filter select:focus {
+  border-color: rgba(0, 180, 138, 0.35);
+  outline: none;
+}
+
+.acct-usage-summary-card {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.acct-usage-summary {
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.acct-usage-stat {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 22px;
+}
+
+.acct-usage-stat:last-child {
+  border-right: 0;
+}
+
+.acct-usage-stat-label {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.acct-usage-stat-value {
+  color: var(--text-1);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.acct-usage-stat-meta {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.acct-usage-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acct-usage-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.acct-usage-eyebrow {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.acct-usage-section-title {
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.acct-usage-section-sub {
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 640px;
+}
+
+.acct-usage-list {
+  background: var(--surface-2, var(--surface-3));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.acct-usage-row {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.acct-usage-row:first-child {
+  border-top: none;
+}
+
+.acct-usage-row-topup {
+  grid-template-columns: 88px minmax(120px, 1fr) 100px 88px;
+}
+
+.acct-usage-row-users,
+.acct-usage-row-actions {
+  grid-template-columns: minmax(180px, 1.6fr) 88px 100px 110px;
+}
+
+.acct-usage-row-daily {
+  align-items: start;
+  grid-template-columns: minmax(110px, 0.7fr) minmax(150px, 1fr) minmax(220px, 1.8fr) 72px minmax(120px, 0.9fr);
+}
+
+.acct-usage-row-head {
+  background: var(--wash-strong);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.acct-usage-row-head span:not(:first-child),
+.acct-usage-row-topup > span:not(:first-child):not(strong),
+.acct-usage-row-users > .acct-usage-num,
+.acct-usage-row-users > .acct-usage-share-cell,
+.acct-usage-row-actions > .acct-usage-num,
+.acct-usage-row-actions > .acct-usage-share-cell,
+.acct-usage-row-daily > .acct-usage-num,
+.acct-usage-row-daily > .acct-usage-share-cell {
+  text-align: right;
+}
+
+.acct-usage-user-email {
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-usage-used-for {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.acct-usage-used-for-empty {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.acct-usage-used-chip {
+  align-items: baseline;
+  background: var(--wash);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+}
+
+.acct-usage-used-chip em {
+  color: var(--text-1);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.acct-usage-used-chip strong {
+  color: var(--status-good, var(--accent));
+  font-size: 11.5px;
+  font-weight: 700;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: nowrap;
+}
+
+.acct-usage-used-chip span {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.acct-usage-row strong {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-usage-row > span {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.acct-usage-num {
+  color: var(--text-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.acct-usage-empty {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 22px 20px;
+}
+
+.acct-usage-empty strong {
+  color: var(--text-1);
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.acct-usage-empty p {
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 520px;
+}
+
+.acct-usage-topup-footer {
+  align-items: center;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.acct-usage-topup-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.acct-usage-topup-balance-label {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.acct-usage-topup-balance strong {
+  color: var(--text-1);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.acct-usage-topup-balance-meta {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.acct-usage-topup-cta {
+  background: var(--wash);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-1);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  transition: background 0.14s, border-color 0.14s;
+  white-space: nowrap;
+}
+
+.acct-usage-topup-cta:hover {
+  background: var(--wash-strong);
+  border-color: rgba(0, 180, 138, 0.28);
+}
+
+.acct-usage-share-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.acct-usage-share-pct {
+  color: var(--text-2);
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.acct-usage-share-track {
+  background: var(--progress-track, var(--wash-strong));
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.acct-usage-share-fill {
+  background: linear-gradient(90deg, rgba(0, 180, 138, 0.42), rgba(0, 180, 138, 0.9));
+  border-radius: 999px;
+  height: 100%;
+  min-width: 2px;
+}
+
+.acct-usage-footnote {
+  color: var(--text-3);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .acct-usage-plan-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .acct-usage-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .acct-usage-stat {
+    border-bottom: 1px solid var(--border);
+    border-right: 0;
+  }
+
+  .acct-usage-stat:last-child {
+    border-bottom: 0;
+  }
+
+  .acct-usage-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .acct-usage-user-filter {
+    width: 100%;
+  }
+
+  .acct-usage-user-filter select {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .acct-usage-row-topup,
+  .acct-usage-row-users,
+  .acct-usage-row-actions,
+  .acct-usage-row-daily {
+    gap: 8px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .acct-usage-row-head {
+    display: none;
+  }
+
+  .acct-usage-row-users > strong,
+  .acct-usage-row-actions > strong,
+  .acct-usage-row-daily > strong,
+  .acct-usage-row-daily > .acct-usage-user-email,
+  .acct-usage-row-daily > .acct-usage-used-for {
+    grid-column: 1 / -1;
+  }
+
+  .acct-usage-row-daily > .acct-usage-user-email {
+    margin-top: -4px;
+  }
+
+  .acct-usage-share-cell {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .account-settings-tabs {
+    gap: 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .account-settings-tab {
+    flex-shrink: 0;
+    font-size: 12.5px;
+    padding: 10px 12px;
+  }
+}
+
+/* Light theme — usage tables match white panels, not dark header wash */
+html[data-theme="light"] .acct-usage-list,
+html[data-theme="light"] .acct-usage-plan-card,
+html[data-theme="light"] .acct-usage-filters,
+html[data-theme="light"] .acct-usage-summary-card,
+html[data-theme="light"] .acct-usage-topup-footer {
+  background: #ffffff;
+  border-color: #e8eaed;
+  box-shadow: 0 1px 2px rgba(26, 35, 50, 0.03);
+}
+
+html[data-theme="light"] .acct-usage-row {
+  border-top-color: #e8eaed;
+}
+
+html[data-theme="light"] .acct-usage-row-head {
+  background: #f7f8fa;
+  color: #5b6b7c;
+}
+
+html[data-theme="light"] .acct-usage-row strong,
+html[data-theme="light"] .acct-usage-user-email,
+html[data-theme="light"] .acct-usage-num,
+html[data-theme="light"] .acct-usage-used-chip em {
+  color: #1a2332;
+}
+
+html[data-theme="light"] .acct-usage-row > span,
+html[data-theme="light"] .acct-usage-share-pct,
+html[data-theme="light"] .acct-usage-used-chip span,
+html[data-theme="light"] .acct-usage-section-sub,
+html[data-theme="light"] .acct-usage-footnote {
+  color: #5b6b7c;
+}
+
+html[data-theme="light"] .acct-usage-used-chip {
+  background: #f7f8fa;
+  border-color: #e8eaed;
+}
+
+html[data-theme="light"] .acct-usage-used-chip strong {
+  color: var(--status-good, #12b886);
+}
+
+html[data-theme="light"] .acct-usage-share-track {
+  background: #e8eaed;
+}
+
+html[data-theme="light"] .acct-usage-share-fill {
+  background: var(--status-good, #12b886);
+}
+
+html[data-theme="light"] .acct-usage-period-pill.is-active {
+  background: color-mix(in srgb, var(--status-good, #12b886) 12%, #ffffff);
+  color: var(--status-good, #12b886);
+}
+
+html[data-theme="light"] .acct-usage-range-btn,
+html[data-theme="light"] .acct-usage-user-filter select {
+  background: #ffffff;
+  border-color: #e8eaed;
+  color: #1a2332;
+}
+
+html[data-theme="light"] .acct-usage-empty {
+  background: #ffffff;
+  border-color: #e8eaed;
+}
+
+/* ── Account integrations (Settings + company profile) ── */
+
+.acct-integrations {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.acct-integrations-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.acct-integrations-title {
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.acct-integrations-intro {
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.acct-integrations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.acct-integration-row {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 16px 18px;
+}
+
+.acct-integrations--overview {
+  gap: 8px;
+}
+
+.acct-integrations--overview .acct-integrations-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.acct-integrations--overview .acct-integrations-head {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  justify-content: space-between;
+  margin: 0;
+  text-align: left;
+}
+
+.acct-integrations--overview .acct-integrations-head-main {
+  align-items: flex-start;
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.acct-integrations--overview .acct-integrations-mark {
+  align-items: center;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  border-radius: 8px;
+  color: var(--accent);
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 26px;
+  justify-content: center;
+  margin-top: 1px;
+  width: 26px;
+}
+
+.acct-integrations--overview .acct-integrations-head-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.acct-integrations--overview .acct-integrations-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-transform: none;
+  text-wrap: balance;
+}
+
+.acct-integrations--overview .acct-integrations-intro {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.35;
+  max-width: none;
+  width: 100%;
+}
+
+.acct-integrations--overview .acct-integrations-status {
+  background: var(--surface-3, var(--panel-inset));
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 4px 9px;
+  white-space: nowrap;
+}
+
+.acct-integrations--overview .acct-integrations-status.is-complete {
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.acct-integrations--overview .acct-integration-row {
+  align-items: flex-start;
+  background: var(--surface-2, var(--panel));
+  border-color: var(--panel-border);
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 11px 12px;
+  transition: border-color 0.14s ease-out, background 0.14s ease-out, box-shadow 0.14s ease-out;
+}
+
+.acct-integrations--overview .acct-integration-row:hover {
+  border-color: var(--border-strong, var(--panel-border));
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.acct-integrations--overview .acct-integration-row.is-connected {
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-2, var(--panel)));
+  border-color: var(--accent-line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acct-integrations--overview .acct-integration-row {
+    transition: none;
+  }
+}
+
+.acct-integration-row.is-soon {
+  opacity: 0.82;
+}
+
+.acct-integration-logo-wrap {
+  align-items: center;
+  border-radius: 14px;
+  display: flex;
+  flex-shrink: 0;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
+.acct-integration-logo-wrap--hubspot {
+  background: rgba(255, 122, 89, 0.12);
+  border: 1px solid rgba(255, 122, 89, 0.2);
+}
+
+.acct-integration-logo-wrap--granola {
+  background: rgba(72, 176, 116, 0.12);
+  border: 1px solid rgba(72, 176, 116, 0.2);
+}
+
+.acct-integrations--overview .acct-integration-logo-wrap--hubspot {
+  background: color-mix(in srgb, #ff7a59 12%, var(--surface-2, #fff));
+  border-color: color-mix(in srgb, #ff7a59 22%, var(--panel-border));
+}
+
+.acct-integrations--overview .acct-integration-logo-wrap--granola {
+  background: color-mix(in srgb, #48b074 12%, var(--surface-2, #fff));
+  border-color: color-mix(in srgb, #48b074 22%, var(--panel-border));
+}
+
+.acct-integration-logo {
+  display: block;
+  height: 26px;
+  width: 26px;
+}
+
+.acct-integrations--overview .acct-integration-logo-wrap {
+  border-radius: 999px;
+  height: 36px;
+  width: 36px;
+}
+
+.acct-integrations--overview .acct-integration-logo {
+  height: 20px;
+  width: 20px;
+}
+
+.acct-integration-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.acct-integration-name-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.acct-integration-name {
+  color: var(--text-1);
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.acct-integrations--overview .acct-integration-name-row {
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.acct-integrations--overview .acct-integration-name {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.acct-integration-tag {
+  background: var(--surface-3, var(--panel-inset));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  text-transform: lowercase;
+}
+
+.acct-integration-tag.is-soon {
+  color: var(--text-3);
+}
+
+.acct-integration-desc {
+  color: var(--panel-body);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  max-width: 46ch;
+}
+
+.acct-integration-connect {
+  background: var(--btn-primary-bg);
+  border: 1px solid var(--btn-primary-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+  color: var(--btn-primary-text);
+  cursor: pointer;
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  min-width: 92px;
+  padding: 9px 14px;
+  transition: background 0.14s, border-color 0.14s, transform 0.14s;
+}
+
+.acct-integration-connect:hover:not(:disabled) {
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-hover);
+  transform: translateY(-1px);
+}
+
+.acct-integrations--overview .acct-integration-live-pill {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+}
+
+.acct-integrations--overview .acct-integration-tag {
+  display: none;
+}
+
+.acct-integrations--overview .acct-integration-copy {
+  gap: 3px;
+}
+
+.acct-integrations--overview .acct-integration-desc {
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.35;
+  max-width: none;
+}
+
+.acct-integrations--overview .acct-integration-link-cta {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: 2px;
+  padding: 0;
+  transition: color 0.14s ease-out, opacity 0.14s ease-out;
+}
+
+.acct-integrations--overview .acct-integration-link-cta:hover:not(:disabled) {
+  color: var(--text-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.acct-integrations--overview .acct-integration-link-cta:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.acct-integrations--overview .acct-integration-link-cta:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.acct-integrations--overview .acct-integration-link-cta.is-connected {
+  color: var(--text-3);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.acct-integrations--overview .acct-integration-link-cta.is-connected:hover:not(:disabled) {
+  color: var(--status-bad, #E05C5C);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.acct-integrations--overview .acct-integration-connect {
+  display: none;
+}
+
+.acct-integration-connect:focus-visible {
+  outline: 2px solid var(--accent, #12b886);
+  outline-offset: 2px;
+}
+
+.acct-integration-connect:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.acct-integration-connect.is-connected {
+  background: var(--btn-secondary-bg, transparent);
+  border-color: var(--btn-secondary-border, var(--panel-border));
+  color: var(--btn-secondary-text, var(--text-1));
+  font-weight: 500;
+}
+
+.acct-integration-connect.is-connected:hover:not(:disabled) {
+  background: var(--panel-inset);
+  border-color: var(--border-strong, var(--panel-border));
+}
+
+html[data-theme="light"] .acct-integration-row {
+  background: #ffffff;
+  border-color: #e8eaed;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+html[data-theme="light"] .acct-integration-tag {
+  background: #f4f6f8;
+  border-color: #e8eaed;
+  color: #5b6b7c;
+}
+
+html[data-theme="light"] .acct-integration-name {
+  color: #1a2332;
+}
+
+html[data-theme="light"] .acct-integration-desc {
+  color: #5b6b7c;
+}
+
+html[data-theme="light"] .acct-integration-connect {
+  background: #284356;
+  border-color: #284356;
+  color: #ffffff;
+}
+
+html[data-theme="light"] .acct-integration-connect:hover:not(:disabled) {
+  background: #1f3545;
+  border-color: #1f3545;
+}
+
+html[data-theme="light"] .acct-integration-connect.is-connected {
+  background: #ffffff;
+  border-color: #e8eaed;
+  color: #1a2332;
+}
+
+html[data-theme="light"] .acct-integrations--overview .acct-integration-row {
+  background: #ffffff;
+}
+
+html[data-theme="light"] .acct-integrations--overview .acct-integration-row.is-connected {
+  background: color-mix(in srgb, #12b886 5%, #ffffff);
+}
+
+html[data-theme="light"] .acct-integrations--overview .acct-integration-link-cta {
+  color: #0f9f74;
+}
+
+html[data-theme="light"] .acct-integrations--overview .acct-integration-link-cta:hover:not(:disabled) {
+  color: #1a2332;
+}
+
+@media (max-width: 720px) {
+  .acct-integrations--overview .acct-integrations-list {
+    grid-template-columns: 1fr;
+  }
+
+  .acct-integration-row {
+    align-items: flex-start;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .acct-integration-connect {
+    align-self: flex-start;
+    grid-column: 1 / -1;
+  }
+}

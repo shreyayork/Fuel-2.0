@@ -1,0 +1,637 @@
+---
+name: "playwright-spec-templates"
+description: "Playwright spec templates (4a–4h). Read when generating specs per playwright-automation workflow."
+alwaysApply: false
+---
+
+# Spec templates (STEP 4 companion)
+
+Split from **playwright-automation.mdc** so the main rule does not inflate every matching prompt. **Read this file** when writing or editing `*.spec.ts` under the automation workflow — it contains the full **USE EXACTLY** code for sections 4a–4h.
+
+### Mock data imports (mandatory for generated specs)
+
+- For each feature, import the mock-data module co-located under the message OutputDirectory, for example:
+  - `import { addNewCompanyData } from './fixtures/mock-data/add-new-company.data';`
+  - Helpers: `import { openFeatureDialog } from './helpers/add-new-company.helper';`
+  - Platform auth only: use **PlatformAuthFixtureImport** and **PlatformAuthHelperImport** from the prompt header exactly (typically `../../../../fixtures/authenticated-test` and `../../../../utils/auth.helper` for `tests/{topic}/{chat}/{messageId}/`).
+- Use **`addNewCompanyData.valid.*`** in happy paths, **`invalid.*`** in validation tests, **`edge.*`** in edge specs, **`api.*`** in `page.route()` bodies — **do not** inline duplicate strings across `smoke` / `ui` / `form` files.
+
+### Authenticated test fixture (mandatory for generated specs)
+
+- Import **`test`** and **`expect`** from the platform fixture (adjust depth to the spec folder), for example:
+  - `import { test, expect } from '../../../../fixtures/authenticated-test';`
+- **Do not** import `test` / `expect` from raw `@playwright/test` — the fixture hydrates linked persona cookies and browser storage on every context.
+- For login flows in `beforeEach`, import helpers from `utils/auth.helper` (adjust depth). Use `await clearAppStorage(page)` to seed linked storage — **never** call `localStorage.clear()` directly.
+- Other Playwright exports (`devices`, types) may still import from `@playwright/test` when needed.
+
+### Google OAuth personas (`Authentication type: google`)
+
+When the test-generation header includes **`Authentication type: google`**:
+
+- **Do not** generate email/password login steps or `signInWithCredentials`.
+- **Do not** generate role-button demo login unless repo analysis explicitly shows role shortcuts.
+- **Do not** call `localStorage.clear()` or credential autofill — the linked session includes cross-domain Google cookies.
+- In `beforeEach`, seed and verify the saved session:
+
+```typescript
+import { clearAppStorage, ensureAppAuthenticated } from '../../../../utils/auth.helper';
+
+test.beforeEach(async ({ page }) => {
+  await clearAppStorage(page);
+  await ensureAppAuthenticated(page);
+});
+```
+
+Adjust the relative import depth using **PlatformAuthHelperImport** from the prompt header — do not guess `../` segments.
+
+---
+
+## ══════════════════════════════════════════
+## STEP 4 — SPEC FILE TEMPLATES (USE EXACTLY)
+## ══════════════════════════════════════════
+
+### 4a. smoke.spec.ts
+```typescript
+import { test, expect } from '../../../../fixtures/authenticated-test';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+
+test.describe('[FeatureName] — Smoke Tests', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE_URL + '/[route]');
+    await page.waitForLoadState('networkidle');
+  });
+
+  test('page loads without console errors', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+    await page.goto(BASE_URL + '/[route]');
+    expect(errors).toHaveLength(0);
+  });
+
+  test('page has correct document title', async ({ page }) => {
+    await expect(page).toHaveTitle(/[expected title]/i);
+  });
+
+  test('primary heading is visible', async ({ page }) => {
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  });
+
+  test('page renders within 3 seconds', async ({ page }) => {
+    const start = Date.now();
+    await page.goto(BASE_URL + '/[route]');
+    await page.waitForLoadState('domcontentloaded');
+    expect(Date.now() - start).toBeLessThan(3000);
+  });
+
+  test('no broken images on page load', async ({ page }) => {
+    const images = page.locator('img');
+    const count = await images.count();
+    for (let i = 0; i < count; i++) {
+      const naturalWidth = await images.nth(i).evaluate(
+        (img: HTMLImageElement) => img.naturalWidth
+      );
+      expect(naturalWidth).toBeGreaterThan(0);
+    }
+  });
+});
+```
+
+### 4b. ui.spec.ts
+```typescript
+import { test, expect } from '../../../../fixtures/authenticated-test';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+
+test.describe('[FeatureName] — UI Rendering', () => {
+
+  test.beforeEach(async ({ page }) => {
+    // Mock API so UI renders without real backend
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([/* realistic mock data from analysis card */])
+      })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // Generate one test per major UI element found in analysis card
+  test('page header section is visible', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /[heading text]/i })).toBeVisible();
+  });
+
+  test('[ButtonName] button is visible and enabled', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /[button label]/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /[button label]/i })).toBeEnabled();
+  });
+
+  // Repeat above pattern for EVERY button found in analysis card
+
+  test('[InputName] input field is visible', async ({ page }) => {
+    await expect(page.getByLabel(/[input label]/i)).toBeVisible();
+  });
+
+  // Repeat above pattern for EVERY input found in analysis card
+
+  test('loading skeleton shown before data loads', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      new Promise(resolve => setTimeout(() => resolve(route.continue()), 1500))
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByTestId('skeleton')).toBeVisible();
+    // TODO: add data-testid="skeleton" to loading skeleton element
+  });
+
+  test('empty state shown when no data returned', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 200, body: JSON.stringify([]) })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByText(/no [items] found/i)).toBeVisible();
+  });
+});
+```
+
+### 4c. form.spec.ts
+```typescript
+import { test, expect } from '../../../../fixtures/authenticated-test';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+
+test.describe('[FeatureName] — Form Tests', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE_URL + '/[route]');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // ── Required field validation ──────────────────────────────────────
+  test('submit empty form shows all required field errors', async ({ page }) => {
+    await page.getByRole('button', { name: /submit|save|create/i }).click();
+    // Assert one error per required field found in analysis card
+    await expect(page.getByText(/[field name] is required/i)).toBeVisible();
+  });
+
+  // ── Field-level validation (generate one block per input) ──────────
+  test('[fieldName]: empty value shows required error', async ({ page }) => {
+    await page.getByLabel(/[field label]/i).clear();
+    await page.getByRole('button', { name: /submit/i }).click();
+    await expect(page.getByText(/[field] is required/i)).toBeVisible();
+  });
+
+  test('[fieldName]: invalid format shows format error', async ({ page }) => {
+    await page.getByLabel(/[field label]/i).fill('[invalid value from dummy data plan]');
+    await page.getByRole('button', { name: /submit/i }).click();
+    await expect(page.getByText(/invalid [field]/i)).toBeVisible();
+  });
+
+  test('[fieldName]: valid value clears error', async ({ page }) => {
+    await page.getByLabel(/[field label]/i).fill('[invalid value]');
+    await page.getByRole('button', { name: /submit/i }).click();
+    await expect(page.getByText(/invalid/i)).toBeVisible();
+    await page.getByLabel(/[field label]/i).fill('[valid value]');
+    await expect(page.getByText(/invalid/i)).not.toBeVisible();
+  });
+
+  // ── Happy path ─────────────────────────────────────────────────────
+  test('valid form submission succeeds', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 201, body: JSON.stringify({ id: 1, success: true }) })
+    );
+    // Fill every field with valid values from dummy data plan
+    await page.getByLabel(/[field1 label]/i).fill('[valid value 1]');
+    await page.getByLabel(/[field2 label]/i).fill('[valid value 2]');
+    await page.getByRole('button', { name: /submit/i }).click();
+    await expect(page.getByText(/success|saved|created/i)).toBeVisible();
+  });
+
+  // ── Edge cases ─────────────────────────────────────────────────────
+  test('submit by pressing Enter key works', async ({ page }) => {
+    await page.getByLabel(/[field label]/i).fill('[valid value]');
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(/success/i)).toBeVisible();
+  });
+
+  test('double-click submit does not create duplicate', async ({ page }) => {
+    let callCount = 0;
+    await page.route('**/api/[endpoint]', route => {
+      callCount++;
+      return route.fulfill({ status: 201, body: JSON.stringify({ id: callCount }) });
+    });
+    await page.getByLabel(/[field label]/i).fill('[valid value]');
+    await page.getByRole('button', { name: /submit/i }).dblclick();
+    await page.waitForTimeout(500);
+    expect(callCount).toBe(1);
+  });
+
+  test('whitespace-only input treated as empty', async ({ page }) => {
+    await page.getByLabel(/[field label]/i).fill('     ');
+    await page.getByRole('button', { name: /submit/i }).click();
+    await expect(page.getByText(/required/i)).toBeVisible();
+  });
+
+  test('pasting data into fields triggers validation', async ({ page }) => {
+    await page.getByLabel(/[email label]/i).fill('');
+    await page.evaluate(() => {
+      const input = document.querySelector('input[type="email"]') as HTMLInputElement;
+      if (input) { input.value = 'invalid-paste'; input.dispatchEvent(new Event('input')); }
+    });
+    await page.getByRole('button', { name: /submit/i }).click();
+    await expect(page.getByText(/invalid/i)).toBeVisible();
+  });
+
+  test('1000-character input does not crash the form', async ({ page }) => {
+    const longString = 'a'.repeat(1000);
+    await page.getByLabel(/[field label]/i).fill(longString);
+    await expect(page.getByLabel(/[field label]/i)).toBeVisible();
+  });
+
+  test('special characters in fields are handled gracefully', async ({ page }) => {
+    await page.getByLabel(/[field label]/i).fill('!@#$%^&*()<>?/\\|{}~`');
+    await page.getByRole('button', { name: /submit/i }).click();
+    // Should either accept or show a clean error — never crash
+    await expect(page).not.toHaveURL(/error|500/);
+  });
+});
+```
+
+### 4d. api.spec.ts
+```typescript
+import { test, expect } from '../../../../fixtures/authenticated-test';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+
+test.describe('[FeatureName] — API Mock Tests', () => {
+
+  // ── Success states ────────────────────────────────────────────────
+  test('renders data correctly on API success (200)', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({
+        status: 200,
+        body: JSON.stringify([
+          { id: 1, [field]: '[realistic value 1]' },
+          { id: 2, [field]: '[realistic value 2]' }
+        ])
+      })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByText('[realistic value 1]')).toBeVisible();
+  });
+
+  // ── Error states (generate one per API call found) ─────────────────
+  test('shows error UI on server error (500)', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 500, body: JSON.stringify({ message: 'Internal Server Error' }) })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByText(/something went wrong|error/i)).toBeVisible();
+  });
+
+  test('shows error UI on not found (404)', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 404, body: JSON.stringify({ message: 'Not Found' }) })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByText(/not found|no data/i)).toBeVisible();
+  });
+
+  test('shows error UI on unauthorized (401)', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 401, body: JSON.stringify({ message: 'Unauthorized' }) })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page).toHaveURL(/login|signin/);
+  });
+
+  test('shows error UI on network failure', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route => route.abort('failed'));
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByText(/network error|failed to load/i)).toBeVisible();
+  });
+
+  test('shows loading spinner during slow API response', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      new Promise(resolve => setTimeout(() => resolve(route.continue()), 2000))
+    );
+    const gotoPromise = page.goto(BASE_URL + '/[route]');
+    await expect(page.getByTestId('spinner')).toBeVisible();
+    // TODO: add data-testid="spinner" to loading indicator element
+    await gotoPromise;
+  });
+
+  test('correct request payload sent on form submit', async ({ page }) => {
+    let capturedBody: Record<string, unknown> = {};
+    await page.route('**/api/[endpoint]', async route => {
+      const request = route.request();
+      capturedBody = JSON.parse(request.postData() || '{}');
+      await route.fulfill({ status: 201, body: JSON.stringify({ id: 99 }) });
+    });
+    await page.goto(BASE_URL + '/[route]');
+    await page.getByLabel(/[field label]/i).fill('[valid value]');
+    await page.getByRole('button', { name: /submit/i }).click();
+    expect(capturedBody).toMatchObject({ [fieldKey]: '[valid value]' });
+  });
+
+  test('empty API response shows empty state UI', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 200, body: JSON.stringify([]) })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByText(/no [items]|empty/i)).toBeVisible();
+  });
+});
+```
+
+### 4e. error.spec.ts
+```typescript
+import { test, expect } from '../../../../fixtures/authenticated-test';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+
+test.describe('[FeatureName] — Error & Negative Cases', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE_URL + '/[route]');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // Generate one test per error scenario found in analysis card
+  test('error message disappears after correction', async ({ page }) => {
+    await page.getByRole('button', { name: /submit/i }).click();
+    await expect(page.getByText(/required/i)).toBeVisible();
+    await page.getByLabel(/[field]/i).fill('[valid value]');
+    await expect(page.getByText(/required/i)).not.toBeVisible();
+  });
+
+  test('duplicate submission shows duplicate error', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 409, body: JSON.stringify({ message: 'Already exists' }) })
+    );
+    await page.getByLabel(/[field]/i).fill('[value that already exists]');
+    await page.getByRole('button', { name: /submit/i }).click();
+    await expect(page.getByText(/already exists|duplicate/i)).toBeVisible();
+  });
+
+  test('page does not crash on malformed API response', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 200, body: 'not-valid-json{{' })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByText(/error|something went wrong/i)).toBeVisible();
+    await expect(page).not.toHaveURL(/crash|500/);
+  });
+
+  test('API timeout shows user-friendly timeout message', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      new Promise(resolve => setTimeout(() => resolve(route.abort('timedout')), 5000))
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByText(/timed out|try again/i)).toBeVisible();
+  });
+});
+```
+
+### 4f. edge.spec.ts
+```typescript
+import { test, expect } from '../../../../fixtures/authenticated-test';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+
+test.describe('[FeatureName] — Edge Cases', () => {
+
+  test('handles extremely long text without layout overflow', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({
+        status: 200,
+        body: JSON.stringify([{ id: 1, [field]: 'A'.repeat(500) }])
+      })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    const container = page.getByTestId('[container-testid]');
+    // TODO: add data-testid="[container-testid]" to main container
+    const box = await container.boundingBox();
+    expect(box?.width).toBeLessThanOrEqual(1280);
+  });
+
+  test('handles special characters in displayed data', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({
+        status: 200,
+        body: JSON.stringify([{ id: 1, [field]: '<script>alert("xss")</script>' }])
+      })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    // Script tag must NOT execute — must be escaped
+    const alertFired = await page.evaluate(() => {
+      return (window as unknown as { __alertFired?: boolean }).__alertFired === true;
+    });
+    expect(alertFired).toBeFalsy();
+  });
+
+  test('browser back/forward navigation restores correct state', async ({ page }) => {
+    await page.goto(BASE_URL + '/[route]');
+    await page.getByRole('link', { name: /[link]/i }).click();
+    await page.goBack();
+    await expect(page).toHaveURL(BASE_URL + '/[route]');
+  });
+
+  test('rapid repeated clicks do not cause duplicate actions', async ({ page }) => {
+    let count = 0;
+    await page.route('**/api/[endpoint]', route => { count++; return route.fulfill({ status: 200 }); });
+    const button = page.getByRole('button', { name: /[action]/i });
+    await button.click();
+    await button.click();
+    await button.click();
+    await page.waitForTimeout(300);
+    expect(count).toBe(1);
+  });
+
+  test('single item in list renders correctly (no plural issues)', async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 200, body: JSON.stringify([{ id: 1, [field]: '[value]' }]) })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByText('[value]')).toBeVisible();
+  });
+
+  test('1000 items in list does not crash or freeze', async ({ page }) => {
+    const items = Array.from({ length: 1000 }, (_, i) => ({ id: i + 1, [field]: `Item ${i + 1}` }));
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 200, body: JSON.stringify(items) })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await expect(page.getByRole('main')).toBeVisible();
+  });
+});
+```
+
+### 4g. mobile.spec.ts
+```typescript
+import { test, expect } from '../../../../fixtures/authenticated-test';
+import { devices } from '@playwright/test';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+
+const MOBILE_VIEWPORTS = [
+  { name: 'iPhone 14',       width: 390, height: 844  },
+  { name: 'iPhone SE',       width: 375, height: 667  },
+  { name: 'Android (360)',   width: 360, height: 800  },
+  { name: 'iPad',            width: 768, height: 1024 },
+];
+
+for (const viewport of MOBILE_VIEWPORTS) {
+  test.describe(`[FeatureName] — Mobile: ${viewport.name}`, () => {
+
+    test.use({ viewport: { width: viewport.width, height: viewport.height } });
+
+    test.beforeEach(async ({ page }) => {
+      await page.route('**/api/[endpoint]', route =>
+        route.fulfill({ status: 200, body: JSON.stringify([/* mock data */]) })
+      );
+      await page.goto(BASE_URL + '/[route]');
+      await page.waitForLoadState('networkidle');
+    });
+
+    test('page renders correctly on mobile viewport', async ({ page }) => {
+      await expect(page.getByRole('main')).toBeVisible();
+    });
+
+    test('hamburger menu visible and opens navigation', async ({ page }) => {
+      const hamburger = page.getByRole('button', { name: /menu|hamburger/i });
+      if (await hamburger.isVisible()) {
+        await hamburger.click();
+        await expect(page.getByRole('navigation')).toBeVisible();
+      }
+    });
+
+    test('form fields not hidden behind soft keyboard', async ({ page }) => {
+      const input = page.getByLabel(/[field label]/i);
+      await input.tap();
+      await expect(input).toBeInViewport();
+    });
+
+    test('modal renders as full-screen sheet on mobile', async ({ page }) => {
+      await page.getByRole('button', { name: /[modal trigger]/i }).tap();
+      const modal = page.getByRole('dialog');
+      await expect(modal).toBeVisible();
+      const box = await modal.boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(viewport.width * 0.9);
+    });
+
+    test('horizontal scroll works in overflow tables', async ({ page }) => {
+      const table = page.getByRole('table');
+      if (await table.isVisible()) {
+        await expect(table).toBeVisible();
+        // Table must be scrollable, not cut off
+        const tableBox = await table.boundingBox();
+        expect(tableBox).not.toBeNull();
+      }
+    });
+
+    test('all primary action buttons are tap-target sized (>=44px)', async ({ page }) => {
+      const buttons = page.getByRole('button');
+      const count = await buttons.count();
+      for (let i = 0; i < count; i++) {
+        const box = await buttons.nth(i).boundingBox();
+        if (box) {
+          expect(box.height).toBeGreaterThanOrEqual(44);
+        }
+      }
+    });
+  });
+}
+```
+
+### 4h. accessibility.spec.ts
+```typescript
+import { test, expect } from '../../../../fixtures/authenticated-test';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+
+test.describe('[FeatureName] — Accessibility', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/[endpoint]', route =>
+      route.fulfill({ status: 200, body: JSON.stringify([/* mock data */]) })
+    );
+    await page.goto(BASE_URL + '/[route]');
+    await page.waitForLoadState('networkidle');
+  });
+
+  test('page has exactly one h1 heading', async ({ page }) => {
+    const h1Count = await page.getByRole('heading', { level: 1 }).count();
+    expect(h1Count).toBe(1);
+  });
+
+  test('all interactive elements reachable via Tab key', async ({ page }) => {
+    const interactiveElements = page.locator('button, a, input, select, textarea, [tabindex]');
+    const count = await interactiveElements.count();
+    for (let i = 0; i < count; i++) {
+      const tabIndex = await interactiveElements.nth(i).getAttribute('tabindex');
+      expect(tabIndex).not.toBe('-1');
+    }
+  });
+
+  test('form fields have associated labels', async ({ page }) => {
+    const inputs = page.locator('input:not([type="hidden"]), select, textarea');
+    const count = await inputs.count();
+    for (let i = 0; i < count; i++) {
+      const id = await inputs.nth(i).getAttribute('id');
+      const ariaLabel = await inputs.nth(i).getAttribute('aria-label');
+      const ariaLabelledBy = await inputs.nth(i).getAttribute('aria-labelledby');
+      const hasLabel = id
+        ? (await page.locator(`label[for="${id}"]`).count()) > 0
+        : false;
+      expect(hasLabel || ariaLabel || ariaLabelledBy).toBeTruthy();
+    }
+  });
+
+  test('icon-only buttons have aria-label', async ({ page }) => {
+    const iconButtons = page.locator('button:has(svg):not(:has(span))');
+    const count = await iconButtons.count();
+    for (let i = 0; i < count; i++) {
+      const label = await iconButtons.nth(i).getAttribute('aria-label');
+      expect(label).not.toBeNull();
+    }
+  });
+
+  test('all images have non-empty alt text', async ({ page }) => {
+    const images = page.locator('img');
+    const count = await images.count();
+    for (let i = 0; i < count; i++) {
+      const alt = await images.nth(i).getAttribute('alt');
+      expect(alt).not.toBeNull();
+    }
+  });
+
+  test('modal traps focus when open', async ({ page }) => {
+    await page.getByRole('button', { name: /[modal trigger]/i }).click();
+    const modal = page.getByRole('dialog');
+    await expect(modal).toBeVisible();
+    await page.keyboard.press('Tab');
+    const focused = page.locator(':focus');
+    // Focus must stay inside modal
+    await expect(modal.locator(':focus')).toBeVisible();
+  });
+
+  test('pressing Escape closes modal', async ({ page }) => {
+    await page.getByRole('button', { name: /[modal trigger]/i }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+  });
+
+  test('error messages linked to inputs via aria-describedby', async ({ page }) => {
+    await page.getByRole('button', { name: /submit/i }).click();
+    const inputsWithErrors = page.locator('input[aria-describedby]');
+    const count = await inputsWithErrors.count();
+    expect(count).toBeGreaterThan(0);
+    // TODO: ensure all input error messages use aria-describedby
+  });
+});
+```

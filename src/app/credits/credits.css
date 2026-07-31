@@ -1,0 +1,532 @@
+.credit-indicator-wrap {
+  padding: 0 0 6px;
+  position: relative;
+  width: 100%;
+}
+
+.credit-indicator-btn {
+  align-items: stretch;
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.credit-indicator-summary {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.credit-indicator-amount {
+  color: var(--text-1);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.credit-indicator-total {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+.credit-indicator-btn:hover {
+  background: var(--wash-strong);
+  border-color: rgba(0, 180, 138, 0.22);
+}
+
+.credit-indicator-track {
+  background: var(--panel-border);
+  border-radius: 999px;
+  display: block;
+  flex: 0 0 auto;
+  height: 6px;
+  min-height: 6px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.credit-indicator-fill {
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  transition: width 0.45s ease, background 0.3s ease;
+}
+
+.credit-indicator-fill.teal { background: linear-gradient(90deg, #00B48A, #00B48A); }
+.credit-indicator-fill.amber { background: linear-gradient(90deg, #D4924A, #ECD67F); }
+.credit-indicator-fill.red { background: linear-gradient(90deg, #C45C5C, #E07A7A); }
+
+.credit-plan-badge {
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
+.credit-plan-badge.free {
+  background: var(--panel-border);
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+}
+
+.credit-plan-badge.pro {
+  background: rgba(0, 180, 138, 0.14);
+  border: 1px solid rgba(0, 180, 138, 0.28);
+  color: var(--fuel-text, var(--text-1));
+}
+
+.credit-popover {
+  background: var(--surface-3);
+  border: 1px solid rgba(0, 180, 138, 0.24);
+  border-radius: 12px;
+  bottom: calc(100% + 8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  left: 14px;
+  padding: 14px;
+  position: absolute;
+  right: 14px;
+  z-index: 40;
+}
+
+.credit-popover h4 {
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 8px;
+}
+
+.credit-popover p {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0 0 8px;
+}
+
+.credit-popover .credit-countdown {
+  color: var(--fuel-text, var(--text-1));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  font-weight: 800;
+  margin: 8px 0 12px;
+}
+
+.credit-popover-stats {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 10px;
+}
+
+.credit-popover-stats div {
+  color: var(--fuel-text-muted, var(--text-2));
+  display: flex;
+  font-size: 11.5px;
+  justify-content: space-between;
+}
+
+.credit-popover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.credit-btn-primary {
+  background: var(--btn-primary-bg, var(--accent));
+  border: 1px solid var(--btn-primary-border, var(--accent));
+  border-radius: 8px;
+  color: var(--btn-primary-text, #042018);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 10px 12px;
+}
+
+.credit-btn-primary:hover {
+  background: var(--btn-primary-hover, var(--accent));
+  border-color: var(--btn-primary-hover, var(--accent));
+}
+
+.credit-btn-ghost {
+  background: var(--btn-secondary-bg, transparent);
+  border: 1px solid var(--btn-secondary-border, var(--border));
+  border-radius: 8px;
+  color: var(--btn-secondary-text, var(--text-2));
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 9px 12px;
+}
+
+.credit-cost-list {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.credit-cost-row {
+  color: var(--fuel-text-muted, var(--text-2));
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+}
+
+.credit-block-banner {
+  align-items: center;
+  background: rgba(196, 92, 92, 0.12);
+  border-bottom: 1px solid rgba(196, 92, 92, 0.28);
+  color: #E8B4B4;
+  display: flex;
+  font-size: 12px;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 20px;
+}
+
+.credit-block-banner button {
+  background: transparent;
+  border: 1px solid rgba(196, 92, 92, 0.35);
+  border-radius: 6px;
+  color: #F2CFCF;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.credit-upgrade-overlay {
+  align-items: center;
+  background: color-mix(in srgb, var(--bg) 55%, rgba(0, 0, 0, 0.45));
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 2000;
+}
+
+.credit-upgrade-modal {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-menu);
+  max-height: 90vh;
+  max-width: 560px;
+  overflow: auto;
+  padding: 22px;
+  width: calc(100% - 32px);
+}
+
+.credit-upgrade-tagline {
+  color: #00B48A;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 0 0 10px;
+}
+
+.credit-upgrade-subtitle {
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: -6px 0 14px;
+}
+
+.credit-upgrade-title {
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+  margin: 0 0 14px;
+}
+
+.credit-upgrade-includes {
+  color: #B8C9C0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0 0 16px;
+  padding-left: 18px;
+}
+
+.credit-upgrade-includes li {
+  margin-bottom: 4px;
+}
+
+.credit-billing-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 14px;
+}
+
+.credit-billing-option {
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text-1);
+  cursor: pointer;
+  font: inherit;
+  padding: 10px;
+  position: relative;
+  text-align: left;
+}
+
+.credit-billing-option.selected {
+  background: rgba(0, 180, 138, 0.12);
+  border-color: rgba(0, 180, 138, 0.35);
+}
+
+.credit-billing-option.recommended.selected {
+  background: rgba(0, 180, 138, 0.14);
+  border-color: rgba(0, 180, 138, 0.4);
+}
+
+.credit-billing-recommended {
+  background: linear-gradient(135deg, #00B48A, #ECD67F);
+  border-radius: 999px;
+  color: #0a1a12;
+  font-size: 8px;
+  font-weight: 900;
+  left: 8px;
+  padding: 2px 6px;
+  position: absolute;
+  top: -8px;
+}
+
+.credit-billing-label {
+  font-size: 10px;
+  opacity: 0.8;
+  text-transform: uppercase;
+}
+
+.credit-billing-price {
+  font-size: 20px;
+}
+
+.credit-billing-sub {
+  color: #8FE8D2;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.credit-upgrade-cta {
+  width: 100%;
+}
+
+.credit-upgrade-footnote {
+  color: #556878;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 10px 0 0;
+  text-align: center;
+}
+
+.credit-upgrade-close {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.credit-topup-gate {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 14px;
+}
+
+.credit-upgrade-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.credit-upgrade-tabs button {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+  flex: 1;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px;
+}
+
+.credit-upgrade-tabs button.active {
+  background: rgba(0, 180, 138, 0.12);
+  border-color: rgba(0, 180, 138, 0.35);
+  color: var(--fuel-text, var(--text-1));
+}
+
+.credit-topup-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.credit-topup-option {
+  background: var(--wash);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 12px;
+  text-align: left;
+}
+
+.credit-topup-option.selected {
+  background: rgba(0, 180, 138, 0.1);
+  border-color: rgba(0, 180, 138, 0.35);
+}
+
+.credit-topup-option-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.credit-topup-option-head strong {
+  color: var(--text-1);
+  font-size: 14px;
+}
+
+.credit-topup-option-badges {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.credit-topup-badge {
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.credit-topup-badge.popular {
+  background: rgba(0, 180, 138, 0.16);
+  border: 1px solid rgba(0, 180, 138, 0.28);
+  color: #8FE8D2;
+}
+
+.credit-topup-badge.discount {
+  background: rgba(236, 214, 127, 0.12);
+  border: 1px solid rgba(236, 214, 127, 0.24);
+  color: #ECD67F;
+}
+
+.credit-topup-option-meta {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.credit-topup-option-credits {
+  color: #8FE8D2;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.credit-topup-option-price {
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.credit-topup-option-blurb {
+  color: #6F8798;
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+
+.credit-toast {
+  animation: creditToastIn 0.25s ease;
+  background: var(--surface-3);
+  border: 1px solid rgba(0, 180, 138, 0.28);
+  border-radius: 10px;
+  bottom: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  color: var(--fuel-text, var(--text-1));
+  font-size: 13px;
+  left: 50%;
+  max-width: 420px;
+  padding: 12px 16px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 2100;
+}
+
+.credit-action-disabled {
+  cursor: not-allowed !important;
+  opacity: 0.42 !important;
+  pointer-events: auto !important;
+}
+
+.ask-ai-btn .credit-inline-badge,
+.sidebar-foot-name .credit-inline-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-left: 6px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.profile-usage-breakdown-row strong {
+  color: var(--fuel-text, var(--text-1));
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.profile-usage-advisor-copy {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+
+.profile-usage-upgrade-link {
+  background: none;
+  border: none;
+  color: var(--fuel-accent, #00B48A);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+@keyframes creditToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

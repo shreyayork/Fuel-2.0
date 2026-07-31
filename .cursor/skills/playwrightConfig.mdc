@@ -1,0 +1,71 @@
+---
+name: "playwright Configuration"
+description: "A comprehensive Playwright configuration designed to generate full test coverage across any frontend framework. It ensures robust validation of core user interactions, including forms, search, filtering, sorting, and tab navigation, with a strong focus on edge cases and real-world scenarios."
+alwaysApply: true
+---
+```typescript
+import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * E2E tests live under automation-tests/; the suite entry is index.ts (imports all specs).
+ * Start the app with the same API base the bundle expects so route mocks match outgoing URLs.
+ */
+const nodeMajor = Number.parseInt(
+  process.versions.node.split(".")[0] ?? "0",
+  10,
+);
+if (nodeMajor < 18) {
+  throw new Error(
+    `Playwright requires Node.js 18+. Current: ${process.version}. ` +
+      `This repo pins Node in .nvmrc — run: nvm use (or install Node 20 LTS) and retry.`,
+  );
+}
+
+// const devPort = Number(process.env.PW_DEV_PORT ?? 5173);
+const baseURL = process.env.VITE_FRONTEND_URL;
+const isCI = !!process.env.CI;
+
+export default defineConfig({
+  testDir: "./automation-tests",
+  fullyParallel: isCI,
+  forbidOnly: isCI,
+  retries: process.env.CI ? 1 : 0,
+  workers: 2,
+  reporter: [["html", { outputFolder: "playwright-report" }], ["list"]],
+  use: {
+    baseURL,
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    headless: true,
+  },
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    {
+      name: "mobile-chrome",
+      use: { ...devices["Pixel 5"], viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: "mobile-safari",
+      use: { ...devices["iPhone 14"], viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: "tablet",
+      use: { ...devices["iPad Pro"], viewport: { width: 768, height: 1024 } },
+    },
+  ],
+  
+  // webServer: {
+  //   command: `npm run start`,
+  //   url: baseURL,
+  //   reuseExistingServer: !process.env.CI,
+  //   timeout: 120_000,
+  //   env: {
+  //     ...process.env,
+  //     BROWSER: "none",
+  //     REACT_APP_API_URL: "http://localhost:5000/api", // TODO: Change to the actual API URL
+  //   },
+  // },
+});
+```

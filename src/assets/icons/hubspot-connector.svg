@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img">
+  <title>HubSpot</title>
+  <circle cx="18.1" cy="5.2" r="1.9" fill="#FF7A59"/>
+  <circle cx="7.8" cy="4.2" r="1.9" fill="#FF7A59"/>
+  <circle cx="7.8" cy="12" r="2.35" fill="#FF7A59"/>
+  <circle cx="16.8" cy="18.2" r="2.55" fill="#FF7A59"/>
+  <path d="M7.8 6.2v3.3M9.9 10.7 16.4 7.1M9.8 13.6l5.2 3" stroke="#FF7A59" stroke-width="1.7" stroke-linecap="round"/>
+</svg>

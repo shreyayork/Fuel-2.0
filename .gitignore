@@ -1,0 +1,27 @@
+node_modules
+.DS_Store
+.env
+dist
+build
+out
+.env.local
+.env.*.local
+*.log
+.cache
+.platform/
+.launchpad/
+.launchpad/**
+node_modules/
+dist/
+build/
+.env.*
+preview.log
+ecosystem.preview.cjs
+ecosystem.preview.js
+.preview-package.sha256
+# Launchpad local credentials (do not commit)
+**/.env
+!**/.env.example
+**/parameters.json
+**/terraform.tfvars
+**/credentials.json
