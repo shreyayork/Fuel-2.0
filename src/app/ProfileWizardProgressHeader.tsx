@@ -22,10 +22,10 @@ const STEPPER_STEPS: { id: ProfileModuleId; label: string }[] = [
 ];
 
 const ENCOURAGEMENT: Record<ProfileModuleId, string> = {
-  company: "Earn +40 credits — match peers and sharpen your ICP",
-  dev: "Earn +25 credits — unlock R&D benchmarks",
-  gtm: "Earn +30 credits — improve pipeline intelligence",
-  rev: "Earn +25 credits — unlock finance & runway insights",
+  company: "Answer 2+ fields to unlock +40 credits and your early report",
+  dev: "Answer 2+ fields to unlock +40 credits and R&D insights",
+  gtm: "Answer 2+ fields to unlock +40 credits and GTM insights",
+  rev: "Answer 2+ fields to unlock +40 credits and finance insights",
 };
 
 const SPRING_SNAPPY = { type: "spring" as const, stiffness: 420, damping: 34, mass: 0.82 };
@@ -81,6 +81,7 @@ export function ProfileWizardProgressHeader({
   onClose,
 }: ProfileWizardProgressHeaderProps) {
   const reduced = useReducedMotion();
+  const compact = embedded;
   const celebrating = Boolean(justEarnedModule);
   const activeStepId = stage === "results" ? null : activeModule;
   const encouragement = stage === "results"
@@ -95,9 +96,11 @@ export function ProfileWizardProgressHeader({
     .filter(step => !earnedModules.includes(step.id))
     .reduce((sum, step) => sum + PROFILE_MODULE_REWARDS[step.id], 0);
 
+  const showEncouragement = celebrating || stage === "results" || !compact;
+
   return (
     <div
-      className={`profile-wizard-progress pwp-enhanced${celebrating ? " is-celebrating" : ""}${stage === "results" ? " is-complete" : ""}`}
+      className={`profile-wizard-progress pwp-enhanced${compact ? " pwp-compact" : ""}${celebrating ? " is-celebrating" : ""}${stage === "results" ? " is-complete" : ""}`}
       aria-label="Intelligence unlock progress"
     >
       <div className="pwp-top">
@@ -108,7 +111,7 @@ export function ProfileWizardProgressHeader({
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         >
           <span className="pwp-title">Profile setup</span>
-          {remainingModuleCredits > 0 && stage !== "results" ? (
+          {!compact && remainingModuleCredits > 0 && stage !== "results" ? (
             <span className="pwp-title-sub">
               +{remainingModuleCredits} credits left in this wizard
             </span>
@@ -124,7 +127,7 @@ export function ProfileWizardProgressHeader({
             <div
               className="pwp-credits"
               aria-live="polite"
-              aria-label={`${availableCredits} of ${PROFILE_TOTAL_CREDITS} credits unlocked`}
+              aria-label={`${availableCredits} of ${PROFILE_TOTAL_CREDITS} credits unlocked${remainingModuleCredits > 0 ? `; ${remainingModuleCredits} credits remaining in this wizard` : ""}`}
             >
               <AnimatedCreditValue value={availableCredits} celebrate={celebrating} />
               <span className="pwp-credits-sep">/</span>
@@ -178,7 +181,7 @@ export function ProfileWizardProgressHeader({
       </div>
 
       <LayoutGroup id="profile-wizard-steps">
-        <ol className="pwp-steps" aria-label="Profile sections">
+        <ol className={`pwp-steps${compact ? " pwp-steps-segmented" : ""}`} aria-label="Profile sections">
           {STEPPER_STEPS.map((step, index) => {
             const done = earnedModules.includes(step.id) || stage === "results";
             const current = activeModule === step.id && stage !== "results";
@@ -187,47 +190,66 @@ export function ProfileWizardProgressHeader({
                 key={step.id}
                 className={`pwp-step${done ? " is-done" : ""}${current ? " is-current" : ""}`}
                 aria-current={current ? "step" : undefined}
-                layout="position"
+                layout={compact ? false : "position"}
                 transition={SPRING_SNAPPY}
               >
                 <span className="pwp-step-inner">
-                  <AnimatePresence mode="popLayout" initial={false}>
-                    {done ? (
-                      <motion.svg
-                        key="check"
-                        className="pwp-step-check"
-                        width="10"
-                        height="8"
-                        viewBox="0 0 10 8"
-                        fill="none"
-                        aria-hidden="true"
-                        initial={reduced ? false : { opacity: 0, scale: 0.3, rotate: -18 }}
-                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                        exit={{ opacity: 0, scale: 0.4 }}
-                        transition={SPRING_SNAPPY}
-                      >
-                        <path
-                          d="M1 4l2.5 2.5L9 1"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                  {!compact ? (
+                    <AnimatePresence mode="popLayout" initial={false}>
+                      {done ? (
+                        <motion.svg
+                          key="check"
+                          className="pwp-step-check"
+                          width="10"
+                          height="8"
+                          viewBox="0 0 10 8"
+                          fill="none"
+                          aria-hidden="true"
+                          initial={reduced ? false : { opacity: 0, scale: 0.3, rotate: -18 }}
+                          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                          exit={{ opacity: 0, scale: 0.4 }}
+                          transition={SPRING_SNAPPY}
+                        >
+                          <path
+                            d="M1 4l2.5 2.5L9 1"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </motion.svg>
+                      ) : current ? (
+                        <motion.span
+                          key="dot"
+                          className="pwp-step-dot"
+                          aria-hidden="true"
+                          initial={reduced ? false : { scale: 0 }}
+                          animate={{ scale: 1 }}
+                          exit={{ scale: 0 }}
+                          transition={SPRING_SNAPPY}
                         />
-                      </motion.svg>
-                    ) : current ? (
-                      <motion.span
-                        key="dot"
-                        className="pwp-step-dot"
-                        aria-hidden="true"
-                        initial={reduced ? false : { scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        transition={SPRING_SNAPPY}
+                      ) : null}
+                    </AnimatePresence>
+                  ) : done ? (
+                    <svg
+                      className="pwp-step-check"
+                      width="10"
+                      height="8"
+                      viewBox="0 0 10 8"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M1 4l2.5 2.5L9 1"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       />
-                    ) : null}
-                  </AnimatePresence>
+                    </svg>
+                  ) : null}
                   <span className="pwp-step-label">{step.label}</span>
-                  {current ? (
+                  {!compact && current ? (
                     <motion.span
                       layoutId="pwp-step-underline"
                       className="pwp-step-underline"
@@ -235,7 +257,7 @@ export function ProfileWizardProgressHeader({
                     />
                   ) : null}
                 </span>
-                {index < STEPPER_STEPS.length - 1 ? (
+                {!compact && index < STEPPER_STEPS.length - 1 ? (
                   <span className={`pwp-step-connector${done ? " is-filled" : ""}`} aria-hidden="true" />
                 ) : null}
               </motion.li>
@@ -244,20 +266,22 @@ export function ProfileWizardProgressHeader({
         </ol>
       </LayoutGroup>
 
-      <AnimatePresence mode="wait">
-        <motion.p
-          key={`${stage}-${activeModule}-${justEarnedModule ?? "idle"}`}
-          className="pwp-encourage"
-          initial={reduced ? false : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reduced ? undefined : { opacity: 0, y: -4 }}
-          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-        >
-          {justEarnedModule
-            ? `+${getModuleReward(justEarnedModule)} credits unlocked — nice work!`
-            : encouragement}
-        </motion.p>
-      </AnimatePresence>
+      {showEncouragement ? (
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={`${stage}-${activeModule}-${justEarnedModule ?? "idle"}-${compact ? "compact" : "full"}`}
+            className={`pwp-encourage${celebrating ? " is-celebrate" : ""}${compact ? " pwp-encourage-compact" : ""}`}
+            initial={reduced ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduced ? undefined : { opacity: 0, y: -4 }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {justEarnedModule
+              ? `+${getModuleReward(justEarnedModule)} credits unlocked — nice work!`
+              : encouragement}
+          </motion.p>
+        </AnimatePresence>
+      ) : null}
     </div>
   );
 }

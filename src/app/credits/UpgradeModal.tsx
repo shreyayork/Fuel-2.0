@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import { handleTabListKeyDown } from "../a11y/tabListKeyboard";
+import { useDialogA11y } from "../a11y/useDialogA11y";
 import {
   PRO_INCLUDES,
   PRO_PRICE_FRAME,
@@ -23,6 +25,9 @@ export function UpgradeModal() {
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
   const [topUpId, setTopUpId] = useState("growth");
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useDialogA11y(upgradeOpen, dialogRef, closeUpgrade);
 
   if (!upgradeOpen) return null;
 
@@ -30,19 +35,44 @@ export function UpgradeModal() {
   const isFree = snapshot.plan === "free";
 
   return (
-    <div className="credit-upgrade-overlay" onClick={closeUpgrade}>
-      <div className="credit-upgrade-modal" onClick={event => event.stopPropagation()} role="dialog" aria-label="Upgrade">
-        <div className="credit-upgrade-tabs">
-          <button type="button" className={upgradeTab === "pro" ? "active" : ""} onClick={() => setUpgradeTab("pro")}>
+    <div className="credit-upgrade-overlay" onClick={closeUpgrade} role="presentation">
+      <div
+        ref={dialogRef}
+        className="credit-upgrade-modal"
+        onClick={event => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Upgrade Fuel plan"
+      >
+        <div className="credit-upgrade-tabs" role="tablist" aria-label="Upgrade options">
+          <button
+            type="button"
+            id="tab-pro"
+            role="tab"
+            aria-selected={upgradeTab === "pro"}
+            aria-controls="upgrade-panel-pro"
+            className={upgradeTab === "pro" ? "active" : ""}
+            onClick={() => setUpgradeTab("pro")}
+            onKeyDown={event => handleTabListKeyDown(event, ["pro", "topup"], upgradeTab, setUpgradeTab)}
+          >
             Upgrade to Pro
           </button>
-          <button type="button" className={upgradeTab === "topup" ? "active" : ""} onClick={() => setUpgradeTab("topup")}>
+          <button
+            type="button"
+            id="tab-topup"
+            role="tab"
+            aria-selected={upgradeTab === "topup"}
+            aria-controls="upgrade-panel-topup"
+            className={upgradeTab === "topup" ? "active" : ""}
+            onClick={() => setUpgradeTab("topup")}
+            onKeyDown={event => handleTabListKeyDown(event, ["pro", "topup"], upgradeTab, setUpgradeTab)}
+          >
             Top up credits
           </button>
         </div>
 
         {upgradeTab === "pro" ? (
-          <>
+          <div id="upgrade-panel-pro" role="tabpanel" aria-labelledby="tab-pro">
             <p className="credit-upgrade-tagline">{PRO_TAGLINE}</p>
             <h3 className="credit-upgrade-title">{PRO_UPGRADE_HEADERS[upgradeReason]}</h3>
             <p className="credit-upgrade-subtitle">{PRO_PRICE_FRAME}</p>
@@ -73,9 +103,9 @@ export function UpgradeModal() {
               Start your AI advisor · {billingCycle === "annual" ? "$25/mo billed yearly" : "$30/mo"}
             </button>
             <p className="credit-upgrade-footnote">Powered by Stripe · cancel anytime · no equity, no advisory fees</p>
-          </>
+          </div>
         ) : (
-          <>
+          <div id="upgrade-panel-topup" role="tabpanel" aria-labelledby="tab-topup">
             {isFree ? (
               <p className="credit-topup-gate">
                 Top-ups unlock on Pro — your always-on AI advisor, from $25/mo.{" "}
@@ -122,7 +152,7 @@ export function UpgradeModal() {
                 <p className="credit-upgrade-footnote">{TOP_UP_FOOTNOTE}</p>
               </>
             )}
-          </>
+          </div>
         )}
 
         <button type="button" className="credit-btn-ghost credit-upgrade-close" onClick={closeUpgrade}>

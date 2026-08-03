@@ -49,10 +49,15 @@ import ScorecardV2, {
   isRecActionsTipDismissed,
   isRecActionsTipPending,
   markRecActionsTipPending,
+  OVERVIEW_ALL_BUILT_PHASES,
+  profileModuleToBuildPhase,
   resetRecActionsTipForOnboarding,
 } from "./ScorecardV2";
-import { hasCompletedOnboardingTracks, ORGANIZATION_TYPES } from "./OnboardingFlow.tsx";
+import { hasCompletedOnboardingTracks, mapOnboardingToDetailAnswers, ORGANIZATION_TYPES } from "./OnboardingFlow.tsx";
 import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
+import { SkipLink } from "./a11y/SkipLink";
+import { TopbarCompanySearch } from "./a11y/TopbarCompanySearch";
+import { useDialogA11y } from "./a11y/useDialogA11y";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 import { AccountSettings } from "./account/AccountSettings.tsx";
 import {
@@ -74,6 +79,7 @@ import {
   investorCompanyToSelected,
 } from "./investor/investorData.ts";
 import type { InvestorCompanyRef } from "./investor/investorData.ts";
+import { getCompanyLogoColors } from "./companyLogoColors";
 import { FuelIcon, type FuelIconName } from "./icons";
 import { applyFuelTheme, readFuelTheme, type FuelTheme } from "./fuelTheme";
 import {
@@ -86,7 +92,15 @@ import {
   type IntelligenceCustomRange,
   type IntelligenceDatePreset,
 } from "./intelligenceFilters";
-import { DETAIL_QUESTION_LABEL, DETAIL_SECTIONS, type DetailAnswers } from "./trackQuestions.ts";
+import {
+  countSectionAnswers,
+  DETAIL_QUESTION_LABEL,
+  DETAIL_SECTIONS,
+  getVisibleQuestions,
+  hasProfileBasicsStarted,
+  type DetailAnswers,
+} from "./trackQuestions.ts";
+import { loadDetailAnswers } from "./profileDetailsStorage.ts";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -94,8 +108,8 @@ const tracks = [
   {
     id: "rd",
     icon: "⚙",
-    iconBg: "rgba(63,224,164,0.12)",
-    iconColor: "#3DD68C",
+    iconBg: "rgba(18, 184, 134, 0.12)",
+    iconColor: "var(--btn-primary-bg)",
     name: "Development",
     sub: "R&D · Engineering, AI, UX, QA, DevOps",
     health: "green",
@@ -118,10 +132,10 @@ const tracks = [
       { pct: 82, label: "QA regression suite · 4 envs", done: true },
     ],
     chips: [
-      { label: "MVP build", color: "#3DD68C" },
-      { label: "AI Agent", color: "#3DD68C" },
-      { label: "Postgres migration", color: "#3DD68C" },
-      { label: "QA suite live", color: "#3DD68C" },
+      { label: "MVP build", color: "var(--btn-primary-bg)" },
+      { label: "AI Agent", color: "var(--btn-primary-bg)" },
+      { label: "Postgres migration", color: "var(--btn-primary-bg)" },
+      { label: "QA suite live", color: "var(--btn-primary-bg)" },
       { label: "Operator Thread — in progress", color: "#D4924A" },
     ],
   },
@@ -147,9 +161,9 @@ const tracks = [
       { pct: 52, label: "First 12 customers signed", done: true },
     ],
     chips: [
-      { label: "Website live", color: "#3DD68C" },
-      { label: "Outreach sequences", color: "#3DD68C" },
-      { label: "12 customers", color: "#3DD68C" },
+      { label: "Website live", color: "var(--btn-primary-bg)" },
+      { label: "Outreach sequences", color: "var(--btn-primary-bg)" },
+      { label: "12 customers", color: "var(--btn-primary-bg)" },
       { label: "No repeatable GTM motion", color: "#D4924A" },
       { label: "SEO not started", color: "#E56B6B" },
     ],
@@ -174,8 +188,8 @@ const tracks = [
       { pct: 38, label: "CAC tracking — partial", done: false },
     ],
     chips: [
-      { label: "HubSpot live", color: "#3DD68C" },
-      { label: "Pipeline built", color: "#3DD68C" },
+      { label: "HubSpot live", color: "var(--btn-primary-bg)" },
+      { label: "Pipeline built", color: "var(--btn-primary-bg)" },
       { label: "CAC tracking partial", color: "#D4924A" },
       { label: "Attribution not set up", color: "#E56B6B" },
     ],
@@ -443,7 +457,7 @@ const integrationOptions = [
     productType: "York IE product",
     tag: "Design approvals",
     icon: "✦",
-    color: "#3DD68C",
+    color: "var(--btn-primary-bg)",
     price: 149,
     description: "Create and approve product screens, then bring decision-ready design context into Fuel.",
     bullets: ["Approval workflow", "Preview links", "Client-ready handoff"],
@@ -455,7 +469,7 @@ const integrationOptions = [
     productType: "York IE product",
     tag: "Code quality",
     icon: "◆",
-    color: "#2BB8A0",
+    color: "#00B48A",
     price: 199,
     description: "Turn engineering activity into simple quality, stability, and release-readiness signals.",
     bullets: ["Quality summaries", "Stability signals", "Release confidence"],
@@ -547,7 +561,7 @@ const marketingIntegrationOptions = [
     productType: "Organic search",
     tag: "Google search visibility",
     icon: "SC",
-    color: "#3DD68C",
+    color: "var(--btn-primary-bg)",
     price: 69,
     description: "Pull organic clicks, impressions, CTR, ranking movement, and query opportunities from Google Search Console.",
     bullets: ["Clicks", "Queries", "CTR"],
@@ -560,7 +574,7 @@ const gtmDashboardAccessOption = {
   productType: "York IE service",
   tag: "Managed marketing reporting",
   icon: "Y",
-  color: "#3DD68C",
+  color: "var(--btn-primary-bg)",
   price: 0,
   description: "Request access to the York IE-managed GTM dashboard that already combines traffic, paid media, SEO, and social signals.",
   bullets: ["Managed setup", "Dashboard access", "York IE support"],
@@ -597,7 +611,7 @@ const journeyIntegrationGroups = [
     id: "finops",
     label: "FinOps",
     options: [
-      { id: "quickbooks", name: "QuickBooks", productType: "Finance", tag: "Accounting", icon: "QB", color: "#3DD68C", price: 89, description: "Connect accounting data for financial visibility and operating cadence.", bullets: ["Accounting", "P&L", "Cash"] },
+      { id: "quickbooks", name: "QuickBooks", productType: "Finance", tag: "Accounting", icon: "QB", color: "var(--btn-primary-bg)", price: 89, description: "Connect accounting data for financial visibility and operating cadence.", bullets: ["Accounting", "P&L", "Cash"] },
       { id: "stripe", name: "Stripe", productType: "Payments", tag: "Revenue", icon: "$", color: "#8B76D4", price: 79, description: "Bring payment, subscription, and revenue movement into your operating view.", bullets: ["Payments", "MRR", "Revenue"] },
     ],
   },
@@ -1282,7 +1296,7 @@ function ManualDevelopmentWizard({ data, onClose, onSave }) {
             <span>Manual tracking</span>
             <strong>Edit development plan</strong>
           </div>
-          <button onClick={onClose}>×</button>
+          <button type="button" onClick={onClose} aria-label="Close manual tracking dialog">×</button>
         </div>
         <div className="manual-wizard-steps">
           {steps.map((label, index) => (
@@ -2121,7 +2135,7 @@ function DevelopmentDetailPage({ onBack }) {
             </div>
             {openReleaseSignal?.releaseNote ? (
               <aside className={`release-note-panel ${releaseNoteOrigin} ${releaseNoteClosing ? "closing" : ""}`}>
-                <button className="release-note-close" onClick={closeReleaseNote}>×</button>
+                <button type="button" className="release-note-close" onClick={closeReleaseNote} aria-label="Close release note">×</button>
                 <span>{openReleaseRoadmap?.key} · {openReleaseSignal.releaseNote.date}</span>
                 <h3>{openReleaseSignal.releaseNote.title}</h3>
                 <p>{openReleaseSignal.releaseNote.body}</p>
@@ -2215,7 +2229,7 @@ function DevelopmentDetailPage({ onBack }) {
             </div>
             {openDesignNote && activeDesign ? (
               <aside className="design-note-panel">
-                <button className="release-note-close" onClick={() => setOpenDesignNote(false)}>×</button>
+                <button type="button" className="release-note-close" onClick={() => setOpenDesignNote(false)} aria-label="Close design note">×</button>
                 <span>{activeRoadmap.key} · {activeDesign.updated}</span>
                 <h3>{activeDesign.title}</h3>
                 <p>{activeDesign.note}</p>
@@ -2322,7 +2336,7 @@ function DevelopmentDetailPage({ onBack }) {
             </div>
             {openQualityWeek ? (
               <aside className="quality-summary-panel">
-                <button className="release-note-close" onClick={() => setOpenQualityWeek(null)}>×</button>
+                <button type="button" className="release-note-close" onClick={() => setOpenQualityWeek(null)} aria-label="Close quality week note">×</button>
                 <span>{activeRoadmap.key} · {selectedQualityWeek.week}</span>
                 <h3>Weekly quality summary</h3>
                 <p>{selectedQualityWeek.summary}</p>
@@ -2968,7 +2982,7 @@ function inferMainCategoryFromSource(
 
 const SOURCE_CATEGORY_COPY: Record<string, { text: string; label: string }> = {
   fundraising: { text: "Fundraising signal", label: "Fundraising" },
-  gtm: { text: "GTM signal", label: "Go-to-market" },
+  gtm: { text: "GTM signal", label: "Go to market" },
   product: { text: "Product signal", label: "Product" },
   finance: { text: "Finance signal", label: "Finance / G&A" },
   strategic: { text: "Strategic signal", label: "Strategy" },
@@ -5746,6 +5760,9 @@ function CompleteProfileDrawer({
   onClose,
   onComplete,
   onModuleEarned,
+  onModuleSaved,
+  onModuleProgress,
+  onModuleCreditReward,
   onAnswersChange,
   earnedProfileCredits,
 }: {
@@ -5756,38 +5773,42 @@ function CompleteProfileDrawer({
   onClose: () => void;
   onComplete: (completedModules: ProfileModuleId[]) => void;
   onModuleEarned?: (earned: EarnedProfileCredits) => void;
+  onModuleSaved?: (module: ProfileModuleId, answers: DetailAnswers) => void;
+  onModuleProgress?: (module: ProfileModuleId, answers: DetailAnswers) => void;
+  onModuleCreditReward?: (reward: import("./profileCredits").ProfileCreditReward) => void;
   onAnswersChange?: () => void;
   earnedProfileCredits?: EarnedProfileCredits;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const requestCloseRef = useRef<() => void>(() => {});
+  useDialogA11y(open, dialogRef, () => requestCloseRef.current());
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
   return createPortal(
-    <div className="profile-complete-drawer-scrim" onClick={onClose} role="presentation">
+    <div className="profile-complete-drawer-scrim" onClick={() => requestCloseRef.current()} role="presentation">
       <aside
+        ref={dialogRef}
         className="profile-complete-drawer"
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-complete-drawer-title"
         onClick={event => event.stopPropagation()}
+        onMouseDown={event => event.stopPropagation()}
       >
         <h2 id="profile-complete-drawer-title" className="sr-only">Complete your profile</h2>
         <div className="profile-complete-drawer-body">
           <UnifiedProfileDrawer
-            key={`${companyName}-${initialSection}-drawer`}
+            key={`${companyKey ?? companyName}-${initialSection}-drawer`}
             embedded
             companyName={companyName}
             companyKey={companyKey ?? companyName}
@@ -5795,7 +5816,13 @@ function CompleteProfileDrawer({
             earnedProfileCredits={earnedProfileCredits}
             onClose={onClose}
             onModuleEarned={onModuleEarned}
+            onModuleSaved={onModuleSaved}
+            onModuleProgress={onModuleProgress}
+            onModuleCreditReward={onModuleCreditReward}
             onAnswersChange={onAnswersChange}
+            onBindRequestClose={(requestClose) => {
+              requestCloseRef.current = requestClose;
+            }}
             onComplete={(completedModules) => {
               onComplete(completedModules);
             }}
@@ -5854,7 +5881,7 @@ function TourPromptBanner({
         <p>
           {building
             ? "Overview scores, Intelligence, and Initiatives are being prepared from your onboarding. Explore the product now — you do not need to wait."
-            : "See how Overview, Intelligence, Initiatives, and Data Room work together now that your profile is set up."}
+            : "See how Workspace, Overview, Intelligence, Initiatives, and Data Room work together now that your profile is set up."}
         </p>
       </div>
       <div className="tour-prompt-actions">
@@ -6299,7 +6326,7 @@ const INITIATIVE_TEAM_SUGGESTIONS = [
 
 const INITIATIVE_ADVISOR_DIRECTORY: InitiativeAdvisor[] = [
   { id: "adv-matt", name: "Matt L.", title: "Operating partner" },
-  { id: "adv-priya", name: "Priya R.", title: "Go-to-market advisor" },
+  { id: "adv-priya", name: "Priya R.", title: "Go to market advisor" },
   { id: "adv-jess", name: "Jess K.", title: "Product advisor" },
   { id: "adv-ryan", name: "Ryan K.", title: "Finance advisor" },
   { id: "adv-amy", name: "Amy M.", title: "Growth advisor" },
@@ -8600,7 +8627,7 @@ function ContextFeedPage({
                 <span>{activeConnector?.type}</span>
                 <strong>Connect {activeConnector?.name}</strong>
               </div>
-              <button onClick={() => setConnectorsOpen(false)}>×</button>
+              <button type="button" onClick={() => setConnectorsOpen(false)} aria-label="Close connector setup">×</button>
             </div>
             <div className="context-setup-form">
               <div className="context-drawer-connector-head">
@@ -8850,6 +8877,9 @@ function SidebarNavItem({
       onClick={onClick}
       role={clickable ? "button" : undefined}
       tabIndex={clickable ? 0 : undefined}
+      aria-label={clickable ? label : `${label} (unavailable)`}
+      aria-current={active ? "page" : undefined}
+      aria-disabled={!clickable ? true : undefined}
       onKeyDown={
         clickable
           ? (event) => {
@@ -9066,15 +9096,20 @@ function PatriotPayJourneyInner({
   const shortOnboardingIncomplete = startsWithOverviewBuilding
     && !hasCompletedOnboardingTracks(initialOnboardingAnswers);
   const [profileComplete, setProfileComplete] = useState(
-    shortOnboardingIncomplete || startsWithOverviewBuilding
-      ? false
-      : (
+    () => {
+      if (initialOnboardingAnswers && (startsWithOverviewBuilding || startsWithScorecard)) {
+        const seed = mapOnboardingToDetailAnswers(initialOnboardingAnswers) as DetailAnswers;
+        return hasCompletedOnboardingTracks(initialOnboardingAnswers)
+          || hasProfileBasicsStarted(seed);
+      }
+      if (shortOnboardingIncomplete) return false;
+      return (
         initialPage === "signals-loading"
         || startsWithOverview
-        || startsWithScorecard
         || startsWithInvestorShell
         || Boolean(initialOnboardingAnswers?.profileSetupComplete)
-      ),
+      );
+    },
   );
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [benchmarkDrawerOpen, setBenchmarkDrawerOpen] = useState(false);
@@ -9098,6 +9133,30 @@ function PatriotPayJourneyInner({
     }
     setProfileDrawerSection(section);
     setProfileDrawerOpen(true);
+  }, []);
+
+  const syncProfileCompleteFromStorage = useCallback((companyId: string) => {
+    const answers = loadDetailAnswers(companyId);
+    const profileSection = DETAIL_SECTIONS.find(section => section.id === "profile");
+    if (!profileSection) return;
+    const total = getVisibleQuestions(profileSection, answers).length;
+    const answered = countSectionAnswers(profileSection, answers);
+    if (total > 0 && answered >= total) {
+      setProfileComplete(true);
+    }
+  }, []);
+
+  const startOverviewBuild = useCallback((
+    fromPhase: OverviewBuildPhase = "summary",
+    mode: "full" | "single" = "single",
+  ) => {
+    overviewBuildModeRef.current = mode;
+    overviewBuildTargetPhaseRef.current = fromPhase;
+    setOverviewBuildRun(run => run + 1);
+    setOverviewBuildActive(true);
+    setOverviewBuildPhase(fromPhase);
+    setHeaderTourEnabled(false);
+    setActivePage("scorecard-v2");
   }, []);
 
   useEffect(() => {
@@ -9147,6 +9206,28 @@ function PatriotPayJourneyInner({
   useEffect(() => {
     setEarnedProfileCredits(loadEarnedProfileCredits(selectedCompany.id));
   }, [selectedCompany.id]);
+
+  const handleProfileModuleSaved = useCallback((
+    module: ProfileModuleId,
+    _answers: DetailAnswers,
+  ) => {
+    setProfileDetailsSyncKey(key => key + 1);
+    syncProfileCompleteFromStorage(selectedCompany.id);
+    startOverviewBuild(profileModuleToBuildPhase(module), "single");
+  }, [selectedCompany.id, startOverviewBuild, syncProfileCompleteFromStorage]);
+
+  const handleProfileModuleProgress = useCallback((
+    _module: ProfileModuleId,
+    _answers: DetailAnswers,
+  ) => {
+    setProfileDetailsSyncKey(key => key + 1);
+    syncProfileCompleteFromStorage(selectedCompany.id);
+  }, [selectedCompany.id, syncProfileCompleteFromStorage]);
+
+  const handleModuleCreditReward = useCallback((reward: ProfileCreditReward) => {
+    showProfileCreditReward(reward);
+  }, [showProfileCreditReward]);
+
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [askFuelOpen, setAskFuelOpen] = useState(false);
   const openAccountSettings = useCallback((tab: AccountSettingsTab = "profile") => {
@@ -9615,7 +9696,9 @@ function PatriotPayJourneyInner({
     }
     const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
     setEarnedProfileCredits(earned);
-    showProfileCreditReward(reward);
+    if (reward) showProfileCreditReward(reward);
+    setProfileDetailsSyncKey(key => key + 1);
+    startOverviewBuild("summary", "single");
   };
   const handleViewIntelligenceFromDataRoom = (record: DataRoomFileRecord) => {
     if (!record.intelligenceIds.length) return;
@@ -9636,9 +9719,75 @@ function PatriotPayJourneyInner({
   const coreTourSteps = [
     {
       page: "scorecard-v2",
+      target: "tab-workspace",
+      title: "Workspace",
+      text: "Your home dashboard for profile completion, module progress, credits, and onboarding — start here after setup.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "workspace-profile-card",
+      title: "Complete Profile",
+      text: "Track overall profile completion, remaining steps, and credits. Use Resume Profile to continue where you left off.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "workspace-module-rd",
+      title: "R&D progress",
+      text: "Finish R&D context to sharpen product signals, benchmarks, and technical readiness scores.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "workspace-module-gtm",
+      title: "GTM progress",
+      text: "Add go to market context — motion, ICP, and pipeline — to unlock revenue benchmarks and pipeline health.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "workspace-module-ga",
+      title: "G&A progress",
+      text: "Capture runway, finance, and capital priorities to improve burn, runway, and finance readiness analysis.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "workspace-module-benchmark",
+      title: "Benchmark",
+      text: "Submit cohort metrics for peer comparisons. Benchmark credits are earned on first submission.",
+    },
+    {
+      page: "connectors",
+      target: "connectors-page",
+      title: "Connectors",
+      text: "Connect HubSpot, Granola, and other sources to enrich your profile and intelligence automatically.",
+    },
+    {
+      page: "account",
+      target: "account-settings",
+      title: "Settings",
+      text: "Manage account settings, appearance, integrations, and your Fuel profile from Account settings.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "main-navigation",
+      title: "Navigation",
+      text: "Move between Overview, Intelligence, Initiatives, Data Room, and Research from the main tabs.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "workspace-credits",
+      title: "Credits",
+      text: "Earn up to 200 credits across Complete Profile, R&D, GTM, G&A, and Benchmark — each section awards 40 credits.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "category-dev",
+      title: "Scoring",
+      text: "Track scores appear in the Progress Feed on the New overview tab as profile modules and benchmarks fill in.",
+    },
+    {
+      page: "scorecard-v2",
       target: "tab-overview",
       title: "Overview",
-      text: "This is your operating home. R&D, GTM, and G&A track scores, the Fuel AI advisor, and company snapshot live here — they fill in as onboarding context finishes processing.",
+      text: "The New overview tab shows R&D, GTM, and G&A track scores, the Fuel AI advisor, and company snapshot as context is processed.",
     },
     {
       page: "scorecard-v2",
@@ -9650,7 +9799,7 @@ function PatriotPayJourneyInner({
       page: "scorecard-v2",
       target: "recommended-actions",
       title: "Recommended Actions",
-      text: "Start here after onboarding. Update benchmarks, review intelligence sources, and fill track details — each action sharpens your scores and what Fuel recommends next.",
+      text: "Start here after onboarding. Update benchmarks and fill track details — each action sharpens your scores and what Fuel recommends next.",
     },
     {
       page: "signals",
@@ -9712,15 +9861,60 @@ function PatriotPayJourneyInner({
           text: "Complete your company profile and track details so Fuel can improve scores, intelligence, and initiative suggestions.",
         },
       ];
-  const [overviewBuildActive, setOverviewBuildActive] = useState(
-    startsWithOverviewBuilding && !shortOnboardingIncomplete,
-  );
+  const [overviewBuildActive, setOverviewBuildActive] = useState(startsWithOverviewBuilding);
   const [overviewBuildPhase, setOverviewBuildPhase] = useState<OverviewBuildPhase | null>(
-    startsWithOverviewBuilding && !shortOnboardingIncomplete ? "summary" : null,
+    startsWithOverviewBuilding ? "summary" : null,
   );
+  const [overviewBuildRun, setOverviewBuildRun] = useState(0);
+  const overviewBuildModeRef = useRef<"full" | "single">(
+    startsWithOverviewBuilding ? "full" : "single",
+  );
+  const overviewBuildTargetPhaseRef = useRef<OverviewBuildPhase>("summary");
+  const [overviewBuiltPhases, setOverviewBuiltPhases] = useState<Set<OverviewBuildPhase>>(() => {
+    try {
+      const raw = window.localStorage.getItem(`fuel-overview-built-${selectedCompany.id}`);
+      if (!raw) return new Set();
+      return new Set(JSON.parse(raw) as OverviewBuildPhase[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const persistOverviewBuiltPhases = useCallback((phases: Set<OverviewBuildPhase>) => {
+    try {
+      window.localStorage.setItem(
+        `fuel-overview-built-${selectedCompany.id}`,
+        JSON.stringify([...phases]),
+      );
+    } catch {
+      /* ignore storage failures */
+    }
+  }, [selectedCompany.id]);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(`fuel-overview-built-${selectedCompany.id}`);
+      setOverviewBuiltPhases(raw ? new Set(JSON.parse(raw) as OverviewBuildPhase[]) : new Set());
+    } catch {
+      setOverviewBuiltPhases(new Set());
+    }
+  }, [selectedCompany.id]);
   const [recActionsTipOpen, setRecActionsTipOpen] = useState(false);
   /** True once this post-onboarding Overview build hit "ready" — tip may show even after the ready bar is dismissed. */
   const overviewContentReadyRef = useRef(false);
+
+  useEffect(() => {
+    if (tourTaken || tourOpen) return;
+    try {
+      const snoozedUntil = Number(window.localStorage.getItem("fuelTourPromptSnoozedUntil") || 0);
+      if (Date.now() < snoozedUntil) return;
+    } catch {
+      /* ignore storage failures */
+    }
+    const building = Boolean(overviewBuildPhase && overviewBuildPhase !== "ready");
+    const ready = profileComplete && (overviewBuildPhase === "ready" || overviewBuildPhase == null);
+    if (ready || building) {
+      setShowTourPrompt(true);
+    }
+  }, [profileComplete, overviewBuildPhase, tourTaken, tourOpen]);
 
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
@@ -9739,7 +9933,7 @@ function PatriotPayJourneyInner({
         milestones: [],
         emptyText: "Connect marketing sources to see your Marketing snapshot",
         chips: [
-          { label: "GTM dashboard access", color: "#3DD68C" },
+          { label: "GTM dashboard access", color: "var(--btn-primary-bg)" },
           { label: "Google Analytics", color: "#F59E0B" },
           { label: "Ads, SEO, social", color: "#D4924A" },
         ],
@@ -9765,9 +9959,7 @@ function PatriotPayJourneyInner({
     const timer = window.setTimeout(() => {
       if (startsWithOverview) {
         setActivePage("scorecard-v2");
-        setOverviewBuildActive(true);
-        setOverviewBuildPhase("summary");
-        setHeaderTourEnabled(false);
+        startOverviewBuild("summary", "full");
         return;
       }
       setActivePage("signals");
@@ -9780,35 +9972,60 @@ function PatriotPayJourneyInner({
 
   useEffect(() => {
     if (!overviewBuildActive) return;
-    // Fresh post-onboarding build — tip must wait until Overview is fully ready.
+    // Fresh build — tip must wait until Overview is fully ready.
     overviewContentReadyRef.current = false;
     setRecActionsTipOpen(false);
     resetRecActionsTipForOnboarding(selectedCompany.displayName);
-  }, [overviewBuildActive, selectedCompany.displayName]);
+  }, [overviewBuildActive, overviewBuildRun, selectedCompany.displayName]);
 
   useEffect(() => {
     if (!overviewBuildActive) return;
 
-    const timers = [
-      window.setTimeout(() => setOverviewBuildPhase("dev"), 4000),
-      window.setTimeout(() => setOverviewBuildPhase("mkt"), 14000),
-      window.setTimeout(() => setOverviewBuildPhase("rev"), 26000),
-      window.setTimeout(() => setOverviewBuildPhase("suggestions"), 36000),
-      window.setTimeout(() => setOverviewBuildPhase("ready"), 44000),
-    ];
+    const mode = overviewBuildModeRef.current;
+    const targetPhase = overviewBuildTargetPhaseRef.current;
+    const timers = mode === "full"
+      ? [
+          window.setTimeout(() => setOverviewBuildPhase("dev"), 4000),
+          window.setTimeout(() => setOverviewBuildPhase("mkt"), 14000),
+          window.setTimeout(() => setOverviewBuildPhase("rev"), 26000),
+          window.setTimeout(() => setOverviewBuildPhase("suggestions"), 36000),
+          window.setTimeout(() => setOverviewBuildPhase("ready"), 44000),
+          window.setTimeout(() => {
+            const allBuilt = new Set<OverviewBuildPhase>(OVERVIEW_ALL_BUILT_PHASES);
+            setOverviewBuiltPhases(allBuilt);
+            persistOverviewBuiltPhases(allBuilt);
+            setOverviewBuildPhase(null);
+            setOverviewBuildActive(false);
+          }, 46000),
+        ]
+      : [
+          window.setTimeout(() => {
+            setOverviewBuiltPhases(prev => {
+              const next = new Set(prev);
+              next.add(targetPhase);
+              if (next.has("dev") && next.has("mkt") && next.has("rev")) {
+                next.add("suggestions");
+              }
+              persistOverviewBuiltPhases(next);
+              return next;
+            });
+            setOverviewBuildPhase(null);
+            setOverviewBuildActive(false);
+          }, 4000),
+        ];
 
     return () => {
       timers.forEach(timer => window.clearTimeout(timer));
     };
-  }, [overviewBuildActive]);
+  }, [overviewBuildActive, overviewBuildRun, persistOverviewBuiltPhases]);
 
-  // Queue tip only when Overview content is fully ready — survives tab switches until Got it.
+  // Queue tip only when Overview content is fully ready on the New tab — not Workspace.
   useEffect(() => {
     if (overviewBuildPhase !== "ready") return;
     overviewContentReadyRef.current = true;
+    setOverviewBuildActive(false);
     if (isRecActionsTipDismissed(selectedCompany.displayName)) return;
     markRecActionsTipPending(selectedCompany.displayName);
-    setRecActionsTipOpen(true);
   }, [overviewBuildPhase, selectedCompany.displayName]);
 
   // Returning to Overview after ready: show tip again if not yet dismissed.
@@ -9871,6 +10088,8 @@ function PatriotPayJourneyInner({
 
   function dismissTourPrompt() {
     setShowTourPrompt(false);
+    setHeaderTourEnabled(true);
+    setShowTourCoachmark(true);
     try {
       window.localStorage.setItem("fuelTourPromptSnoozedUntil", String(Date.now() + 24 * 60 * 60 * 1000));
     } catch {
@@ -9905,6 +10124,8 @@ function PatriotPayJourneyInner({
   function skipTour() {
     closeTour(false);
     setTourTaken(false);
+    setHeaderTourEnabled(true);
+    setShowTourCoachmark(true);
     try {
       window.localStorage.removeItem("fuelWorkspaceTourTakenAt");
       window.localStorage.removeItem("fuelWorkspaceTourTaken");
@@ -9961,6 +10182,18 @@ function PatriotPayJourneyInner({
     ? investorBenchmarkByCompany[selectedCompany.id]?.period
     : benchmarkSubmission?.period;
 
+  const selectedCompanyLogo = useMemo(
+    () => getCompanyLogoColors(selectedCompany.displayName || selectedCompany.logo),
+    [selectedCompany.displayName, selectedCompany.logo],
+  );
+
+  /** Hide inline workspace tour bar when tour is offered in the header or top banner. */
+  const showWorkspaceTourBar =
+    !tourTaken
+    && !showTourPrompt
+    && !headerTourEnabled
+    && !tourOpen;
+
   const mobileNavToggleButton = (
     <button
       type="button"
@@ -9977,6 +10210,7 @@ function PatriotPayJourneyInner({
 
   return (
     <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
+    <SkipLink />
     <div className={`app${mobileNavOpen ? " is-mobile-nav-open" : ""}`}>
       <button
         type="button"
@@ -9984,9 +10218,9 @@ function PatriotPayJourneyInner({
         aria-label="Close navigation"
         onClick={() => setMobileNavOpen(false)}
       />
-      <aside className="sidebar">
+      <aside className="sidebar" aria-label="Workspace navigation">
         <div className="brand">
-          <div className="brand-logo">Y</div>
+          <div className="brand-logo" aria-hidden="true">Y</div>
           <div>
             <div className="brand-name">YORK·IE</div>
             <div className="brand-sub">FUEL 2.0</div>
@@ -9997,6 +10231,7 @@ function PatriotPayJourneyInner({
           onClick={openAccountHome}
           role="button"
           tabIndex={0}
+          aria-label="Open My Account"
           onKeyDown={e => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -10007,7 +10242,7 @@ function PatriotPayJourneyInner({
           <div className="account-avatar">M</div>
           <div className="account-name">My Account</div>
         </div>
-        <div className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Primary">
         <div className="nav-section">
           <div className="nav-label">{isInvestorPersona ? "Fund" : "Research"}</div>
           <SidebarNavItem
@@ -10060,13 +10295,17 @@ function PatriotPayJourneyInner({
         </div>
         <div className="nav-section">
           <div className="nav-label">Recently viewed</div>
-          {recentCompanies.map(company => (
+          {recentCompanies.map(company => {
+            const companyLogo = getCompanyLogoColors(company.displayName || company.logo);
+            return (
             <div
               key={company.id}
               className={`recent-item${selectedCompany.id === company.id && !isInvestorShellPage ? " active" : ""}`}
               style={{ cursor: "pointer" }}
               role="button"
               tabIndex={0}
+              aria-label={`Open ${company.displayName}`}
+              aria-current={selectedCompany.id === company.id && !isInvestorShellPage ? "page" : undefined}
               onClick={() => openRecentCompany(company.id)}
               onKeyDown={e => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -10075,14 +10314,19 @@ function PatriotPayJourneyInner({
                 }
               }}
             >
-              <div className="recent-favicon" style={{ background: company.logoBg, color: "#fff" }}>
-                {company.logo}
+              <div
+                className="recent-favicon"
+                data-letter={companyLogo.letter.toLowerCase()}
+                style={{ background: companyLogo.bg, color: companyLogo.fg }}
+              >
+                {companyLogo.letter}
               </div>
               {company.displayName}
             </div>
-          ))}
+            );
+          })}
         </div>
-        </div>
+        </nav>
         <SidebarProfileFooter
           onOpenAccountSettings={openAccountSettings}
           yorkUpsellReady={profileComplete && (overviewBuildPhase == null || overviewBuildPhase === "ready")}
@@ -10097,42 +10341,50 @@ function PatriotPayJourneyInner({
         />
       </aside>
 
-      <div className="main">
+      <main id="main" className="main" tabIndex={-1}>
         {activePage === "connectors" ? (
-          <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
+          <div
+            className={tourOpen && tourSteps[tourStep].target === "connectors-page" ? "tour-highlight" : undefined}
+            data-tour-target={tourOpen && tourSteps[tourStep].target === "connectors-page" ? "connectors-page" : undefined}
+          >
+            <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
+          </div>
         ) : activePage === "account" ? (
           <>
             <div className="topbar">
               <div className="topbar-left">
                 {mobileNavToggleButton}
-                <div className="breadcrumb">
-                  Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-                  <span className="current">{breadcrumbLabel}</span>
-                </div>
+                <nav className="breadcrumb" aria-label="Breadcrumb">
+                  <span>Fuel</span>
+                  <span aria-hidden="true" style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                  <span className="current" aria-current="page">{breadcrumbLabel}</span>
+                </nav>
+                <h1 className="sr-only">{breadcrumbLabel}</h1>
               </div>
               <div className="topbar-right">
-                <div className="search-box">
-                  <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
-                </div>
+                <TopbarCompanySearch />
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
               </div>
             </div>
-            <div className="content">
+            <div
+              className={`content${tourOpen && tourSteps[tourStep].target === "account-settings" ? " tour-highlight" : ""}`}
+              data-tour-target={tourOpen && tourSteps[tourStep].target === "account-settings" ? "account-settings" : undefined}
+            >
               <AccountSettings tab={accountTab} onTabChange={setAccountTab} />
             </div>
           </>
         ) : (<><div className={`topbar${showTourCoachmark ? " has-tour-coachmark" : ""}`}>
           <div className="topbar-left">
             {mobileNavToggleButton}
-            <div className="breadcrumb">
-              Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-              <span className="current">{breadcrumbLabel}</span>
-            </div>
+            <nav className="breadcrumb" aria-label="Breadcrumb">
+              <span>Fuel</span>
+              <span aria-hidden="true" style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+              <span className="current" aria-current="page">{breadcrumbLabel}</span>
+            </nav>
+            <h1 className="sr-only">{breadcrumbLabel}</h1>
           </div>
           <div className="topbar-right">
-            <div className="search-box">
-              <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
-            </div>
+            <TopbarCompanySearch />
             <span
               data-tour-target="ask-fuel-ai"
               className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
@@ -10178,58 +10430,63 @@ function PatriotPayJourneyInner({
 
         {!isInvestorShellPage ? <div className="company-header">
           <div className={`company-card${usesPerCompanyWorkspace ? " is-external" : ""}`}>
-            <div className="company-logo" style={{ background: selectedCompany.logoBg }}>{selectedCompany.logo}</div>
-            <div className="company-identity">
-              <div className="company-name-row">
-                <div className="company-name">{selectedCompany.displayName}</div>
-                {usesPerCompanyWorkspace ? (
-                  <>
-                    <span className="company-industry-tag">
-                      {selectedCompany.meta.split("·")[0]?.trim() || "Company"}
-                    </span>
-                    <a
-                      className="company-domain-link"
-                      href={`https://${selectedCompany.domain}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {selectedCompany.domain}
-                    </a>
-                  </>
-                ) : (
-                  <span className="badge">{selectedCompany.domain}</span>
-                )}
+            <button
+              type="button"
+              className={`company-profile-link${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
+              data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
+              onClick={() => openProfileDrawer("company")}
+              aria-label={`Open ${selectedCompany.displayName} profile`}
+            >
+              <div
+                className="company-logo"
+                data-letter={selectedCompanyLogo.letter.toLowerCase()}
+                style={{ background: selectedCompanyLogo.bg, color: selectedCompanyLogo.fg }}
+              >
+                {selectedCompanyLogo.letter}
               </div>
-              <div className="company-meta">
-                {usesPerCompanyWorkspace ? (
-                  <span>External company — sourced from fuel-data</span>
-                ) : (
-                  <>
-                    <span>Engaged Feb 2024</span>
-                    <span className="dot" />
-                    <span>{selectedCompany.meta}</span>
-                    <span className="dot" />
-                    <span>9 months active</span>
-                  </>
-                )}
+              <div className="company-identity">
+                <div className="company-name-row">
+                  <div className="company-name">{selectedCompany.displayName}</div>
+                  {usesPerCompanyWorkspace ? (
+                    <>
+                      <span className="company-industry-tag">
+                        {selectedCompany.meta.split("·")[0]?.trim() || "Company"}
+                      </span>
+                      <a
+                        className="company-domain-link"
+                        href={`https://${selectedCompany.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {selectedCompany.domain}
+                      </a>
+                    </>
+                  ) : (
+                    <span className="badge">{selectedCompany.domain}</span>
+                  )}
+                </div>
+                <div className="company-meta">
+                  {usesPerCompanyWorkspace ? (
+                    <span>External company — sourced from fuel-data</span>
+                  ) : (
+                    <>
+                      <span>Engaged Feb 2024</span>
+                      <span className="dot" />
+                      <span>{selectedCompany.meta}</span>
+                      <span className="dot" />
+                      <span>9 months active</span>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            </button>
             <div className="header-actions">
               {usesPerCompanyWorkspace ? (
                 <button type="button" className="company-add-list-btn">
                   + Add to list
                 </button>
               ) : null}
-              <button
-                type="button"
-                className={`company-overview-chip${activePage === "overview" ? " active" : ""}${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
-                data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
-                onClick={() => setActivePage("overview")}
-              >
-                <span className="company-overview-chip-dot" />
-                View Profile
-              </button>
               <AiActionsMenu
                 companyName={selectedCompany.displayName}
                 tourActive={
@@ -10259,7 +10516,10 @@ function PatriotPayJourneyInner({
           </div>
         </div> : null}
 
-        {!isInvestorShellPage ? <div className="tabs">
+        {!isInvestorShellPage ? <div
+          className={`tabs${tourOpen && tourSteps[tourStep].target === "main-navigation" ? " tour-highlight" : ""}`}
+          data-tour-target={tourOpen && tourSteps[tourStep].target === "main-navigation" ? "main-navigation" : undefined}
+        >
           <div className={`tab ${activePage === "scorecard-v2" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage("scorecard-v2")}>Overview</div>
           <div
             className={`tab ${activePage === "signals" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`}
@@ -10309,7 +10569,7 @@ function PatriotPayJourneyInner({
           <TourPromptBanner
             onStartTour={startTour}
             onDismiss={dismissTourPrompt}
-            building={false}
+            building={Boolean(overviewBuildPhase && overviewBuildPhase !== "ready")}
           />
         ) : null}
 
@@ -10505,6 +10765,17 @@ function PatriotPayJourneyInner({
               onBenchmarkChange={(next) => {
                 applyBenchmarkSubmission(toBenchmarkFormValues(next));
               }}
+              onBenchmarkSaved={() => {
+                setProfileDetailsSyncKey(key => key + 1);
+                startOverviewBuild("summary", "single");
+              }}
+              onBenchmarkEarlyUnlock={() => {
+                const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
+                setEarnedProfileCredits(earned);
+                if (reward) showProfileCreditReward(reward);
+                setProfileDetailsSyncKey(key => key + 1);
+                startOverviewBuild("summary", "single");
+              }}
               cohortLabel={selectedCompany.meta}
               companyName={selectedCompany.displayName}
               journeyStage="Early Revenue"
@@ -10665,17 +10936,22 @@ function PatriotPayJourneyInner({
               onWorkspaceActivity={() => tryUnlockInvestorOverview(selectedCompany.id)}
               privateWorkspaceLabel={usesPerCompanyWorkspace ? "Your private workspace" : undefined}
               overviewBuildPhase={overviewBuildPhase}
+              overviewBuiltPhases={overviewBuiltPhases}
               recActionsTipOpen={recActionsTipOpen}
               onDismissRecActionsTip={() => {
                 dismissRecActionsTip(selectedCompany.displayName);
                 setRecActionsTipOpen(false);
               }}
-              onStartOptionalTour={() => {
-                setOverviewBuildPhase(null);
-                setOverviewBuildActive(false);
-                setHeaderTourEnabled(true);
-                startTour();
-              }}
+              onStartOptionalTour={
+                showWorkspaceTourBar
+                  ? () => {
+                      setOverviewBuildPhase(null);
+                      setOverviewBuildActive(false);
+                      setHeaderTourEnabled(true);
+                      startTour();
+                    }
+                  : undefined
+              }
               onDismissOverviewReady={skipOverviewReadyPrompt}
             />
           ) : activePage === "journey" ? (
@@ -10725,7 +11001,7 @@ function PatriotPayJourneyInner({
           ) : null}
         </div>
         </>)}
-      </div>
+      </main>
       {tourOpen ? (
         <GuidedTourOverlay
           step={tourStep}
@@ -10762,6 +11038,10 @@ function PatriotPayJourneyInner({
         initialValues={scorecardBenchmarkForm}
         earnedProfileCredits={earnedProfileCredits}
         onClose={() => setBenchmarkDrawerOpen(false)}
+        onSaveDraft={values => {
+          if (usesPerCompanyWorkspace) applyBenchmarkSubmission(values, selectedCompany.id);
+          else applyBenchmarkSubmission(values);
+        }}
         onSubmit={handleBenchmarkSubmit}
       />
       <CompleteProfileDrawer
@@ -10771,15 +11051,14 @@ function PatriotPayJourneyInner({
         initialSection={profileDrawerSection}
         onClose={() => setProfileDrawerOpen(false)}
         onAnswersChange={() => setProfileDetailsSyncKey(key => key + 1)}
+        onModuleSaved={handleProfileModuleSaved}
+        onModuleProgress={handleProfileModuleProgress}
+        onModuleCreditReward={handleModuleCreditReward}
         onModuleEarned={(earned) => setEarnedProfileCredits(earned)}
         earnedProfileCredits={earnedProfileCredits}
         onComplete={(completedModules) => {
           setEarnedProfileCredits(markModulesEarned(completedModules, selectedCompany.id));
           setProfileComplete(true);
-          setOverviewBuildActive(true);
-          setOverviewBuildPhase("summary");
-          setHeaderTourEnabled(false);
-          setActivePage("scorecard-v2");
           setProfileDrawerOpen(false);
         }}
       />

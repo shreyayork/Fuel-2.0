@@ -5,17 +5,72 @@ export type DetailSectionId = ScorecardCategory | "profile";
 
 export type DetailAnswers = Record<string, string>;
 
+export type DetailTextInputType = "short" | "year" | "url" | "textarea" | "funding_rounds";
+
 export type DetailQuestion = {
   id: string;
   prompt: string;
   options?: string[];
   subtitle?: string;
   kind?: "choice" | "text";
+  inputType?: DetailTextInputType;
+  rows?: number;
   placeholder?: string;
   group?: string;
   multi?: boolean;
+  cardStyle?: boolean;
+  cardDescriptions?: Record<string, string>;
+  sourceHint?: string;
   showWhen?: (answers: DetailAnswers) => boolean;
 };
+
+export const PROFILE_ORGANIZATION_TYPES = [
+  {
+    label: "Product",
+    desc: "SaaS, marketplace, or app with recurring or transactional revenue.",
+  },
+  {
+    label: "Services or Agency",
+    desc: "Project, retainer, or advisory-based revenue.",
+  },
+  {
+    label: "Investment",
+    desc: "Fund or holding company managing a portfolio.",
+  },
+] as const;
+
+export const PROFILE_FUNDING_ROUND_TYPES = [
+  "Pre-seed",
+  "Seed",
+  "Series A",
+  "Series B",
+  "Series C+",
+  "Bridge",
+  "Grant",
+  "Revenue-based",
+] as const;
+
+export type ProfileFundingRound = {
+  id: string;
+  type: string;
+  amount: string;
+  date: string;
+  investors: string;
+};
+
+export function parseProfileFundingRounds(value?: string): ProfileFundingRound[] {
+  if (!value?.trim()) return [];
+  try {
+    const parsed = JSON.parse(value) as ProfileFundingRound[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function serializeProfileFundingRounds(rounds: ProfileFundingRound[]): string {
+  return JSON.stringify(rounds);
+}
 
 export type DetailSection = {
   id: DetailSectionId;
@@ -56,79 +111,122 @@ export const DETAIL_SECTIONS: DetailSection[] = [
   {
     id: "profile",
     title: "Profile",
-    subtitle: "Enrichment & founder context",
+    subtitle: "Company identity, cohort fit, and founder context",
     icon: "◆",
     questions: [
       {
-        id: "profile_organization_type",
-        prompt: "Organization type",
-        subtitle: "How the business primarily creates value.",
-        options: ["Product", "Services or Agency", "Investment"],
+        id: "profile_company",
+        prompt: "Company",
+        kind: "text",
+        inputType: "short",
+        placeholder: "Company legal or brand name",
+      },
+      {
+        id: "profile_product_description",
+        prompt: "What they do",
+        kind: "text",
+        inputType: "textarea",
+        rows: 3,
+        placeholder: "What you build, who it's for, and what makes you different.",
       },
       {
         id: "profile_industry",
         prompt: "Industry",
         kind: "text",
-        placeholder: "e.g. Healthcare payments, B2B SaaS",
+        inputType: "short",
+        placeholder: "e.g. FinTech · Payments",
+        sourceHint: "From homepage positioning",
       },
       {
         id: "profile_founded",
         prompt: "Founded",
         kind: "text",
+        inputType: "year",
+        group: "Founded & city",
         placeholder: "e.g. 2021",
       },
       {
         id: "profile_city",
         prompt: "City",
         kind: "text",
+        inputType: "short",
+        group: "Founded & city",
         placeholder: "e.g. Boston",
       },
       {
         id: "profile_state",
         prompt: "State / region",
         kind: "text",
+        inputType: "short",
+        group: "State & country",
         placeholder: "e.g. MA",
       },
       {
         id: "profile_country",
         prompt: "Country",
         kind: "text",
+        inputType: "short",
+        group: "State & country",
         placeholder: "e.g. United States",
       },
       {
         id: "profile_website",
         prompt: "Website",
         kind: "text",
+        inputType: "url",
         placeholder: "https://example.com",
+        sourceHint: "From domain extension",
       },
       {
         id: "profile_linkedin",
         prompt: "LinkedIn",
         kind: "text",
+        inputType: "url",
         placeholder: "https://www.linkedin.com/company/…",
       },
       {
-        id: "profile_product_description",
-        prompt: "What the company does — wedge, ICP nuance, and why you win",
+        id: "profile_headcount",
+        prompt: "Headcount (FTE)",
         kind: "text",
-        placeholder: "What you build, who it's for, and what makes you different.",
+        inputType: "short",
+        placeholder: "e.g. 18",
+      },
+      {
+        id: "profile_funding_rounds",
+        prompt: "Funding rounds",
+        kind: "text",
+        inputType: "funding_rounds",
+      },
+      {
+        id: "profile_additional_context",
+        prompt: "Additional context",
+        kind: "text",
+        inputType: "textarea",
+        rows: 3,
+        placeholder: "Customers, priorities, markets, or anything Fuel should remember.",
       },
       {
         id: "profile_top_priorities",
         prompt: "Top 3 priorities this quarter",
         kind: "text",
+        inputType: "textarea",
+        rows: 3,
         placeholder: "e.g. Launch v2, close 5 enterprise pilots, hire first AE",
       },
       {
         id: "profile_public_data_wrong",
         prompt: "Anything public data gets wrong about your business?",
         kind: "text",
+        inputType: "textarea",
+        rows: 2,
         placeholder: "Optional — correct category, stage, headcount, or positioning.",
       },
       {
         id: "profile_biggest_risk",
         prompt: "Biggest risk you're managing right now",
         kind: "text",
+        inputType: "textarea",
+        rows: 2,
         placeholder: "Optional — runway, product, GTM, team, or market risk.",
       },
     ],
@@ -262,7 +360,7 @@ export const DETAIL_SECTIONS: DetailSection[] = [
   {
     id: "mkt",
     title: "GTM",
-    subtitle: "Go-to-market",
+    subtitle: "Go to market",
     definition: "How you sell and grow — motion, pipeline, ideal customer, pricing, and demand.",
     icon: "↗",
     questions: [
@@ -648,7 +746,21 @@ export function isTrackAiInsightReady(sectionId: ScorecardCategory, answers: Det
 
 export function mapOnboardingToDetailAnswers(
   track: Partial<OnboardingTrackAnswers>,
-  profile?: { productDescription?: string; approxHeadcount?: string },
+  profile?: {
+    company?: string;
+    productDescription?: string;
+    organizationType?: string;
+    industry?: string;
+    founded?: string;
+    city?: string;
+    stateRegion?: string;
+    country?: string;
+    website?: string;
+    linkedin?: string;
+    additionalContext?: string;
+    fundingRounds?: string;
+    approxHeadcount?: string;
+  },
 ): DetailAnswers {
   const out: DetailAnswers = {};
   const put = (id: string, value?: string) => {
@@ -657,7 +769,20 @@ export function mapOnboardingToDetailAnswers(
 
   ONBOARDING_TRACK_FIELDS.forEach(key => put(key, track[key]));
 
+  put("profile_company", profile?.company);
   put("profile_product_description", profile?.productDescription);
+  /** Onboarding-only — not a Complete Profile drawer question. */
+  put("profile_organization_type", profile?.organizationType);
+  put("profile_industry", profile?.industry);
+  put("profile_founded", profile?.founded);
+  put("profile_city", profile?.city);
+  put("profile_state", profile?.stateRegion);
+  put("profile_country", profile?.country);
+  put("profile_website", profile?.website);
+  put("profile_linkedin", profile?.linkedin);
+  put("profile_additional_context", profile?.additionalContext);
+  put("profile_funding_rounds", profile?.fundingRounds);
+  put("profile_headcount", profile?.approxHeadcount);
   if (profile?.approxHeadcount?.trim()) {
     const band = headcountToTeamSizeBand(profile.approxHeadcount);
     if (band) put("rev_team_size", band);
@@ -703,7 +828,18 @@ function headcountToTeamSizeBand(raw: string): string | null {
 }
 
 export const DETAIL_QUESTION_LABEL: Partial<Record<string, string>> = {
-  profile_product_description: "Product description",
+  profile_company: "Company",
+  profile_product_description: "What they do",
+  profile_industry: "Industry",
+  profile_founded: "Founded",
+  profile_city: "City",
+  profile_state: "State / region",
+  profile_country: "Country",
+  profile_website: "Website",
+  profile_linkedin: "LinkedIn",
+  profile_headcount: "Headcount (FTE)",
+  profile_funding_rounds: "Funding rounds",
+  profile_additional_context: "Additional context",
   profile_top_priorities: "Top priorities",
   profile_public_data_wrong: "Public data corrections",
   profile_biggest_risk: "Biggest risk",

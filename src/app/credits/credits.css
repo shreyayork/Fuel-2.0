@@ -41,7 +41,7 @@
 
 .credit-indicator-btn:hover {
   background: var(--wash-strong);
-  border-color: rgba(0, 180, 138, 0.22);
+  border-color: rgba(18, 184, 134, 0.22);
 }
 
 .credit-indicator-track {
@@ -63,7 +63,7 @@
   transition: width 0.45s ease, background 0.3s ease;
 }
 
-.credit-indicator-fill.teal { background: linear-gradient(90deg, #00B48A, #00B48A); }
+.credit-indicator-fill.teal { background: linear-gradient(90deg, var(--fuel-accent), var(--fuel-accent)); }
 .credit-indicator-fill.amber { background: linear-gradient(90deg, #D4924A, #ECD67F); }
 .credit-indicator-fill.red { background: linear-gradient(90deg, #C45C5C, #E07A7A); }
 
@@ -83,14 +83,14 @@
 }
 
 .credit-plan-badge.pro {
-  background: rgba(0, 180, 138, 0.14);
-  border: 1px solid rgba(0, 180, 138, 0.28);
+  background: rgba(18, 184, 134, 0.14);
+  border: 1px solid rgba(18, 184, 134, 0.28);
   color: var(--fuel-text, var(--text-1));
 }
 
 .credit-popover {
   background: var(--surface-3);
-  border: 1px solid rgba(0, 180, 138, 0.24);
+  border: 1px solid rgba(18, 184, 134, 0.24);
   border-radius: 12px;
   bottom: calc(100% + 8px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
@@ -237,7 +237,7 @@
 }
 
 .credit-upgrade-tagline {
-  color: #00B48A;
+  color: var(--fuel-accent);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.45;
@@ -291,17 +291,17 @@
 }
 
 .credit-billing-option.selected {
-  background: rgba(0, 180, 138, 0.12);
-  border-color: rgba(0, 180, 138, 0.35);
+  background: rgba(18, 184, 134, 0.12);
+  border-color: rgba(18, 184, 134, 0.35);
 }
 
 .credit-billing-option.recommended.selected {
-  background: rgba(0, 180, 138, 0.14);
-  border-color: rgba(0, 180, 138, 0.4);
+  background: rgba(18, 184, 134, 0.14);
+  border-color: rgba(18, 184, 134, 0.4);
 }
 
 .credit-billing-recommended {
-  background: linear-gradient(135deg, #00B48A, #ECD67F);
+  background: linear-gradient(135deg, var(--fuel-accent), #ECD67F);
   border-radius: 999px;
   color: #0a1a12;
   font-size: 8px;
@@ -372,8 +372,8 @@
 }
 
 .credit-upgrade-tabs button.active {
-  background: rgba(0, 180, 138, 0.12);
-  border-color: rgba(0, 180, 138, 0.35);
+  background: rgba(18, 184, 134, 0.12);
+  border-color: rgba(18, 184, 134, 0.35);
   color: var(--fuel-text, var(--text-1));
 }
 
@@ -392,8 +392,8 @@
 }
 
 .credit-topup-option.selected {
-  background: rgba(0, 180, 138, 0.1);
-  border-color: rgba(0, 180, 138, 0.35);
+  background: rgba(18, 184, 134, 0.1);
+  border-color: rgba(18, 184, 134, 0.35);
 }
 
 .credit-topup-option-head {
@@ -427,8 +427,8 @@
 }
 
 .credit-topup-badge.popular {
-  background: rgba(0, 180, 138, 0.16);
-  border: 1px solid rgba(0, 180, 138, 0.28);
+  background: rgba(18, 184, 134, 0.16);
+  border: 1px solid rgba(18, 184, 134, 0.28);
   color: #8FE8D2;
 }
 
@@ -467,7 +467,7 @@
 .credit-toast {
   animation: creditToastIn 0.25s ease;
   background: var(--surface-3);
-  border: 1px solid rgba(0, 180, 138, 0.28);
+  border: 1px solid rgba(18, 184, 134, 0.28);
   border-radius: 10px;
   bottom: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -516,7 +516,7 @@
 .profile-usage-upgrade-link {
   background: none;
   border: none;
-  color: var(--fuel-accent, #00B48A);
+  color: var(--fuel-accent, var(--fuel-accent));
   cursor: pointer;
   font: inherit;
   font-size: 12px;

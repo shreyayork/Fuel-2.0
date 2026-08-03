@@ -2,7 +2,7 @@
  * Intelligence unlock credits — separate from monthly AI action credits in `credits/`.
  *
  * New users start with 50 after onboarding. Up to 200 more are earned by completing
- * profile modules, submitting benchmarks, and reviewing intelligence sources (250 total).
+ * profile modules and submitting benchmarks (250 total).
  *
  * Weighting reflects impact on Fuel's recommendations and cohort comparisons.
  */
@@ -14,23 +14,23 @@ export const PROFILE_STARTING_CREDITS = 50;
 export const PROFILE_EARNABLE_CREDITS = 200;
 export const PROFILE_TOTAL_CREDITS = PROFILE_STARTING_CREDITS + PROFILE_EARNABLE_CREDITS;
 
-/** Profile wizard modules — 120 credits total (60% of earnable). */
+/** Profile wizard modules — 160 credits total (80% of earnable). */
 export const PROFILE_MODULE_REWARDS: Record<ProfileModuleId, number> = {
   /** Company identity — unlocks peer cohort matching and ICP alignment. */
   company: 40,
   /** R&D track — product stage, delivery constraints. */
-  dev: 25,
+  dev: 40,
   /** GTM track — revenue motion and pipeline context. */
-  gtm: 30,
+  gtm: 40,
   /** G&A track — runway, finance, and capital priorities. */
-  rev: 25,
+  rev: 40,
 };
 
-/** First benchmark submission — 50 credits (25% of earnable). */
-export const BENCHMARK_REWARD_CREDITS = 50;
+/** First benchmark submission — 40 credits (20% of earnable). */
+export const BENCHMARK_REWARD_CREDITS = 40;
 
-/** Review or add intelligence sources — 30 credits (15% of earnable). */
-export const INTELLIGENCE_SOURCES_REWARD_CREDITS = 30;
+/** Intelligence sources no longer award profile credits. */
+export const INTELLIGENCE_SOURCES_REWARD_CREDITS = 0;
 
 export const PROFILE_MODULE_EARNABLE_TOTAL = Object.values(PROFILE_MODULE_REWARDS).reduce(
   (sum, value) => sum + value,
@@ -42,22 +42,34 @@ export const PROFILE_TRACK_MODULE_REWARDS_TOTAL =
 
 export const PROFILE_CREDIT_BREAKDOWN = [
   {
-    id: "modules",
-    label: "Profile · R&D · GTM · G&A",
-    credits: PROFILE_MODULE_EARNABLE_TOTAL,
-    detail: "40 + 25 + 30 + 25 across the four profile modules",
+    id: "profile",
+    label: "Complete Profile",
+    credits: PROFILE_MODULE_REWARDS.company,
+    detail: "Company identity, industry, and founder context",
+  },
+  {
+    id: "dev",
+    label: "R&D",
+    credits: PROFILE_MODULE_REWARDS.dev,
+    detail: "Product stage, type, and delivery constraints",
+  },
+  {
+    id: "gtm",
+    label: "GTM",
+    credits: PROFILE_MODULE_REWARDS.gtm,
+    detail: "Revenue motion, ICP, and pipeline context",
+  },
+  {
+    id: "rev",
+    label: "G&A",
+    credits: PROFILE_MODULE_REWARDS.rev,
+    detail: "Runway, finance, and capital priorities",
   },
   {
     id: "benchmark",
     label: "Benchmark",
     credits: BENCHMARK_REWARD_CREDITS,
     detail: "Submit cohort metrics for peer comparisons",
-  },
-  {
-    id: "sources",
-    label: "Intelligence sources",
-    credits: INTELLIGENCE_SOURCES_REWARD_CREDITS,
-    detail: "Review or add meetings, decks, and news",
   },
 ] as const;
 
@@ -94,7 +106,6 @@ export function sumModuleRewards(modules: readonly ProfileModuleId[]): number {
 export function computeEarnedCredits(earned: EarnedProfileCredits): number {
   let total = sumModuleRewards(earned.modules);
   if (earned.benchmark && earned.benchmarkViaSubmit) total += BENCHMARK_REWARD_CREDITS;
-  if (earned.intelligenceSources && earned.intelligenceViaAction) total += INTELLIGENCE_SOURCES_REWARD_CREDITS;
   return Math.min(PROFILE_EARNABLE_CREDITS, total);
 }
 
@@ -103,9 +114,8 @@ export function remainingBenchmarkRewardCredits(earned?: EarnedProfileCredits): 
   return BENCHMARK_REWARD_CREDITS;
 }
 
-export function remainingIntelligenceRewardCredits(earned?: EarnedProfileCredits): number {
-  if (earned?.intelligenceSources && earned.intelligenceViaAction) return 0;
-  return INTELLIGENCE_SOURCES_REWARD_CREDITS;
+export function remainingIntelligenceRewardCredits(_earned?: EarnedProfileCredits): number {
+  return 0;
 }
 
 const PROFILE_MODULE_IDS: ProfileModuleId[] = ["company", "dev", "gtm", "rev"];
@@ -210,7 +220,7 @@ export function markIntelligenceSourcesEarned(companyKey = "default"): EarnedPro
   return next;
 }
 
-export type ProfileCreditRewardKind = "benchmark" | "intelligenceSources";
+export type ProfileCreditRewardKind = "benchmark" | "intelligenceSources" | "module";
 
 export type ProfileCreditReward = {
   kind: ProfileCreditRewardKind;
@@ -218,6 +228,7 @@ export type ProfileCreditReward = {
   balance: number;
   headline: string;
   message: string;
+  module?: ProfileModuleId;
 };
 
 function buildProfileCreditReward(
@@ -241,6 +252,34 @@ function buildProfileCreditReward(
     balance,
     headline: "Intelligence sources reviewed",
     message: "Fuel can now weave meetings, decks, and news into your advisor.",
+  };
+}
+
+/** Marks module credits once — returns a reward payload only on first earn. */
+export function tryMarkModuleEarned(
+  module: ProfileModuleId,
+  companyKey = "default",
+  headline: string,
+  message: string,
+): {
+  earned: EarnedProfileCredits;
+  reward: ProfileCreditReward | null;
+} {
+  const current = loadEarnedProfileCredits(companyKey);
+  if (current.modules.includes(module)) {
+    return { earned: current, reward: null };
+  }
+  const earned = markModuleEarned(module, companyKey);
+  return {
+    earned,
+    reward: {
+      kind: "module",
+      module,
+      amount: PROFILE_MODULE_REWARDS[module],
+      balance: computeCreditBalance(earned),
+      headline,
+      message,
+    },
   };
 }
 

@@ -7,6 +7,7 @@ import {
   ONBOARDING_TRACK_FIELDS,
   emptyOnboardingTrackAnswers,
   mapOnboardingToDetailAnswers as mapTrackOnboardingToDetailAnswers,
+  serializeProfileFundingRounds,
   type OnboardingTrackAnswers,
 } from "./trackQuestions.ts";
 import { FuelIcon } from "./icons";
@@ -30,6 +31,15 @@ interface Answers extends OnboardingTrackAnswers {
   profileApproxHeadcount: string;
   profileBusinessModel?: string;
   profileCompany?: string;
+  profileIndustry?: string;
+  profileFounded?: string;
+  profileCity?: string;
+  profileStateRegion?: string;
+  profileCountry?: string;
+  profileWebsite?: string;
+  profileLinkedin?: string;
+  profileAdditionalContext?: string;
+  profileFundingRounds?: string;
   /** Set during short onboarding (Step 2). Live auth sync belongs in backend lock. */
   userFullName?: string;
   userRole?: string;
@@ -149,7 +159,7 @@ export { ONBOARDING_BENCHMARK_FIELDS };
 const STEP_META: Record<StepId, { label: string; sub: string }> = {
   profile:      { label: "Profile",       sub: "Review your details" },
   development:  { label: "Development",   sub: "Product & engineering" },
-  gtm:          { label: "Go-to-market",  sub: "Sales & growth" },
+  gtm:          { label: "Go to market",  sub: "Sales & growth" },
   revops:       { label: "G&A",           sub: "Capital + efficiency" },
   investment:   { label: "Investment",    sub: "Fund thesis & deal flow" },
   hubspot:      { label: "Connect",       sub: "Load your deal pipeline" },
@@ -355,7 +365,7 @@ function CompanySearch({
             >
               <div style={{
                 width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                background: "linear-gradient(135deg, #1E4D8C, #2BB8A0)",
+                background: "linear-gradient(135deg, #1E4D8C, #00B48A)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 14, fontWeight: 800, color: "#fff",
               }}>{c.name[0]}</div>
@@ -432,13 +442,13 @@ const css = `
     color: var(--text-1) !important;
   }
   .of-figma-opt:focus-visible {
-    outline: 2px solid var(--fuel-accent, #12b886);
+    outline: 2px solid var(--fuel-accent, var(--fuel-accent));
     outline-offset: 2px;
   }
   .of-figma-opt--on,
   .of-figma-opt--on:hover {
     background: rgba(18, 184, 134, 0.1) !important;
-    border-color: #12b886 !important;
+    border-color: var(--fuel-accent) !important;
     color: var(--text-1) !important;
   }
   .of-figma-opt-indicator {
@@ -455,10 +465,10 @@ const css = `
   }
   .of-figma-opt--on .of-figma-opt-indicator {
     background: rgba(18, 184, 134, 0.2);
-    border-color: #12b886;
+    border-color: var(--fuel-accent);
   }
   .of-figma-opt-indicator-dot {
-    background: #12b886;
+    background: var(--fuel-accent);
     border-radius: 50%;
     height: 7px;
     width: 7px;
@@ -545,46 +555,17 @@ const css = `
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #3DD68C;
+    background: var(--btn-primary-bg);
     flex-shrink: 0;
   }
   .of-identity-step-pill-label {
     font-size: 11px;
     font-weight: 700;
-    color: #3DD68C;
+    color: var(--btn-primary-bg);
     letter-spacing: 0.02em;
   }
   .of-identity .of-figma-q-title { margin-bottom: 12px; }
   .of-identity .of-figma-q-sub { margin: 0 0 24px; }
-  .of-identity-company-ready {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: rgba(61,214,140,0.06);
-    border: 1px solid rgba(61,214,140,0.2);
-    border-radius: 10px;
-    padding: 12px 14px;
-    margin-bottom: 24px;
-  }
-  .of-identity-company-ready-mark {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: #3DD68C;
-    color: #0a1a12;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 800;
-  }
-  .of-identity-company-ready-text {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-1);
-    line-height: 1.35;
-  }
   .of-identity-role {
     margin-bottom: 20px;
   }
@@ -633,7 +614,7 @@ const css = `
     background: rgba(61,214,140,0.08);
   }
   .of-identity-role-option:focus-visible {
-    outline: 2px solid #3DD68C;
+    outline: 2px solid var(--btn-primary-bg);
     outline-offset: -2px;
   }
   .of-identity-error {
@@ -724,7 +705,7 @@ const css = `
     color: var(--text-1);
   }
   .of-theme-toggle:focus-visible {
-    outline: 2px solid #3DD68C;
+    outline: 2px solid var(--btn-primary-bg);
     outline-offset: 2px;
   }
   html[data-theme="light"] .of-theme-toggle {
@@ -734,7 +715,7 @@ const css = `
     box-shadow: 0 1px 2px rgba(26,35,50,0.04);
   }
   html[data-theme="light"] .of-theme-toggle:hover {
-    border-color: rgba(18,184,134,0.4);
+    border-color: rgba(18, 184, 134, 0.4);
     color: #1a2332;
   }
   .of-footer {
@@ -783,8 +764,8 @@ const css = `
   html[data-theme="light"] .of-progress-label { color: #7a8b9a; }
   /* Next / Enter — solid Fuel mint (no gradient) */
   .of-cta-primary {
-    background: #12b886;
-    border: 1px solid #12b886;
+    background: var(--fuel-accent);
+    border: 1px solid var(--fuel-accent);
     border-radius: 10px;
     color: #ffffff;
     cursor: pointer;
@@ -797,8 +778,8 @@ const css = `
     transition: background 0.15s ease, border-color 0.15s ease;
   }
   .of-cta-primary:hover:not(:disabled) {
-    background: #0fa678;
-    border-color: #0fa678;
+    background: var(--btn-primary-hover);
+    border-color: var(--btn-primary-hover);
     box-shadow: none;
     filter: none;
   }
@@ -829,16 +810,12 @@ const css = `
   }
   .of-cta-tertiary:hover { color: var(--text-1); }
   .of-cta-tertiary:focus-visible {
-    outline: 2px solid #3DD68C;
+    outline: 2px solid var(--btn-primary-bg);
     outline-offset: 2px;
   }
   html[data-theme="light"] .of-identity-note {
     background: #ffffff;
     border-color: #e8eaed;
-  }
-  html[data-theme="light"] .of-identity-company-ready {
-    background: rgba(18,184,134,0.08);
-    border-color: rgba(18,184,134,0.22);
   }
   html[data-theme="light"] .of-input {
     background: #ffffff;
@@ -858,7 +835,7 @@ const css = `
   html[data-theme="light"] .of-figma-opt--on,
   html[data-theme="light"] .of-figma-opt--on:hover {
     background: rgba(18, 184, 134, 0.08) !important;
-    border-color: #12b886 !important;
+    border-color: var(--fuel-accent) !important;
     color: #1a2332 !important;
   }
   html[data-theme="light"] .of-figma-opt-indicator {
@@ -866,7 +843,7 @@ const css = `
   }
   html[data-theme="light"] .of-figma-opt--on .of-figma-opt-indicator {
     background: rgba(18, 184, 134, 0.16);
-    border-color: #12b886;
+    border-color: var(--fuel-accent);
   }
 
   .of-org-type-section {
@@ -911,12 +888,12 @@ const css = `
     color: var(--text-1);
   }
   .of-org-type-option:focus-visible {
-    outline: 2px solid var(--fuel-accent, #12b886);
+    outline: 2px solid var(--fuel-accent, var(--fuel-accent));
     outline-offset: 2px;
   }
   .of-org-type-option.is-selected {
     background: rgba(18, 184, 134, 0.1);
-    border-color: #12b886;
+    border-color: var(--fuel-accent);
     color: var(--text-1);
   }
   .of-org-type-radio {
@@ -931,10 +908,10 @@ const css = `
     width: 18px;
   }
   .of-org-type-option.is-selected .of-org-type-radio {
-    border-color: #12b886;
+    border-color: var(--fuel-accent);
   }
   .of-org-type-radio-dot {
-    background: #12b886;
+    background: var(--fuel-accent);
     border-radius: 50%;
     height: 8px;
     width: 8px;
@@ -973,17 +950,58 @@ const css = `
   }
   html[data-theme="light"] .of-org-type-option.is-selected {
     background: rgba(18, 184, 134, 0.08);
-    border-color: #12b886;
+    border-color: var(--fuel-accent);
   }
   html[data-theme="light"] .of-org-type-radio {
     border-color: #e8eaed;
   }
   html[data-theme="light"] .of-org-type-option.is-selected .of-org-type-radio {
-    border-color: #12b886;
+    border-color: var(--fuel-accent);
   }
   html[data-theme="light"] .of-org-type-option small {
     color: #5b6b7c;
   }
+
+  .of-profile-review { display: flex; flex-direction: column; }
+  .of-profile-ready-pill {
+    align-items: center; align-self: flex-start; background: rgba(61,214,140,0.1);
+    border: 1px solid rgba(61,214,140,0.22); border-radius: 999px; color: var(--btn-primary-bg);
+    display: inline-flex; font-size: 11px; font-weight: 700; gap: 8px; letter-spacing: 0.04em;
+    margin-bottom: 18px; padding: 6px 12px; text-transform: uppercase;
+  }
+  .of-profile-ready-pill-dot { background: var(--btn-primary-bg); border-radius: 999px; height: 6px; width: 6px; }
+  .of-profile-review-title {
+    color: var(--text-1); font-size: clamp(24px, 2.4vw, 30px); font-weight: 800;
+    letter-spacing: -0.02em; line-height: 1.15; margin: 0 0 10px;
+  }
+  .of-profile-review-title em { color: var(--fuel-accent, var(--btn-primary-bg)); font-style: normal; }
+  .of-profile-review-sub { color: var(--text-2); font-size: 13px; line-height: 1.55; margin: 0 0 22px; }
+  .of-profile-fields { display: flex; flex-direction: column; gap: 2px; }
+  .of-field-grid-2 { display: grid; gap: 0 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .of-source-pill {
+    color: var(--text-3); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px; font-weight: 700; margin-top: 6px;
+  }
+  .of-funding-head { align-items: center; display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .of-funding-add {
+    background: rgba(61,214,140,0.08); border: 1px solid rgba(61,214,140,0.2); border-radius: 6px;
+    color: var(--fuel-accent, var(--btn-primary-bg)); cursor: pointer; font: inherit; font-size: 10.5px;
+    font-weight: 700; padding: 4px 9px;
+  }
+  .of-funding-row {
+    align-items: center; background: var(--panel); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px; display: grid; gap: 6px; grid-template-columns: 96px 86px 128px 1fr 26px;
+    margin-bottom: 6px; padding: 7px;
+  }
+  .of-funding-row .of-input { font-size: 11px; min-height: 34px; padding: 6px 7px; }
+  .of-funding-remove {
+    align-items: center; background: rgba(201,95,95,0.1); border: 1px solid rgba(201,95,95,0.2);
+    border-radius: 5px; color: #C95F5F; cursor: pointer; display: inline-flex; font: inherit;
+    font-size: 14px; height: 26px; justify-content: center; padding: 0; width: 26px;
+  }
+  .of-teammates-note { color: var(--text-3); font-size: 12px; line-height: 1.55; margin: 18px 0 0; }
+  .of-profile-error { color: var(--status-bad, #E05C5C); font-size: 12px; margin: 8px 0 0; }
+  html[data-theme="light"] .of-funding-row { background: #fff; border-color: #e8eaed; }
 
   .of-form-col .of-figma-opt { font-size: 14px; }
 
@@ -1095,7 +1113,7 @@ function Field({ label, required, hint, children }: {
   );
 }
 
-const SELECT_ACCENT = "#3DD68C";
+const SELECT_ACCENT = "var(--btn-primary-bg)";
 
 function isLongOptionList(options: string[]): boolean {
   return options.length > 4 || options.some(opt => opt.length > 30);
@@ -1337,11 +1355,11 @@ function dotColor(val: number, p25: number, p50: number, p75: number, lowerIsBet
   if (lowerIsBetter) {
     if (val > p75) return "#E56B6B";
     if (val > p50) return "#D4924A";
-    return "#3DD68C";
+    return "var(--btn-primary-bg)";
   }
   if (val < p25) return "#E56B6B";
   if (val < p50) return "#D4924A";
-  return "#3DD68C";
+  return "var(--btn-primary-bg)";
 }
 
 function dotGlow(val: number, p25: number, p50: number, p75: number, lowerIsBetter = false): string {
@@ -1384,6 +1402,9 @@ export function OnboardingBenchmarkFieldList({
               <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.4px" }}>{m.label}</label>
             </div>
             <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
               className={inputClassName}
               value={raw}
               onChange={e => onChange(m.key, e.target.value)}
@@ -1391,9 +1412,9 @@ export function OnboardingBenchmarkFieldList({
               style={{ ...inp, padding: "8px 12px", fontSize: 13, marginBottom: 7, borderColor: hasVal ? `${dc}55` : undefined, transition: "border-color 0.3s" }}
             />
             <div style={{ position: "relative", height: 7, background: "rgba(255,255,255,0.04)", borderRadius: 4 }}>
-              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: `${p75pct - p25pct}%`, height: "100%", background: "var(--status-good, #12b886)", borderRadius: 2 }} />
-              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: 1, height: "100%", background: "var(--status-good, #12b886)" }} />
-              <div style={{ position: "absolute", left: `${p75pct}%`, top: 0, width: 1, height: "100%", background: "var(--status-good, #12b886)" }} />
+              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: `${p75pct - p25pct}%`, height: "100%", background: "var(--status-good, var(--fuel-accent))", borderRadius: 2 }} />
+              <div style={{ position: "absolute", left: `${p25pct}%`, top: 0, width: 1, height: "100%", background: "var(--status-good, var(--fuel-accent))" }} />
+              <div style={{ position: "absolute", left: `${p75pct}%`, top: 0, width: 1, height: "100%", background: "var(--status-good, var(--fuel-accent))" }} />
               {dotPct !== null ? (
                 <div style={{
                   position: "absolute", top: -5, zIndex: 2,
@@ -1469,7 +1490,18 @@ export function mapOnboardingToDetailAnswers(answers: Answers): Record<string, s
     track[key] = answers[key] ?? "";
   });
   return mapTrackOnboardingToDetailAnswers(track, {
+    company: answers.profileCompany,
     productDescription: answers.profileProductDescription,
+    organizationType: answers.profileBusinessModel,
+    industry: answers.profileIndustry,
+    founded: answers.profileFounded,
+    city: answers.profileCity,
+    stateRegion: answers.profileStateRegion,
+    country: answers.profileCountry,
+    website: answers.profileWebsite,
+    linkedin: answers.profileLinkedin,
+    additionalContext: answers.profileAdditionalContext,
+    fundingRounds: answers.profileFundingRounds,
     approxHeadcount: answers.profileApproxHeadcount || answers.headcount,
   });
 }
@@ -1482,8 +1514,9 @@ export function isInvestorPersona(answers: OnboardingFlowAnswers | null | undefi
 
 export default function OnboardingFlow({ onComplete }: { onComplete: (answers: Answers) => void }) {
   /*
-   * Assumption: short onboarding is org select → company context only; track/benchmark
-   * depth completes in-app under profile lock (preview mock — no live API).
+   * Short onboarding: company search → organization type.
+   * Full profile questions (company details, funding, context) live in Complete Profile.
+   * Catalog fields from company search are passed through for silent prefill in-app.
    */
   type EntryPhase = "org" | "identity";
   const [entryPhase, setEntryPhase] = useState<EntryPhase>("org");
@@ -1557,6 +1590,17 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
       profileApproxHeadcount: profileForm.approxHeadcount || answers.headcount,
       profileBusinessModel: profileForm.businessModel,
       profileCompany: profileForm.company,
+      profileIndustry: profileForm.industry,
+      profileFounded: profileForm.founded,
+      profileCity: profileForm.city,
+      profileStateRegion: profileForm.stateRegion,
+      profileCountry: profileForm.country,
+      profileWebsite: profileForm.website,
+      profileLinkedin: profileForm.linkedin,
+      profileAdditionalContext: profileForm.additionalContext,
+      profileFundingRounds: fundingRounds.length > 0
+        ? serializeProfileFundingRounds(fundingRounds.map(({ id, ...round }) => ({ id, ...round })))
+        : "",
       userFullName: "",
       userRole: "",
       profileSetupComplete: false,
@@ -1612,9 +1656,6 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
     scrollRef.current?.scrollTo(0, 0);
   }, [entryPhase, searchState]);
 
-  // Catalog funding preload retained for in-app profile enrichment.
-  void fundingRounds;
-
   const motionSearchState = entryPhase === "identity" || searchState === "ready"
     ? "review" as const
     : searchState;
@@ -1664,8 +1705,8 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                             background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.22)",
                             borderRadius: 999, padding: "5px 12px", marginBottom: 18,
                           }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3DD68C" }} />
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "#3DD68C", letterSpacing: "0.02em" }}>{stepLabel}</span>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--btn-primary-bg)" }} />
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--btn-primary-bg)", letterSpacing: "0.02em" }}>{stepLabel}</span>
                           </div>
                           <h2 className="of-figma-q-title" style={{ marginBottom: 12 }}>
                             Let's build your intelligence workspace.
@@ -1687,7 +1728,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                       {searchState === "searching" && (
                         <div style={{ padding:"48px 0", textAlign:"center" }}>
                           <div style={{ position:"relative", width:80, height:80, margin:"0 auto 24px" }}>
-                            <div className="of-spin" style={{ width:80, height:80, borderRadius:"50%", border:"3px solid rgba(61,214,140,0.1)", borderTop:"3px solid #3DD68C", position:"absolute" }} />
+                            <div className="of-spin" style={{ width:80, height:80, borderRadius:"50%", border:"3px solid rgba(61,214,140,0.1)", borderTop:"3px solid var(--btn-primary-bg)", position:"absolute" }} />
                             <div className="of-spin" style={{ width:56, height:56, borderRadius:"50%", border:"2px solid rgba(61,214,140,0.06)", borderBottom:"2px solid rgba(61,214,140,0.4)", position:"absolute", top:12, left:12, animationDirection:"reverse", animationDuration:"0.65s" }} />
                           </div>
                           <div style={{ fontSize:17, fontWeight:700, color:"var(--text-1)", marginBottom:6 }}>Analysing {companyQuery}…</div>
@@ -1707,15 +1748,8 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                         What type of organization is {companyName}?
                       </h2>
                       <p className="of-figma-q-sub">
-                        Fuel uses this to configure the right intelligence tracks, benchmarks, and scoring model for your workspace.
+                        Fuel uses this to configure the right intelligence tracks, benchmarks, and scoring model for your workspace. You&apos;ll confirm company details in Complete Profile next.
                       </p>
-
-                      <div className="of-identity-company-ready">
-                        <span className="of-identity-company-ready-mark" aria-hidden="true">✓</span>
-                        <span className="of-identity-company-ready-text">
-                          {companyName} profile ready
-                        </span>
-                      </div>
 
                       <div className="of-org-type-section">
                         <div className="of-org-type-label">Organization type <span className="of-org-type-required" aria-hidden="true">*</span></div>
@@ -1751,7 +1785,6 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                           <p className="of-identity-error" role="alert">{identityErrors.businessModel}</p>
                         ) : null}
                       </div>
-
                     </div>
                   )}
 

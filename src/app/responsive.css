@@ -273,6 +273,15 @@
   .profile-wizard-progress.pwp-enhanced .pwp-step-label {
     font-size: clamp(9px, 2.5vw, 11px);
   }
+
+  .profile-wizard-progress.pwp-compact .pwp-steps-segmented {
+    gap: 2px;
+    padding: 2px;
+  }
+
+  .profile-wizard-progress.pwp-compact .pwp-step-inner {
+    padding: 7px 2px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -350,6 +359,14 @@
   .sc-profile-gate-connectors .acct-integrations-list {
     grid-template-columns: 1fr;
   }
+
+  .sc-drawer-location-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-drawer-input--year {
+    max-width: 100%;
+  }
 }
 
 /* ─── Overview / scorecard glance layout ─── */
@@ -415,6 +432,17 @@
 
   .sc-profile-complete-banner {
     gap: 12px;
+  }
+
+  .sc-profile-old-zero-card {
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .sc-profile-old-zero-copy .sc-profile-complete-cta {
+    align-self: stretch;
+    width: 100%;
   }
 
   .sc-profile-complete-actions {

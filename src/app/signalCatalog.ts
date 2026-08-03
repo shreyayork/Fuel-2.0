@@ -113,7 +113,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   },
   {
     key: "gtm",
-    label: "Go-to-market",
+    label: "Go to market",
     icon: "→",
     signals: [
       { name: "ACV", unit: "usd" },

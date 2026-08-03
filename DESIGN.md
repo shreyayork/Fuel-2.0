@@ -16,6 +16,20 @@ Dark charcoal onboarding split with mint accent; light cool-gray app shell with 
 | Warning | `#F5A623` / `#D4924A` | Incomplete profile |
 | Surface | `#1F3140` / `#EEF8F5` | Inputs / motion panel |
 
+### Status colors (canonical CSS vars)
+
+Defined in `src/styles/fuel-tokens.css` and exposed in TS via `src/app/fuelTokens.ts`:
+
+| Token | Value | Role |
+|---|---|---|
+| `--status-good` | `#12b886` | Complete, strong, above benchmark |
+| `--status-watch` | `#f5a623` | Needs attention, in progress, improve |
+| `--status-bad` | `#e05c5c` | Weak, critical, below benchmark |
+| `--status-*-dim` | color-mix | Tinted backgrounds (panels, pills) |
+| `--status-*-line` | color-mix | Borders and accent lines |
+
+Use `.sc-cat-tone-good` / `.sc-cat-tone-watch` / `.sc-cat-tone-weak` or `.sc-status-surface-*` utilities in `overview-ref.css` instead of hard-coded hex.
+
 ## Typography
 
 Inter / system sans. Product scale: 11–13px labels, 14–15px body, 28–36px onboarding titles (weight 800). No display serifs in product UI.

@@ -264,7 +264,7 @@ function deriveRevopsIntelligence(answers: Partial<Answers>) {
     "Under 6 months": { color: "#E56B6B", tag: "Tight runway", insight: "Prioritize burn efficiency and pipeline conversion — extension scenarios queued." },
     "6–12 months": { color: "#D4924A", tag: "Manageable runway", insight: "Balance growth spend with pipeline coverage — efficiency playbooks ready." },
     "12–18 months": { color: "#8B76D4", tag: "Comfortable runway", insight: "Room to invest — Fuel models growth vs. discipline tradeoffs." },
-    "Over 18 months": { color: "#00B48A", tag: "Strong runway", insight: "Capital buffer supports growth bets — deployment scenarios active." },
+    "Over 18 months": { color: "var(--fuel-accent)", tag: "Strong runway", insight: "Capital buffer supports growth bets — deployment scenarios active." },
   };
 
   const runwayInfo = runway ? runwayMeta[runway] : null;
@@ -294,7 +294,7 @@ function SignalValue({ children, color = "#1A2B26", fontSize = M.base }: { child
 
 // ─── Shell & primitives ──────────────────────────────────────────────────────
 
-function MotionShell({ children, accent = "#00B48A", clipOverflow = true }: { children: React.ReactNode; accent?: string; clipOverflow?: boolean }) {
+function MotionShell({ children, accent = "var(--fuel-accent)", clipOverflow = true }: { children: React.ReactNode; accent?: string; clipOverflow?: boolean }) {
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: clipOverflow ? "hidden" : "visible" }}>
       <motion.div
@@ -347,7 +347,7 @@ function FuelProductCard({
         </div>
         <div style={{
           width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-          background: "linear-gradient(135deg, #00B48A, #2BB8A0)",
+          background: "linear-gradient(135deg, var(--fuel-accent), #2BB8A0)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: M.sm, fontWeight: 800, color: "#fff",
         }}>{title[0]?.toUpperCase() || "F"}</div>
@@ -431,7 +431,7 @@ function StaggerItem({ children, i = 0 }: { children: React.ReactNode; i?: numbe
   );
 }
 
-function PulseRing({ color = "#00B48A" }: { color?: string }) {
+function PulseRing({ color = "var(--fuel-accent)" }: { color?: string }) {
   return (
     <div style={{ position: "relative", width: 72, height: 72, margin: "0 auto 20px" }}>
       {[0, 1, 2].map(i => (
@@ -470,7 +470,7 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
   const scanItems = ["Homepage", "Crunchbase", "LinkedIn", "Funding signals"];
 
   return (
-    <MotionShell accent="#00B48A">
+    <MotionShell accent="var(--fuel-accent)">
       <AnimatePresence mode="wait">
         {searchState === "idle" && (
           <motion.div key="idle" exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.35 }}>
@@ -501,7 +501,7 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                   ))}
                 </div>
               </div>
-              <InsightCursor label={displayName} color="#00B48A" path={cursorPath} />
+              <InsightCursor label={displayName} color="var(--fuel-accent)" path={cursorPath} />
             </FuelProductCard>
           </motion.div>
         )}
@@ -515,7 +515,7 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                   transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
                   style={{
                     position: "absolute", left: 0, right: 0, height: 2,
-                    background: "linear-gradient(90deg, transparent, #00B48A, transparent)",
+                    background: "linear-gradient(90deg, transparent, var(--fuel-accent), transparent)",
                     zIndex: 2,
                   }}
                 />
@@ -531,14 +531,14 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                       <motion.div
                         animate={{ scale: [1, 1.15, 1] }}
                         transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.25 }}
-                        style={{ width: 8, height: 8, borderRadius: "50%", background: "#00B48A", flexShrink: 0 }}
+                        style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--fuel-accent)", flexShrink: 0 }}
                       />
                       <div style={{ flex: 1, height: 8, borderRadius: 4, background: "#E8F0ED", overflow: "hidden" }}>
                         <motion.div
                           initial={{ width: "0%" }}
                           animate={{ width: "100%" }}
                           transition={{ delay: 0.3 + i * 0.35, duration: 1.1, ease: EASE_OUT }}
-                          style={{ height: "100%", background: "linear-gradient(90deg, #00B48A, #7EDFC4)", borderRadius: 4 }}
+                          style={{ height: "100%", background: "linear-gradient(90deg, var(--fuel-accent), var(--fuel-accent))", borderRadius: 4 }}
                         />
                       </div>
                       <span style={{ fontSize: M.md, color: "#8A9E96", width: 90, flexShrink: 0 }}>{item}</span>
@@ -583,15 +583,15 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                 style={{ marginTop: 10, padding: "10px 12px", background: "#E8F8F3", borderRadius: 10, border: "1px solid #B8E8D8" }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: M.md, fontWeight: 700, color: "#00B48A" }}>Profile completeness</span>
-                  <span style={{ fontSize: M.lg, fontWeight: 800, color: "#00B48A" }}>82%</span>
+                  <span style={{ fontSize: M.md, fontWeight: 700, color: "var(--fuel-accent)" }}>Profile completeness</span>
+                  <span style={{ fontSize: M.lg, fontWeight: 800, color: "var(--fuel-accent)" }}>82%</span>
                 </div>
                 <div style={{ height: 5, background: "#C8E8DC", borderRadius: 3, overflow: "hidden" }}>
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: "82%" }}
                     transition={{ delay: 0.7, duration: 1, ease: EASE_OUT }}
-                    style={{ height: "100%", background: "linear-gradient(90deg, #00B48A, #2BB8A0)", borderRadius: 3 }}
+                    style={{ height: "100%", background: "linear-gradient(90deg, var(--fuel-accent), #2BB8A0)", borderRadius: 3 }}
                   />
                 </div>
               </motion.div>
@@ -609,7 +609,7 @@ export function DevMotion({ answers, companyName = "Your company" }: { answers: 
   const intel = useMemo(() => deriveDevIntelligence(answers), [answers]);
 
   return (
-    <MotionShell accent="#3DD68C">
+    <MotionShell accent="var(--btn-primary-bg)">
       <FuelProductCard title={`${companyName}`} subtitle={intel.stackLine}>
         {intel.focus ? (
           <motion.div
@@ -618,7 +618,7 @@ export function DevMotion({ answers, companyName = "Your company" }: { answers: 
             transition={{ delay: 0.15 }}
             style={{ marginBottom: 14, padding: "10px 12px", background: "#E8F8F3", borderRadius: 8, border: "1px solid #B8E8D8" }}
           >
-            <div style={{ fontSize: M.xs, fontWeight: 700, color: "#00B48A", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
+            <div style={{ fontSize: M.xs, fontWeight: 700, color: "var(--fuel-accent)", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
               Development focus
             </div>
             <div style={{ fontSize: M.lg, fontWeight: 800, color: "#1A2B26", marginBottom: 4 }}>{intel.focus.label}</div>
@@ -836,8 +836,8 @@ const DEAL_SUGGESTIONS: DealSuggestion[] = [
   { name: "Deel", sector: "SaaS / Software", stage: "Growth / Series C+", geo: "Global", checkFit: ["$2M – $10M", "Over $10M"], growth: "55% ARR", score: 80 },
 ];
 
-const INVEST_MOTION_ACCENT = "#00B48A";
-const INVEST_MOTION_GRADIENT = "linear-gradient(135deg, #00B48A, #2BB8A0)";
+const INVEST_MOTION_ACCENT = "var(--fuel-accent)";
+const INVEST_MOTION_GRADIENT = "linear-gradient(135deg, var(--fuel-accent), #2BB8A0)";
 const INVEST_MOTION_TINT_BG = "#E8F8F3";
 const INVEST_MOTION_TINT_BORDER = "#B8E8D8";
 const INVEST_MOTION_CHIP_BG = "#EEF6F3";
@@ -873,7 +873,7 @@ function SuggestionCard({ deal, i }: { deal: DealSuggestion; i: number }) {
         display: "flex", alignItems: "center", gap: 12,
         padding: "11px 13px", marginBottom: 8,
         background: "#fff", borderRadius: 10, border: `1px solid ${INVEST_MOTION_CHIP_BORDER}`,
-        boxShadow: "0 2px 8px rgba(0, 180, 138, 0.08)",
+        boxShadow: "0 2px 8px rgba(18, 184, 134, 0.08)",
       }}
     >
       <div style={{
@@ -1053,9 +1053,9 @@ export function InvestmentMotion({
               </div>
               {[
                 { stage: "Sourced", count: 24, color: INVEST_MOTION_ACCENT },
-                { stage: "Diligence", count: 8, color: "#00B48A" },
+                { stage: "Diligence", count: 8, color: "var(--fuel-accent)" },
                 { stage: "Term sheet", count: 3, color: "#D4924A" },
-                { stage: "Portfolio", count: pipeline ? 18 : 12, color: "#2BB8A0" },
+                { stage: "Portfolio", count: pipeline ? 18 : 12, color: "#00B48A" },
               ].map((s, i) => (
                 <motion.div
                   key={s.stage}
@@ -1093,10 +1093,10 @@ export function InvestmentMotion({
 type HubSpotStatus = "pending" | "connecting" | "connected";
 
 const PIPELINE_DEALS = [
-  { name: "Nexus AI", stage: "Diligence", value: "$1.2M", color: "#00B48A" },
+  { name: "Nexus AI", stage: "Diligence", value: "$1.2M", color: "var(--fuel-accent)" },
   { name: "Patriot Pay", stage: "Term sheet", value: "$800K", color: "#D4924A" },
   { name: "Mercury", stage: "Sourced", value: "$2.5M", color: INVEST_MOTION_ACCENT },
-  { name: "Vanta", stage: "Portfolio", value: "$3.1M", color: "#2BB8A0" },
+  { name: "Vanta", stage: "Portfolio", value: "$3.1M", color: "#00B48A" },
 ];
 
 export function HubSpotMotion({ status, companyName = "Your fund" }: { status: HubSpotStatus; companyName?: string }) {
@@ -1191,8 +1191,8 @@ type SourceStatus = "pending" | "connecting" | "connected";
 const SLACK_ACCENT = "#4A9FD4";
 
 const SIGNAL_ITEMS = [
-  { cat: "Intelligence", label: "ARR growth above cohort P75", color: "#2BB8A0" },
-  { cat: "Initiative", label: "Investor intro follow-up drafted", color: "#00B48A" },
+  { cat: "Intelligence", label: "ARR growth above cohort P75", color: "#00B48A" },
+  { cat: "Initiative", label: "Investor intro follow-up drafted", color: "var(--fuel-accent)" },
   { cat: "Playbook", label: "Board prep playbook queued", color: "#D4924A" },
 ];
 
@@ -1212,12 +1212,12 @@ export function SourcesMotion({
   const signalCount = (granolaStatus === "connected" ? 2 : 0) + (slackStatus === "connected" ? 3 : 0) + (hubspotStatus === "connected" ? 2 : 0);
 
   return (
-    <MotionShell accent="#00B48A">
+    <MotionShell accent="var(--fuel-accent)">
       <FuelProductCard
         title={companyName}
         subtitle={anyConnected ? "Sources · intelligence active" : "Sources · meetings & updates"}
       >
-        <div style={{ fontSize: M.md, fontWeight: 700, color: "#00B48A", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+        <div style={{ fontSize: M.md, fontWeight: 700, color: "var(--fuel-accent)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.5px" }}>
           Private sources → signal catalog
         </div>
 
@@ -1534,8 +1534,8 @@ const INVESTOR_BENCHMARK_METRICS: MetricDef[] = [
 ];
 
 const CAT_STYLE: Record<InsightCat, { color: string; icon: string; suggested?: boolean }> = {
-  Intelligence: { color: "#2BB8A0", icon: "◎" },
-  Initiative: { color: "#00B48A", icon: "↗", suggested: true },
+  Intelligence: { color: "#00B48A", icon: "◎" },
+  Initiative: { color: "var(--fuel-accent)", icon: "↗", suggested: true },
   Playbook: { color: "#D4924A", icon: "▤", suggested: true },
 };
 
@@ -1780,7 +1780,7 @@ type BenchmarkTeaserPhase = "collecting" | "generating" | "ready";
 const STACK_LANES = [
   {
     cat: "Intelligence",
-    color: "#2BB8A0",
+    color: "#00B48A",
     icon: "◎",
     readyCount: 12,
     hook: "Where you lead — and where peers pull ahead",
@@ -1788,7 +1788,7 @@ const STACK_LANES = [
   },
   {
     cat: "Initiatives",
-    color: "#00B48A",
+    color: "var(--fuel-accent)",
     icon: "→",
     readyCount: 5,
     hook: "Moves ranked by impact — not noise",
@@ -1988,7 +1988,7 @@ function BenchmarkExcitementPanel({
         : "Benchmark · cohort position";
 
   return (
-    <MotionShell accent="#2BB8A0">
+    <MotionShell accent="#00B48A">
       <FuelProductCard title={companyName} subtitle={subtitle}>
         <div style={{ textAlign: "center", paddingTop: 6 }}>
           <StackPipelineVisual
@@ -1999,7 +1999,7 @@ function BenchmarkExcitementPanel({
             laneCounts={laneCounts}
           />
 
-          <div style={{ fontSize: M.md, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
+          <div style={{ fontSize: M.md, fontWeight: 700, color: "#00B48A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
             {eyebrow}
           </div>
           <div style={{ fontSize: M.xl, fontWeight: 700, color: "#1A2B26", marginBottom: 20, lineHeight: 1.4, padding: "0 8px" }}>
@@ -2047,7 +2047,7 @@ function BenchmarkExcitementPanel({
                 <motion.div
                   animate={{ width: ["30%", "90%", "30%"] }}
                   transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                  style={{ height: "100%", background: "linear-gradient(90deg, #2BB8A0, #00B48A, #D4924A)", borderRadius: 4 }}
+                  style={{ height: "100%", background: "linear-gradient(90deg, #2BB8A0, var(--fuel-accent), #D4924A)", borderRadius: 4 }}
                 />
               </div>
             </div>
@@ -2063,7 +2063,7 @@ function BenchmarkExcitementPanel({
                 <motion.div
                   animate={{ width: `${pct}%` }}
                   transition={{ duration: 0.5, ease: EASE_OUT }}
-                  style={{ height: "100%", background: "linear-gradient(90deg, #2BB8A0, #00B48A, #D4924A)", borderRadius: 4 }}
+                  style={{ height: "100%", background: "linear-gradient(90deg, #2BB8A0, var(--fuel-accent), #D4924A)", borderRadius: 4 }}
                 />
               </div>
             </div>
@@ -2161,14 +2161,14 @@ export function BenchmarkMotion({
 
   // Investor / fallback: scrollable insight list
   return (
-    <MotionShell accent="#2BB8A0">
+    <MotionShell accent="#00B48A">
       <style>{`
         .of-insight-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .of-insight-scroll::-webkit-scrollbar { display: none; }
       `}</style>
       <div style={{ width: "100%", maxWidth: "var(--of-motion-card-max, 400px)" }}>
         <div style={{ marginBottom: 14 }}>
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ fontSize: M.md, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ fontSize: M.md, fontWeight: 700, color: "#00B48A", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             {cards.length > 0
               ? (variant === "company" ? "Here's how to think about what to do next" : `Fuel generated ${cards.length} insight${cards.length > 1 ? "s" : ""}`)
               : "What Fuel generates"}
@@ -2178,8 +2178,8 @@ export function BenchmarkMotion({
           </motion.div>
           {cards.length > 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-              {counts.intelligence > 0 && <span style={{ fontSize: M.sm, fontWeight: 600, color: "#2BB8A0" }}>{counts.intelligence} intelligence</span>}
-              {counts.initiative > 0 && <span style={{ fontSize: M.sm, fontWeight: 600, color: "#00B48A" }}>{counts.initiative} suggested initiative{counts.initiative > 1 ? "s" : ""}</span>}
+              {counts.intelligence > 0 && <span style={{ fontSize: M.sm, fontWeight: 600, color: "#00B48A" }}>{counts.intelligence} intelligence</span>}
+              {counts.initiative > 0 && <span style={{ fontSize: M.sm, fontWeight: 600, color: "var(--fuel-accent)" }}>{counts.initiative} suggested initiative{counts.initiative > 1 ? "s" : ""}</span>}
               {counts.playbook > 0 && <span style={{ fontSize: M.sm, fontWeight: 600, color: "#D4924A" }}>{counts.playbook} suggested playbook{counts.playbook > 1 ? "s" : ""}</span>}
             </motion.div>
           )}
@@ -2222,7 +2222,7 @@ export function BenchmarkMotion({
                         boxShadow: "0 8px 24px rgba(8,40,32,0.06)",
                       }}
                     >
-                      <div style={{ fontSize: M.sm, fontWeight: 700, color: "#2BB8A0", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>
+                      <div style={{ fontSize: M.sm, fontWeight: 700, color: "#00B48A", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>
                         {group.metricLabel}
                       </div>
                       <div style={{ fontSize: M.base, color: "#5A7A70", lineHeight: 1.5, marginBottom: 8 }}>
@@ -2304,7 +2304,7 @@ export function BenchmarkMotion({
                       marginBottom: 8, padding: "6px 8px",
                       background: "#F4FAF8", borderRadius: 8, border: "1px solid #D4EDE6",
                     }}>
-                      <span style={{ fontSize: M.sm, color: "#2BB8A0", fontWeight: 800, flexShrink: 0 }}>◎</span>
+                      <span style={{ fontSize: M.sm, color: "#00B48A", fontWeight: 800, flexShrink: 0 }}>◎</span>
                       <span style={{ fontSize: M.sm, color: "#5A7A70", lineHeight: 1.45 }}>
                         Linked to intelligence · <span style={{ fontFamily: '"JetBrains Mono", ui-monospace, monospace', color: "#284256" }}>{card.signalId}</span>
                         <span style={{ color: "#8A9E96" }}> — {card.linkedIntelligenceTitle}</span>

@@ -78,7 +78,11 @@ export function AccountIntegrationsList({
   const isGateOverview = gateLayout;
   const isOverviewVariant = !compactStrip && !gateLayout && heading.trim().toLowerCase() === "connectors";
   const useOverviewCards = isOverviewVariant || isGateOverview;
+  const isOverviewSurface = gateLayout || isOverviewVariant || compactStrip;
   const connectedCount = ACCOUNT_INTEGRATIONS.filter(item => connected.has(item.id)).length;
+  const visibleIntegrations = isOverviewSurface
+    ? ACCOUNT_INTEGRATIONS.filter(item => !connected.has(item.id))
+    : ACCOUNT_INTEGRATIONS;
 
   function connectIntegration(id: AccountIntegrationId) {
     if (connectingId) return;
@@ -96,9 +100,13 @@ export function AccountIntegrationsList({
     notifyListeners();
   }
 
+  if (isOverviewSurface && visibleIntegrations.length === 0) {
+    return null;
+  }
+
   return (
     <section
-      className={`acct-integrations${compactStrip ? " acct-integrations--strip" : useOverviewCards ? " acct-integrations--overview" : ""}`}
+      className={`acct-integrations${compactStrip ? " acct-integrations--strip" : useOverviewCards ? " acct-integrations--overview" : ""}${gateLayout ? " sc-profile-gate-connectors" : ""}`}
       aria-labelledby="acct-integrations-heading"
     >
       {!compactStrip ? (
@@ -141,7 +149,7 @@ export function AccountIntegrationsList({
       ) : null}
 
       <ul className="acct-integrations-list">
-        {ACCOUNT_INTEGRATIONS.map(integration => {
+        {visibleIntegrations.map(integration => {
           const isConnected = connected.has(integration.id);
           const isConnecting = connectingId === integration.id;
 
@@ -188,6 +196,7 @@ export function AccountIntegrationsList({
                       type="button"
                       className="acct-integration-link-cta"
                       disabled={isConnecting}
+                      aria-busy={isConnecting}
                       onClick={() => connectIntegration(integration.id)}
                     >
                       {isConnecting ? "Connecting…" : "Connect →"}

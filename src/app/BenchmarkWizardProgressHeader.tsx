@@ -31,6 +31,7 @@ export function BenchmarkWizardProgressHeader({
   onClose,
 }: BenchmarkWizardProgressHeaderProps) {
   const reduced = useReducedMotion();
+  const compact = embedded;
   const benchmarkEarned = Boolean(
     earnedProfileCredits?.benchmark && earnedProfileCredits?.benchmarkViaSubmit,
   );
@@ -39,10 +40,11 @@ export function BenchmarkWizardProgressHeader({
     ? `+${BENCHMARK_REWARD_CREDITS} credits unlocked — benchmark submitted!`
     : BENCHMARK_DRAWER_STEPS[activeStep]?.encouragement
       ?? "Submit cohort metrics to unlock peer comparisons and sharper intelligence.";
+  const showEncouragement = justEarnedBenchmark || !compact;
 
   return (
     <div
-      className={`profile-wizard-progress pwp-enhanced benchmark-wizard-progress${justEarnedBenchmark ? " is-celebrating" : ""}`}
+      className={`profile-wizard-progress pwp-enhanced benchmark-wizard-progress${compact ? " pwp-compact" : ""}${justEarnedBenchmark ? " is-celebrating" : ""}`}
       aria-label="Benchmark progress"
     >
       <div className="pwp-top">
@@ -53,7 +55,7 @@ export function BenchmarkWizardProgressHeader({
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         >
           <span className="pwp-title">Benchmark setup</span>
-          {benchmarkCreditsLeft > 0 ? (
+          {!compact && benchmarkCreditsLeft > 0 ? (
             <span className="pwp-title-sub">+{benchmarkCreditsLeft} credits when you submit</span>
           ) : null}
         </motion.div>
@@ -62,7 +64,7 @@ export function BenchmarkWizardProgressHeader({
           <div
             className="pwp-credits-wrap"
             aria-live="polite"
-            aria-label={`${availableCredits} of ${PROFILE_TOTAL_CREDITS} credits unlocked`}
+            aria-label={`${availableCredits} of ${PROFILE_TOTAL_CREDITS} credits unlocked${benchmarkCreditsLeft > 0 ? `; ${benchmarkCreditsLeft} credits available on submit` : ""}`}
           >
             <div className="pwp-credits">
               <span className="pwp-credits-value">{availableCredits}</span>
@@ -84,7 +86,7 @@ export function BenchmarkWizardProgressHeader({
         </div>
       </div>
 
-      <ol className="pwp-steps" aria-label="Benchmark sections">
+      <ol className={`pwp-steps${compact ? " pwp-steps-segmented" : ""}`} aria-label="Benchmark sections">
         {BENCHMARK_DRAWER_STEPS.map((step, index) => {
           const done = benchmarkEarned || index < activeStep;
           const current = index === activeStep && !benchmarkEarned;
@@ -95,7 +97,19 @@ export function BenchmarkWizardProgressHeader({
               aria-current={current ? "step" : undefined}
             >
               <span className="pwp-step-inner">
-                {done ? (
+                {compact ? (
+                  done ? (
+                    <svg className="pwp-step-check" width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+                      <path
+                        d="M1 4l2.5 2.5L9 1"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : null
+                ) : done ? (
                   <svg className="pwp-step-check" width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
                     <path
                       d="M1 4l2.5 2.5L9 1"
@@ -109,9 +123,9 @@ export function BenchmarkWizardProgressHeader({
                   <span className="pwp-step-dot" aria-hidden="true" />
                 ) : null}
                 <span className="pwp-step-label">{step.label}</span>
-                {current ? <span className="pwp-step-underline" /> : null}
+                {!compact && current ? <span className="pwp-step-underline" /> : null}
               </span>
-              {index < BENCHMARK_DRAWER_STEPS.length - 1 ? (
+              {!compact && index < BENCHMARK_DRAWER_STEPS.length - 1 ? (
                 <span className={`pwp-step-connector${done ? " is-filled" : ""}`} aria-hidden="true" />
               ) : null}
             </li>
@@ -119,7 +133,11 @@ export function BenchmarkWizardProgressHeader({
         })}
       </ol>
 
-      <p className="pwp-encourage">{encouragement}</p>
+      {showEncouragement ? (
+        <p className={`pwp-encourage${justEarnedBenchmark ? " is-celebrate" : ""}${compact ? " pwp-encourage-compact" : ""}`}>
+          {encouragement}
+        </p>
+      ) : null}
     </div>
   );
 }
