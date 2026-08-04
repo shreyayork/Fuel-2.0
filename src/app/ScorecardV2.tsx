@@ -2536,6 +2536,7 @@ function OverviewWorkspaceDashboard({
   };
 
   const modules = [...profileSections, benchmarkModule];
+  const allModulesComplete = modules.every(module => module.complete);
   const progressSummary = buildWorkspaceProgressSummary(
     displayAnswers,
     earnedProfileCredits,
@@ -2573,14 +2574,16 @@ function OverviewWorkspaceDashboard({
 
   return (
     <div className="sc-workspace-dash" role="region" aria-label="Workspace dashboard">
-      <WorkspaceModuleCardGrid
-        modules={modules}
-        onSelect={handleSectionStart}
-        activeTourTarget={activeTourTarget}
-        active={!allEmpty}
-        creditBalance={progressSummary.creditBalance}
-        displayScoresZero={displayScoresZero}
-      />
+      {!allModulesComplete ? (
+        <WorkspaceModuleCardGrid
+          modules={modules}
+          onSelect={handleSectionStart}
+          activeTourTarget={activeTourTarget}
+          active={!allEmpty}
+          creditBalance={progressSummary.creditBalance}
+          displayScoresZero={displayScoresZero}
+        />
+      ) : null}
 
       {showWorkspaceSummaryTop || overviewBuildPhase === "ready" || isBuildingAdvisor ? (
         <section className="sc-workspace-summary-section" aria-label="Workspace summary">
