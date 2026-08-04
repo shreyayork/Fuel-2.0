@@ -127,7 +127,7 @@ function BenchmarkPreviewFields({ values }: { values: BenchmarkFormValues }) {
       {textEntries.length > 0 ? (
         <div className="cpp-field-grid cpp-field-grid--compact cpp-benchmark-text-grid">
           {textEntries.map(entry => (
-            <div key={entry.key} className="cpp-field-card is-wide">
+            <div key={entry.key} className="cpp-field-card">
               <span className="cpp-field-label">{entry.label}</span>
               <p className="cpp-field-value">{entry.display}</p>
             </div>
@@ -183,13 +183,6 @@ function formatAnswerValue(question: DetailQuestion, raw?: string): string | nul
   return value;
 }
 
-function isLongFormField(question: DetailQuestion, display: string): boolean {
-  return question.inputType === "textarea"
-    || question.inputType === "funding_rounds"
-    || display.includes("\n")
-    || display.length > 72;
-}
-
 function ProfilePreviewFields({
   section,
   answers,
@@ -218,10 +211,7 @@ function ProfilePreviewFields({
             const display = formatAnswerValue(question, answers[question.id]);
             if (!display) return null;
             return (
-              <div
-                key={question.id}
-                className={`cpp-field-card${isLongFormField(question, display) ? " is-wide" : ""}`}
-              >
+              <div key={question.id} className="cpp-field-card">
                 <span className="cpp-field-label">{question.prompt}</span>
                 <p className="cpp-field-value">{display}</p>
               </div>

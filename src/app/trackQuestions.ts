@@ -704,6 +704,39 @@ export function countSectionAnswers(section: DetailSection, answers: DetailAnswe
   return getVisibleQuestions(section, answers).filter(q => answers[q.id]?.trim()).length;
 }
 
+/** First three Complete Profile questions — required before proceeding. */
+export const MANDATORY_PROFILE_QUESTION_IDS = [
+  "profile_company",
+  "profile_product_description",
+  "profile_industry",
+] as const;
+
+export type MandatoryProfileQuestionId = (typeof MANDATORY_PROFILE_QUESTION_IDS)[number];
+
+export function isMandatoryProfileQuestion(questionId: string): questionId is MandatoryProfileQuestionId {
+  return (MANDATORY_PROFILE_QUESTION_IDS as readonly string[]).includes(questionId);
+}
+
+export function getProfileSection(): DetailSection | undefined {
+  return DETAIL_SECTIONS.find(section => section.id === "profile");
+}
+
+export function getMissingMandatoryProfileAnswers(answers: DetailAnswers): DetailQuestion[] {
+  const profileSection = getProfileSection();
+  if (!profileSection) return [];
+  return MANDATORY_PROFILE_QUESTION_IDS.map(id => profileSection.questions.find(q => q.id === id))
+    .filter((question): question is DetailQuestion => Boolean(question))
+    .filter(question => !answers[question.id]?.trim());
+}
+
+export function hasMandatoryProfileAnswers(answers: DetailAnswers): boolean {
+  return getMissingMandatoryProfileAnswers(answers).length === 0;
+}
+
+export function countMandatoryProfileAnswers(answers: DetailAnswers): number {
+  return MANDATORY_PROFILE_QUESTION_IDS.filter(id => answers[id]?.trim()).length;
+}
+
 export function countDetailAnswers(answers: DetailAnswers): number {
   return DETAIL_SECTIONS.flatMap(s => getVisibleQuestions(s, answers))
     .filter(q => answers[q.id]?.trim())
@@ -713,8 +746,8 @@ export function countDetailAnswers(answers: DetailAnswers): number {
 /** Minimum track answers before an AI statistic card generates on Overview. */
 export const MIN_TRACK_FIELDS_FOR_AI_INSIGHT = 2;
 
-/** Minimum profile answers before early company snapshot appears. */
-export const MIN_PROFILE_FIELDS_TO_START = 2;
+/** Minimum profile answers before early company snapshot appears (all mandatory fields). */
+export const MIN_PROFILE_FIELDS_TO_START = MANDATORY_PROFILE_QUESTION_IDS.length;
 
 /** Live fill progress across all profile wizard sections. */
 export function computeProfileAnswerProgress(answers: DetailAnswers): {
@@ -731,10 +764,7 @@ export function computeProfileAnswerProgress(answers: DetailAnswers): {
 }
 
 export function hasProfileBasicsStarted(answers: DetailAnswers): boolean {
-  const profileSection = DETAIL_SECTIONS.find(section => section.id === "profile");
-  if (profileSection && countSectionAnswers(profileSection, answers) >= MIN_PROFILE_FIELDS_TO_START) {
-    return true;
-  }
+  if (hasMandatoryProfileAnswers(answers)) return true;
   return countDetailAnswers(answers) >= MIN_PROFILE_FIELDS_TO_START;
 }
 

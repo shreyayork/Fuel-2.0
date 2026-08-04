@@ -12,6 +12,8 @@ import {
   countSectionAnswers,
   DETAIL_SECTIONS,
   getVisibleQuestions,
+  hasMandatoryProfileAnswers,
+  MANDATORY_PROFILE_QUESTION_IDS,
   type DetailAnswers,
 } from "./trackQuestions";
 
@@ -72,7 +74,14 @@ export function countModuleAnswers(moduleId: ProfileModuleId, answers: DetailAns
 }
 
 export function isModuleInsightReady(moduleId: ProfileModuleId, answers: DetailAnswers): boolean {
+  if (moduleId === "company") {
+    return hasMandatoryProfileAnswers(answers);
+  }
   return countModuleAnswers(moduleId, answers) >= MIN_MODULE_ANSWERS_FOR_UNLOCK;
+}
+
+export function minAnswersRequiredForModule(moduleId: ProfileModuleId): number {
+  return moduleId === "company" ? MANDATORY_PROFILE_QUESTION_IDS.length : MIN_MODULE_ANSWERS_FOR_UNLOCK;
 }
 
 export function isModuleFullyComplete(moduleId: ProfileModuleId, answers: DetailAnswers): boolean {
@@ -215,7 +224,7 @@ export function buildProgressReminderMessage(summary: WorkspaceProgressSummary):
     return `You're ${overallPercent}% complete. Answer a few more questions in any module to unlock your first early report and credits.`;
   }
 
-  return "Answer 2–3 questions in any module to unlock credits and your first early report.";
+  return "Complete the 3 required profile questions to unlock credits and your first early report.";
 }
 
 export function moduleCreditsHeadline(module: ProfileModuleId): string {

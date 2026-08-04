@@ -22,7 +22,7 @@ const STEPPER_STEPS: { id: ProfileModuleId; label: string }[] = [
 ];
 
 const ENCOURAGEMENT: Record<ProfileModuleId, string> = {
-  company: "Answer 2+ fields to unlock +40 credits and your early report",
+  company: "Complete the 3 required fields to continue — more answers improve your report",
   dev: "Answer 2+ fields to unlock +40 credits and R&D insights",
   gtm: "Answer 2+ fields to unlock +40 credits and GTM insights",
   rev: "Answer 2+ fields to unlock +40 credits and finance insights",

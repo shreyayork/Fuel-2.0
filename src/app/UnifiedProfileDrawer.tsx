@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
 import { confirmDiscardAndClose } from "./formConfirm";
+import { GenerateInsightsConfirmDialog } from "./GenerateInsightsConfirmDialog";
 import { useSaveExitConfirm } from "./SaveExitConfirmDialog";
 import { ProfileWizardProgressHeader } from "./ProfileWizardProgressHeader";
 import {
@@ -21,7 +22,10 @@ import { loadDetailAnswers, saveDetailAnswers } from "./profileDetailsStorage";
 import {
   countSectionAnswers,
   DETAIL_SECTIONS,
+  getMissingMandatoryProfileAnswers,
   getVisibleQuestions,
+  hasMandatoryProfileAnswers,
+  isMandatoryProfileQuestion,
   isMultiSelectSelected,
   parseProfileFundingRounds,
   PROFILE_FUNDING_ROUND_TYPES,
@@ -44,6 +48,18 @@ const SECTION_TO_STEP: Record<ProfileDrawerInitialSection, number> = {
 };
 
 const STEP_TO_MODULE: ProfileModuleId[] = ["company", "dev", "gtm", "rev"];
+
+type ProceedIntent =
+  | { kind: "next" }
+  | { kind: "step"; targetStep: number };
+
+function RequiredMark() {
+  return (
+    <span className="profile-required-mark" aria-hidden>
+      *
+    </span>
+  );
+}
 
 function stepToModule(step: number): ProfileModuleId {
   return STEP_TO_MODULE[Math.max(0, Math.min(step, STEP_TO_MODULE.length - 1))];
@@ -383,6 +399,9 @@ export function UnifiedProfileDrawer({
     };
   });
   const [justEarnedModule, setJustEarnedModule] = useState<ProfileModuleId | null>(null);
+  const [showMandatoryValidation, setShowMandatoryValidation] = useState(false);
+  const [insightsConfirmOpen, setInsightsConfirmOpen] = useState(false);
+  const [proceedIntent, setProceedIntent] = useState<ProceedIntent | null>(null);
   const hydratedRef = useRef<string | null>(null);
   const initialAnswersRef = useRef(initialAnswers);
   initialAnswersRef.current = initialAnswers;
@@ -392,6 +411,9 @@ export function UnifiedProfileDrawer({
   useEffect(() => {
     setStep(SECTION_TO_STEP[initialSection] ?? 0);
     progressTriggeredRef.current = new Set();
+    setShowMandatoryValidation(false);
+    setInsightsConfirmOpen(false);
+    setProceedIntent(null);
   }, [initialSection, companyKey]);
 
   // Hydrate from storage once per company/section open — never while the user is typing.
@@ -433,8 +455,43 @@ export function UnifiedProfileDrawer({
   const questionBlocks = buildQuestionBlocks(visibleQuestions);
   const isLast = step === DETAIL_SECTIONS.length - 1;
   const activeModule = stepToModule(step);
+  const missingMandatoryProfile = useMemo(
+    () => (activeModule === "company" ? getMissingMandatoryProfileAnswers(answers) : []),
+    [activeModule, answers],
+  );
+  const companyCreditsEarned = mergedEarned.modules.includes("company");
 
-  const maybeUnlockModuleProgress = (next: DetailAnswers, module: ProfileModuleId) => {
+  const persistAnswers = useCallback(() => {
+    saveDetailAnswers(companyKey, answers);
+    baselineAnswersRef.current = { ...answers };
+    onAnswersChange?.(answers);
+  }, [answers, companyKey, onAnswersChange]);
+
+  const executeProceedIntent = useCallback((intent: ProceedIntent) => {
+    if (intent.kind === "step") {
+      setStep(intent.targetStep);
+      return;
+    }
+    if (isLast) {
+      const completedModules = STEP_TO_MODULE.filter(module => {
+        const sectionIndex = STEP_TO_MODULE.indexOf(module);
+        const detailSection = DETAIL_SECTIONS[sectionIndex];
+        if (!detailSection) return mergedEarned.modules.includes(module);
+        return countSectionAnswers(detailSection, answers) > 0 || mergedEarned.modules.includes(module);
+      });
+      onComplete?.(completedModules.length > 0 ? completedModules : mergedEarned.modules);
+      onSaveClose?.();
+      onClose();
+      return;
+    }
+    setStep(current => current + 1);
+  }, [answers, isLast, mergedEarned.modules, onClose, onComplete, onSaveClose]);
+
+  const maybeUnlockModuleProgress = (
+    next: DetailAnswers,
+    module: ProfileModuleId,
+    options?: { skipCreditToast?: boolean },
+  ) => {
     if (!isModuleInsightReady(module, next)) return;
 
     if (!mergedEarned.modules.includes(module)) {
@@ -446,7 +503,9 @@ export function UnifiedProfileDrawer({
       );
       if (reward) {
         onModuleEarned?.(earned);
-        onModuleCreditReward?.(reward);
+        if (!options?.skipCreditToast) {
+          onModuleCreditReward?.(reward);
+        }
         setJustEarnedModule(module);
         window.setTimeout(() => {
           setJustEarnedModule(current => (current === module ? null : current));
@@ -461,6 +520,9 @@ export function UnifiedProfileDrawer({
   };
 
   const selectAnswer = (qid: string, value: string) => {
+    if (isMandatoryProfileQuestion(qid) && value.trim()) {
+      setShowMandatoryValidation(false);
+    }
     setAnswers(prev => {
       const next = { ...prev };
       if (value === "") delete next[qid];
@@ -492,13 +554,46 @@ export function UnifiedProfileDrawer({
     onModuleSaved?.(activeModule, savedAnswers);
   };
 
+  const requestCompanyProceed = useCallback((intent: ProceedIntent) => {
+    if (!hasMandatoryProfileAnswers(answers)) {
+      setShowMandatoryValidation(true);
+      return;
+    }
+    setShowMandatoryValidation(false);
+    if (companyCreditsEarned) {
+      persistAnswers();
+      notifyModuleSaved(answers);
+      executeProceedIntent(intent);
+      return;
+    }
+    setProceedIntent(intent);
+    setInsightsConfirmOpen(true);
+  }, [answers, companyCreditsEarned, executeProceedIntent, persistAnswers]);
+
+  const handleGenerateReport = () => {
+    setInsightsConfirmOpen(false);
+    persistAnswers();
+    maybeUnlockModuleProgress(answers, "company", { skipCreditToast: true });
+    notifyModuleSaved(answers);
+    const intent = proceedIntent ?? { kind: "next" as const };
+    setProceedIntent(null);
+    executeProceedIntent(intent);
+  };
+
+  const handleAnswerMoreQuestions = () => {
+    setInsightsConfirmOpen(false);
+    setProceedIntent(null);
+  };
+
   const persistAndClose = useCallback(() => {
     saveDetailAnswers(companyKey, answers);
     baselineAnswersRef.current = { ...answers };
-    maybeUnlockModuleProgress(answers, activeModule);
     onAnswersChange?.(answers);
-    awardModuleIfNeeded(activeModule);
-    notifyModuleSaved(answers);
+    if (activeModule !== "company") {
+      maybeUnlockModuleProgress(answers, activeModule);
+      awardModuleIfNeeded(activeModule);
+      notifyModuleSaved(answers);
+    }
     onSaveClose?.();
     onClose();
   }, [activeModule, answers, companyKey, onAnswersChange, onClose, onSaveClose]);
@@ -523,35 +618,66 @@ export function UnifiedProfileDrawer({
   };
 
   const handleSaveAndNext = () => {
+    if (activeModule === "company") {
+      requestCompanyProceed({ kind: "next" });
+      return;
+    }
     saveDetailAnswers(companyKey, answers);
     baselineAnswersRef.current = { ...answers };
     maybeUnlockModuleProgress(answers, activeModule);
     onAnswersChange?.(answers);
     awardModuleIfNeeded(activeModule);
     notifyModuleSaved(answers);
-    if (isLast) {
-      const completedModules = STEP_TO_MODULE.filter(module => {
-        const sectionIndex = STEP_TO_MODULE.indexOf(module);
-        const detailSection = DETAIL_SECTIONS[sectionIndex];
-        if (!detailSection) return mergedEarned.modules.includes(module);
-        return countSectionAnswers(detailSection, answers) > 0 || mergedEarned.modules.includes(module);
-      });
-      onComplete?.(completedModules.length > 0 ? completedModules : mergedEarned.modules);
-      onSaveClose?.();
-      onClose();
-      return;
-    }
-    setStep(current => current + 1);
+    executeProceedIntent({ kind: "next" });
   };
 
   const goToStep = useCallback((targetStep: number) => {
     if (targetStep === step) return;
+    if (step === 0 && targetStep > 0) {
+      requestCompanyProceed({ kind: "step", targetStep });
+      return;
+    }
     saveDetailAnswers(companyKey, answers);
     baselineAnswersRef.current = { ...answers };
-    maybeUnlockModuleProgress(answers, activeModule);
+    if (activeModule !== "company") {
+      maybeUnlockModuleProgress(answers, activeModule);
+    }
     onAnswersChange?.(answers);
     setStep(targetStep);
-  }, [activeModule, answers, companyKey, onAnswersChange, step]);
+  }, [activeModule, answers, companyKey, onAnswersChange, requestCompanyProceed, step]);
+
+  const renderQuestionPrompt = (question: DetailQuestion, htmlFor?: string) => {
+    const isRequired = activeModule === "company" && isMandatoryProfileQuestion(question.id);
+    const prompt = (
+      <>
+        {question.prompt}
+        {isRequired ? <RequiredMark /> : null}
+      </>
+    );
+    if (htmlFor) {
+      return (
+        <label className="sc-drawer-q-prompt" htmlFor={htmlFor}>
+          {prompt}
+        </label>
+      );
+    }
+    return (
+      <div className="sc-drawer-q-prompt" id={`${question.id}-label`}>
+        {prompt}
+      </div>
+    );
+  };
+
+  const questionRowClass = (question: DetailQuestion, extra = "") => {
+    const missingRequired = activeModule === "company"
+      && isMandatoryProfileQuestion(question.id)
+      && showMandatoryValidation
+      && !answers[question.id]?.trim();
+    return [
+      extra,
+      missingRequired ? "is-mandatory-missing" : "",
+    ].filter(Boolean).join(" ");
+  };
 
   const drawer = (
     <aside
@@ -593,6 +719,17 @@ export function UnifiedProfileDrawer({
           </div>
         </div>
 
+        {showMandatoryValidation && missingMandatoryProfile.length > 0 ? (
+          <div className="profile-mandatory-banner" role="alert">
+            <strong>Complete these required questions to continue</strong>
+            <ul>
+              {missingMandatoryProfile.map(question => (
+                <li key={question.id}>{question.prompt}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {questionBlocks.map(block => {
           if (block.kind === "field-row") {
             return (
@@ -600,8 +737,11 @@ export function UnifiedProfileDrawer({
                 {block.groupHeader ? <div className="sc-drawer-group-label">{block.groupHeader}</div> : null}
                 <div className="sc-drawer-field-grid">
                   {block.questions.map(question => (
-                    <div key={question.id} className="sc-drawer-q sc-drawer-q--inline">
-                      <label className="sc-drawer-q-prompt" htmlFor={question.id}>{question.prompt}</label>
+                    <div
+                      key={question.id}
+                      className={questionRowClass(question, "sc-drawer-q sc-drawer-q--inline")}
+                    >
+                      {renderQuestionPrompt(question, question.id)}
                       {question.subtitle ? <div className="sc-drawer-q-sub">{question.subtitle}</div> : null}
                       {question.sourceHint ? (
                         <div className="sc-drawer-source-hint">• {question.sourceHint}</div>
@@ -624,12 +764,11 @@ export function UnifiedProfileDrawer({
           return (
             <React.Fragment key={question.id}>
               {block.groupHeader ? <div className="sc-drawer-group-label">{block.groupHeader}</div> : null}
-              <div className={`sc-drawer-q${resolveTextInputType(question) === "year" ? " sc-drawer-q--year" : ""}${isFunding ? " sc-drawer-q--funding" : ""}`}>
-                {isText && !isFunding ? (
-                  <label className="sc-drawer-q-prompt" htmlFor={question.id}>{question.prompt}</label>
-                ) : (
-                  <div className="sc-drawer-q-prompt" id={`${question.id}-label`}>{question.prompt}</div>
-                )}
+              <div className={questionRowClass(
+                question,
+                `sc-drawer-q${resolveTextInputType(question) === "year" ? " sc-drawer-q--year" : ""}${isFunding ? " sc-drawer-q--funding" : ""}`,
+              )}>
+                {isText && !isFunding ? renderQuestionPrompt(question, question.id) : renderQuestionPrompt(question)}
                 {question.subtitle ? <div className="sc-drawer-q-sub" id={`${question.id}-hint`}>{question.subtitle}</div> : null}
                 {question.sourceHint ? (
                   <div className="sc-drawer-source-hint">• {question.sourceHint}</div>
@@ -665,6 +804,13 @@ export function UnifiedProfileDrawer({
       <>
         {drawer}
         {saveExitConfirmDialog}
+        <GenerateInsightsConfirmDialog
+          open={insightsConfirmOpen}
+          creditAmount={getModuleReward("company")}
+          currentBalance={availableCredits}
+          onGenerateReport={handleGenerateReport}
+          onAnswerMore={handleAnswerMoreQuestions}
+        />
       </>
     );
   }
@@ -673,6 +819,13 @@ export function UnifiedProfileDrawer({
     <div className="sc-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
       {drawer}
       {saveExitConfirmDialog}
+      <GenerateInsightsConfirmDialog
+        open={insightsConfirmOpen}
+        creditAmount={getModuleReward("company")}
+        currentBalance={availableCredits}
+        onGenerateReport={handleGenerateReport}
+        onAnswerMore={handleAnswerMoreQuestions}
+      />
     </div>
   );
 }
