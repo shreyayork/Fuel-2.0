@@ -11278,6 +11278,7 @@ function PatriotPayJourneyInner({
         syncKey={profileDetailsSyncKey}
         benchmarkValues={scorecardBenchmarkForm}
         benchmarkEarned={Boolean(earnedProfileCredits.benchmark && earnedProfileCredits.benchmarkViaSubmit)}
+        cohortLabel={selectedCompany.meta}
         onClose={() => setProfilePreviewOpen(false)}
         onEditProfile={handleEditProfileFromPreview}
         onEditBenchmark={handleEditBenchmarkFromPreview}

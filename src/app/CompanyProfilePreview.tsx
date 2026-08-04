@@ -17,7 +17,12 @@ import {
 } from "./trackQuestions.ts";
 import type { ProfileDrawerInitialSection } from "./UnifiedProfileDrawer";
 import { EMPTY_BENCHMARK_FORM, type BenchmarkFormValues } from "./UnifiedBenchmarkDrawer";
-import { BENCHMARK_WIZARD_FIELDS, formatBenchmarkDisplay } from "./FuelOnboardingChat";
+import {
+  BENCHMARK_WIZARD_FIELDS,
+  formatBenchmarkDisplay,
+  getBenchmarkTier,
+  getBenchmarkTierStyle,
+} from "./FuelOnboardingChat";
 import { isModuleInsightReady } from "./profileProgress";
 import type { ProfileModuleId } from "./profileCredits";
 import "./companyProfilePreview.css";
@@ -65,19 +70,6 @@ function parseBenchmarkPreviewNumber(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-function formatBenchmarkPreviewValue(
-  fieldKey: string,
-  raw: string,
-): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const wizardField = BENCHMARK_WIZARD_FIELDS.find(item => item.key === fieldKey);
-  if (!wizardField) return trimmed;
-  const numeric = parseBenchmarkPreviewNumber(trimmed);
-  if (numeric != null) return formatBenchmarkDisplay(numeric, wizardField.unit);
-  return trimmed;
-}
-
 function countFilledBenchmarkMetrics(values: BenchmarkFormValues): number {
   return BENCHMARK_WIZARD_FIELDS.filter(field => {
     const formKey = BENCHMARK_FORM_KEY_ALIASES[field.key] ?? field.key;
@@ -86,13 +78,76 @@ function countFilledBenchmarkMetrics(values: BenchmarkFormValues): number {
   }).length;
 }
 
-function BenchmarkPreviewFields({ values }: { values: BenchmarkFormValues }) {
-  const metricEntries = BENCHMARK_WIZARD_FIELDS.map(field => {
+type BenchmarkSnapshotTier = ReturnType<typeof getBenchmarkTier>;
+
+type BenchmarkSnapshotRow = {
+  id: string;
+  label: string;
+  you: string;
+  colour: string;
+  p25: string;
+  p50: string;
+  p75: string;
+  p90: string;
+  band: string;
+  tier: BenchmarkSnapshotTier;
+  isStrong: boolean;
+};
+
+const SNAPSHOT_BAND_LABELS: Record<BenchmarkSnapshotTier, string> = {
+  top: "Top decile",
+  upper: "Above median",
+  mid: "Around median",
+  lower: "Below median",
+  bottom: "Below cohort",
+};
+
+function buildBenchmarkSnapshotRows(values: BenchmarkFormValues): BenchmarkSnapshotRow[] {
+  return BENCHMARK_WIZARD_FIELDS.flatMap(field => {
     const formKey = BENCHMARK_FORM_KEY_ALIASES[field.key] ?? field.key;
     const raw = values[formKey as keyof BenchmarkFormValues];
-    const display = typeof raw === "string" ? formatBenchmarkPreviewValue(field.key, raw) : null;
-    return display ? { key: field.key, label: field.label, display } : null;
-  }).filter(Boolean) as { key: string; label: string; display: string }[];
+    if (typeof raw !== "string" || !raw.trim()) return [];
+    const value = parseBenchmarkPreviewNumber(raw);
+    if (value == null) return [];
+    const tier = getBenchmarkTier(value, field);
+    const tierStyle = getBenchmarkTierStyle(tier);
+    return [{
+      id: field.key,
+      label: field.label,
+      you: formatBenchmarkDisplay(value, field.unit),
+      colour: tierStyle.value,
+      p25: formatBenchmarkDisplay(field.p25, field.unit),
+      p50: formatBenchmarkDisplay(field.p50, field.unit),
+      p75: formatBenchmarkDisplay(field.p75, field.unit),
+      p90: formatBenchmarkDisplay(field.p90, field.unit),
+      band: SNAPSHOT_BAND_LABELS[tier],
+      tier,
+      isStrong: tier === "top" || tier === "upper",
+    }];
+  });
+}
+
+function buildPreviewCohortLabel(answers: DetailAnswers, externalLabel?: string): string {
+  if (externalLabel?.trim()) return externalLabel.trim();
+  const industry = answers.profile_industry?.trim();
+  const product = answers.profile_product_description?.trim();
+  const productSegment = product
+    ? product.split(/[·—–,]/)[0]?.trim().slice(0, 48)
+    : undefined;
+  const rounds = parseProfileFundingRounds(answers.profile_funding_rounds ?? "");
+  const stage = rounds.length > 0 ? rounds[rounds.length - 1].type : "Seed";
+  const parts = [industry, productSegment, stage].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Comparable Seed-stage companies";
+}
+
+function BenchmarkPreviewFields({
+  values,
+  cohortLabel,
+}: {
+  values: BenchmarkFormValues;
+  cohortLabel: string;
+}) {
+  const snapshotRows = buildBenchmarkSnapshotRows(values);
 
   const textEntries = BENCHMARK_TEXT_FIELDS.map(field => {
     const raw = values[field.key];
@@ -101,7 +156,7 @@ function BenchmarkPreviewFields({ values }: { values: BenchmarkFormValues }) {
   }).filter(Boolean) as { key: keyof BenchmarkFormValues; label: string; display: string }[];
 
   const hasOpenToIntros = values.openToIntros;
-  const filledCount = metricEntries.length;
+  const filledCount = snapshotRows.length;
 
   if (filledCount === 0 && textEntries.length === 0 && !hasOpenToIntros) {
     return (
@@ -115,15 +170,56 @@ function BenchmarkPreviewFields({ values }: { values: BenchmarkFormValues }) {
   return (
     <>
       {filledCount > 0 ? (
-        <div className="cpp-field-grid">
-          {metricEntries.map(entry => (
-            <div key={entry.key} className="cpp-field-card">
-              <span className="cpp-field-label">{entry.label}</span>
-              <p className="cpp-field-value">{entry.display}</p>
-            </div>
-          ))}
+        <>
+          <div className="sc-investor-brief-table-wrap cpp-snapshot-table-wrap">
+            <table className="sc-investor-brief-table">
+              <thead>
+                <tr>
+                  <th scope="col">Metric</th>
+                  <th scope="col">You</th>
+                  <th scope="col">Cohort p50</th>
+                  <th scope="col">p25</th>
+                  <th scope="col">p75</th>
+                  <th scope="col">p90</th>
+                  <th scope="col">Band</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshotRows.map(row => (
+                  <tr key={row.id}>
+                    <td>{row.label}</td>
+                    <td>
+                      <strong className="sc-investor-brief-you" style={{ color: row.colour }}>
+                        {row.you}
+                      </strong>
+                    </td>
+                    <td>{row.p50}</td>
+                    <td>{row.p25}</td>
+                    <td>{row.p75}</td>
+                    <td>{row.p90}</td>
+                    <td>
+                      <span className={`sc-investor-brief-band sc-investor-brief-band--${row.tier}`}>
+                        {row.isStrong ? (
+                          <span className="sc-investor-brief-check" aria-hidden="true">✓</span>
+                        ) : null}
+                        {row.band}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="sc-investor-brief-cohort-note">
+            Peer cohort: {cohortLabel}. Values from the latest private benchmark submission.
+          </p>
+        </>
+      ) : (
+        <div className="cpp-empty-card">
+          <strong>No benchmark metrics yet</strong>
+          <p>Add cohort numbers in Edit benchmark to unlock peer comparisons.</p>
         </div>
-      ) : null}
+      )}
       {textEntries.length > 0 ? (
         <div className="cpp-field-grid cpp-field-grid--compact cpp-benchmark-text-grid">
           {textEntries.map(entry => (
@@ -142,7 +238,7 @@ function BenchmarkPreviewFields({ values }: { values: BenchmarkFormValues }) {
           </div>
         </div>
       ) : null}
-      {filledCount < BENCHMARK_WIZARD_FIELDS.length ? (
+      {filledCount > 0 && filledCount < BENCHMARK_WIZARD_FIELDS.length ? (
         <p className="cpp-empty cpp-empty--muted">
           {BENCHMARK_WIZARD_FIELDS.length - filledCount} more metric{BENCHMARK_WIZARD_FIELDS.length - filledCount === 1 ? "" : "s"} available in benchmark.
         </p>
@@ -278,6 +374,7 @@ export function CompanyProfilePreview({
   syncKey = 0,
   benchmarkValues,
   benchmarkEarned = false,
+  cohortLabel: cohortLabelProp,
   onClose,
   onEditProfile,
   onEditBenchmark,
@@ -293,6 +390,7 @@ export function CompanyProfilePreview({
   syncKey?: number;
   benchmarkValues?: BenchmarkFormValues;
   benchmarkEarned?: boolean;
+  cohortLabel?: string;
   onClose: () => void;
   onEditProfile: (section?: ProfileDrawerInitialSection) => void;
   onEditBenchmark?: () => void;
@@ -317,6 +415,11 @@ export function CompanyProfilePreview({
   );
 
   const progress = useMemo(() => computeProfileAnswerProgress(answers), [answers]);
+
+  const cohortLabel = useMemo(
+    () => buildPreviewCohortLabel(answers, cohortLabelProp),
+    [answers, cohortLabelProp],
+  );
 
   const activeSection = PREVIEW_TABS.find(tab => tab.id === activeTab)?.sectionId;
   const section = activeSection ? DETAIL_SECTIONS.find(item => item.id === activeSection) : undefined;
@@ -449,8 +552,12 @@ export function CompanyProfilePreview({
                 ) : null}
               </div>
             ) : activeTab === "benchmark" ? (
-              <section className="cpp-card cpp-card--solo" aria-label="Benchmark metrics">
-                <BenchmarkPreviewFields values={benchmarkValues ?? EMPTY_BENCHMARK_FORM} />
+              <section className="cpp-card cpp-card--solo cpp-benchmark-snapshot" aria-label="Benchmark metrics">
+                <h3 className="sc-investor-brief-h3 cpp-snapshot-title">Snapshot</h3>
+                <BenchmarkPreviewFields
+                  values={benchmarkValues ?? EMPTY_BENCHMARK_FORM}
+                  cohortLabel={cohortLabel}
+                />
               </section>
             ) : section ? (
               <section className="cpp-card cpp-card--solo" aria-label={section.title}>

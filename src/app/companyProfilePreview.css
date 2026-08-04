@@ -330,3 +330,27 @@
 html[data-theme="light"] .cpp-card {
   background: #fff;
 }
+
+.cpp-benchmark-snapshot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cpp-snapshot-title {
+  margin-bottom: 2px;
+}
+
+.cpp-snapshot-table-wrap {
+  margin: 0 -2px;
+}
+
+.cpp-snapshot-table-wrap .sc-investor-brief-table {
+  min-width: 620px;
+}
+
+.cpp-benchmark-text-grid {
+  border-top: 1px solid var(--panel-border);
+  margin-top: 4px;
+  padding-top: 14px;
+}
