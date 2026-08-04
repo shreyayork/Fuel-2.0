@@ -17,6 +17,7 @@ import { dailyRemaining, totalRemaining } from "./credits/creditLogic";
 import {
   BENCHMARK_REWARD_CREDITS,
   computeCreditBalance,
+  EMPTY_EARNED_PROFILE_CREDITS,
   getModuleReward,
   loadEarnedProfileCredits,
   INTELLIGENCE_SOURCES_REWARD_CREDITS,
@@ -36,6 +37,7 @@ import {
 } from "./profileCredits";
 import { ProfileCreditRewardToast } from "./ProfileCreditRewardToast";
 import { UnifiedProfileDrawer } from "./UnifiedProfileDrawer";
+import { CompanyProfilePreview } from "./CompanyProfilePreview";
 import {
   BENCHMARK_PERIOD,
   CompleteBenchmarkDrawer,
@@ -58,6 +60,7 @@ import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
 import { SkipLink } from "./a11y/SkipLink";
 import { TopbarCompanySearch } from "./a11y/TopbarCompanySearch";
 import { useDialogA11y } from "./a11y/useDialogA11y";
+import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 import { AccountSettings } from "./account/AccountSettings.tsx";
 import {
@@ -71,6 +74,7 @@ import {
   type YorkServiceOffer,
 } from "./yorkIeUpsell";
 import { isYorkOfferDismissed } from "./yorkDismiss";
+import { isBrowserReload, applyBrowserReloadReset, isReloadLandingActive } from "./workspaceSession";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import InvestorDashboard, { type InvestorDashboardSection } from "./investor/InvestorDashboard.tsx";
 import {
@@ -5007,9 +5011,11 @@ function SourcesDrawer({
   onDismissPendingSource?: (id: string) => void;
   onFocusIntelligence?: (focus: IntelligenceFocus) => void;
 }) {
+  const handleScrimPointerDown = useScrimPointerClose(onClose);
+
   return (
-    <div className="bench-drawer-scrim" onClick={onClose}>
-      <aside className="bench-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Sources">
+    <div className="bench-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
+      <aside className="bench-drawer" {...drawerPanelPointerProps()} role="dialog" aria-label="Sources">
         <header className="bench-drawer-head">
           <div>
             <h2 className="bench-drawer-title">Sources</h2>
@@ -5087,10 +5093,11 @@ function LogIntelligenceDrawer({
   onClose: () => void;
 }) {
   const submitRef = useRef<(() => void) | null>(null);
+  const handleScrimPointerDown = useScrimPointerClose(onClose);
 
   return (
-    <div className="bench-drawer-scrim" onClick={onClose}>
-      <aside className="bench-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Log intelligence">
+    <div className="bench-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
+      <aside className="bench-drawer" {...drawerPanelPointerProps()} role="dialog" aria-label="Log intelligence">
         <header className="bench-drawer-head">
           <div>
             <h2 className="bench-drawer-title">Log intelligence</h2>
@@ -5686,9 +5693,30 @@ function SignalsPage({
           </p>
         </div>
         <div className="signals-page-head-actions">
-          <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
-            Complete profile
-          </button>
+          {activeTourTarget === "add-source" || activeTourTarget === "log-intelligence" ? (
+            <>
+              <button
+                type="button"
+                className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
+                data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
+                onClick={() => setSourceFormOpen(true)}
+              >
+                Add source
+              </button>
+              <button
+                type="button"
+                className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
+                data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
+                onClick={() => setShowLogForm(true)}
+              >
+                Log intelligence
+              </button>
+            </>
+          ) : (
+            <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
+              Complete profile
+            </button>
+          )}
         </div>
       </div>
 
@@ -5757,6 +5785,7 @@ function CompleteProfileDrawer({
   companyName,
   companyKey,
   initialSection = "company",
+  initialAnswers,
   onClose,
   onComplete,
   onModuleEarned,
@@ -5765,11 +5794,15 @@ function CompleteProfileDrawer({
   onModuleCreditReward,
   onAnswersChange,
   earnedProfileCredits,
+  reloadLandingActive = false,
+  drawerResetKey = 0,
+  onSaved,
 }: {
   open: boolean;
   companyName: string;
   companyKey?: string;
   initialSection?: ProfileDrawerSection;
+  initialAnswers?: DetailAnswers;
   onClose: () => void;
   onComplete: (completedModules: ProfileModuleId[]) => void;
   onModuleEarned?: (earned: EarnedProfileCredits) => void;
@@ -5778,10 +5811,14 @@ function CompleteProfileDrawer({
   onModuleCreditReward?: (reward: import("./profileCredits").ProfileCreditReward) => void;
   onAnswersChange?: () => void;
   earnedProfileCredits?: EarnedProfileCredits;
+  reloadLandingActive?: boolean;
+  drawerResetKey?: number;
+  onSaved?: () => void;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   const requestCloseRef = useRef<() => void>(() => {});
   useDialogA11y(open, dialogRef, () => requestCloseRef.current());
+  const handleScrimPointerDown = useScrimPointerClose(() => requestCloseRef.current(), open);
 
   useEffect(() => {
     if (!open) return;
@@ -5795,25 +5832,30 @@ function CompleteProfileDrawer({
   if (!open) return null;
 
   return createPortal(
-    <div className="profile-complete-drawer-scrim" onClick={() => requestCloseRef.current()} role="presentation">
+    <div
+      className="profile-complete-drawer-scrim"
+      onPointerDown={handleScrimPointerDown}
+      role="presentation"
+    >
       <aside
         ref={dialogRef}
         className="profile-complete-drawer"
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-complete-drawer-title"
-        onClick={event => event.stopPropagation()}
-        onMouseDown={event => event.stopPropagation()}
+        {...drawerPanelPointerProps()}
       >
         <h2 id="profile-complete-drawer-title" className="sr-only">Complete your profile</h2>
         <div className="profile-complete-drawer-body">
           <UnifiedProfileDrawer
-            key={`${companyKey ?? companyName}-${initialSection}-drawer`}
+            key={`${companyKey ?? companyName}-${initialSection}-drawer-${drawerResetKey}`}
             embedded
             companyName={companyName}
             companyKey={companyKey ?? companyName}
             initialSection={initialSection}
+            initialAnswers={reloadLandingActive ? undefined : initialAnswers}
             earnedProfileCredits={earnedProfileCredits}
+            reloadLandingActive={reloadLandingActive}
             onClose={onClose}
             onModuleEarned={onModuleEarned}
             onModuleSaved={onModuleSaved}
@@ -5826,6 +5868,7 @@ function CompleteProfileDrawer({
             onComplete={(completedModules) => {
               onComplete(completedModules);
             }}
+            onSaveClose={onSaved}
           />
         </div>
       </aside>
@@ -5864,10 +5907,12 @@ function TourPromptBanner({
   onStartTour,
   onDismiss,
   building = false,
+  reloadLanding = false,
 }: {
   onStartTour: () => void;
   onDismiss: () => void;
   building?: boolean;
+  reloadLanding?: boolean;
 }) {
   return (
     <div className={`tour-prompt-banner${building ? " is-building" : ""}`} role="status">
@@ -5876,12 +5921,16 @@ function TourPromptBanner({
         <strong>
           {building
             ? "Take a quick tour while Fuel builds your workspace"
-            : "Want a quick walkthrough of Fuel?"}
+            : reloadLanding
+              ? "Want a quick walkthrough of your workspace?"
+              : "Want a quick walkthrough of Fuel?"}
         </strong>
         <p>
           {building
             ? "Overview scores, Intelligence, and Initiatives are being prepared from your onboarding. Explore the product now — you do not need to wait."
-            : "See how Workspace, Overview, Intelligence, Initiatives, and Data Room work together now that your profile is set up."}
+            : reloadLanding
+              ? "See how the 5 modules, credits, and workspace dashboard work together — then start entering data to generate your report."
+              : "See how Workspace, Overview, Intelligence, Initiatives, and Data Room work together now that your profile is set up."}
         </p>
       </div>
       <div className="tour-prompt-actions">
@@ -6748,6 +6797,7 @@ function InitiativeDetailDrawer({
 
   const listStatus: InitiativeListStatus = status === "Completed" ? "Completed" : "Active";
   const canCreate = item.title.trim().length > 0;
+  const handleScrimPointerDown = useScrimPointerClose(onClose);
 
   const setListStatus = (nextStatus: InitiativeListStatus) => {
     onPatch({ status: nextStatus });
@@ -6802,10 +6852,10 @@ function InitiativeDetailDrawer({
   };
 
   return (
-    <div className="bench-drawer-scrim" onClick={onClose}>
+    <div className="bench-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
       <aside
         className={`bench-drawer initiative-drawer${isCreate ? " initiative-create-drawer" : ""}`}
-        onClick={event => event.stopPropagation()}
+        {...drawerPanelPointerProps()}
         role="dialog"
         aria-label={isCreate ? "New initiative" : (item.title || "Initiative")}
       >
@@ -7388,6 +7438,11 @@ function buildDefaultRecommendedInitiatives(): InitiativeRecord[] {
       status: "Suggested",
     }),
   ];
+}
+
+/** Active or completed initiatives only — excludes suggested recommendations. */
+function countWorkspaceInitiatives(items: InitiativeRecord[]): number {
+  return items.filter(item => normalizeInitiativeStatus(item.status) !== "Suggested").length;
 }
 
 function InitiativeAssigneesField({
@@ -8479,6 +8534,7 @@ function ContextFeedPage({
     setShowSourceForm(false);
     resetSourceForm();
   };
+  const handleSourceFormScrimPointerDown = useScrimPointerClose(cancelAddSource, showSourceForm);
 
   const handleAttachDocument = (typeId: string, typeLabel: string, file: File) => {
     setAttachedDocument({ typeId, typeLabel, file });
@@ -8534,10 +8590,10 @@ function ContextFeedPage({
   return (
     <>
       {showSourceForm ? (
-        <div className="bench-drawer-scrim" onClick={cancelAddSource}>
+        <div className="bench-drawer-scrim" onPointerDown={handleSourceFormScrimPointerDown} role="presentation">
           <aside
             className="bench-drawer add-sources-drawer"
-            onClick={e => e.stopPropagation()}
+            {...drawerPanelPointerProps()}
             role="dialog"
             aria-label="Add source"
           >
@@ -9066,6 +9122,11 @@ function PatriotPayJourneyInner({
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
   persona?: "founder" | "investor";
 }) {
+  const [reloadLandingActive, setReloadLandingActive] = useState(() => {
+    applyBrowserReloadReset(FOUNDER_COMPANY.id);
+    return isReloadLandingActive();
+  });
+
   const isInvestorPersona = persona === "investor";
   const startsWithTour = initialPage === "guided-tour";
   const startsWithOverviewBuilding =
@@ -9082,21 +9143,25 @@ function PatriotPayJourneyInner({
   const [barsAnimated, setBarsAnimated] = useState(false);
   const [activePage, setActivePage] = useState(
     // Investor fund dashboard is hidden for now — land on Portfolios.
-    initialPage === "investor-home" || initialPage === "investor-portfolios"
+    reloadLandingActive
+      ? "scorecard-v2"
+      : initialPage === "investor-home" || initialPage === "investor-portfolios"
       ? "investor-portfolios"
       : startsWithTour ? "overview"
       : (startsWithScorecard || startsWithOverviewBuilding) ? "scorecard-v2"
       : startsWithOverview ? "signals-loading"
       : initialPage,
   );
-  const [tourOpen, setTourOpen] = useState(startsWithTour);
+  const [tourOpen, setTourOpen] = useState(() => (reloadLandingActive ? false : startsWithTour));
   const [tourStep, setTourStep] = useState(0);
+  const [tourCompleteSignal, setTourCompleteSignal] = useState(0);
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
   const shortOnboardingIncomplete = startsWithOverviewBuilding
     && !hasCompletedOnboardingTracks(initialOnboardingAnswers);
   const [profileComplete, setProfileComplete] = useState(
     () => {
+      if (reloadLandingActive) return false;
       if (initialOnboardingAnswers && (startsWithOverviewBuilding || startsWithScorecard)) {
         const seed = mapOnboardingToDetailAnswers(initialOnboardingAnswers) as DetailAnswers;
         return hasCompletedOnboardingTracks(initialOnboardingAnswers)
@@ -9112,27 +9177,101 @@ function PatriotPayJourneyInner({
     },
   );
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
+  const editProfileFromPreviewRef = useRef(false);
+  const editBenchmarkFromPreviewRef = useRef(false);
   const [benchmarkDrawerOpen, setBenchmarkDrawerOpen] = useState(false);
+  const [benchmarkDrawerElevated, setBenchmarkDrawerElevated] = useState(false);
+  const [benchmarkEditRequestKey, setBenchmarkEditRequestKey] = useState(0);
   const [profileDrawerSection, setProfileDrawerSection] = useState<ProfileDrawerSection>("company");
+  const [profileDrawerResetKey, setProfileDrawerResetKey] = useState(0);
   const [profileDetailsSyncKey, setProfileDetailsSyncKey] = useState(0);
-  const [earnedProfileCredits, setEarnedProfileCredits] = useState(() =>
-    loadEarnedProfileCredits(FOUNDER_COMPANY.id),
-  );
+  const [earnedProfileCredits, setEarnedProfileCredits] = useState(() => {
+    if (reloadLandingActive) return { ...EMPTY_EARNED_PROFILE_CREDITS, modules: [] };
+    return loadEarnedProfileCredits(FOUNDER_COMPANY.id);
+  });
   const [profileCreditReward, setProfileCreditReward] = useState<ProfileCreditReward | null>(null);
+  const profileDrawerInitialAnswers = useMemo(
+    () => (initialOnboardingAnswers ? mapOnboardingToDetailAnswers(initialOnboardingAnswers) : undefined),
+    [initialOnboardingAnswers],
+  );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const showProfileCreditReward = useCallback((reward: ProfileCreditReward | null) => {
     if (reward) setProfileCreditReward(reward);
   }, []);
   const openBenchmarkDrawer = useCallback(() => {
-    setBenchmarkDrawerOpen(true);
+    window.requestAnimationFrame(() => {
+      setBenchmarkDrawerOpen(true);
+    });
   }, []);
   const openProfileDrawer = useCallback((section: ProfileDrawerSection = "company") => {
     if (section === "bench") {
-      setBenchmarkDrawerOpen(true);
+      openBenchmarkDrawer();
       return;
     }
-    setProfileDrawerSection(section);
-    setProfileDrawerOpen(true);
+    // Defer open so the opening click does not land on the scrim and close the drawer.
+    window.requestAnimationFrame(() => {
+      setProfileDrawerSection(section);
+      setProfileDrawerOpen(true);
+    });
+  }, [openBenchmarkDrawer]);
+
+  const openProfilePreview = useCallback(() => {
+    setProfilePreviewOpen(true);
+  }, []);
+
+  const reopenProfilePreviewAfterBenchmark = useCallback(() => {
+    if (!editBenchmarkFromPreviewRef.current) return;
+    editBenchmarkFromPreviewRef.current = false;
+    setProfileDetailsSyncKey(key => key + 1);
+    window.requestAnimationFrame(() => {
+      setProfilePreviewOpen(true);
+    });
+  }, []);
+
+  const closeBenchmarkDrawer = useCallback(() => {
+    setBenchmarkDrawerOpen(false);
+    setBenchmarkDrawerElevated(false);
+    reopenProfilePreviewAfterBenchmark();
+  }, [reopenProfilePreviewAfterBenchmark]);
+
+  const handleBenchmarkEditClosedFromPreview = useCallback(() => {
+    reopenProfilePreviewAfterBenchmark();
+  }, [reopenProfilePreviewAfterBenchmark]);
+
+  const handleEditBenchmarkFromPreview = useCallback(() => {
+    editBenchmarkFromPreviewRef.current = true;
+    setProfileDrawerOpen(false);
+    setProfilePreviewOpen(false);
+
+    if (activePage === "scorecard-v2") {
+      window.requestAnimationFrame(() => {
+        setBenchmarkEditRequestKey(key => key + 1);
+      });
+      return;
+    }
+
+    setBenchmarkDrawerElevated(true);
+    window.requestAnimationFrame(() => {
+      setBenchmarkDrawerOpen(true);
+    });
+  }, [activePage]);
+
+  const handleEditProfileFromPreview = useCallback((section: ProfileDrawerSection = "company") => {
+    if (section === "bench") {
+      handleEditBenchmarkFromPreview();
+      return;
+    }
+    editProfileFromPreviewRef.current = true;
+    setProfilePreviewOpen(false);
+    openProfileDrawer(section);
+  }, [handleEditBenchmarkFromPreview, openProfileDrawer]);
+
+  const handleProfileSavedFromPreview = useCallback(() => {
+    setProfileDetailsSyncKey(key => key + 1);
+    if (!editProfileFromPreviewRef.current) return;
+    editProfileFromPreviewRef.current = false;
+    setProfilePreviewOpen(true);
   }, []);
 
   const syncProfileCompleteFromStorage = useCallback((companyId: string) => {
@@ -9164,6 +9303,28 @@ function PatriotPayJourneyInner({
   }, [activePage]);
 
   useEffect(() => {
+    if (!isBrowserReload()) return;
+    setActivePage("scorecard-v2");
+    setProfileDrawerOpen(false);
+    setBenchmarkDrawerOpen(false);
+    setAskFuelOpen(false);
+    setProfileComplete(false);
+    setProfileDrawerSection("company");
+    setProfileDrawerResetKey(key => key + 1);
+    setEarnedProfileCredits({ ...EMPTY_EARNED_PROFILE_CREDITS, modules: [] });
+    setFounderInitiatives([]);
+    setShowTourPrompt(true);
+    setHeaderTourEnabled(false);
+    setTourOpen(false);
+    setTourStep(0);
+    setFocusInitiativeId(null);
+    setIntelligenceFocus(null);
+    setRecActionsTipOpen(false);
+    setMobileNavOpen(false);
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     if (!mobileNavOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMobileNavOpen(false);
@@ -9183,7 +9344,9 @@ function PatriotPayJourneyInner({
   const [manualPendingSources, setManualPendingSources] = useState<PendingSource[]>([]);
   const [investorIntelligenceByCompany, setInvestorIntelligenceByCompany] = useState<Record<string, IntelligenceItem[]>>({});
   const [investorInitiativesByCompany, setInvestorInitiativesByCompany] = useState<Record<string, InitiativeRecord[]>>({});
-  const [founderInitiatives, setFounderInitiatives] = useState<InitiativeRecord[]>(() => buildDefaultRecommendedInitiatives());
+  const [founderInitiatives, setFounderInitiatives] = useState<InitiativeRecord[]>(() =>
+    reloadLandingActive ? [] : buildDefaultRecommendedInitiatives(),
+  );
   const [focusInitiativeId, setFocusInitiativeId] = useState<string | null>(null);
   const [investorBenchmarkByCompany, setInvestorBenchmarkByCompany] = useState<Record<string, BenchmarkSubmission | null>>({});
   const [investorOverviewIntroCompanyId, setInvestorOverviewIntroCompanyId] = useState<string | null>(null);
@@ -9200,12 +9363,14 @@ function PatriotPayJourneyInner({
     };
   });
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
-  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(
-    () => loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission,
-  );
+  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(() => {
+    if (reloadLandingActive) return null;
+    return loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission;
+  });
   useEffect(() => {
+    if (reloadLandingActive) return;
     setEarnedProfileCredits(loadEarnedProfileCredits(selectedCompany.id));
-  }, [selectedCompany.id]);
+  }, [selectedCompany.id, reloadLandingActive]);
 
   const handleProfileModuleSaved = useCallback((
     module: ProfileModuleId,
@@ -9705,8 +9870,14 @@ function PatriotPayJourneyInner({
     setIntelligenceFocus({ ids: record.intelligenceIds, label: record.name });
     setActivePage("signals");
   };
-  const [showTourPrompt, setShowTourPrompt] = useState(false);
-  const [headerTourEnabled, setHeaderTourEnabled] = useState(!startsWithOverviewBuilding);
+  const [showTourPrompt, setShowTourPrompt] = useState(() => {
+    if (!reloadLandingActive) return false;
+    return true;
+  });
+  const [headerTourEnabled, setHeaderTourEnabled] = useState(() => {
+    if (reloadLandingActive) return false;
+    return !startsWithOverviewBuilding;
+  });
   const [showTourCoachmark, setShowTourCoachmark] = useState(false);
   const [tourTaken, setTourTaken] = useState(() => {
     try {
@@ -9720,7 +9891,7 @@ function PatriotPayJourneyInner({
     {
       page: "scorecard-v2",
       target: "tab-workspace",
-      title: "Workspace",
+      title: "Module-first",
       text: "Your home dashboard for profile completion, module progress, credits, and onboarding — start here after setup.",
     },
     {
@@ -9754,10 +9925,10 @@ function PatriotPayJourneyInner({
       text: "Submit cohort metrics for peer comparisons. Benchmark credits are earned on first submission.",
     },
     {
-      page: "connectors",
-      target: "connectors-page",
+      page: "scorecard-v2",
+      target: "workspace-connectors",
       title: "Connectors",
-      text: "Connect HubSpot, Granola, and other sources to enrich your profile and intelligence automatically.",
+      text: "Connect HubSpot or Granola to enrich your profile and unlock deeper AI insights — same connectors as the rest of your workspace.",
     },
     {
       page: "account",
@@ -9871,6 +10042,7 @@ function PatriotPayJourneyInner({
   );
   const overviewBuildTargetPhaseRef = useRef<OverviewBuildPhase>("summary");
   const [overviewBuiltPhases, setOverviewBuiltPhases] = useState<Set<OverviewBuildPhase>>(() => {
+    if (reloadLandingActive) return new Set();
     try {
       const raw = window.localStorage.getItem(`fuel-overview-built-${selectedCompany.id}`);
       if (!raw) return new Set();
@@ -9879,6 +10051,14 @@ function PatriotPayJourneyInner({
       return new Set();
     }
   });
+
+  useEffect(() => {
+    if (!isBrowserReload()) return;
+    setOverviewBuildPhase(null);
+    setOverviewBuildActive(false);
+    setOverviewBuiltPhases(new Set());
+    setBenchmarkSubmission(null);
+  }, []);
   const persistOverviewBuiltPhases = useCallback((phases: Set<OverviewBuildPhase>) => {
     try {
       window.localStorage.setItem(
@@ -9890,31 +10070,37 @@ function PatriotPayJourneyInner({
     }
   }, [selectedCompany.id]);
   useEffect(() => {
+    if (reloadLandingActive) return;
     try {
       const raw = window.localStorage.getItem(`fuel-overview-built-${selectedCompany.id}`);
       setOverviewBuiltPhases(raw ? new Set(JSON.parse(raw) as OverviewBuildPhase[]) : new Set());
     } catch {
       setOverviewBuiltPhases(new Set());
     }
-  }, [selectedCompany.id]);
+  }, [selectedCompany.id, reloadLandingActive]);
   const [recActionsTipOpen, setRecActionsTipOpen] = useState(false);
   /** True once this post-onboarding Overview build hit "ready" — tip may show even after the ready bar is dismissed. */
   const overviewContentReadyRef = useRef(false);
 
   useEffect(() => {
-    if (tourTaken || tourOpen) return;
-    try {
-      const snoozedUntil = Number(window.localStorage.getItem("fuelTourPromptSnoozedUntil") || 0);
-      if (Date.now() < snoozedUntil) return;
-    } catch {
-      /* ignore storage failures */
+    if (tourOpen) return;
+    if (tourTaken && !reloadLandingActive) return;
+    /** After "Maybe later", header Tour chip is shown — do not re-open the banner (module-first reload). */
+    if (headerTourEnabled) return;
+    if (!reloadLandingActive) {
+      try {
+        const snoozedUntil = Number(window.localStorage.getItem("fuelTourPromptSnoozedUntil") || 0);
+        if (Date.now() < snoozedUntil) return;
+      } catch {
+        /* ignore storage failures */
+      }
     }
     const building = Boolean(overviewBuildPhase && overviewBuildPhase !== "ready");
     const ready = profileComplete && (overviewBuildPhase === "ready" || overviewBuildPhase == null);
-    if (ready || building) {
+    if (reloadLandingActive || ready || building) {
       setShowTourPrompt(true);
     }
-  }, [profileComplete, overviewBuildPhase, tourTaken, tourOpen]);
+  }, [profileComplete, overviewBuildPhase, tourTaken, tourOpen, reloadLandingActive, headerTourEnabled]);
 
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
@@ -10083,6 +10269,8 @@ function PatriotPayJourneyInner({
     setShowTourCoachmark(false);
     setHeaderTourEnabled(true);
     setTourOpen(true);
+    setTourStep(0);
+    setActivePage("scorecard-v2");
     setTourIndex(0);
   }
 
@@ -10090,6 +10278,7 @@ function PatriotPayJourneyInner({
     setShowTourPrompt(false);
     setHeaderTourEnabled(true);
     setShowTourCoachmark(true);
+    if (reloadLandingActive) return;
     try {
       window.localStorage.setItem("fuelTourPromptSnoozedUntil", String(Date.now() + 24 * 60 * 60 * 1000));
     } catch {
@@ -10109,12 +10298,18 @@ function PatriotPayJourneyInner({
     setTourOpen(false);
     if (completed) {
       setTourTaken(true);
+      setActivePage("scorecard-v2");
+      setAskFuelOpen(false);
+      setAccountTab("profile");
+      setTourCompleteSignal(signal => signal + 1);
+      window.scrollTo(0, 0);
       try {
         window.localStorage.setItem("fuelWorkspaceTourTakenAt", String(Date.now()));
         window.localStorage.setItem("fuelWorkspaceTourTaken", "true");
       } catch {
         // Ignore storage failures in preview/demo environments.
       }
+      return;
     }
     if (startsWithTour || startsWithOverviewBuilding) {
       setActivePage("scorecard-v2");
@@ -10166,8 +10361,10 @@ function PatriotPayJourneyInner({
             : "Company";
 
   const founderBenchmarkForm = useMemo(
-    () => resolveBenchmarkFormValues(benchmarkSubmission, initialBenchmark),
-    [benchmarkSubmission, initialBenchmark],
+    () => reloadLandingActive
+      ? EMPTY_BENCHMARK_FORM
+      : resolveBenchmarkFormValues(benchmarkSubmission, initialBenchmark),
+    [benchmarkSubmission, initialBenchmark, reloadLandingActive],
   );
   const investorBenchmarkForm = useMemo(
     () => resolveBenchmarkFormValues(investorBenchmarkByCompany[selectedCompany.id], null),
@@ -10187,12 +10384,15 @@ function PatriotPayJourneyInner({
     [selectedCompany.displayName, selectedCompany.logo],
   );
 
-  /** Hide inline workspace tour bar when tour is offered in the header or top banner. */
-  const showWorkspaceTourBar =
-    !tourTaken
-    && !showTourPrompt
-    && !headerTourEnabled
-    && !tourOpen;
+  /** Tour chip in the top bar — same entry point across all overview designs. */
+  const effectiveTourTaken = tourTaken && !reloadLandingActive;
+
+  const workspaceInitiativesCount = useMemo(() => {
+    const items = usesPerCompanyWorkspace
+      ? investorInitiativesByCompany[selectedCompany.id] ?? []
+      : founderInitiatives;
+    return countWorkspaceInitiatives(items);
+  }, [usesPerCompanyWorkspace, investorInitiativesByCompany, selectedCompany.id, founderInitiatives]);
 
   const mobileNavToggleButton = (
     <button
@@ -10392,7 +10592,7 @@ function PatriotPayJourneyInner({
             >
               <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
             </span>
-            {!tourTaken && headerTourEnabled ? (
+            {!effectiveTourTaken && headerTourEnabled ? (
               <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
                 <button
                   type="button"
@@ -10434,8 +10634,8 @@ function PatriotPayJourneyInner({
               type="button"
               className={`company-profile-link${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
               data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
-              onClick={() => openProfileDrawer("company")}
-              aria-label={`Open ${selectedCompany.displayName} profile`}
+              onClick={openProfilePreview}
+              aria-label={`Preview ${selectedCompany.displayName} profile`}
             >
               <div
                 className="company-logo"
@@ -10545,7 +10745,12 @@ function PatriotPayJourneyInner({
               setActivePage("initiatives");
             }}
           >
-            Initiatives<span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>2</span>
+            Initiatives
+            {workspaceInitiativesCount > 0 ? (
+              <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>
+                {workspaceInitiativesCount}
+              </span>
+            ) : null}
           </div>
           <div
             className={`tab ${activePage === "overview" ? "active" : ""}`}
@@ -10570,6 +10775,7 @@ function PatriotPayJourneyInner({
             onStartTour={startTour}
             onDismiss={dismissTourPrompt}
             building={Boolean(overviewBuildPhase && overviewBuildPhase !== "ready")}
+            reloadLanding={reloadLandingActive}
           />
         ) : null}
 
@@ -10921,6 +11127,17 @@ function PatriotPayJourneyInner({
                 openProfileDrawer(section === "company" ? "company" : "company");
               }}
               profileDetailsSyncKey={profileDetailsSyncKey}
+              profileDrawerOpen={profileDrawerOpen}
+              reloadLandingActive={reloadLandingActive}
+              tourCompleteSignal={tourCompleteSignal}
+              benchmarkEditRequestKey={benchmarkEditRequestKey}
+              onBenchmarkEditClosed={handleBenchmarkEditClosedFromPreview}
+              onLandingContentRestore={() => {
+                setReloadLandingActive(false);
+                setShowTourPrompt(false);
+                setHeaderTourEnabled(true);
+                startOverviewBuild("summary", "full");
+              }}
               earnedProfileCredits={earnedProfileCredits}
               companyKey={selectedCompany.id}
               onProfileCreditsChange={setEarnedProfileCredits}
@@ -10943,7 +11160,7 @@ function PatriotPayJourneyInner({
                 setRecActionsTipOpen(false);
               }}
               onStartOptionalTour={
-                showWorkspaceTourBar
+                !effectiveTourTaken
                   ? () => {
                       setOverviewBuildPhase(null);
                       setOverviewBuildActive(false);
@@ -11037,19 +11254,48 @@ function PatriotPayJourneyInner({
         companyKey={selectedCompany.id}
         initialValues={scorecardBenchmarkForm}
         earnedProfileCredits={earnedProfileCredits}
-        onClose={() => setBenchmarkDrawerOpen(false)}
+        elevatedScrim={benchmarkDrawerElevated}
+        onClose={closeBenchmarkDrawer}
         onSaveDraft={values => {
           if (usesPerCompanyWorkspace) applyBenchmarkSubmission(values, selectedCompany.id);
           else applyBenchmarkSubmission(values);
         }}
         onSubmit={handleBenchmarkSubmit}
       />
+      <CompanyProfilePreview
+        open={profilePreviewOpen}
+        companyName={selectedCompany.displayName}
+        companyKey={selectedCompany.id}
+        onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
+        reloadLandingActive={reloadLandingActive}
+        userFullName={initialOnboardingAnswers?.userFullName?.trim() || "Shreya Gokani"}
+        userRole={initialOnboardingAnswers?.userRole}
+        userEmail={
+          initialOnboardingAnswers?.userFullName
+            ? `${initialOnboardingAnswers.userFullName.trim().toLowerCase().replace(/\s+/g, ".")}@york.ie`
+            : "shreya.g@york.ie"
+        }
+        syncKey={profileDetailsSyncKey}
+        benchmarkValues={scorecardBenchmarkForm}
+        benchmarkEarned={Boolean(earnedProfileCredits.benchmark && earnedProfileCredits.benchmarkViaSubmit)}
+        onClose={() => setProfilePreviewOpen(false)}
+        onEditProfile={handleEditProfileFromPreview}
+        onEditBenchmark={handleEditBenchmarkFromPreview}
+      />
       <CompleteProfileDrawer
         open={profileDrawerOpen}
         companyName={selectedCompany.displayName}
         companyKey={selectedCompany.id}
         initialSection={profileDrawerSection}
-        onClose={() => setProfileDrawerOpen(false)}
+        initialAnswers={profileDrawerInitialAnswers}
+        reloadLandingActive={reloadLandingActive}
+        drawerResetKey={profileDrawerResetKey}
+        onClose={() => {
+          setProfileDrawerOpen(false);
+          setProfileDetailsSyncKey(key => key + 1);
+          editProfileFromPreviewRef.current = false;
+        }}
+        onSaved={handleProfileSavedFromPreview}
         onAnswersChange={() => setProfileDetailsSyncKey(key => key + 1)}
         onModuleSaved={handleProfileModuleSaved}
         onModuleProgress={handleProfileModuleProgress}
@@ -11060,6 +11306,7 @@ function PatriotPayJourneyInner({
           setEarnedProfileCredits(markModulesEarned(completedModules, selectedCompany.id));
           setProfileComplete(true);
           setProfileDrawerOpen(false);
+          handleProfileSavedFromPreview();
         }}
       />
       {profileCreditReward ? (

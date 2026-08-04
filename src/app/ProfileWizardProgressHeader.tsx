@@ -68,6 +68,7 @@ type ProfileWizardProgressHeaderProps = {
   justEarnedCredits: number;
   embedded?: boolean;
   onClose?: () => void;
+  onStepSelect?: (moduleId: ProfileModuleId, stepIndex: number) => void;
 };
 
 export function ProfileWizardProgressHeader({
@@ -79,6 +80,7 @@ export function ProfileWizardProgressHeader({
   justEarnedCredits,
   embedded = false,
   onClose,
+  onStepSelect,
 }: ProfileWizardProgressHeaderProps) {
   const reduced = useReducedMotion();
   const compact = embedded;
@@ -185,78 +187,96 @@ export function ProfileWizardProgressHeader({
           {STEPPER_STEPS.map((step, index) => {
             const done = earnedModules.includes(step.id) || stage === "results";
             const current = activeModule === step.id && stage !== "results";
+            const stepInner = (
+              <>
+                {!compact ? (
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {done ? (
+                      <motion.svg
+                        key="check"
+                        className="pwp-step-check"
+                        width="10"
+                        height="8"
+                        viewBox="0 0 10 8"
+                        fill="none"
+                        aria-hidden="true"
+                        initial={reduced ? false : { opacity: 0, scale: 0.3, rotate: -18 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 0.4 }}
+                        transition={SPRING_SNAPPY}
+                      >
+                        <path
+                          d="M1 4l2.5 2.5L9 1"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </motion.svg>
+                    ) : current ? (
+                      <motion.span
+                        key="dot"
+                        className="pwp-step-dot"
+                        aria-hidden="true"
+                        initial={reduced ? false : { scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        transition={SPRING_SNAPPY}
+                      />
+                    ) : null}
+                  </AnimatePresence>
+                ) : done ? (
+                  <svg
+                    className="pwp-step-check"
+                    width="10"
+                    height="8"
+                    viewBox="0 0 10 8"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M1 4l2.5 2.5L9 1"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : null}
+                <span className="pwp-step-label">{step.label}</span>
+                {!compact && current ? (
+                  <motion.span
+                    layoutId="pwp-step-underline"
+                    className="pwp-step-underline"
+                    transition={SPRING_SNAPPY}
+                  />
+                ) : null}
+              </>
+            );
+
             return (
               <motion.li
                 key={step.id}
                 className={`pwp-step${done ? " is-done" : ""}${current ? " is-current" : ""}`}
-                aria-current={current ? "step" : undefined}
                 layout={compact ? false : "position"}
                 transition={SPRING_SNAPPY}
               >
-                <span className="pwp-step-inner">
-                  {!compact ? (
-                    <AnimatePresence mode="popLayout" initial={false}>
-                      {done ? (
-                        <motion.svg
-                          key="check"
-                          className="pwp-step-check"
-                          width="10"
-                          height="8"
-                          viewBox="0 0 10 8"
-                          fill="none"
-                          aria-hidden="true"
-                          initial={reduced ? false : { opacity: 0, scale: 0.3, rotate: -18 }}
-                          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                          exit={{ opacity: 0, scale: 0.4 }}
-                          transition={SPRING_SNAPPY}
-                        >
-                          <path
-                            d="M1 4l2.5 2.5L9 1"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </motion.svg>
-                      ) : current ? (
-                        <motion.span
-                          key="dot"
-                          className="pwp-step-dot"
-                          aria-hidden="true"
-                          initial={reduced ? false : { scale: 0 }}
-                          animate={{ scale: 1 }}
-                          exit={{ scale: 0 }}
-                          transition={SPRING_SNAPPY}
-                        />
-                      ) : null}
-                    </AnimatePresence>
-                  ) : done ? (
-                    <svg
-                      className="pwp-step-check"
-                      width="10"
-                      height="8"
-                      viewBox="0 0 10 8"
-                      fill="none"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M1 4l2.5 2.5L9 1"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  ) : null}
-                  <span className="pwp-step-label">{step.label}</span>
-                  {!compact && current ? (
-                    <motion.span
-                      layoutId="pwp-step-underline"
-                      className="pwp-step-underline"
-                      transition={SPRING_SNAPPY}
-                    />
-                  ) : null}
-                </span>
+                {onStepSelect && stage !== "results" ? (
+                  <button
+                    type="button"
+                    className="pwp-step-btn"
+                    aria-current={current ? "step" : undefined}
+                    aria-label={`${step.label}${current ? ", current section" : ""}`}
+                    disabled={current}
+                    onClick={() => onStepSelect(step.id, index)}
+                  >
+                    <span className="pwp-step-inner">{stepInner}</span>
+                  </button>
+                ) : (
+                  <span className="pwp-step-inner" aria-current={current ? "step" : undefined}>
+                    {stepInner}
+                  </span>
+                )}
                 {!compact && index < STEPPER_STEPS.length - 1 ? (
                   <span className={`pwp-step-connector${done ? " is-filled" : ""}`} aria-hidden="true" />
                 ) : null}

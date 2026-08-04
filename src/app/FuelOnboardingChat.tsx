@@ -1430,35 +1430,35 @@ export function getBenchmarkTier(value: number, field: BenchmarkWizardField) {
 
 type BenchmarkTier = ReturnType<typeof getBenchmarkTier>;
 
-/** Status styles — green / amber / red only (identical in light and dark). */
+/** Status styles — three tokens only (good / watch / bad). */
 const STATUS_STYLE_GOOD = {
-  marker: "var(--fuel-accent)",
-  glow: "rgba(18, 184, 134, 0.35)",
-  badgeBg: "rgba(18, 184, 134, 0.12)",
-  badgeBorder: "rgba(18, 184, 134, 0.28)",
-  calloutBg: "rgba(18, 184, 134, 0.08)",
-  calloutBorder: "rgba(18, 184, 134, 0.22)",
-  value: "var(--fuel-accent)",
+  marker: "var(--status-good)",
+  glow: "var(--status-good-line)",
+  badgeBg: "var(--status-good-dim)",
+  badgeBorder: "var(--status-good-line)",
+  calloutBg: "var(--status-good-dim)",
+  calloutBorder: "var(--status-good-line)",
+  value: "var(--status-good)",
 } as const;
 
 const STATUS_STYLE_WATCH = {
-  marker: "#F5A623",
-  glow: "rgba(245,166,35,0.35)",
-  badgeBg: "rgba(245,166,35,0.12)",
-  badgeBorder: "rgba(245,166,35,0.28)",
-  calloutBg: "rgba(245,166,35,0.08)",
-  calloutBorder: "rgba(245,166,35,0.22)",
-  value: "#F5A623",
+  marker: "var(--status-watch)",
+  glow: "var(--status-watch-line)",
+  badgeBg: "var(--status-watch-dim)",
+  badgeBorder: "var(--status-watch-line)",
+  calloutBg: "var(--status-watch-dim)",
+  calloutBorder: "var(--status-watch-line)",
+  value: "var(--status-watch)",
 } as const;
 
 const STATUS_STYLE_BAD = {
-  marker: "#E05C5C",
-  glow: "rgba(224,92,92,0.35)",
-  badgeBg: "rgba(224,92,92,0.12)",
-  badgeBorder: "rgba(224,92,92,0.28)",
-  calloutBg: "rgba(224,92,92,0.08)",
-  calloutBorder: "rgba(224,92,92,0.22)",
-  value: "#E05C5C",
+  marker: "var(--status-bad)",
+  glow: "var(--status-bad-line)",
+  badgeBg: "var(--status-bad-dim)",
+  badgeBorder: "var(--status-bad-line)",
+  calloutBg: "var(--status-bad-dim)",
+  calloutBorder: "var(--status-bad-line)",
+  value: "var(--status-bad)",
 } as const;
 
 export const BENCHMARK_TIER_PALETTE: Record<BenchmarkTier, {

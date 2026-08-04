@@ -13,6 +13,10 @@ html[data-theme="dark"] {
   --status-good: #12b886;
   --status-watch: #f5a623;
   --status-bad: #e05c5c;
+  /* Semantic aliases — always resolve to the three tokens above */
+  --status-success: var(--status-good);
+  --status-warning: var(--status-watch);
+  --status-error: var(--status-bad);
   --status-good-dim: color-mix(in srgb, var(--status-good) 14%, transparent);
   --status-watch-dim: color-mix(in srgb, var(--status-watch) 14%, transparent);
   --status-bad-dim: color-mix(in srgb, var(--status-bad) 14%, transparent);

@@ -7,11 +7,13 @@ import {
   type Brief, type BriefFlag, type Playbook,
 } from "./fuelBrief";
 
+import { briefFlagToColor } from "./statusSystem";
+
 const FLAG_COLOUR: Record<BriefFlag, string> = {
-  good: "#3FD68C",
-  warn: "#E0B341",
-  crit: "#CF8A8A",
-  neutral: "#7B8997",
+  good: briefFlagToColor("good"),
+  warn: briefFlagToColor("warn"),
+  crit: briefFlagToColor("crit"),
+  neutral: briefFlagToColor("neutral"),
 };
 const FLAG_DOT: Record<BriefFlag, string> = { good: "✅", warn: "🟡", crit: "🔴", neutral: "·" };
 

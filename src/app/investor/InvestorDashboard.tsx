@@ -816,7 +816,7 @@ function DemographicAllocationChart({ slices }: { slices: DemographicAllocationS
               {data.map((slice, index) => (
                 <Cell
                   key={slice.region}
-                  fill={index === 0 ? "var(--fuel-accent, #00B48A)" : slice.color}
+                  fill={index === 0 ? "var(--status-good)" : slice.color}
                 />
               ))}
               <LabelList dataKey="amount" content={<DemographicAmountLabel />} />

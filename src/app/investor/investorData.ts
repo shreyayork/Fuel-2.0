@@ -743,13 +743,11 @@ export type PortfolioBenchmarkSummary = {
   metrics: PortfolioBenchmarkMetric[];
 };
 
-/** Green when above / over; yellow → orange → red when below. */
+/** Green when above / over; watch when mid; bad when low. Three colors only. */
 export function colorForBenchmarkScore(score: number): string {
-  if (score >= 65) return "#00B48A";
-  if (score >= 50) return "#2BB8A0";
-  if (score >= 40) return "#D4A86A";
-  if (score >= 25) return "#E8923A";
-  return "#CF6B6B";
+  if (score >= 55) return "var(--status-good, #12b886)";
+  if (score >= 35) return "var(--status-watch, #f5a623)";
+  return "var(--status-bad, #e05c5c)";
 }
 
 function seededUnit(seed: string): number {

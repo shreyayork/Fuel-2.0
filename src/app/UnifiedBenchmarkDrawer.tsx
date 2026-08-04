@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { confirmSaveAndExit } from "./formConfirm";
+import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
+import { sanitizeBenchmarkNumericInput } from "./benchmarkInput";
 import { useDialogA11y } from "./a11y/useDialogA11y";
 import {
   BENCHMARK_REWARD_CREDITS,
@@ -119,7 +120,10 @@ function BenchmarkMetricField({
       <div className="benchmark-metric-input-row">
         <input
           value={value}
-          onChange={event => onChange(event.target.value)}
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          onChange={event => onChange(sanitizeBenchmarkNumericInput(event.target.value))}
           placeholder={placeholder}
           aria-required={required}
         />
@@ -239,11 +243,19 @@ export function UnifiedBenchmarkDrawer({
   onSubmit,
   onSaveDraft,
 }: UnifiedBenchmarkDrawerProps) {
+  const { requestSaveExit, dialog: saveExitConfirmDialog } = useSaveExitConfirm();
   const [values, setValues] = useState<BenchmarkFormValues>(() => ({ ...initialValues }));
+  const hydratedRef = useRef<string | null>(null);
+  const initialValuesRef = useRef(initialValues);
+  initialValuesRef.current = initialValues;
 
+  // Hydrate once per company open — never while the user is typing.
   useEffect(() => {
-    setValues({ ...initialValues });
-  }, [companyKey, initialValues]);
+    const hydrationKey = companyKey;
+    if (hydratedRef.current === hydrationKey) return;
+    hydratedRef.current = hydrationKey;
+    setValues({ ...initialValuesRef.current });
+  }, [companyKey]);
 
   const mergedEarned = useMemo((): EarnedProfileCredits => {
     return earnedProfileCredits ?? loadEarnedProfileCredits(companyKey);
@@ -259,15 +271,17 @@ export function UnifiedBenchmarkDrawer({
   );
   const benchmarkCreditsLeft = benchmarkEarned ? 0 : BENCHMARK_REWARD_CREDITS;
   const filledCount = countFilledBenchmarkMetrics(values);
+  const handleScrimPointerDown = useScrimPointerClose(onClose);
 
   const update = (key: keyof BenchmarkFormValues, next: string | boolean) => {
     setValues(previous => ({ ...previous, [key]: next }));
   };
 
   const handleSaveExit = () => {
-    if (!confirmSaveAndExit()) return;
-    onSaveDraft?.(values);
-    onClose();
+    requestSaveExit(() => {
+      onSaveDraft?.(values);
+      onClose();
+    });
   };
 
   const handleSubmit = () => {
@@ -278,7 +292,7 @@ export function UnifiedBenchmarkDrawer({
   const drawer = (
     <aside
       className={embedded ? "profile-complete-drawer-inner benchmark-wizard-shell benchmark-wizard-shell--single" : "sc-drawer"}
-      onClick={event => event.stopPropagation()}
+      {...drawerPanelPointerProps()}
       role="dialog"
       aria-label={`Benchmark setup for ${companyName}`}
     >
@@ -374,11 +388,19 @@ export function UnifiedBenchmarkDrawer({
     </aside>
   );
 
-  if (embedded) return drawer;
+  if (embedded) {
+    return (
+      <>
+        {drawer}
+        {saveExitConfirmDialog}
+      </>
+    );
+  }
 
   return (
-    <div className="sc-drawer-scrim" onClick={onClose}>
+    <div className="sc-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
       {drawer}
+      {saveExitConfirmDialog}
     </div>
   );
 }
@@ -389,6 +411,7 @@ export function CompleteBenchmarkDrawer({
   companyKey,
   initialValues,
   earnedProfileCredits,
+  elevatedScrim = false,
   onClose,
   onSubmit,
   onSaveDraft,
@@ -398,12 +421,14 @@ export function CompleteBenchmarkDrawer({
   companyKey?: string;
   initialValues?: BenchmarkFormValues;
   earnedProfileCredits?: EarnedProfileCredits;
+  elevatedScrim?: boolean;
   onClose: () => void;
   onSubmit: (values: BenchmarkFormValues) => void;
   onSaveDraft?: (values: BenchmarkFormValues) => void;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
   useDialogA11y(open, dialogRef, onClose);
+  const handleScrimPointerDown = useScrimPointerClose(onClose, open);
 
   useEffect(() => {
     if (!open) return;
@@ -417,14 +442,18 @@ export function CompleteBenchmarkDrawer({
   if (!open) return null;
 
   return createPortal(
-    <div className="profile-complete-drawer-scrim" onClick={onClose} role="presentation">
+    <div
+      className={`profile-complete-drawer-scrim${elevatedScrim ? " profile-complete-drawer-scrim--elevated" : ""}`}
+      onPointerDown={handleScrimPointerDown}
+      role="presentation"
+    >
       <aside
         ref={dialogRef}
         className="profile-complete-drawer"
         role="dialog"
         aria-modal="true"
         aria-labelledby="benchmark-complete-drawer-title"
-        onClick={event => event.stopPropagation()}
+        {...drawerPanelPointerProps()}
       >
         <h2 id="benchmark-complete-drawer-title" className="sr-only">Submit benchmark metrics</h2>
         <div className="profile-complete-drawer-body">

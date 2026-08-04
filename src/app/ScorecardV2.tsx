@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fuel } from "./fuelTokens";
+import { statusLineCss, signalUrgencyToStatus } from "./statusSystem";
+import {
+  clearReloadLandingActive,
+  isBrowserReload,
+  isReloadLandingActive,
+  landingDisplayPercent,
+  landingDisplayScore,
+} from "./workspaceSession";
 import { createPortal } from "react-dom";
 import {
   BenchmarkPeerComparisonPanel,
@@ -41,8 +49,9 @@ import {
 import { isYorkOfferDismissed } from "./yorkDismiss";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import { AccountIntegrationsList } from "./account/AccountIntegrationsList.tsx";
-import { confirmSaveAndExit } from "./formConfirm";
+import { useSaveExitConfirm } from "./SaveExitConfirmDialog";
 import { useDialogA11y } from "./a11y/useDialogA11y";
+import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
 import { handleTabListKeyDown } from "./a11y/tabListKeyboard";
 import { FuelIcon, type FuelIconName } from "./icons";
 import { loadDetailAnswers } from "./profileDetailsStorage";
@@ -317,6 +326,8 @@ export type ScorecardV2Props = {
   onOpenProfileDetails?: (section?: ProfileModuleId | ScorecardCategory) => void;
   /** Bumps when the unified profile drawer saves — re-hydrates detailAnswers. */
   profileDetailsSyncKey?: number;
+  /** While true, skip re-hydrating detailAnswers so drawer edits are not overwritten. */
+  profileDrawerOpen?: boolean;
   /** Earned intelligence-unlock credits (50 starting + up to 200 earned). */
   earnedProfileCredits?: EarnedProfileCredits;
   /** Storage key for persisting earned credits (company id). */
@@ -325,6 +336,16 @@ export type ScorecardV2Props = {
   onProfileCreditsChange?: (earned: EarnedProfileCredits) => void;
   /** Fires with motivational copy when a milestone credit reward is newly earned. */
   onProfileCreditReward?: (reward: ProfileCreditReward) => void;
+  /** After a reload landing, user edited profile/benchmark — regenerate summary + tracks. */
+  onLandingContentRestore?: () => void;
+  /** True while the post-reload clean landing state is active. */
+  reloadLandingActive?: boolean;
+  /** Bumped when the workspace tour finishes — resets Overview to module-first landing. */
+  tourCompleteSignal?: number;
+  /** Parent requests opening the benchmark edit drawer (e.g. from profile preview). */
+  benchmarkEditRequestKey?: number;
+  /** Fires when the benchmark edit drawer closes. */
+  onBenchmarkEditClosed?: () => void;
 };
 
 export type OverviewBuildPhase =
@@ -405,6 +426,25 @@ function overviewTrackBuilding(
   phase: OverviewBuildPhase | null | undefined,
 ): boolean {
   return phase === categoryId;
+}
+
+/**
+ * Workspace progress feed — show live category scores unless that pillar is actively
+ * animating in the sequential build. Avoids leaving R&D on skeleton when only GTM/G&A
+ * phases were persisted from per-module saves.
+ */
+function workspaceProgressTrackReady(
+  categoryId: ScorecardCategory,
+  phase: OverviewBuildPhase | null | undefined,
+  builtPhases: ReadonlySet<OverviewBuildPhase> | undefined,
+  hasWorkspaceContent: boolean,
+  displayScoresZero = false,
+): boolean {
+  if (displayScoresZero) return overviewTrackBuilding(categoryId, phase);
+  if (overviewTrackBuilding(categoryId, phase)) return false;
+  if (overviewTrackReady(categoryId, phase, builtPhases)) return true;
+  if (hasWorkspaceContent && phase !== "summary") return true;
+  return false;
 }
 
 /** Maps a saved profile module to the overview build phase that should run. */
@@ -1279,6 +1319,7 @@ function GlanceScoreRing({
   onRequestClose,
   className,
   size = 88,
+  scoreLabel,
 }: {
   cat: CategoryData;
   score: number;
@@ -1288,6 +1329,8 @@ function GlanceScoreRing({
   className?: string;
   /** Ring diameter in px — use ~72 on horizontal track cards (score-first). */
   size?: number;
+  /** Optional formatted score text (e.g. "00" on reload landing). */
+  scoreLabel?: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -1427,7 +1470,7 @@ function GlanceScoreRing({
             />
           </svg>
           <div className="sc-glance-ring-label">
-            <strong style={{ color: cat.barColour }}>{score}</strong>
+            <strong style={{ color: cat.barColour }}>{scoreLabel ?? score}</strong>
           </div>
         </div>
         {typeof document !== "undefined" && popoverNode
@@ -1739,7 +1782,7 @@ function computeProfileProgress(categories: CategoryData[]): number {
 // PULSE_OVERVIEW_ARCHIVED — full Pulse tab code lives in src/app/archived/ (see PULSE_TAB_RESTORE.md)
 type OverviewDesignTab = "new" | "old" | "workspace";
 
-/** Temporary design comparison — New / Old / Workspace overview layouts. */
+/** Temporary design comparison — three overview layout approaches. */
 function OverviewDesignTabs({
   active,
   onChange,
@@ -1749,14 +1792,27 @@ function OverviewDesignTabs({
   onChange: (tab: OverviewDesignTab) => void;
   activeTourTarget?: string;
 }) {
-  const tabs: { id: OverviewDesignTab; label: string; tourTarget?: string }[] = [
-    { id: "new", label: "New" },
-    { id: "old", label: "Old" },
-    { id: "workspace", label: "Workspace", tourTarget: "tab-workspace" },
+  const tabs: { id: OverviewDesignTab; label: string; title: string; tourTarget?: string }[] = [
+    {
+      id: "new",
+      label: "Advisor-first",
+      title: "Approach 1 — full overview with advisor, scores, and progress feed",
+    },
+    {
+      id: "old",
+      label: "Gate-first",
+      title: "Approach 2 — profile completion gate before analytics unlock",
+    },
+    {
+      id: "workspace",
+      label: "Module-first",
+      title: "Approach 3 — module cards, credits, and workspace progress feed",
+      tourTarget: "tab-workspace",
+    },
   ];
 
   return (
-    <div className="sc-overview-design-tabs sc-overview-design-tabs--triple" role="tablist" aria-label="Overview layouts">
+    <div className="sc-overview-design-tabs sc-overview-design-tabs--triple" role="tablist" aria-label="Overview design approaches">
       {tabs.map(tab => (
         <button
           key={tab.id}
@@ -1766,6 +1822,7 @@ function OverviewDesignTabs({
           className={`sc-overview-design-tab${active === tab.id ? " is-active" : ""}${tab.tourTarget && activeTourTarget === tab.tourTarget ? " tour-highlight" : ""}`}
           aria-selected={active === tab.id}
           aria-controls={`overview-design-panel-${tab.id}`}
+          title={tab.title}
           data-tour-target={tab.tourTarget && activeTourTarget === tab.tourTarget ? tab.tourTarget : undefined}
           onClick={() => onChange(tab.id)}
           onKeyDown={event => handleTabListKeyDown(event, tabs.map(item => item.id), active, onChange)}
@@ -2171,12 +2228,14 @@ function WorkspaceModuleProgressRing({
   total,
   complete,
   insightReady,
+  displayPercentLabel,
 }: {
   percent: number;
   answered: number;
   total: number;
   complete: boolean;
   insightReady: boolean;
+  displayPercentLabel?: string;
 }) {
   const size = 44;
   const stroke = 4;
@@ -2194,11 +2253,12 @@ function WorkspaceModuleProgressRing({
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <circle
+          className="sc-workspace-module-ring-track"
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--fuel-surface-2, var(--surface-2))"
+          stroke="var(--panel-border)"
           strokeWidth={stroke}
         />
         <circle
@@ -2215,7 +2275,7 @@ function WorkspaceModuleProgressRing({
         />
       </svg>
       <div className="sc-workspace-module-ring-label">
-        <strong>{clampedPercent}%</strong>
+        <strong>{displayPercentLabel ?? `${clampedPercent}%`}</strong>
       </div>
     </div>
   );
@@ -2228,6 +2288,7 @@ function WorkspaceModuleCardGrid({
   active,
   creditBalance,
   creditsTotal = PROFILE_TOTAL_CREDITS,
+  displayScoresZero = false,
 }: {
   modules: Array<{
     id: WorkspaceSectionId;
@@ -2250,6 +2311,7 @@ function WorkspaceModuleCardGrid({
   active: boolean;
   creditBalance?: number;
   creditsTotal?: number;
+  displayScoresZero?: boolean;
 }) {
   return (
     <section className="sc-workspace-modules-panel" aria-label="5 modules to complete">
@@ -2263,7 +2325,11 @@ function WorkspaceModuleCardGrid({
           </p>
         </div>
         {creditBalance != null ? (
-          <div className="sc-workspace-modules-credit-tally" aria-label="Intelligence credits balance">
+          <div
+            className={`sc-workspace-modules-credit-tally${activeTourTarget === "workspace-credits" ? " tour-highlight" : ""}`}
+            aria-label="Intelligence credits balance"
+            data-tour-target={activeTourTarget === "workspace-credits" ? "workspace-credits" : undefined}
+          >
             <span className="sc-workspace-modules-credit-tally-label">Credits</span>
             <strong>{creditBalance.toLocaleString()}</strong>
             <span className="sc-workspace-modules-credit-tally-total">/ {creditsTotal.toLocaleString()}</span>
@@ -2306,12 +2372,18 @@ function WorkspaceModuleCardGrid({
                 </div>
                 {isProfileCard && module.progress.total > 0 ? (
                   <WorkspaceModuleProgressRing
-                    percent={module.progress.percent}
+                    percent={landingDisplayPercent(module.progress.percent, displayScoresZero)}
                     answered={module.progress.answered}
                     total={module.progress.total}
                     complete={module.complete}
                     insightReady={Boolean(module.insightReady)}
+                    displayPercentLabel={displayScoresZero ? "00" : undefined}
                   />
+                ) : !isProfileCard && module.id === "benchmark" && displayScoresZero ? (
+                  <span className="sc-workspace-module-card-pct" aria-label="Benchmark score 0 out of 100">
+                    <strong>00</strong>
+                    <em>score</em>
+                  </span>
                 ) : !isProfileCard && module.progress.total > 0 ? (
                   <span
                     className="sc-workspace-module-card-pct"
@@ -2326,12 +2398,14 @@ function WorkspaceModuleCardGrid({
               <p className="sc-workspace-module-card-desc">{module.footer}</p>
               <div className="sc-workspace-module-card-foot">
                 <span className={`sc-workspace-module-card-status is-${cardStatus}`}>{statusLabel}</span>
-                {module.creditsOfferVisible ? (
-                  <span className="sc-workspace-module-card-credits sc-workspace-module-card-credits--offer">
-                    Get +{module.credits} credits
-                  </span>
-                ) : null}
-                <span className="sc-workspace-module-card-cta">{module.cta} →</span>
+                <div className="sc-workspace-module-card-actions">
+                  {module.creditsOfferVisible ? (
+                    <span className="sc-workspace-module-card-credits sc-workspace-module-card-credits--offer">
+                      Get +{module.credits} credits
+                    </span>
+                  ) : null}
+                  <span className="sc-workspace-module-card-cta">{module.cta} →</span>
+                </div>
               </div>
             </button>
           );
@@ -2350,6 +2424,41 @@ const WORKSPACE_BENCHMARK_SECTION = {
   icon: "benchmarks" as FuelIconName,
   unlocks: ["Peer comparisons", "Cohort percentile scores", "Track benchmark alignment"],
 };
+
+function tourCategoryFromTarget(activeTourTarget?: string): ScorecardCategory | null {
+  if (!activeTourTarget?.startsWith("category-")) return null;
+  const id = activeTourTarget.slice("category-".length);
+  if (id === "dev" || id === "gtm" || id === "rev") return id;
+  return null;
+}
+
+function shouldShowCategoryGlanceForTour(
+  categoryId: ScorecardCategory,
+  activeTourTarget?: string,
+  phase?: OverviewBuildPhase | null,
+  builtPhases?: ReadonlySet<OverviewBuildPhase>,
+): boolean {
+  if (tourCategoryFromTarget(activeTourTarget) === categoryId) return true;
+  return overviewTrackReady(categoryId, phase, builtPhases);
+}
+
+function shouldShowWorkspaceCategoryGlanceForTour(
+  categoryId: ScorecardCategory,
+  activeTourTarget?: string,
+  phase?: OverviewBuildPhase | null,
+  builtPhases?: ReadonlySet<OverviewBuildPhase>,
+  hasWorkspaceContent = false,
+  displayScoresZero = false,
+): boolean {
+  if (tourCategoryFromTarget(activeTourTarget) === categoryId) return true;
+  return workspaceProgressTrackReady(
+    categoryId,
+    phase,
+    builtPhases,
+    hasWorkspaceContent,
+    displayScoresZero,
+  );
+}
 
 function workspaceTourTarget(sectionId: WorkspaceSectionId): string | undefined {
   if (sectionId === "company") return "workspace-profile-card";
@@ -2392,10 +2501,10 @@ function OverviewWorkspaceDashboard({
   onOpenWikiSummary,
   onEditBenchmark,
   onAddSources,
-  onStartOptionalTour,
   activeTourTarget,
   showShareTip = false,
   onDismissShareTip,
+  displayScoresZero = false,
 }: {
   userFirstName?: string;
   companyName: string;
@@ -2425,10 +2534,10 @@ function OverviewWorkspaceDashboard({
   onOpenWikiSummary?: (highlightRefId?: number) => void;
   onEditBenchmark?: () => void;
   onAddSources?: () => void;
-  onStartOptionalTour?: () => void;
   activeTourTarget?: string;
   showShareTip?: boolean;
   onDismissShareTip?: () => void;
+  displayScoresZero?: boolean;
 }) {
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const benchmarkEarned = Boolean(
@@ -2484,16 +2593,23 @@ function OverviewWorkspaceDashboard({
   const hasWorkspaceContent = hasProfileBasicsStarted(displayAnswers) || benchFilled > 0;
   const startedCount = modules.filter(section => section.userStarted).length;
   const allEmpty = !hasWorkspaceContent && startedCount === 0;
+  const contentLandingHidden = displayScoresZero;
   const isBuildingAdvisor = overviewBuildPhase === "summary";
   const isBuildingTrack = categories.some(cat => overviewTrackBuilding(cat.id, overviewBuildPhase));
   const isBuildingReport = isBuildingAdvisor || isBuildingTrack;
-  const showProgressFeed = hasWorkspaceContent || isBuildingReport || Boolean(overviewBuildPhase);
-  const showAdvisorSection = hasWorkspaceContent
-    || progressSummary.reportReadiness !== "none"
-    || Boolean(overviewBuildPhase);
+  const showProgressFeed = isBuildingReport
+    || (!contentLandingHidden && (hasWorkspaceContent || Boolean(overviewBuildPhase)));
+  const showAdvisorSection = isBuildingAdvisor
+    || isBuildingReport
+    || (!contentLandingHidden && (
+      hasWorkspaceContent
+      || progressSummary.reportReadiness !== "none"
+      || Boolean(overviewBuildPhase)
+    ));
   const reportReadiness = progressSummary.reportReadiness === "none" && hasWorkspaceContent
     ? "early" as const
     : progressSummary.reportReadiness;
+  const showWorkspaceSummaryTop = showAdvisorSection && !showWorkspaceSetup;
 
   const handleSectionStart = (sectionId: WorkspaceSectionId) => {
     if (sectionId === "benchmark") {
@@ -2505,25 +2621,49 @@ function OverviewWorkspaceDashboard({
 
   return (
     <div className="sc-workspace-dash" role="region" aria-label="Workspace dashboard">
-      {onStartOptionalTour ? (
-        <aside className="sc-workspace-tour-bar" aria-label="Workspace tour">
-          <div>
-            <span className="sc-workspace-tour-eyebrow">Need a walkthrough?</span>
-            <p>See how the 5 modules and credits work.</p>
-          </div>
-          <button type="button" className="sc-workspace-tour-btn" onClick={onStartOptionalTour}>
-            Quick tour
-          </button>
-        </aside>
-      ) : null}
-
       <WorkspaceModuleCardGrid
         modules={modules}
         onSelect={handleSectionStart}
         activeTourTarget={activeTourTarget}
         active={!allEmpty}
         creditBalance={progressSummary.creditBalance}
+        displayScoresZero={displayScoresZero}
       />
+
+      {showWorkspaceSummaryTop || overviewBuildPhase === "ready" || isBuildingAdvisor ? (
+        <section className="sc-workspace-summary-section" aria-label="Workspace summary">
+          <div className="sc-adv-featured-wrap sc-workspace-summary-wrap">
+            <div className="sc-adv-featured-border" aria-hidden="true" />
+            {overviewBuildPhase === "ready" ? (
+              <div className="sc-workspace-ready-bar sc-workspace-ready-bar--top" role="status">
+                <strong>Your workspace report is ready</strong>
+                <span>Review your early summary below — complete modules anytime for deeper insights.</span>
+              </div>
+            ) : null}
+            {isBuildingAdvisor ? (
+              <div className="sc-workspace-summary-card">
+                <OverviewAdvisorSkeleton />
+              </div>
+            ) : showWorkspaceSummaryTop ? (
+              <div className="sc-workspace-summary-card sc-adv-featured sc-adv-featured-split is-rec-hidden">
+                <AdvisorSummaryBriefColumn
+                  categories={categories}
+                  runway={runway}
+                  companyName={companyName}
+                  wikiSummary={wikiSummary}
+                  onOpenWikiSummary={onOpenWikiSummary ?? (() => {})}
+                  onOpenIntelligence={onOpenIntelligence}
+                  suggestionsReady={suggestionsReady}
+                  overviewBuildPhase={overviewBuildPhase}
+                  overviewBuiltPhases={overviewBuiltPhases}
+                  reportReadiness={reportReadiness}
+                  layout="workspace"
+                />
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {overviewBuildPhase && overviewBuildPhase !== "ready" ? (
         <OverviewBuildPanel phase={overviewBuildPhase} />
@@ -2539,11 +2679,19 @@ function OverviewWorkspaceDashboard({
             aria-busy={isBuildingReport}
           >
             {categories.map(cat => (
-              overviewTrackReady(cat.id, overviewBuildPhase, overviewBuiltPhases) ? (
+              shouldShowWorkspaceCategoryGlanceForTour(
+                cat.id,
+                activeTourTarget,
+                overviewBuildPhase,
+                overviewBuiltPhases,
+                hasWorkspaceContent,
+                displayScoresZero,
+              ) ? (
                 <CategoryGlanceRow
                   key={cat.id}
                   cat={cat}
                   runway={runway}
+                  displayScoresZero={displayScoresZero}
                   onOpen={() => onOpenCategory?.(cat.id)}
                   onUpdateDetails={() => onOpenCategory?.(cat.id)}
                   onOpenIntelligence={onOpenIntelligence}
@@ -2565,61 +2713,26 @@ function OverviewWorkspaceDashboard({
         </section>
       ) : null}
 
-      {showAdvisorSection ? (
+      {showWorkspaceSetup ? (
         <div
           className={`sc-adv-featured-wrap sc-workspace-advisor-wrap${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
           data-tour-target={activeTourTarget === "ai-advisor" ? "ai-advisor" : undefined}
         >
           <div className="sc-adv-featured-border" aria-hidden="true" />
-          {overviewBuildPhase === "ready" ? (
-            <div className="sc-workspace-ready-bar" role="status">
-              <strong>Your workspace report is ready</strong>
-              <span>Review your early summary below — complete modules anytime for deeper insights.</span>
-            </div>
-          ) : null}
-          {isBuildingAdvisor ? (
-            <>
-              <OverviewAdvisorSkeleton />
-            </>
-          ) : showWorkspaceSetup ? (
-            <OverviewWorkspaceSetupPanel
-              companyName={companyName}
-              actions={advisorActions}
-              onEditBenchmark={onEditBenchmark}
-              onAddSources={onAddSources}
-              onViewDetails={() => onOpenWikiSummary?.()}
-              showShareTip={showShareTip}
-              onDismissShareTip={onDismissShareTip}
-              tourHighlightRecommended={activeTourTarget === "recommended-actions"}
-            />
-          ) : (
-            <OverviewAdvisorPanel
-              categories={categories}
-              runway={runway}
-              companyName={companyName}
-              buildContext={buildContext}
-              benchmarkSaved={benchmarkSaved}
-              privateWorkspace={privateWorkspace}
-              onOpenIntelligence={onOpenIntelligence}
-              onEditBenchmark={onEditBenchmark}
-              onAddSources={onAddSources}
-              onViewDetails={() => onOpenWikiSummary?.()}
-              documentSlots={documentSlots}
-              wikiSummary={wikiSummary}
-              onOpenWikiSummary={onOpenWikiSummary ?? (() => {})}
-              suggestionsReady={suggestionsReady}
-              overviewBuildPhase={overviewBuildPhase}
-              overviewBuiltPhases={overviewBuiltPhases}
-              reportReadiness={reportReadiness}
-              showShareTip={showShareTip}
-              onDismissShareTip={onDismissShareTip}
-              tourHighlightRecommended={activeTourTarget === "recommended-actions"}
-              earnedProfileCredits={earnedProfileCredits}
-              showRecommendedActions={false}
-            />
-          )}
+          <OverviewWorkspaceSetupPanel
+            companyName={companyName}
+            actions={advisorActions}
+            onEditBenchmark={onEditBenchmark}
+            onAddSources={onAddSources}
+            onViewDetails={() => onOpenWikiSummary?.()}
+            showShareTip={showShareTip}
+            onDismissShareTip={onDismissShareTip}
+            tourHighlightRecommended={activeTourTarget === "recommended-actions"}
+          />
         </div>
       ) : null}
+
+      <WorkspaceConnectorsSection activeTourTarget={activeTourTarget} />
     </div>
   );
 }
@@ -2665,6 +2778,20 @@ function ProfileGateConnectors() {
       gateLayout
       intro="Connect HubSpot or Granola to enrich your profile and unlock deeper AI insights."
     />
+  );
+}
+
+/** Module-first workspace — same HubSpot + Granola block as advisor-first / gate-first. */
+function WorkspaceConnectorsSection({ activeTourTarget }: { activeTourTarget?: string }) {
+  const tourActive = activeTourTarget === "workspace-connectors";
+  return (
+    <section
+      className={`sc-workspace-connectors${tourActive ? " tour-highlight" : ""}`}
+      aria-label="Connectors"
+      data-tour-target={tourActive ? "workspace-connectors" : undefined}
+    >
+      <ProfileGateConnectors />
+    </section>
   );
 }
 
@@ -2780,7 +2907,6 @@ function OverviewBuildPanel({
   phase,
 }: {
   phase: OverviewBuildPhase;
-  onStartOptionalTour?: () => void;
 }) {
   const idx = overviewBuildPhaseIndex(phase);
   const progress = Math.min(100, Math.round((idx / (OVERVIEW_BUILD_PHASE_ORDER.length - 1)) * 100));
@@ -2867,6 +2993,7 @@ function CategoryGlanceRow({
   suggestionsReady = true,
   isProfileComplete = true,
   onCompleteProfile,
+  displayScoresZero = false,
 }: {
   cat: CategoryData;
   runway: number | null;
@@ -2882,8 +3009,9 @@ function CategoryGlanceRow({
   suggestionsReady?: boolean;
   isProfileComplete?: boolean;
   onCompleteProfile?: () => void;
+  displayScoresZero?: boolean;
 }) {
-  const score = Math.max(0, Math.min(100, cat.score));
+  const score = landingDisplayScore(Math.max(0, Math.min(100, cat.score)), displayScoresZero);
   const focusLine = cat.glanceFocus;
   const answersCta = buildGlanceAnswersCta(cat.label, cat.detailAnsweredCount, cat.detailQuestionCount);
   const improvementItems = cat.glanceWeaknessItems.length > 0
@@ -2900,7 +3028,7 @@ function CategoryGlanceRow({
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       role="button"
       tabIndex={0}
-      aria-label={`${cat.fullLabel}, ${score} out of 100, ${cat.statusLabel}. Open track details.`}
+      aria-label={`${cat.fullLabel}, ${displayScoresZero ? "00" : score} out of 100, ${cat.statusLabel}. Open track details.`}
     >
       <CategoryGlanceHeaderBar
         cat={cat}
@@ -2917,6 +3045,7 @@ function CategoryGlanceRow({
           <GlanceScoreRing
             cat={cat}
             score={score}
+            scoreLabel={displayScoresZero ? "00" : undefined}
             isOpen={glancePopoverOpen}
             onRequestOpen={onGlancePopoverOpen}
             onRequestClose={onGlancePopoverClose}
@@ -2938,11 +3067,7 @@ function CategoryGlanceRow({
             items={cat.glanceStrengthItems.slice(0, 2)}
             empty="Complete more track details to surface strengths."
             compact
-            insightsLocked={insightsLocked}
           />
-          <button type="button" className="sc-glance-view-more" onClick={e => { e.stopPropagation(); onOpen(); }}>
-            View more →
-          </button>
         </div>
 
         <div className="sc-glance-track-improve sc-glance-track-improve-panel" onClick={e => e.stopPropagation()}>
@@ -5485,15 +5610,7 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
   borderColour?: string;
 } {
   const urgency = categoryUrgency(cat, runway);
-  if (urgency === "ok") {
-    return {
-      suffix: "Stable",
-      suffixColour: COLOUR_STRONG(),
-      dotColour: COLOUR_STRONG(),
-      urgent: false,
-      borderColour: "rgba(18, 184, 134, 0.28)",
-    };
-  }
+  const status = signalUrgencyToStatus(urgency);
   if (urgency === "urgent") {
     const n = Math.max(1, cat.openInitiatives.length || cat.intelligenceCount || 1);
     return {
@@ -5501,7 +5618,16 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
       suffixColour: COLOUR_WEAK(),
       dotColour: COLOUR_WEAK(),
       urgent: true,
-      borderColour: "rgba(224, 92, 92, 0.28)",
+      borderColour: statusLineCss(status),
+    };
+  }
+  if (urgency === "ok") {
+    return {
+      suffix: "Stable",
+      suffixColour: COLOUR_STRONG(),
+      dotColour: COLOUR_STRONG(),
+      urgent: false,
+      borderColour: statusLineCss(status),
     };
   }
   return {
@@ -5509,8 +5635,144 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
     suffixColour: COLOUR_AROUND(),
     dotColour: COLOUR_AROUND(),
     urgent: false,
-    borderColour: "rgba(245, 166, 35, 0.28)",
+    borderColour: statusLineCss(status),
   };
+}
+
+function AdvisorSummaryBriefColumn({
+  categories,
+  runway,
+  companyName,
+  wikiSummary,
+  onOpenWikiSummary,
+  onOpenIntelligence,
+  suggestionsReady = true,
+  overviewBuildPhase = null,
+  overviewBuiltPhases,
+  reportReadiness = "none",
+  layout = "default",
+}: {
+  categories: CategoryData[];
+  runway: number | null;
+  companyName: string;
+  wikiSummary: WikiSummaryContent;
+  onOpenWikiSummary: (highlightRefId?: number) => void;
+  onOpenIntelligence?: () => void;
+  suggestionsReady?: boolean;
+  overviewBuildPhase?: OverviewBuildPhase | null;
+  overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>;
+  reportReadiness?: ReportReadiness;
+  layout?: "default" | "workspace";
+}) {
+  const signalTags = (
+    <>
+      <div className="sc-adv-tags-label">Recent signals</div>
+      <div className="sc-adv-tags">
+        {categories.map(cat => {
+          const signalReady = overviewTrackReady(cat.id, overviewBuildPhase, overviewBuiltPhases);
+          const tag = signalReady ? trackSignalTag(cat, runway) : null;
+          const totalCount = signalReady
+            ? cat.intelDisplayCount
+              + (suggestionsReady ? cat.openInitiatives.length : 0)
+              + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
+            : null;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
+              style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
+              onClick={() => onOpenIntelligence?.()}
+              aria-label={
+                tag && totalCount != null
+                  ? `${cat.label} ${tag.suffix} — ${totalCount} total`
+                  : `${cat.label} — loading`
+              }
+            >
+              <span
+                className="sc-adv-tag-dot"
+                style={tag ? { background: tag.dotColour } : undefined}
+              />
+              {cat.label}
+              {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
+              {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  return (
+    <div className={`sc-adv-featured-brief-col${layout === "workspace" ? " sc-adv-brief-col--workspace" : ""}`}>
+      <div className="sc-adv">
+        <div className="sc-adv-head">
+          <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
+          <span className="sc-adv-company">{companyName}</span>
+        </div>
+        <div className="sc-adv-rec-title-row">
+          <div className="sc-adv-rec-title">Summary</div>
+          {reportReadiness === "early" ? (
+            <span className="sc-adv-early-report-badge">Early report</span>
+          ) : null}
+          <span className="sc-wiki-source-count">
+            {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            className="ask-ai-btn sc-wiki-expand-btn"
+            onClick={() => onOpenWikiSummary()}
+            aria-label="Open company brief"
+          >
+            ✦ Open brief
+          </button>
+        </div>
+        {layout === "workspace" ? (
+          <div className="sc-adv-brief-workspace-body">
+            <div className="sc-adv-brief-workspace-copy">
+              <p className="sc-adv-summary sc-wiki-summary-compact">
+                {wikiParagraphPlainText(wikiSummary.compact)}
+              </p>
+              {reportReadiness === "early" ? (
+                <p className="sc-adv-early-report-note">
+                  Based on what you&apos;ve shared so far. Complete remaining modules for deeper insights and sharper recommendations.
+                </p>
+              ) : null}
+              <button
+                type="button"
+                className="sc-wiki-view-more sc-wiki-view-more--workspace-cta"
+                onClick={() => onOpenWikiSummary()}
+              >
+                View brief with references →
+              </button>
+            </div>
+            <div className="sc-adv-brief-workspace-signals">
+              {signalTags}
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="sc-adv-summary sc-wiki-summary-compact">
+              {wikiParagraphPlainText(wikiSummary.compact)}
+            </p>
+            {reportReadiness === "early" ? (
+              <p className="sc-adv-early-report-note">
+                Based on what you&apos;ve shared so far. Complete remaining modules for deeper insights and sharper recommendations.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="sc-wiki-view-more"
+              onClick={() => onOpenWikiSummary()}
+            >
+              View brief with references
+            </button>
+            {signalTags}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function OverviewWorkspaceSetupPanel({
@@ -5629,80 +5891,18 @@ function OverviewAdvisorPanel({
   return (
     <div className={`sc-adv-featured sc-adv-featured-split${showBriefSummary ? "" : " is-brief-hidden"}${showRecommendedActions ? "" : " is-rec-hidden"}`}>
       {showBriefSummary ? (
-      <div className="sc-adv-featured-brief-col">
-        <div className="sc-adv">
-          <div className="sc-adv-head">
-            <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
-            <span className="sc-adv-company">{companyName}</span>
-          </div>
-          <div className="sc-adv-rec-title-row">
-            <div className="sc-adv-rec-title">Summary</div>
-            {reportReadiness === "early" ? (
-              <span className="sc-adv-early-report-badge">Early report</span>
-            ) : null}
-            <span className="sc-wiki-source-count">
-              {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
-            </span>
-            <button
-              type="button"
-              className="ask-ai-btn sc-wiki-expand-btn"
-              onClick={() => onOpenWikiSummary()}
-              aria-label="Open company brief"
-            >
-              ✦ Open brief
-            </button>
-          </div>
-          <p className="sc-adv-summary sc-wiki-summary-compact">
-            {wikiParagraphPlainText(wikiSummary.compact)}
-          </p>
-          {reportReadiness === "early" ? (
-            <p className="sc-adv-early-report-note">
-              Based on what you&apos;ve shared so far. Complete remaining modules for deeper insights and sharper recommendations.
-            </p>
-          ) : null}
-          <button
-            type="button"
-            className="sc-wiki-view-more"
-            onClick={() => onOpenWikiSummary()}
-          >
-            View brief with references
-          </button>
-          <div className="sc-adv-tags-label">Recent signals</div>
-          <div className="sc-adv-tags">
-            {categories.map(cat => {
-              const signalReady = overviewTrackReady(cat.id, overviewBuildPhase, overviewBuiltPhases);
-              const tag = signalReady ? trackSignalTag(cat, runway) : null;
-              const totalCount = signalReady
-                ? cat.intelDisplayCount
-                  + (suggestionsReady ? cat.openInitiatives.length : 0)
-                  + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
-                : null;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
-                  style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
-                  onClick={() => onOpenIntelligence?.()}
-                  aria-label={
-                    tag && totalCount != null
-                      ? `${cat.label} ${tag.suffix} — ${totalCount} total`
-                      : `${cat.label} — loading`
-                  }
-                >
-                  <span
-                    className="sc-adv-tag-dot"
-                    style={tag ? { background: tag.dotColour } : undefined}
-                  />
-                  {cat.label}
-                  {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
-                  {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+        <AdvisorSummaryBriefColumn
+          categories={categories}
+          runway={runway}
+          companyName={companyName}
+          wikiSummary={wikiSummary}
+          onOpenWikiSummary={onOpenWikiSummary}
+          onOpenIntelligence={onOpenIntelligence}
+          suggestionsReady={suggestionsReady}
+          overviewBuildPhase={overviewBuildPhase}
+          overviewBuiltPhases={overviewBuiltPhases}
+          reportReadiness={reportReadiness}
+        />
       ) : null}
       {showRecommendedActions ? (
       <RecommendedActionsColumn
@@ -6760,17 +6960,20 @@ function BenchmarkDrilldownView({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function BenchmarkEditDrawer({
-  open, onClose, benchmark, companyName, onSave,
+  open, onClose, benchmark, companyName, onSave, elevatedScrim = false,
 }: {
   open: boolean;
   onClose: () => void;
   benchmark: OnboardingBenchmarkInput;
   companyName: string;
   onSave: (next: OnboardingBenchmarkInput) => void;
+  elevatedScrim?: boolean;
 }) {
+  const { requestSaveExit, dialog: saveExitConfirmDialog } = useSaveExitConfirm();
   const [draft, setDraft] = useState<OnboardingBenchmarkInput>(benchmark);
   const dialogRef = useRef<HTMLElement>(null);
   const benchmarkSnapshotRef = useRef(benchmark);
+  const handleScrimPointerDown = useScrimPointerClose(onClose, open);
 
   useDialogA11y(open, dialogRef, onClose);
 
@@ -6798,17 +7001,20 @@ export function BenchmarkEditDrawer({
   };
   const save = () => { onSave(draft); onClose(); };
   const saveAndExit = () => {
-    if (!confirmSaveAndExit()) return;
-    save();
+    requestSaveExit(save);
   };
 
   return createPortal(
-    <div className="bench-drawer-scrim bench-drawer-scrim--portal" onClick={onClose} role="presentation">
+    <>
+    <div
+      className={`bench-drawer-scrim bench-drawer-scrim--portal${elevatedScrim ? " bench-drawer-scrim--elevated" : ""}`}
+      onPointerDown={handleScrimPointerDown}
+      role="presentation"
+    >
       <aside
         ref={dialogRef}
         className="bench-drawer"
-        onClick={e => e.stopPropagation()}
-        onMouseDown={e => e.stopPropagation()}
+        {...drawerPanelPointerProps()}
         role="dialog"
         aria-modal="true"
         aria-label="Edit benchmark"
@@ -6841,7 +7047,9 @@ export function BenchmarkEditDrawer({
           <button type="button" className="bench-drawer-save" onClick={save}>Save and next →</button>
         </footer>
       </aside>
-    </div>,
+    </div>
+    {saveExitConfirmDialog}
+    </>,
     document.body,
   );
 }
@@ -6858,6 +7066,7 @@ function AddSourcesDrawer({
   const [typeOpen, setTypeOpen] = useState(false);
   const [description, setDescription] = useState("");
   const lastOpenRef = useRef(false);
+  const handleScrimPointerDown = useScrimPointerClose(onClose, open);
 
   const SOURCE_TYPES = [
     "Pitch deck",
@@ -6888,8 +7097,8 @@ function AddSourcesDrawer({
   };
 
   return (
-    <div className="bench-drawer-scrim" onClick={onClose}>
-      <aside className="bench-drawer add-sources-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Add source">
+    <div className="bench-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
+      <aside className="bench-drawer add-sources-drawer" {...drawerPanelPointerProps()} role="dialog" aria-label="Add source">
         <header className="bench-drawer-head">
           <div>
             <div className="add-sources-eyebrow">Sources</div>
@@ -6996,15 +7205,24 @@ export default function ScorecardV2({
   userFirstName = "there",
   onStartProfileCompletion,
   profileDetailsSyncKey = 0,
+  profileDrawerOpen = false,
   onOpenProfileDetails,
   earnedProfileCredits,
   companyKey,
   onProfileCreditsChange,
   onProfileCreditReward,
+  onLandingContentRestore,
+  reloadLandingActive = isReloadLandingActive(),
+  tourCompleteSignal = 0,
+  benchmarkEditRequestKey = 0,
+  onBenchmarkEditClosed,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
   const [overviewDesignTab, setOverviewDesignTab] = useState<OverviewDesignTab>("workspace");
+  const [displayScoresZero, setDisplayScoresZero] = useState(() => reloadLandingActive || isReloadLandingActive());
+  const landingBaselineRef = useRef<string | null>(null);
   const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
+  const [benchmarkEditElevated, setBenchmarkEditElevated] = useState(false);
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
   const [benchmarkValues, setBenchmarkValues] = useState<OnboardingBenchmarkInput>(benchmark);
   const benchmarkSyncKey = useMemo(() => JSON.stringify(benchmark), [benchmark]);
@@ -7015,17 +7233,81 @@ export default function ScorecardV2({
   const [advisorOpen, setAdvisorOpen] = useState(true);
   const [wikiSummaryOpen, setWikiSummaryOpen] = useState(false);
   const [wikiHighlightRefId, setWikiHighlightRefId] = useState<number | null>(null);
-  const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(companyStorageKey));
+  const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => {
+    if (reloadLandingActive || isReloadLandingActive()) return {};
+    return loadDetailAnswers(companyStorageKey);
+  });
 
-  const mergedDetailAnswers = useMemo(
-    () => mergeDetailAnswers(detailAnswers, onboardingAnswers),
-    [detailAnswers, onboardingAnswers],
-  );
+  const mergedDetailAnswers = useMemo(() => {
+    if (reloadLandingActive || displayScoresZero) return detailAnswers;
+    return mergeDetailAnswers(detailAnswers, onboardingAnswers);
+  }, [detailAnswers, onboardingAnswers, reloadLandingActive, displayScoresZero]);
 
-  // Keep advisor expanded and tip in view while the post-onboarding tip is open on Overview.
+  useEffect(() => {
+    if (!isBrowserReload()) return;
+    setActiveView("overview");
+    setOverviewDesignTab("workspace");
+    setEditBenchmarkOpen(false);
+    setAddSourcesOpen(false);
+    setWikiSummaryOpen(false);
+    setOpenGlancePopover(null);
+    setAdvisorOpen(false);
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
+    if (!tourCompleteSignal) return;
+    setActiveView("overview");
+    setOverviewDesignTab("workspace");
+    setEditBenchmarkOpen(false);
+    setAddSourcesOpen(false);
+    setWikiSummaryOpen(false);
+    setOpenGlancePopover(null);
+    setAdvisorOpen(false);
+    window.scrollTo(0, 0);
+  }, [tourCompleteSignal]);
+
+  useEffect(() => {
+    if (!displayScoresZero) {
+      landingBaselineRef.current = null;
+    }
+  }, [displayScoresZero]);
+
+  useEffect(() => {
+    if (!displayScoresZero) return;
+    landingBaselineRef.current = null;
+  }, [companyStorageKey]);
+
+  useEffect(() => {
+    if (!displayScoresZero || landingBaselineRef.current) return;
+    landingBaselineRef.current = JSON.stringify({
+      company: companyStorageKey,
+      sync: profileDetailsSyncKey,
+      details: detailAnswers,
+      benchmark: benchmarkValues,
+    });
+  }, [displayScoresZero, companyStorageKey, profileDetailsSyncKey, detailAnswers, benchmarkValues]);
+
+  useEffect(() => {
+    if (!displayScoresZero || !landingBaselineRef.current) return;
+    const current = JSON.stringify({
+      company: companyStorageKey,
+      sync: profileDetailsSyncKey,
+      details: detailAnswers,
+      benchmark: benchmarkValues,
+    });
+    if (current !== landingBaselineRef.current) {
+      setDisplayScoresZero(false);
+      clearReloadLandingActive();
+      onLandingContentRestore?.();
+    }
+  }, [displayScoresZero, companyStorageKey, profileDetailsSyncKey, detailAnswers, benchmarkValues, onLandingContentRestore]);
+
+  // Keep advisor expanded and tip in view while the post-onboarding tip is open on Advisor-first.
   useEffect(() => {
     if (!recActionsTipOpen) return;
     if (activeView !== "overview") return;
+    if (overviewDesignTab !== "new") return;
     if (overviewBuildPhase != null && overviewBuildPhase !== "ready") return;
     setAdvisorOpen(true);
     setWikiSummaryOpen(false);
@@ -7033,7 +7315,7 @@ export default function ScorecardV2({
       document.querySelector(".sc-adv-rec-tip")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [recActionsTipOpen, overviewBuildPhase, activeView]);
+  }, [recActionsTipOpen, overviewBuildPhase, activeView, overviewDesignTab]);
 
   // Expand advisor when the guided tour points at it or Recommended Actions.
   useEffect(() => {
@@ -7045,8 +7327,12 @@ export default function ScorecardV2({
 
   useEffect(() => {
     if (editBenchmarkOpen) return;
+    if (reloadLandingActive && displayScoresZero) {
+      setBenchmarkValues(benchmark);
+      return;
+    }
     setBenchmarkValues(benchmark);
-  }, [benchmarkSyncKey, benchmark, editBenchmarkOpen]);
+  }, [benchmarkSyncKey, benchmark, editBenchmarkOpen, reloadLandingActive, displayScoresZero]);
 
   useEffect(() => {
     const filled = METRIC_COHORTS.filter(c => parseMetricValue(benchmarkValues[c.key] ?? "")).length;
@@ -7063,8 +7349,13 @@ export default function ScorecardV2({
 
   // Re-hydrate saved answers once the company name resolves (prop may arrive after mount).
   useEffect(() => {
+    if (profileDrawerOpen) return;
+    if (reloadLandingActive && displayScoresZero) {
+      setDetailAnswers({});
+      return;
+    }
     setDetailAnswers(loadDetailAnswers(companyStorageKey));
-  }, [companyStorageKey, profileDetailsSyncKey]);
+  }, [companyStorageKey, profileDetailsSyncKey, profileDrawerOpen, reloadLandingActive, displayScoresZero]);
 
   const openDetailsDrawer = (category?: ScorecardCategory) => {
     if (!onOpenProfileDetails) return;
@@ -7149,8 +7440,21 @@ export default function ScorecardV2({
   }, [companyKey, earnedProfileCredits, onProfileCreditReward, onProfileCreditsChange]);
 
   const openRecommendedBenchmark = useCallback(() => {
+    setBenchmarkEditElevated(false);
     setEditBenchmarkOpen(true);
   }, []);
+
+  const closeBenchmarkEditDrawer = useCallback(() => {
+    setEditBenchmarkOpen(false);
+    setBenchmarkEditElevated(false);
+    onBenchmarkEditClosed?.();
+  }, [onBenchmarkEditClosed]);
+
+  useEffect(() => {
+    if (!benchmarkEditRequestKey) return;
+    setBenchmarkEditElevated(true);
+    setEditBenchmarkOpen(true);
+  }, [benchmarkEditRequestKey]);
 
   const openRecommendedSources = useCallback(() => {
     const hasSources = (documentSlots?.filter(s => s.current).length ?? 0) > 0
@@ -7217,12 +7521,12 @@ export default function ScorecardV2({
   useEffect(() => {
     setYorkOverviewHidden(isYorkOfferDismissed(YORK_COMMON_OFFER.id));
   }, []);
-  /** Tip + scrim only on Overview — never on R&D / GTM / G&A detail or full brief. */
+  /** Tip + scrim only on Advisor-first tab — never block Module-first / Gate-first. */
   const showRecActionsTip =
     recActionsTipOpen
     && suggestionsReady
     && activeView === "overview"
-    && overviewDesignTab !== "workspace"
+    && overviewDesignTab === "new"
     && !wikiSummaryOpen;
   const showOverviewDesignTabs = !isCategoryDetail && activeView === "overview";
   const showWorkspaceDashboard = showOverviewDesignTabs && overviewDesignTab === "workspace";
@@ -7338,10 +7642,10 @@ export default function ScorecardV2({
           onOpenWikiSummary={openWikiSummary}
           onEditBenchmark={openRecommendedBenchmark}
           onAddSources={openRecommendedSources}
-          onStartOptionalTour={onStartOptionalTour}
           activeTourTarget={activeTourTarget}
           showShareTip={showRecActionsTip}
           onDismissShareTip={onDismissRecActionsTip}
+          displayScoresZero={displayScoresZero}
         />
       ) : null}
       {useOldGateDesign ? (
@@ -7497,11 +7801,17 @@ export default function ScorecardV2({
         </div>
         <div className="sc-overview-tracks sc-overview-tracks-glance">
           {categoryData.map(cat => (
-            overviewTrackReady(cat.id, overviewBuildPhase, overviewBuiltPhases) ? (
+            shouldShowCategoryGlanceForTour(
+              cat.id,
+              activeTourTarget,
+              overviewBuildPhase,
+              overviewBuiltPhases,
+            ) ? (
               <CategoryGlanceRow
                 key={cat.id}
                 cat={cat}
                 runway={runway}
+                displayScoresZero={displayScoresZero}
                 onOpen={() => setActiveView(cat.id)}
                 onUpdateDetails={() => openDetailsDrawer(cat.id)}
                 onOpenIntelligence={onOpenIntelligence}
@@ -7530,7 +7840,8 @@ export default function ScorecardV2({
 
       <BenchmarkEditDrawer
         open={editBenchmarkOpen}
-        onClose={() => setEditBenchmarkOpen(false)}
+        onClose={closeBenchmarkEditDrawer}
+        elevatedScrim={benchmarkEditElevated}
         benchmark={benchmarkValues}
         companyName={cName}
         onSave={next => {

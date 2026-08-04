@@ -1692,15 +1692,21 @@
 }
 
 .investor-health-pill--strong {
-  border-color: rgba(0, 180, 138, 0.28);
+  background: var(--status-good-dim);
+  border-color: var(--status-good-line);
+  color: var(--status-good);
 }
 
 .investor-health-pill--watch {
-  border-color: rgba(212, 168, 106, 0.35);
+  background: var(--status-watch-dim);
+  border-color: var(--status-watch-line);
+  color: var(--status-watch);
 }
 
 .investor-health-pill--struggling {
-  border-color: rgba(201, 138, 138, 0.35);
+  background: var(--status-bad-dim);
+  border-color: var(--status-bad-line);
+  color: var(--status-bad);
 }
 
 .investor-card-cta {
@@ -1918,7 +1924,7 @@
 }
 
 .investor-pipeline-card.is-on-fuel {
-  box-shadow: inset 3px 0 0 var(--fuel-accent, #00B48A);
+  box-shadow: inset 3px 0 0 var(--status-good);
 }
 
 .investor-pipeline-card:hover {

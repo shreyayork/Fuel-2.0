@@ -30,7 +30,7 @@
   background: rgba(61, 214, 140, 0.08);
   border: 1px solid rgba(61, 214, 140, 0.22);
   border-radius: 7px;
-  color: #00B48A;
+  color: var(--status-good);
   cursor: pointer;
   display: inline-flex;
   flex-shrink: 0;
@@ -95,7 +95,7 @@
 }
 
 .benchmark-peer-group {
-  color: #00B48A;
+  color: var(--status-good);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;

@@ -1,0 +1,331 @@
+/* Profile preview — right-rail drawer aligned with complete-profile / sc-drawer */
+
+.cpp-scrim.profile-complete-drawer-scrim {
+  z-index: 100002;
+}
+
+.cpp-panel.profile-complete-drawer {
+  max-width: min(var(--fuel-side-panel-width, 720px), 92vw);
+}
+
+.cpp-head.sc-drawer-head {
+  align-items: flex-start;
+  flex-shrink: 0;
+  padding: 18px 22px 14px;
+}
+
+.cpp-head-main {
+  flex: 1;
+  min-width: 0;
+  padding-right: 8px;
+}
+
+.cpp-co.sc-drawer-co {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.cpp-progress.sc-drawer-progress {
+  margin: 10px 0 0;
+  max-width: 280px;
+}
+
+.cpp-progress-label {
+  color: var(--text-3);
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-top: 6px;
+  text-transform: uppercase;
+}
+
+.cpp-preview-steps.profile-wizard-progress.pwp-compact {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  padding: 0 20px 12px;
+  width: 100%;
+}
+
+/* Override profile wizard 4-col segmented grid — preview has 5 tabs */
+.cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-steps.pwp-steps-segmented {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
+}
+
+.cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step {
+  min-width: 0;
+}
+
+.cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step-inner {
+  gap: 3px;
+  padding: 5px 2px;
+  white-space: nowrap;
+}
+
+.cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step-label {
+  font-size: 10px;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step-check {
+  flex-shrink: 0;
+  height: 7px;
+  width: 8px;
+}
+
+.cpp-benchmark-text-grid {
+  margin-top: 10px;
+}
+
+.cpp-shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cpp-content.sc-drawer-body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  width: 100%;
+}
+
+.cpp-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cpp-card {
+  background: var(--surface-2);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+}
+
+.cpp-card--founder {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--fuel-accent, var(--accent)) 6%, var(--surface-2)) 0%,
+    var(--surface-2) 100%
+  );
+}
+
+.cpp-card--solo {
+  padding: 12px 14px 14px;
+}
+
+.cpp-card-head {
+  margin-bottom: 12px;
+}
+
+.cpp-card-head-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.cpp-card-icon {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  color: var(--fuel-accent, var(--accent));
+  display: flex;
+  flex-shrink: 0;
+  font-size: 14px;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.cpp-card-head h3 {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.cpp-card-meta {
+  color: var(--text-3);
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.cpp-founder-lead {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cpp-founder-avatar {
+  align-items: center;
+  background: var(--btn-primary-bg);
+  border-radius: 999px;
+  color: var(--btn-primary-text, #fff);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 800;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.cpp-founder-name {
+  color: var(--text-1);
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.cpp-founder-role {
+  color: var(--text-3);
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.cpp-field-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cpp-field-grid--compact {
+  grid-template-columns: 1fr;
+}
+
+.cpp-field-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px 11px;
+}
+
+.cpp-field-card.is-wide {
+  grid-column: 1 / -1;
+}
+
+.cpp-field-label {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.cpp-field-value {
+  color: var(--text-1);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cpp-empty-card {
+  background: var(--panel);
+  border: 1px dashed var(--panel-border);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+
+.cpp-empty-card strong {
+  color: var(--text-1);
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.cpp-empty-card p {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.cpp-empty {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.cpp-empty--muted {
+  color: var(--text-3);
+  margin-top: 10px;
+}
+
+.cpp-foot.sc-drawer-foot {
+  align-items: center;
+  background: var(--panel);
+  border-top: 1px solid var(--panel-border);
+  box-sizing: border-box;
+  display: flex;
+  flex-shrink: 0;
+  gap: 10px;
+  justify-content: flex-end;
+  margin: 0;
+  max-width: 100%;
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+  width: 100%;
+}
+
+.cpp-foot .sc-drawer-btn.primary {
+  min-width: 132px;
+}
+
+/* Footer sits on the drawer root (not padded body) — cancel profile-wizard negative bleed */
+.cpp-panel.profile-complete-drawer > .cpp-foot.profile-wizard-foot.sc-drawer-foot {
+  margin: 0;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .cpp-preview-steps.profile-wizard-progress.pwp-compact {
+    padding: 0 12px 10px;
+  }
+
+  .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-steps.pwp-steps-segmented {
+    grid-template-columns: repeat(5, minmax(72px, 1fr));
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-steps.pwp-steps-segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cpp-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cpp-field-card.is-wide {
+    grid-column: auto;
+  }
+}
+
+html[data-theme="light"] .cpp-field-card,
+html[data-theme="light"] .cpp-card {
+  background: #fff;
+}

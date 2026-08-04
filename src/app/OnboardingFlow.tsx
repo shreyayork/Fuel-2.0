@@ -12,6 +12,7 @@ import {
 } from "./trackQuestions.ts";
 import { FuelIcon } from "./icons";
 import { applyFuelTheme, readFuelTheme, toggleFuelTheme, type FuelTheme } from "./fuelTheme";
+import { sanitizeBenchmarkNumericInput } from "./benchmarkInput";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1407,7 +1408,7 @@ export function OnboardingBenchmarkFieldList({
               autoComplete="off"
               className={inputClassName}
               value={raw}
-              onChange={e => onChange(m.key, e.target.value)}
+              onChange={e => onChange(m.key, sanitizeBenchmarkNumericInput(e.target.value))}
               placeholder={m.ph}
               style={{ ...inp, padding: "8px 12px", fontSize: 13, marginBottom: 7, borderColor: hasVal ? `${dc}55` : undefined, transition: "border-color 0.3s" }}
             />

@@ -1,4 +1,4 @@
-/** Shared copy for drawer forms that save partial progress on exit. */
+/** @deprecated Use useSaveExitConfirm() for in-app confirmation over drawers. */
 export function confirmSaveAndExit(): boolean {
   return window.confirm(
     "Save your progress and exit? You can continue where you left off anytime.",

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { confirmDiscardAndClose, confirmSaveAndExit } from "./formConfirm";
+import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
+import { confirmDiscardAndClose } from "./formConfirm";
+import { useSaveExitConfirm } from "./SaveExitConfirmDialog";
 import { ProfileWizardProgressHeader } from "./ProfileWizardProgressHeader";
 import {
   computeCreditBalance,
@@ -347,6 +349,8 @@ type UnifiedProfileDrawerProps = {
   onAnswersChange?: (answers: DetailAnswers) => void;
   /** Parent scrim / shell can call the same guarded close handler as the drawer X button. */
   onBindRequestClose?: (requestClose: () => void) => void;
+  /** After browser reload — empty forms, no onboarding prefill until user types. */
+  reloadLandingActive?: boolean;
 };
 
 export function UnifiedProfileDrawer({
@@ -365,26 +369,30 @@ export function UnifiedProfileDrawer({
   onModuleCreditReward,
   onAnswersChange,
   onBindRequestClose,
+  reloadLandingActive = false,
 }: UnifiedProfileDrawerProps) {
+  const { requestSaveExit, dialog: saveExitConfirmDialog } = useSaveExitConfirm();
   const [step, setStep] = useState(() => SECTION_TO_STEP[initialSection] ?? 0);
-  const [answers, setAnswers] = useState<DetailAnswers>(() => ({
-    ...loadDetailAnswers(companyKey),
-    ...initialAnswers,
-  }));
+  const [answers, setAnswers] = useState<DetailAnswers>(() => {
+    if (reloadLandingActive) {
+      return companyName.trim() ? { profile_company: companyName.trim() } : {};
+    }
+    return {
+      ...(initialAnswers ?? {}),
+      ...loadDetailAnswers(companyKey),
+    };
+  });
   const [justEarnedModule, setJustEarnedModule] = useState<ProfileModuleId | null>(null);
   const hydratedRef = useRef<string | null>(null);
+  const initialAnswersRef = useRef(initialAnswers);
+  initialAnswersRef.current = initialAnswers;
   const baselineAnswersRef = useRef<DetailAnswers>({});
   const progressTriggeredRef = useRef<Set<ProfileModuleId>>(new Set());
-  const answersDebounceRef = useRef<number | null>(null);
 
   useEffect(() => {
     setStep(SECTION_TO_STEP[initialSection] ?? 0);
     progressTriggeredRef.current = new Set();
   }, [initialSection, companyKey]);
-
-  useEffect(() => () => {
-    if (answersDebounceRef.current) window.clearTimeout(answersDebounceRef.current);
-  }, []);
 
   // Hydrate from storage once per company/section open — never while the user is typing.
   useEffect(() => {
@@ -392,14 +400,19 @@ export function UnifiedProfileDrawer({
     if (hydratedRef.current === hydrationKey) return;
     hydratedRef.current = hydrationKey;
     setAnswers(() => {
-      const loaded: DetailAnswers = { ...loadDetailAnswers(companyKey), ...initialAnswers };
-      if (!loaded.profile_company?.trim() && companyName.trim()) {
+      const loaded: DetailAnswers = reloadLandingActive
+        ? (companyName.trim() ? { profile_company: companyName.trim() } : {})
+        : {
+            ...(initialAnswersRef.current ?? {}),
+            ...loadDetailAnswers(companyKey),
+          };
+      if (!reloadLandingActive && !loaded.profile_company?.trim() && companyName.trim()) {
         loaded.profile_company = companyName.trim();
       }
       baselineAnswersRef.current = { ...loaded };
       return loaded;
     });
-  }, [companyKey, companyName, initialAnswers, initialSection]);
+  }, [companyKey, companyName, initialSection, reloadLandingActive]);
 
   const hasUnsavedChanges = useMemo(
     () => JSON.stringify(answers) !== JSON.stringify(baselineAnswersRef.current),
@@ -423,11 +436,6 @@ export function UnifiedProfileDrawer({
 
   const maybeUnlockModuleProgress = (next: DetailAnswers, module: ProfileModuleId) => {
     if (!isModuleInsightReady(module, next)) return;
-
-    if (answersDebounceRef.current) window.clearTimeout(answersDebounceRef.current);
-    answersDebounceRef.current = window.setTimeout(() => {
-      onAnswersChange?.(next);
-    }, 280);
 
     if (!mergedEarned.modules.includes(module)) {
       const { earned, reward } = tryMarkModuleEarned(
@@ -455,10 +463,9 @@ export function UnifiedProfileDrawer({
   const selectAnswer = (qid: string, value: string) => {
     setAnswers(prev => {
       const next = { ...prev };
-      if (value.trim()) next[qid] = value;
-      else delete next[qid];
+      if (value === "") delete next[qid];
+      else next[qid] = value;
       saveDetailAnswers(companyKey, next);
-      maybeUnlockModuleProgress(next, activeModule);
       return next;
     });
   };
@@ -488,6 +495,7 @@ export function UnifiedProfileDrawer({
   const persistAndClose = useCallback(() => {
     saveDetailAnswers(companyKey, answers);
     baselineAnswersRef.current = { ...answers };
+    maybeUnlockModuleProgress(answers, activeModule);
     onAnswersChange?.(answers);
     awardModuleIfNeeded(activeModule);
     notifyModuleSaved(answers);
@@ -504,18 +512,20 @@ export function UnifiedProfileDrawer({
     onClose();
   }, [hasUnsavedChanges, onClose]);
 
+  const handleScrimPointerDown = useScrimPointerClose(requestClose);
+
   useEffect(() => {
     onBindRequestClose?.(requestClose);
   }, [onBindRequestClose, requestClose]);
 
   const handleSaveExit = () => {
-    if (!confirmSaveAndExit()) return;
-    persistAndClose();
+    requestSaveExit(persistAndClose);
   };
 
   const handleSaveAndNext = () => {
     saveDetailAnswers(companyKey, answers);
     baselineAnswersRef.current = { ...answers };
+    maybeUnlockModuleProgress(answers, activeModule);
     onAnswersChange?.(answers);
     awardModuleIfNeeded(activeModule);
     notifyModuleSaved(answers);
@@ -534,11 +544,19 @@ export function UnifiedProfileDrawer({
     setStep(current => current + 1);
   };
 
+  const goToStep = useCallback((targetStep: number) => {
+    if (targetStep === step) return;
+    saveDetailAnswers(companyKey, answers);
+    baselineAnswersRef.current = { ...answers };
+    maybeUnlockModuleProgress(answers, activeModule);
+    onAnswersChange?.(answers);
+    setStep(targetStep);
+  }, [activeModule, answers, companyKey, onAnswersChange, step]);
+
   const drawer = (
     <aside
       className={embedded ? "profile-complete-drawer-inner" : "sc-drawer"}
-      onClick={event => event.stopPropagation()}
-      onMouseDown={event => event.stopPropagation()}
+      {...drawerPanelPointerProps()}
       role="dialog"
       aria-label="Complete your profile"
     >
@@ -561,6 +579,7 @@ export function UnifiedProfileDrawer({
             justEarnedCredits={justEarnedModule ? getModuleReward(justEarnedModule) : 0}
             embedded={embedded}
             onClose={requestClose}
+            onStepSelect={(_moduleId, index) => goToStep(index)}
           />
         </div>
       )}
@@ -641,11 +660,19 @@ export function UnifiedProfileDrawer({
     </aside>
   );
 
-  if (embedded) return drawer;
+  if (embedded) {
+    return (
+      <>
+        {drawer}
+        {saveExitConfirmDialog}
+      </>
+    );
+  }
 
   return (
-    <div className="sc-drawer-scrim" onClick={requestClose}>
+    <div className="sc-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
       {drawer}
+      {saveExitConfirmDialog}
     </div>
   );
 }

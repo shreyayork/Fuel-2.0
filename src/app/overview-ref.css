@@ -5,23 +5,25 @@
   gap: 20px;
 }
 
-/* ── Temporary design comparison tabs (New | Old side by side) ── */
+/* ── Temporary design comparison tabs (minimal text + underline) ── */
 .sc-overview-design-tabs {
-  background: var(--fuel-surface-2, var(--surface-2));
-  border: 1px solid var(--fuel-border, var(--panel-border));
-  border-radius: 10px;
-  display: grid;
-  gap: 4px;
-  grid-template-columns: 1fr 1fr;
-  margin: 0 0 8px;
-  padding: 4px;
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--fuel-border, var(--panel-border));
+  border-radius: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0 0 12px;
+  padding: 0;
+  position: relative;
   width: 100%;
+  z-index: 130;
 }
 
-/* PULSE_ARCHIVED: triple-tab + .sc-org-pulse-* → src/app/archived/overview-org-pulse.archived.css */
-
 .sc-overview-design-tabs--triple {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* layout handled by flex parent */
 }
 
 /* ── Workspace dashboard (third tab) ── */
@@ -340,6 +342,10 @@
   display: block;
 }
 
+.sc-workspace-module-ring-track {
+  stroke: var(--fuel-border, var(--panel-border));
+}
+
 .sc-workspace-module-ring-label {
   align-items: center;
   display: flex;
@@ -399,15 +405,26 @@
   border-top: 1px solid var(--fuel-border, var(--panel-border));
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 8px;
+  gap: 8px;
   margin-top: auto;
   padding-top: 10px;
 }
 
+.sc-workspace-module-card-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
 .sc-workspace-module-card-status {
   border-radius: 4px;
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 700;
+  line-height: 1.2;
   padding: 3px 7px;
   white-space: nowrap;
 }
@@ -436,7 +453,6 @@
   color: var(--text-3);
   font-size: 10px;
   font-weight: 600;
-  margin-left: auto;
 }
 
 .sc-workspace-module-card-credits--offer {
@@ -446,7 +462,6 @@
   color: var(--fuel-accent, var(--accent));
   font-size: 10px;
   font-weight: 700;
-  margin-left: auto;
   padding: 3px 8px;
   white-space: nowrap;
 }
@@ -460,6 +475,14 @@
 
 .sc-workspace-module-card:hover .sc-workspace-module-card-cta {
   color: var(--text-1);
+}
+
+.sc-workspace-connectors {
+  margin-top: 20px;
+}
+
+.sc-workspace-connectors .sc-profile-gate-connectors {
+  margin: 0;
 }
 
 .sc-workspace-metrics {
@@ -679,6 +702,151 @@
   color: var(--text-2);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.sc-workspace-ready-bar--feed {
+  border: 1px solid var(--fuel-border, var(--panel-border));
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.sc-workspace-summary-section {
+  margin: 0 0 18px;
+}
+
+.sc-workspace-summary-wrap {
+  margin: 0;
+}
+
+.sc-workspace-summary-wrap .sc-workspace-ready-bar--top {
+  border-bottom: 1px solid var(--fuel-border, var(--panel-border));
+  border-radius: 12px 12px 0 0;
+  position: relative;
+  z-index: 1;
+}
+
+.sc-workspace-summary-wrap .sc-workspace-summary-card {
+  background: var(--fuel-surface, var(--panel));
+  border-radius: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.sc-workspace-summary-wrap .sc-workspace-ready-bar--top + .sc-workspace-summary-card {
+  border-radius: 0 0 12px 12px;
+}
+
+.sc-workspace-summary-wrap .sc-adv-featured {
+  border: 0;
+  border-radius: inherit;
+}
+
+.sc-workspace-summary-wrap .sc-adv-featured-split.is-rec-hidden {
+  grid-template-columns: 1fr;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-col--workspace {
+  padding: 12px 16px 14px;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-col--workspace .sc-adv-rec-title-row {
+  margin: 0 0 8px;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-body {
+  align-items: start;
+  display: grid;
+  gap: 12px 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 34%);
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-copy .sc-adv-summary {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  max-width: none;
+  overflow: hidden;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-copy .sc-adv-early-report-note {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  display: -webkit-box;
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0;
+  overflow: hidden;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-copy .sc-wiki-view-more--workspace-cta {
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  color: var(--btn-primary-bg);
+  font-size: 12px;
+  font-weight: 700;
+  margin: 4px 0 0;
+  padding: 0;
+  text-align: left;
+  transition: color 0.15s ease-out;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-copy .sc-wiki-view-more--workspace-cta:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--btn-primary-hover, var(--btn-primary-bg));
+  text-decoration: underline;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-copy .sc-wiki-view-more--workspace-cta:focus-visible {
+  outline: 2px solid var(--btn-primary-bg);
+  outline-offset: 2px;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-signals {
+  min-width: 0;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-signals .sc-adv-tags-label {
+  margin: 0 0 6px;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-signals .sc-adv-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sc-workspace-summary-wrap .sc-adv-brief-workspace-signals .sc-adv-tag {
+  font-size: 11px;
+  justify-content: flex-start;
+  padding: 5px 10px;
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .sc-workspace-summary-wrap .sc-adv-brief-workspace-body {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-workspace-summary-wrap .sc-adv-brief-workspace-signals .sc-adv-tags {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .sc-workspace-summary-wrap .sc-adv-brief-workspace-signals .sc-adv-tag {
+    width: auto;
+  }
 }
 
 .sc-workspace-advisor-wrap {
@@ -1682,29 +1850,32 @@
 
 .sc-overview-design-tab {
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 7px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   color: var(--fuel-text-muted, var(--text-3));
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px 16px;
-  text-align: center;
-  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
-  width: 100%;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: -1px;
+  padding: 8px 0;
+  text-align: left;
+  transition: color 0.14s ease, border-color 0.14s ease;
+  width: auto;
 }
 
 .sc-overview-design-tab:hover {
-  background: color-mix(in srgb, var(--fuel-surface-3, var(--surface-3)) 70%, transparent);
+  background: transparent;
   color: var(--fuel-text, var(--text-1));
 }
 
 .sc-overview-design-tab.is-active {
-  background: var(--fuel-surface, var(--panel));
-  border-color: var(--fuel-border-strong, var(--border-strong));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: transparent;
+  border-bottom-color: var(--fuel-accent, var(--accent));
+  box-shadow: none;
   color: var(--fuel-text, var(--text-1));
+  font-weight: 600;
 }
 
 .sc-overview-design-tab:focus-visible {
