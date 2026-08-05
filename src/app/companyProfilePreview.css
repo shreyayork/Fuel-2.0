@@ -42,40 +42,76 @@
 }
 
 .cpp-preview-steps.profile-wizard-progress.pwp-compact {
+  align-items: center;
   box-sizing: border-box;
+  display: flex;
   flex-shrink: 0;
-  padding: 0 20px 12px;
+  gap: 0;
+  justify-content: center;
+  margin: 0;
+  padding: 10px 20px;
   width: 100%;
 }
 
 /* Override profile wizard 4-col segmented grid — preview has 5 tabs */
 .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-steps.pwp-steps-segmented {
+  align-items: stretch;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 3px;
   width: 100%;
 }
 
 .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
   min-width: 0;
 }
 
+.cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step-btn {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  min-height: 36px;
+}
+
 .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step-inner {
-  gap: 3px;
-  padding: 5px 2px;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+  min-height: 0;
+  padding: 0 4px;
   white-space: nowrap;
+  width: 100%;
+}
+
+/* Cancel pwp-enhanced bottom offset used for underline steps */
+.cpp-preview-steps.profile-wizard-progress.pwp-enhanced .pwp-steps {
+  padding: 0;
+}
+
+.cpp-preview-steps.profile-wizard-progress.pwp-enhanced .pwp-step-inner {
+  padding-bottom: 0;
 }
 
 .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step-label {
-  font-size: 10px;
-  line-height: 1.1;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step.is-current .pwp-step-label {
+  font-weight: 700;
+}
+
 .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step-check {
   flex-shrink: 0;
-  height: 7px;
-  width: 8px;
+  height: 9px;
+  width: 10px;
 }
 
 .cpp-benchmark-text-grid {
@@ -128,27 +164,36 @@
   margin-bottom: 12px;
 }
 
-.cpp-card-head-row {
-  align-items: center;
-  display: flex;
-  gap: 10px;
+.cpp-card-head--solo {
+  margin-bottom: 10px;
 }
 
-.cpp-card-icon {
-  align-items: center;
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
+.cpp-section-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+}
+
+.cpp-section-pointer {
   color: var(--fuel-accent, var(--accent));
-  display: flex;
   flex-shrink: 0;
-  font-size: 14px;
-  height: 36px;
-  justify-content: center;
-  width: 36px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1px;
+  user-select: none;
+  width: 10px;
 }
 
-.cpp-card-head h3 {
+.cpp-section-heading-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cpp-section-heading-copy h3 {
   color: var(--text-1);
   font-size: 13px;
   font-weight: 800;
@@ -160,43 +205,6 @@
   display: block;
   font-size: 11px;
   line-height: 1.35;
-  margin-top: 2px;
-}
-
-.cpp-founder-lead {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.cpp-founder-avatar {
-  align-items: center;
-  background: var(--btn-primary-bg);
-  border-radius: 999px;
-  color: var(--btn-primary-text, #fff);
-  display: flex;
-  flex-shrink: 0;
-  font-size: 15px;
-  font-weight: 800;
-  height: 42px;
-  justify-content: center;
-  width: 42px;
-}
-
-.cpp-founder-name {
-  color: var(--text-1);
-  display: block;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.cpp-founder-role {
-  color: var(--text-3);
-  display: block;
-  font-size: 12px;
-  margin-top: 2px;
 }
 
 .cpp-field-grid {
@@ -313,7 +321,7 @@
 
 @media (max-width: 720px) {
   .cpp-preview-steps.profile-wizard-progress.pwp-compact {
-    padding: 0 12px 10px;
+    padding: 8px 12px;
   }
 
   .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-steps.pwp-steps-segmented {
@@ -325,6 +333,10 @@
   .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-steps.pwp-steps-segmented::-webkit-scrollbar {
     display: none;
   }
+
+  .cpp-preview-steps.profile-wizard-progress.pwp-compact .pwp-step-label {
+    font-size: 12px;
+  }
 }
 
 html[data-theme="light"] .cpp-card {
@@ -334,19 +346,170 @@ html[data-theme="light"] .cpp-card {
 .cpp-benchmark-snapshot {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.cpp-snapshot-title {
-  margin-bottom: 2px;
+.cpp-benchmark-snapshot.cpp-card--solo {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--fuel-accent, var(--accent)) 4%, var(--surface-2)) 0%,
+    var(--surface-2) 28%
+  );
+}
+
+.cpp-snapshot-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 0;
+  padding: 12px 12px 8px;
 }
 
 .cpp-snapshot-table-wrap {
-  margin: 0 -2px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: hidden;
 }
 
-.cpp-snapshot-table-wrap .sc-investor-brief-table {
-  min-width: 620px;
+.cpp-snapshot-table-scroll {
+  overflow-x: auto;
+}
+
+.cpp-snapshot-table-scroll .cpp-snapshot-table {
+  min-width: 560px;
+  width: 100%;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table th,
+.cpp-benchmark-snapshot .cpp-snapshot-table td {
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table thead th {
+  background: color-mix(in srgb, var(--panel-border) 45%, var(--panel));
+  border-bottom: 1px solid var(--panel-border);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table tbody td {
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  color: var(--text-2);
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--panel-border) 22%, transparent);
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--fuel-accent, var(--accent)) 6%, var(--panel));
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table td:first-child {
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 600;
+  max-width: 148px;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table th:nth-child(n + 2):nth-child(-n + 6),
+.cpp-benchmark-snapshot .cpp-snapshot-table td:nth-child(n + 2):nth-child(-n + 6) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table th:nth-child(2),
+.cpp-benchmark-snapshot .cpp-snapshot-table td:nth-child(2) {
+  background: color-mix(in srgb, var(--panel-border) 32%, var(--panel));
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table tbody tr:nth-child(even) td:nth-child(2) {
+  background: color-mix(in srgb, var(--panel-border) 42%, var(--panel));
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-table tbody tr:hover td:nth-child(2) {
+  background: color-mix(in srgb, var(--fuel-accent, var(--accent)) 8%, var(--panel));
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-you {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-band {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 4px;
+  line-height: 1.2;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-band--top,
+.cpp-benchmark-snapshot .cpp-snapshot-band--upper {
+  color: var(--status-good);
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-band--lower,
+.cpp-benchmark-snapshot .cpp-snapshot-band--bottom {
+  color: var(--status-bad);
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-band--mid {
+  color: var(--status-watch);
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-check {
+  color: var(--status-good);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cpp-snapshot-foot {
+  border-top: 1px solid var(--panel-border);
+  margin-top: 0;
+  padding: 10px 12px 12px;
+}
+
+.cpp-benchmark-snapshot .cpp-snapshot-cohort-note {
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+html[data-theme="light"] .cpp-benchmark-snapshot.cpp-card--solo {
+  background: linear-gradient(180deg, #f8fcfb 0%, #fff 32%);
+}
+
+html[data-theme="light"] .cpp-snapshot-table-wrap {
+  background: #fff;
 }
 
 .cpp-benchmark-text-grid {

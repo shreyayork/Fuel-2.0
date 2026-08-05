@@ -27,7 +27,9 @@ import { isModuleInsightReady } from "./profileProgress";
 import type { ProfileModuleId } from "./profileCredits";
 import "./companyProfilePreview.css";
 
-type PreviewTab = "company" | "dev" | "gtm" | "rev" | "benchmark";
+export type ProfilePreviewTab = "company" | "dev" | "gtm" | "rev" | "benchmark";
+
+type PreviewTab = ProfilePreviewTab;
 
 const BENCHMARK_FORM_KEY_ALIASES: Partial<Record<string, keyof BenchmarkFormValues>> = {
   payingCustomers: "paidCustomers",
@@ -158,92 +160,92 @@ function BenchmarkPreviewFields({
   const hasOpenToIntros = values.openToIntros;
   const filledCount = snapshotRows.length;
 
-  if (filledCount === 0 && textEntries.length === 0 && !hasOpenToIntros) {
-    return (
-      <div className="cpp-empty-card">
-        <strong>No benchmark metrics yet</strong>
-        <p>Add cohort numbers in Edit benchmark to unlock peer comparisons.</p>
-      </div>
-    );
-  }
-
   return (
-    <>
-      {filledCount > 0 ? (
-        <>
-          <div className="sc-investor-brief-table-wrap cpp-snapshot-table-wrap">
-            <table className="sc-investor-brief-table">
-              <thead>
-                <tr>
-                  <th scope="col">Metric</th>
-                  <th scope="col">You</th>
-                  <th scope="col">Cohort p50</th>
-                  <th scope="col">p25</th>
-                  <th scope="col">p75</th>
-                  <th scope="col">p90</th>
-                  <th scope="col">Band</th>
-                </tr>
-              </thead>
-              <tbody>
-                {snapshotRows.map(row => (
-                  <tr key={row.id}>
-                    <td>{row.label}</td>
-                    <td>
-                      <strong className="sc-investor-brief-you" style={{ color: row.colour }}>
-                        {row.you}
-                      </strong>
-                    </td>
-                    <td>{row.p50}</td>
-                    <td>{row.p25}</td>
-                    <td>{row.p75}</td>
-                    <td>{row.p90}</td>
-                    <td>
-                      <span className={`sc-investor-brief-band sc-investor-brief-band--${row.tier}`}>
-                        {row.isStrong ? (
-                          <span className="sc-investor-brief-check" aria-hidden="true">✓</span>
-                        ) : null}
-                        {row.band}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="sc-investor-brief-cohort-note">
-            Peer cohort: {cohortLabel}. Values from the latest private benchmark submission.
-          </p>
-        </>
-      ) : (
+    <section className="cpp-card cpp-card--solo cpp-benchmark-snapshot" aria-label="Benchmark metrics">
+      {filledCount === 0 && textEntries.length === 0 && !hasOpenToIntros ? (
         <div className="cpp-empty-card">
           <strong>No benchmark metrics yet</strong>
           <p>Add cohort numbers in Edit benchmark to unlock peer comparisons.</p>
         </div>
-      )}
-      {textEntries.length > 0 ? (
-        <div className="cpp-field-grid cpp-field-grid--compact cpp-benchmark-text-grid">
-          {textEntries.map(entry => (
-            <div key={entry.key} className="cpp-field-card">
-              <span className="cpp-field-label">{entry.label}</span>
-              <p className="cpp-field-value">{entry.display}</p>
+      ) : (
+        <>
+          {filledCount > 0 ? (
+            <div className="cpp-snapshot-panel" aria-label="Benchmark snapshot">
+              <div className="cpp-snapshot-table-wrap">
+                <h3 className="cpp-snapshot-title">Snapshot</h3>
+                <div className="cpp-snapshot-table-scroll">
+                  <table className="cpp-snapshot-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Metric</th>
+                        <th scope="col">You</th>
+                        <th scope="col">Cohort p50</th>
+                        <th scope="col">p25</th>
+                        <th scope="col">p75</th>
+                        <th scope="col">p90</th>
+                        <th scope="col">Band</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {snapshotRows.map(row => (
+                        <tr key={row.id}>
+                          <td>{row.label}</td>
+                          <td>
+                            <strong className="cpp-snapshot-you" style={{ color: row.colour }}>
+                              {row.you}
+                            </strong>
+                          </td>
+                          <td>{row.p50}</td>
+                          <td>{row.p25}</td>
+                          <td>{row.p75}</td>
+                          <td>{row.p90}</td>
+                          <td>
+                            <span className={`cpp-snapshot-band cpp-snapshot-band--${row.tier}`}>
+                              {row.isStrong ? (
+                                <span className="cpp-snapshot-check" aria-hidden="true">✓</span>
+                              ) : null}
+                              {row.band}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <footer className="cpp-snapshot-foot">
+                  <p className="cpp-snapshot-cohort-note">
+                    Peer cohort: {cohortLabel}. Values from the latest private benchmark submission.
+                  </p>
+                </footer>
+              </div>
             </div>
-          ))}
-        </div>
-      ) : null}
-      {hasOpenToIntros ? (
-        <div className="cpp-field-grid cpp-field-grid--compact">
-          <div className="cpp-field-card">
-            <span className="cpp-field-label">Investor intros</span>
-            <p className="cpp-field-value">Open to investor intros this quarter</p>
-          </div>
-        </div>
-      ) : null}
-      {filledCount > 0 && filledCount < BENCHMARK_WIZARD_FIELDS.length ? (
-        <p className="cpp-empty cpp-empty--muted">
-          {BENCHMARK_WIZARD_FIELDS.length - filledCount} more metric{BENCHMARK_WIZARD_FIELDS.length - filledCount === 1 ? "" : "s"} available in benchmark.
-        </p>
-      ) : null}
-    </>
+          ) : null}
+          {textEntries.length > 0 ? (
+            <div className="cpp-field-grid cpp-field-grid--compact cpp-benchmark-text-grid">
+              {textEntries.map(entry => (
+                <div key={entry.key} className="cpp-field-card">
+                  <span className="cpp-field-label">{entry.label}</span>
+                  <p className="cpp-field-value">{entry.display}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {hasOpenToIntros ? (
+            <div className="cpp-field-grid cpp-field-grid--compact">
+              <div className="cpp-field-card">
+                <span className="cpp-field-label">Investor intros</span>
+                <p className="cpp-field-value">Open to investor intros this quarter</p>
+              </div>
+            </div>
+          ) : null}
+          {filledCount > 0 && filledCount < BENCHMARK_WIZARD_FIELDS.length ? (
+            <p className="cpp-empty cpp-empty--muted">
+              {BENCHMARK_WIZARD_FIELDS.length - filledCount} more metric{BENCHMARK_WIZARD_FIELDS.length - filledCount === 1 ? "" : "s"} available in benchmark.
+            </p>
+          ) : null}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -324,6 +326,24 @@ function ProfilePreviewFields({
   );
 }
 
+function PreviewSectionHeading({
+  title,
+  meta,
+}: {
+  title: string;
+  meta?: string | null;
+}) {
+  return (
+    <div className="cpp-section-heading">
+      <span className="cpp-section-pointer" aria-hidden="true">›</span>
+      <div className="cpp-section-heading-copy">
+        <h3>{title}</h3>
+        {meta ? <span className="cpp-card-meta">{meta}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 function FounderCard({
   name,
   role,
@@ -333,26 +353,20 @@ function FounderCard({
   role: string;
   email: string;
 }) {
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
     <section className="cpp-card cpp-card--founder" aria-label="Founder details">
       <div className="cpp-card-head">
-        <div className="cpp-card-head-row">
-          <span className="cpp-card-icon" aria-hidden="true">👤</span>
-          <div>
-            <h3>Founder details</h3>
-            <span className="cpp-card-meta">From onboarding</span>
-          </div>
-        </div>
-      </div>
-      <div className="cpp-founder-lead">
-        <span className="cpp-founder-avatar" aria-hidden="true">{initial}</span>
-        <div>
-          <strong className="cpp-founder-name">{name}</strong>
-          <span className="cpp-founder-role">{role}</span>
-        </div>
+        <PreviewSectionHeading title="Founder details" meta="From onboarding" />
       </div>
       <div className="cpp-field-grid cpp-field-grid--compact">
+        <div className="cpp-field-card">
+          <span className="cpp-field-label">Name</span>
+          <p className="cpp-field-value">{name}</p>
+        </div>
+        <div className="cpp-field-card">
+          <span className="cpp-field-label">Role</span>
+          <p className="cpp-field-value">{role}</p>
+        </div>
         <div className="cpp-field-card">
           <span className="cpp-field-label">Email</span>
           <p className="cpp-field-value">{email}</p>
@@ -375,6 +389,7 @@ export function CompanyProfilePreview({
   benchmarkValues,
   benchmarkEarned = false,
   cohortLabel: cohortLabelProp,
+  initialTab = "company",
   onClose,
   onEditProfile,
   onEditBenchmark,
@@ -391,14 +406,19 @@ export function CompanyProfilePreview({
   benchmarkValues?: BenchmarkFormValues;
   benchmarkEarned?: boolean;
   cohortLabel?: string;
+  initialTab?: ProfilePreviewTab;
   onClose: () => void;
   onEditProfile: (section?: ProfileDrawerInitialSection) => void;
   onEditBenchmark?: () => void;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
-  const [activeTab, setActiveTab] = useState<PreviewTab>("company");
+  const [activeTab, setActiveTab] = useState<PreviewTab>(initialTab);
   useDialogA11y(open, dialogRef, onClose);
   const handleScrimPointerDown = useScrimPointerClose(onClose, open);
+
+  useEffect(() => {
+    if (open) setActiveTab(initialTab);
+  }, [open, initialTab]);
 
   useEffect(() => {
     if (!open) return;
@@ -539,28 +559,25 @@ export function CompanyProfilePreview({
                 {section ? (
                   <section className="cpp-card" aria-label="Company details">
                     <div className="cpp-card-head">
-                      <div className="cpp-card-head-row">
-                        <span className="cpp-card-icon" aria-hidden="true">{section.icon}</span>
-                        <div>
-                          <h3>{section.title}</h3>
-                          {section.subtitle ? <span className="cpp-card-meta">{section.subtitle}</span> : null}
-                        </div>
-                      </div>
+                      <PreviewSectionHeading
+                        title={section.title}
+                        meta={section.subtitle}
+                      />
                     </div>
                     <ProfilePreviewFields section={section} answers={answers} />
                   </section>
                 ) : null}
               </div>
             ) : activeTab === "benchmark" ? (
-              <section className="cpp-card cpp-card--solo cpp-benchmark-snapshot" aria-label="Benchmark metrics">
-                <h3 className="sc-investor-brief-h3 cpp-snapshot-title">Snapshot</h3>
-                <BenchmarkPreviewFields
-                  values={benchmarkValues ?? EMPTY_BENCHMARK_FORM}
-                  cohortLabel={cohortLabel}
-                />
-              </section>
+              <BenchmarkPreviewFields
+                values={benchmarkValues ?? EMPTY_BENCHMARK_FORM}
+                cohortLabel={cohortLabel}
+              />
             ) : section ? (
               <section className="cpp-card cpp-card--solo" aria-label={section.title}>
+                <div className="cpp-card-head cpp-card-head--solo">
+                  <PreviewSectionHeading title={section.title} meta={section.subtitle} />
+                </div>
                 <ProfilePreviewFields section={section} answers={answers} />
               </section>
             ) : null}

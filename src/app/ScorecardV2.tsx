@@ -82,6 +82,7 @@ import {
   type ReportReadiness,
   type WorkspaceModuleStatus,
 } from "./profileProgress";
+import type { ProfilePreviewTab } from "./CompanyProfilePreview";
 import "./PatriotPayJourney.css";
 import "./overview-ref.css";
 
@@ -313,6 +314,8 @@ export type ScorecardV2Props = {
   overviewBuildPhase?: OverviewBuildPhase | null;
   /** Tracks that finished a build (single-module saves or full onboarding build). */
   overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>;
+  /** True while an Overview report build is actively running. */
+  overviewBuildActive?: boolean;
   onStartOptionalTour?: () => void;
   onDismissOverviewReady?: () => void;
   /** Controlled tip next to Recommended Actions after Overview finishes building. */
@@ -346,6 +349,8 @@ export type ScorecardV2Props = {
   benchmarkEditRequestKey?: number;
   /** Fires when the benchmark edit drawer closes. */
   onBenchmarkEditClosed?: () => void;
+  /** Opens read-only profile preview (optionally on a specific tab). */
+  onOpenProfilePreview?: (tab?: ProfilePreviewTab) => void;
 };
 
 export type OverviewBuildPhase =
@@ -388,6 +393,17 @@ export const OVERVIEW_ALL_BUILT_PHASES: OverviewBuildPhase[] = [
   "rev",
   "suggestions",
 ];
+
+/** Hide Overview connectors once the user has started their first report build. */
+export function hasOverviewReportGenerationStarted(
+  overviewBuildPhase: OverviewBuildPhase | null | undefined,
+  overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>,
+  overviewBuildActive = false,
+): boolean {
+  if (overviewBuildActive) return true;
+  if (overviewBuildPhase != null) return true;
+  return Boolean(overviewBuiltPhases && overviewBuiltPhases.size > 0);
+}
 
 /** Initiative + playbook suggestion counts stay hidden until build finishes. */
 function overviewSuggestionsReady(
@@ -2436,6 +2452,7 @@ function OverviewWorkspaceDashboard({
   wikiSummary,
   overviewBuildPhase = null,
   overviewBuiltPhases,
+  overviewBuildActive = false,
   suggestionsReady = true,
   showWorkspaceSetup = false,
   advisorActions = [],
@@ -2453,6 +2470,7 @@ function OverviewWorkspaceDashboard({
   showShareTip = false,
   onDismissShareTip,
   displayScoresZero = false,
+  onOpenProfilePreview,
 }: {
   userFirstName?: string;
   companyName: string;
@@ -2469,6 +2487,7 @@ function OverviewWorkspaceDashboard({
   wikiSummary: WikiSummaryContent;
   overviewBuildPhase?: OverviewBuildPhase | null;
   overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>;
+  overviewBuildActive?: boolean;
   suggestionsReady?: boolean;
   showWorkspaceSetup?: boolean;
   advisorActions?: AdvisorRecAction[];
@@ -2486,6 +2505,7 @@ function OverviewWorkspaceDashboard({
   showShareTip?: boolean;
   onDismissShareTip?: () => void;
   displayScoresZero?: boolean;
+  onOpenProfilePreview?: (tab?: ProfilePreviewTab) => void;
 }) {
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const benchmarkEarned = Boolean(
@@ -2563,8 +2583,18 @@ function OverviewWorkspaceDashboard({
     ? "early" as const
     : progressSummary.reportReadiness;
   const showWorkspaceSummaryTop = showAdvisorSection && !showWorkspaceSetup;
+  const showConnectorsSection = !hasOverviewReportGenerationStarted(
+    overviewBuildPhase,
+    overviewBuiltPhases,
+    overviewBuildActive,
+  );
 
   const handleSectionStart = (sectionId: WorkspaceSectionId) => {
+    const module = modules.find(item => item.id === sectionId);
+    if (module?.complete) {
+      onOpenProfilePreview?.(sectionId);
+      return;
+    }
     if (sectionId === "benchmark") {
       onEditBenchmark?.();
       return;
@@ -2583,6 +2613,22 @@ function OverviewWorkspaceDashboard({
           creditBalance={progressSummary.creditBalance}
           displayScoresZero={displayScoresZero}
         />
+      ) : null}
+
+      {allModulesComplete && onOpenProfilePreview ? (
+        <section className="sc-workspace-preview-bar" aria-label="Profile preview">
+          <div className="sc-workspace-preview-bar-main">
+            <strong>All modules complete</strong>
+            <p>Review your full profile, benchmark snapshot, and track answers.</p>
+          </div>
+          <button
+            type="button"
+            className="sc-workspace-preview-bar-btn"
+            onClick={() => onOpenProfilePreview("company")}
+          >
+            Preview profile
+          </button>
+        </section>
       ) : null}
 
       {showWorkspaceSummaryTop || overviewBuildPhase === "ready" || isBuildingAdvisor ? (
@@ -2687,7 +2733,9 @@ function OverviewWorkspaceDashboard({
         </div>
       ) : null}
 
-      <WorkspaceConnectorsSection activeTourTarget={activeTourTarget} />
+      {showConnectorsSection ? (
+        <WorkspaceConnectorsSection activeTourTarget={activeTourTarget} />
+      ) : null}
     </div>
   );
 }
@@ -7152,6 +7200,7 @@ export default function ScorecardV2({
   onViewInitiative,
   overviewBuildPhase = null,
   overviewBuiltPhases,
+  overviewBuildActive = false,
   onStartOptionalTour,
   onDismissOverviewReady,
   recActionsTipOpen = false,
@@ -7171,6 +7220,7 @@ export default function ScorecardV2({
   tourCompleteSignal = 0,
   benchmarkEditRequestKey = 0,
   onBenchmarkEditClosed,
+  onOpenProfilePreview,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
   const [displayScoresZero, setDisplayScoresZero] = useState(() => reloadLandingActive || isReloadLandingActive());
@@ -7475,6 +7525,7 @@ export default function ScorecardV2({
           wikiSummary={wikiSummary}
           overviewBuildPhase={overviewBuildPhase}
           overviewBuiltPhases={overviewBuiltPhases}
+          overviewBuildActive={overviewBuildActive}
           suggestionsReady={suggestionsReady}
           showWorkspaceSetup={showWorkspaceSetup}
           advisorActions={advisorActions}
@@ -7492,6 +7543,7 @@ export default function ScorecardV2({
           showShareTip={false}
           onDismissShareTip={onDismissRecActionsTip}
           displayScoresZero={displayScoresZero}
+          onOpenProfilePreview={onOpenProfilePreview}
         />
       ) : null}
 

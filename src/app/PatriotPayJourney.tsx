@@ -37,7 +37,7 @@ import {
 } from "./profileCredits";
 import { ProfileCreditRewardToast } from "./ProfileCreditRewardToast";
 import { UnifiedProfileDrawer } from "./UnifiedProfileDrawer";
-import { CompanyProfilePreview } from "./CompanyProfilePreview";
+import { CompanyProfilePreview, type ProfilePreviewTab } from "./CompanyProfilePreview";
 import {
   BENCHMARK_PERIOD,
   CompleteBenchmarkDrawer,
@@ -9178,6 +9178,7 @@ function PatriotPayJourneyInner({
   );
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
+  const [profilePreviewTab, setProfilePreviewTab] = useState<ProfilePreviewTab>("company");
   const editProfileFromPreviewRef = useRef(false);
   const editBenchmarkFromPreviewRef = useRef(false);
   const [benchmarkDrawerOpen, setBenchmarkDrawerOpen] = useState(false);
@@ -9216,7 +9217,8 @@ function PatriotPayJourneyInner({
     });
   }, [openBenchmarkDrawer]);
 
-  const openProfilePreview = useCallback(() => {
+  const openProfilePreview = useCallback((tab: ProfilePreviewTab = "company") => {
+    setProfilePreviewTab(tab);
     setProfilePreviewOpen(true);
   }, []);
 
@@ -10634,7 +10636,7 @@ function PatriotPayJourneyInner({
               type="button"
               className={`company-profile-link${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
               data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
-              onClick={openProfilePreview}
+              onClick={() => openProfilePreview("company")}
               aria-label={`Preview ${selectedCompany.displayName} profile`}
             >
               <div
@@ -11132,6 +11134,7 @@ function PatriotPayJourneyInner({
               tourCompleteSignal={tourCompleteSignal}
               benchmarkEditRequestKey={benchmarkEditRequestKey}
               onBenchmarkEditClosed={handleBenchmarkEditClosedFromPreview}
+              onOpenProfilePreview={openProfilePreview}
               onLandingContentRestore={() => {
                 setReloadLandingActive(false);
                 setShowTourPrompt(false);
@@ -11154,6 +11157,7 @@ function PatriotPayJourneyInner({
               privateWorkspaceLabel={usesPerCompanyWorkspace ? "Your private workspace" : undefined}
               overviewBuildPhase={overviewBuildPhase}
               overviewBuiltPhases={overviewBuiltPhases}
+              overviewBuildActive={overviewBuildActive}
               recActionsTipOpen={recActionsTipOpen}
               onDismissRecActionsTip={() => {
                 dismissRecActionsTip(selectedCompany.displayName);
@@ -11279,6 +11283,7 @@ function PatriotPayJourneyInner({
         benchmarkValues={scorecardBenchmarkForm}
         benchmarkEarned={Boolean(earnedProfileCredits.benchmark && earnedProfileCredits.benchmarkViaSubmit)}
         cohortLabel={selectedCompany.meta}
+        initialTab={profilePreviewTab}
         onClose={() => setProfilePreviewOpen(false)}
         onEditProfile={handleEditProfileFromPreview}
         onEditBenchmark={handleEditBenchmarkFromPreview}
