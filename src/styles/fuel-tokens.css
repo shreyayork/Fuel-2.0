@@ -23,6 +23,9 @@ html[data-theme="dark"] {
   --status-good-line: color-mix(in srgb, var(--status-good) 32%, transparent);
   --status-watch-line: color-mix(in srgb, var(--status-watch) 32%, transparent);
   --status-bad-line: color-mix(in srgb, var(--status-bad) 32%, transparent);
+  /* Right-side drawer shell — 40% viewport (see styles/drawer-layout.css) */
+  --fuel-side-panel-width: 40vw;
+  --fuel-side-panel-max-width: 92vw;
 }
 
 html[data-theme="light"] {
@@ -43,4 +46,6 @@ html[data-theme="light"] {
   --status-good-line: color-mix(in srgb, var(--status-good) 28%, transparent);
   --status-watch-line: color-mix(in srgb, var(--status-watch) 28%, transparent);
   --status-bad-line: color-mix(in srgb, var(--status-bad) 28%, transparent);
+  --fuel-side-panel-width: 40vw;
+  --fuel-side-panel-max-width: 92vw;
 }

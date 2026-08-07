@@ -74,7 +74,7 @@ import {
   type YorkServiceOffer,
 } from "./yorkIeUpsell";
 import { isYorkOfferDismissed } from "./yorkDismiss";
-import { isBrowserReload, applyBrowserReloadReset, isReloadLandingActive } from "./workspaceSession";
+import { saveActivePage } from "./workspaceSession";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import InvestorDashboard, { type InvestorDashboardSection } from "./investor/InvestorDashboard.tsx";
 import {
@@ -8958,6 +8958,7 @@ function SidebarNavItem({
 
 function SidebarProfileFooter({
   onOpenAccountSettings,
+  onLogout,
   yorkUpsellReady = false,
   profileComplete = true,
   userFullName = "Shreya Gokani",
@@ -8965,6 +8966,7 @@ function SidebarProfileFooter({
   earnedProfileCredits,
 }: {
   onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
+  onLogout?: () => void;
   yorkUpsellReady?: boolean;
   /** Hide York help + credit balance until profile completion. */
   profileComplete?: boolean;
@@ -9054,7 +9056,10 @@ function SidebarProfileFooter({
                 type="button"
                 role="menuitem"
                 className="sidebar-user-menu-item"
-                onClick={() => setMenuOpen(false)}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onLogout?.();
+                }}
               >
                 <SidebarMenuIcon name="logout" />
                 <span className="sidebar-user-menu-label">Log out</span>
@@ -9091,11 +9096,13 @@ export default function PatriotPayJourney({
   initialBenchmark = null,
   initialOnboardingAnswers = null,
   persona = "founder",
+  onLogout,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
   persona?: "founder" | "investor";
+  onLogout?: () => void;
 }) {
   return (
     <CreditProvider>
@@ -9104,6 +9111,7 @@ export default function PatriotPayJourney({
         initialBenchmark={initialBenchmark}
         initialOnboardingAnswers={initialOnboardingAnswers}
         persona={persona}
+        onLogout={onLogout}
       />
       <UpgradeModal />
       <CreditToastHost />
@@ -9116,16 +9124,15 @@ function PatriotPayJourneyInner({
   initialBenchmark = null,
   initialOnboardingAnswers = null,
   persona = "founder",
+  onLogout,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
   persona?: "founder" | "investor";
+  onLogout?: () => void;
 }) {
-  const [reloadLandingActive, setReloadLandingActive] = useState(() => {
-    applyBrowserReloadReset(FOUNDER_COMPANY.id);
-    return isReloadLandingActive();
-  });
+  const [reloadLandingActive, setReloadLandingActive] = useState(false);
 
   const isInvestorPersona = persona === "investor";
   const startsWithTour = initialPage === "guided-tour";
@@ -9138,21 +9145,18 @@ function PatriotPayJourneyInner({
     || initialPage === "investor-portfolios"
     || initialPage === "investor-pipeline"
     || initialPage === "investor-watchlists";
+  const resolveInitialActivePage = () => {
+    if (initialPage === "investor-home" || initialPage === "investor-portfolios") return "investor-portfolios";
+    if (startsWithTour) return "overview";
+    if (startsWithScorecard || startsWithOverviewBuilding) return "scorecard-v2";
+    if (startsWithOverview) return "signals-loading";
+    return initialPage;
+  };
   const [openTracks, setOpenTracks] = useState(() => new Set());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
-  const [activePage, setActivePage] = useState(
-    // Investor fund dashboard is hidden for now — land on Portfolios.
-    reloadLandingActive
-      ? "scorecard-v2"
-      : initialPage === "investor-home" || initialPage === "investor-portfolios"
-      ? "investor-portfolios"
-      : startsWithTour ? "overview"
-      : (startsWithScorecard || startsWithOverviewBuilding) ? "scorecard-v2"
-      : startsWithOverview ? "signals-loading"
-      : initialPage,
-  );
-  const [tourOpen, setTourOpen] = useState(() => (reloadLandingActive ? false : startsWithTour));
+  const [activePage, setActivePage] = useState(resolveInitialActivePage);
+  const [tourOpen, setTourOpen] = useState(() => startsWithTour);
   const [tourStep, setTourStep] = useState(0);
   const [tourCompleteSignal, setTourCompleteSignal] = useState(0);
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
@@ -9161,7 +9165,6 @@ function PatriotPayJourneyInner({
     && !hasCompletedOnboardingTracks(initialOnboardingAnswers);
   const [profileComplete, setProfileComplete] = useState(
     () => {
-      if (reloadLandingActive) return false;
       if (initialOnboardingAnswers && (startsWithOverviewBuilding || startsWithScorecard)) {
         const seed = mapOnboardingToDetailAnswers(initialOnboardingAnswers) as DetailAnswers;
         return hasCompletedOnboardingTracks(initialOnboardingAnswers)
@@ -9187,10 +9190,9 @@ function PatriotPayJourneyInner({
   const [profileDrawerSection, setProfileDrawerSection] = useState<ProfileDrawerSection>("company");
   const [profileDrawerResetKey, setProfileDrawerResetKey] = useState(0);
   const [profileDetailsSyncKey, setProfileDetailsSyncKey] = useState(0);
-  const [earnedProfileCredits, setEarnedProfileCredits] = useState(() => {
-    if (reloadLandingActive) return { ...EMPTY_EARNED_PROFILE_CREDITS, modules: [] };
-    return loadEarnedProfileCredits(FOUNDER_COMPANY.id);
-  });
+  const [earnedProfileCredits, setEarnedProfileCredits] = useState(() =>
+    loadEarnedProfileCredits(FOUNDER_COMPANY.id),
+  );
   const [profileCreditReward, setProfileCreditReward] = useState<ProfileCreditReward | null>(null);
   const profileDrawerInitialAnswers = useMemo(
     () => (initialOnboardingAnswers ? mapOnboardingToDetailAnswers(initialOnboardingAnswers) : undefined),
@@ -9305,26 +9307,8 @@ function PatriotPayJourneyInner({
   }, [activePage]);
 
   useEffect(() => {
-    if (!isBrowserReload()) return;
-    setActivePage("scorecard-v2");
-    setProfileDrawerOpen(false);
-    setBenchmarkDrawerOpen(false);
-    setAskFuelOpen(false);
-    setProfileComplete(false);
-    setProfileDrawerSection("company");
-    setProfileDrawerResetKey(key => key + 1);
-    setEarnedProfileCredits({ ...EMPTY_EARNED_PROFILE_CREDITS, modules: [] });
-    setFounderInitiatives([]);
-    setShowTourPrompt(true);
-    setHeaderTourEnabled(false);
-    setTourOpen(false);
-    setTourStep(0);
-    setFocusInitiativeId(null);
-    setIntelligenceFocus(null);
-    setRecActionsTipOpen(false);
-    setMobileNavOpen(false);
-    window.scrollTo(0, 0);
-  }, []);
+    saveActivePage(activePage, persona);
+  }, [activePage, persona]);
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -9347,7 +9331,7 @@ function PatriotPayJourneyInner({
   const [investorIntelligenceByCompany, setInvestorIntelligenceByCompany] = useState<Record<string, IntelligenceItem[]>>({});
   const [investorInitiativesByCompany, setInvestorInitiativesByCompany] = useState<Record<string, InitiativeRecord[]>>({});
   const [founderInitiatives, setFounderInitiatives] = useState<InitiativeRecord[]>(() =>
-    reloadLandingActive ? [] : buildDefaultRecommendedInitiatives(),
+    buildDefaultRecommendedInitiatives(),
   );
   const [focusInitiativeId, setFocusInitiativeId] = useState<string | null>(null);
   const [investorBenchmarkByCompany, setInvestorBenchmarkByCompany] = useState<Record<string, BenchmarkSubmission | null>>({});
@@ -9365,14 +9349,16 @@ function PatriotPayJourneyInner({
     };
   });
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
-  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(() => {
-    if (reloadLandingActive) return null;
-    return loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission;
-  });
+  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(() =>
+    loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission,
+  );
   useEffect(() => {
-    if (reloadLandingActive) return;
     setEarnedProfileCredits(loadEarnedProfileCredits(selectedCompany.id));
-  }, [selectedCompany.id, reloadLandingActive]);
+  }, [selectedCompany.id]);
+
+  useEffect(() => {
+    syncProfileCompleteFromStorage(selectedCompany.id);
+  }, [selectedCompany.id, syncProfileCompleteFromStorage]);
 
   const handleProfileModuleSaved = useCallback((
     module: ProfileModuleId,
@@ -10044,7 +10030,6 @@ function PatriotPayJourneyInner({
   );
   const overviewBuildTargetPhaseRef = useRef<OverviewBuildPhase>("summary");
   const [overviewBuiltPhases, setOverviewBuiltPhases] = useState<Set<OverviewBuildPhase>>(() => {
-    if (reloadLandingActive) return new Set();
     try {
       const raw = window.localStorage.getItem(`fuel-overview-built-${selectedCompany.id}`);
       if (!raw) return new Set();
@@ -10054,13 +10039,6 @@ function PatriotPayJourneyInner({
     }
   });
 
-  useEffect(() => {
-    if (!isBrowserReload()) return;
-    setOverviewBuildPhase(null);
-    setOverviewBuildActive(false);
-    setOverviewBuiltPhases(new Set());
-    setBenchmarkSubmission(null);
-  }, []);
   const persistOverviewBuiltPhases = useCallback((phases: Set<OverviewBuildPhase>) => {
     try {
       window.localStorage.setItem(
@@ -10072,14 +10050,13 @@ function PatriotPayJourneyInner({
     }
   }, [selectedCompany.id]);
   useEffect(() => {
-    if (reloadLandingActive) return;
     try {
       const raw = window.localStorage.getItem(`fuel-overview-built-${selectedCompany.id}`);
       setOverviewBuiltPhases(raw ? new Set(JSON.parse(raw) as OverviewBuildPhase[]) : new Set());
     } catch {
       setOverviewBuiltPhases(new Set());
     }
-  }, [selectedCompany.id, reloadLandingActive]);
+  }, [selectedCompany.id]);
   const [recActionsTipOpen, setRecActionsTipOpen] = useState(false);
   /** True once this post-onboarding Overview build hit "ready" — tip may show even after the ready bar is dismissed. */
   const overviewContentReadyRef = useRef(false);
@@ -10531,6 +10508,7 @@ function PatriotPayJourneyInner({
         </nav>
         <SidebarProfileFooter
           onOpenAccountSettings={openAccountSettings}
+          onLogout={onLogout}
           yorkUpsellReady={profileComplete && (overviewBuildPhase == null || overviewBuildPhase === "ready")}
           profileComplete={profileComplete}
           earnedProfileCredits={earnedProfileCredits}
@@ -10572,7 +10550,7 @@ function PatriotPayJourneyInner({
               className={`content${tourOpen && tourSteps[tourStep].target === "account-settings" ? " tour-highlight" : ""}`}
               data-tour-target={tourOpen && tourSteps[tourStep].target === "account-settings" ? "account-settings" : undefined}
             >
-              <AccountSettings tab={accountTab} onTabChange={setAccountTab} />
+              <AccountSettings tab={accountTab} onTabChange={setAccountTab} onLogout={onLogout} />
             </div>
           </>
         ) : (<><div className={`topbar${showTourCoachmark ? " has-tour-coachmark" : ""}`}>

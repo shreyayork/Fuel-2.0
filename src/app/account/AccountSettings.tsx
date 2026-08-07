@@ -423,8 +423,10 @@ const PROFILE_USER = {
 
 function AccountProfileTab({
   onOpenUsage,
+  onLogout,
 }: {
   onOpenUsage: () => void;
+  onLogout?: () => void;
 }) {
   const tokensUsed = 91700;
   const agentRuns = 56;
@@ -444,7 +446,7 @@ function AccountProfileTab({
             <p className="acct-profile-email">{PROFILE_USER.email}</p>
           </div>
         </div>
-        <button type="button" className="acct-profile-signout">
+        <button type="button" className="acct-profile-signout" onClick={onLogout}>
           Sign out
         </button>
       </section>
@@ -561,9 +563,11 @@ function AccountProfileTab({
 export function AccountSettings({
   tab,
   onTabChange,
+  onLogout,
 }: {
   tab: AccountSettingsTab;
   onTabChange: (tab: AccountSettingsTab) => void;
+  onLogout?: () => void;
 }) {
   const { snapshot } = useCredits();
   const isProfile = tab === "profile";
@@ -609,7 +613,7 @@ export function AccountSettings({
 
       <div className="account-settings-body">
         {tab === "profile" ? (
-          <AccountProfileTab onOpenUsage={() => onTabChange("usage")} />
+          <AccountProfileTab onOpenUsage={() => onTabChange("usage")} onLogout={onLogout} />
         ) : tab === "usage" ? (
           <AccountUsageTab snapshot={snapshot} />
         ) : tab === "integrations" ? (

@@ -5,6 +5,7 @@ export type InvestorCompanyRef = {
   domain: string;
   logo: string;
   logoBg: string;
+  logoUrl?: string;
   meta: string;
   headquarters: string;
   employees: string;
@@ -141,6 +142,25 @@ export const PIPELINE_STAGES: { id: PipelineStage; label: string }[] = [
   { id: "contract", label: "Contract Sent" },
 ];
 
+export function buildClearbitLogoUrl(domain: string): string {
+  return `https://logo.clearbit.com/${domain}`;
+}
+
+/** Slug for local dummy logo assets under /public/company-logos/. */
+export function companyLogoSlug(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+export function buildCompanyLogoAssetUrl(label: string): string {
+  return `/company-logos/${companyLogoSlug(label)}.svg`;
+}
+
+export function resolveCompanyLogoUrl(
+  company: Pick<InvestorCompanyRef, "displayName" | "domain" | "logoUrl">,
+): string {
+  return company.logoUrl ?? buildCompanyLogoAssetUrl(company.displayName);
+}
+
 export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
   {
     id: "patriotpay",
@@ -149,6 +169,7 @@ export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
     domain: "patriotpay.com",
     logo: "P",
     logoBg: "#1E4D8C",
+    logoUrl: buildCompanyLogoAssetUrl("Patriot Pay"),
     meta: "Healthcare · Patient Billing · Seed",
     headquarters: "Boston, MA, US",
     employees: "11-50",
@@ -179,6 +200,7 @@ export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
     domain: "operator.ai",
     logo: "O",
     logoBg: "#5B3A8C",
+    logoUrl: buildCompanyLogoAssetUrl("Operator AI"),
     meta: "AI Operations · Workflow Automation · Seed",
     headquarters: "San Francisco, CA, US",
     employees: "11-50",
@@ -209,6 +231,7 @@ export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
     domain: "syncsports.io",
     logo: "S",
     logoBg: "#8C5B3A",
+    logoUrl: buildCompanyLogoAssetUrl("Sync Sports"),
     meta: "Sports Tech · Fan Engagement · Seed",
     headquarters: "Austin, TX, US",
     employees: "11-50",
@@ -576,39 +599,186 @@ export const SUGGESTED_FOUNDERS: SuggestedFounder[] = [
   },
 ].sort((left, right) => Number(right.onFuel) - Number(left.onFuel) || right.matchScore - left.matchScore);
 
-export type WatchlistScope = "Account" | "Personal";
+export type WatchlistScope = "Workspace" | "Private" | "Team";
 export type WatchlistOwnerKind = "mine" | "shared";
+
+export const WATCHLIST_VISIBILITY_OPTIONS: WatchlistScope[] = [
+  "Workspace",
+  "Private",
+  "Team",
+];
+
+export function watchlistOwnerKindForScope(scope: WatchlistScope): WatchlistOwnerKind {
+  return scope === "Private" ? "mine" : "shared";
+}
+
+export const WATCHLIST_TEAM_OPTIONS = [
+  "Alpha",
+  "Beta",
+  "Growth",
+  "Platform",
+  "Deal team",
+] as const;
+
+export type WatchlistTeam = (typeof WATCHLIST_TEAM_OPTIONS)[number];
+
+export type WatchlistEditDraft = {
+  name: string;
+  scope: WatchlistScope;
+  teams: string[];
+};
+
+export function buildWatchlistEditDraft(row: WatchlistRow): WatchlistEditDraft {
+  return {
+    name: row.name,
+    scope: row.scope,
+    teams: row.scope === "Team" ? [...(row.teams ?? [])] : [],
+  };
+}
+
+export function isWatchlistEditValid(draft: WatchlistEditDraft): boolean {
+  if (!draft.name.trim()) return false;
+  if (draft.scope === "Team" && draft.teams.length === 0) return false;
+  return true;
+}
+
+export function applyWatchlistEdit(row: WatchlistRow, draft: WatchlistEditDraft): WatchlistRow {
+  const name = draft.name.trim();
+  const ownerKind = watchlistOwnerKindForScope(draft.scope);
+  const teams = draft.scope === "Team" ? draft.teams : [];
+  return {
+    ...row,
+    name,
+    scope: draft.scope,
+    teams,
+    ownerKind,
+    updatedAt: "Just now",
+  };
+}
 
 export type WatchlistCompanyChip = {
   logo: string;
   logoBg: string;
   name: string;
+  logoUrl?: string;
+};
+
+export type WatchlistCompanyEntry = WatchlistCompanyChip & {
+  id: string;
+  addedAt: string;
+  addedBy: string;
 };
 
 export type WatchlistRow = {
   id: string;
   name: string;
-  companyCount: number;
-  companies: WatchlistCompanyChip[];
+  entries: WatchlistCompanyEntry[];
   ownerName: string;
   ownerEmail: string;
   ownerKind: WatchlistOwnerKind;
   scope: WatchlistScope;
+  /** Selected teams when scope is Team. */
+  teams: string[];
   updatedAt: string;
   digest: "Off" | "Weekly" | "Daily";
   starred: boolean;
 };
 
+export function watchlistEntryCount(row: WatchlistRow): number {
+  return row.entries?.length ?? 0;
+}
+
+export function watchlistPreviewChips(row: WatchlistRow, limit = 4): WatchlistCompanyChip[] {
+  return (row.entries ?? []).slice(0, limit).map(({ logo, logoBg, name, logoUrl }) => ({
+    logo,
+    logoBg,
+    name,
+    logoUrl,
+  }));
+}
+
+export function watchlistOwnerDisplay(row: WatchlistRow): string {
+  if (row.ownerKind === "mine") return "you";
+  return row.ownerName;
+}
+
+export function watchlistAccessInitials(row: WatchlistRow): string {
+  const label = row.teams?.[0] ?? row.ownerName;
+  const parts = label.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+  }
+  return label.slice(0, 2).toUpperCase();
+}
+
+export function watchlistTeamLabels(row: WatchlistRow): string[] {
+  if (row.scope !== "Team") return [];
+  return row.teams ?? [];
+}
+
+export function watchlistAccessName(row: WatchlistRow): string {
+  if (row.scope === "Team" && (row.teams?.length ?? 0) > 0) {
+    return row.teams!.join(", ");
+  }
+  return row.ownerName;
+}
+
+export function watchlistVisibilityCopy(row: WatchlistRow): string {
+  const teams = row.teams ?? [];
+  if (row.scope === "Private") return "Visible to you only.";
+  if (row.scope === "Workspace") return "Visible to your workspace.";
+  if (teams.length === 0) return "Select teams to share with.";
+  if (teams.length === 1) return `Visible to ${teams[0]}.`;
+  if (teams.length === 2) return `Visible to ${teams[0]} and ${teams[1]}.`;
+  return `Visible to ${teams.slice(0, -1).join(", ")}, and ${teams.at(-1)}.`;
+}
+
+export function buildWatchlistEntry(
+  name: string,
+  opts: Partial<Pick<WatchlistCompanyEntry, "id" | "logo" | "logoBg" | "logoUrl" | "addedAt" | "addedBy">> = {},
+): WatchlistCompanyEntry {
+  return {
+    id: opts.id ?? `wl-co-${companyLogoSlug(name)}`,
+    name,
+    logo: opts.logo ?? name.trim().slice(0, 1).toUpperCase(),
+    logoBg: opts.logoBg ?? "#6b7280",
+    logoUrl: opts.logoUrl ?? buildCompanyLogoAssetUrl(name),
+    addedAt: opts.addedAt ?? "Just now",
+    addedBy: opts.addedBy ?? "you",
+  };
+}
+
 export const INVESTOR_WATCHLISTS: WatchlistRow[] = [
+  {
+    id: "wl-alpha",
+    name: "Alpha's Watchlist",
+    entries: [
+      buildWatchlistEntry("York IE", {
+        id: "york-ie",
+        logo: "Y",
+        logoBg: "#6b7280",
+        addedAt: "0m ago",
+        addedBy: "you",
+      }),
+    ],
+    ownerName: "you",
+    ownerEmail: "",
+    ownerKind: "mine",
+    scope: "Team",
+    teams: ["Alpha"],
+    updatedAt: "0m ago",
+    digest: "Off",
+    starred: false,
+  },
   {
     id: "wl-swiggy",
     name: "swiggy",
-    companyCount: 0,
-    companies: [],
+    entries: [],
     ownerName: "bhavik.s",
     ownerEmail: "bhavik.s@york.ie",
     ownerKind: "shared",
-    scope: "Account",
+    scope: "Workspace",
+    teams: [],
     updatedAt: "25d ago",
     digest: "Off",
     starred: false,
@@ -616,17 +786,17 @@ export const INVESTOR_WATCHLISTS: WatchlistRow[] = [
   {
     id: "wl-ge-partners",
     name: "GE Partners",
-    companyCount: 12,
-    companies: [
-      { logo: "P", logoBg: "#1E4D8C", name: "Patriot Pay" },
-      { logo: "O", logoBg: "#5B3A8C", name: "Operator AI" },
-      { logo: "L", logoBg: "#2A5C8C", name: "Ledgerly" },
-      { logo: "N", logoBg: "#6B3A8C", name: "Nova Health" },
+    entries: [
+      buildWatchlistEntry("Patriot Pay", { logo: "P", logoBg: "#1E4D8C", addedAt: "25d ago", addedBy: "bhavik.s" }),
+      buildWatchlistEntry("Operator AI", { logo: "O", logoBg: "#5B3A8C", addedAt: "25d ago", addedBy: "bhavik.s" }),
+      buildWatchlistEntry("Ledgerly", { logo: "L", logoBg: "#2A5C8C", addedAt: "25d ago", addedBy: "bhavik.s" }),
+      buildWatchlistEntry("Nova Health", { logo: "N", logoBg: "#6B3A8C", addedAt: "25d ago", addedBy: "bhavik.s" }),
     ],
     ownerName: "bhavik.s",
     ownerEmail: "bhavik.s@york.ie",
     ownerKind: "shared",
-    scope: "Account",
+    scope: "Workspace",
+    teams: [],
     updatedAt: "25d ago",
     digest: "Off",
     starred: false,
@@ -637,10 +807,209 @@ export type PortfolioListScope = "Account" | "Personal";
 export type PortfolioListOwnerKind = "mine" | "shared";
 export type PortfolioListDigest = "Off" | "Weekly" | "Daily";
 
+/** Startup stages for portfolio cohort selection in the create bar. */
+export const PORTFOLIO_COHORT_STAGES = [
+  "Pre-seed",
+  "Seed",
+  "Series A",
+  "Series B",
+  "Series C",
+  "Growth",
+] as const;
+
+export type PortfolioCohortStage = (typeof PORTFOLIO_COHORT_STAGES)[number];
+
+export function buildPortfolioMeta(fundLabel: string): string {
+  return fundLabel.trim();
+}
+
+/** Optional fund-label tags beside the name — never show "portfolio" or cohort stages. */
+export function portfolioMetaDisplayTags(meta: string): string[] {
+  const hiddenLabels = new Set([
+    "portfolio",
+    ...PORTFOLIO_COHORT_STAGES.map(stage => stage.toLowerCase()),
+  ]);
+  return meta
+    .split("·")
+    .map(part => part.trim())
+    .filter(Boolean)
+    .filter(part => !hiddenLabels.has(part.toLowerCase()));
+}
+
+export function portfolioCompanyToChip(
+  company: Pick<PortfolioCompany, "displayName" | "logo" | "logoBg" | "domain">,
+): WatchlistCompanyChip {
+  return {
+    logo: company.logo,
+    logoBg: company.logoBg,
+    name: company.displayName,
+    logoUrl: resolveCompanyLogoUrl(company),
+  };
+}
+
+/** Display chips for Seed Fund — 30 companies with local dummy logo assets. */
+function seedFundChip(
+  logo: string,
+  logoBg: string,
+  name: string,
+): WatchlistCompanyChip {
+  return {
+    logo,
+    logoBg,
+    name,
+    logoUrl: buildCompanyLogoAssetUrl(name),
+  };
+}
+
+export const SEED_FUND_PORTFOLIO_CHIPS: WatchlistCompanyChip[] = [
+  seedFundChip("P", "#1E4D8C", "Patriot Pay"),
+  seedFundChip("O", "#5B3A8C", "Operator AI"),
+  seedFundChip("S", "#8C5B3A", "Sync Sports"),
+  seedFundChip("St", "#635BFF", "Stripe"),
+  seedFundChip("N", "#111111", "Notion"),
+  seedFundChip("F", "#A259FF", "Figma"),
+  seedFundChip("A", "#FCBF49", "Airtable"),
+  seedFundChip("L", "#5E6AD2", "Linear"),
+  seedFundChip("V", "#111111", "Vercel"),
+  seedFundChip("R", "#354CCB", "Retool"),
+  seedFundChip("Ra", "#E4F222", "Ramp"),
+  seedFundChip("B", "#FF5A00", "Brex"),
+  seedFundChip("D", "#1DB954", "Deel"),
+  seedFundChip("Ri", "#FFD748", "Rippling"),
+  seedFundChip("G", "#F45D48", "Gusto"),
+  seedFundChip("Pl", "#111111", "Plaid"),
+  seedFundChip("C", "#0B5FFF", "Checkout.com"),
+  seedFundChip("M", "#14233C", "Monzo"),
+  seedFundChip("K", "#FFB3C7", "Klarna"),
+  seedFundChip("Di", "#5865F2", "Discord"),
+  seedFundChip("Sl", "#4A154B", "Slack"),
+  seedFundChip("Dr", "#0061FF", "Dropbox"),
+  seedFundChip("Ca", "#00C4CC", "Canva"),
+  seedFundChip("Mo", "#00ED64", "MongoDB"),
+  seedFundChip("Da", "#632CA6", "Datadog"),
+  seedFundChip("Sn", "#29B5E8", "Snowflake"),
+  seedFundChip("Db", "#FF3621", "Databricks"),
+  seedFundChip("Op", "#10A37F", "OpenAI"),
+  seedFundChip("An", "#CC785C", "Anthropic"),
+  seedFundChip("Sc", "#1F6FEB", "Scale AI"),
+];
+
+export const PORTFOLIO_LIST_LOGO_VISIBLE = 3;
+
+function seedFundDomainFromChip(chip: WatchlistCompanyChip): string {
+  return `${companyLogoSlug(chip.name).replace(/-/g, "")}.com`;
+}
+
+function buildSeedFundPortfolioCompany(chip: WatchlistCompanyChip, index: number): PortfolioCompany {
+  const coreIds = ["patriotpay", "operator-ai", "sync-sports"] as const;
+  const coreId = coreIds[index];
+  if (coreId) {
+    const existing = INVESTOR_PORTFOLIO.find(company => company.id === coreId);
+    if (existing) return existing;
+  }
+
+  const slug = chip.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const domain = seedFundDomainFromChip(chip);
+  const investedAmount = 300_000 + (index % 9) * 50_000;
+  const moic = 0.75 + (index % 6) * 0.22;
+  const estimatedValue = Math.round(investedAmount * moic);
+  const arrMillions = 0.45 + (index % 8) * 0.12;
+  const healthCycle: PortfolioCompany["health"][] = ["strong", "watch", "struggling"];
+  const health = healthCycle[index % healthCycle.length]!;
+  const headquarters = ["San Francisco, CA, US", "New York, NY, US", "Boston, MA, US", "Austin, TX, US"];
+
+  return {
+    id: `seed-fund-${slug}`,
+    name: slug,
+    displayName: chip.name,
+    domain,
+    logo: chip.logo,
+    logoBg: chip.logoBg,
+    logoUrl: chip.logoUrl ?? buildCompanyLogoAssetUrl(chip.name),
+    meta: `B2B SaaS · ${chip.name} · Seed`,
+    headquarters: headquarters[index % headquarters.length]!,
+    employees: index % 3 === 0 ? "1-10" : "11-50",
+    linkedin: `linkedin.com/company/${slug}`,
+    onFuel: index % 4 !== 0,
+    ownership: `${(4 + (index % 6)).toFixed(1)}%`,
+    invested: `$${Math.round(investedAmount / 1000)}K`,
+    investedAmount,
+    estimatedValue,
+    arr: `$${arrMillions.toFixed(1)}M`,
+    arrGrowthQoQ: index % 5 === 0 ? -14 : 6 + (index % 6) * 5,
+    nrr: 86 + (index % 12) * 2,
+    runwayMonths: 6 + (index % 14),
+    runway: `${6 + (index % 14)} mo`,
+    stage: "Seed",
+    sector: "B2B SaaS",
+    investedAt: ["Jan 2024", "Mar 2024", "May 2024", "Aug 2024", "Nov 2024"][index % 5]!,
+    daysSinceBenchmark: 8 + (index % 40),
+    health,
+    strugglingAreas: health === "struggling"
+      ? ["Runway under 9 months"]
+      : health === "watch"
+        ? ["NRR below cohort median"]
+        : [],
+    lastUpdate: `${1 + (index % 12)} days ago`,
+    founderEmail: `founders@${domain}`,
+  };
+}
+
+/** Full Seed Fund holdings — 30 companies for list + detail views. */
+export const SEED_FUND_EXTENDED_PORTFOLIO: PortfolioCompany[] = SEED_FUND_PORTFOLIO_CHIPS.map(
+  (chip, index) => buildSeedFundPortfolioCompany(chip, index),
+);
+
+const SEED_FUND_COMPANY_IDS = SEED_FUND_EXTENDED_PORTFOLIO.map(company => company.id);
+
+export function buildSeedFundPortfolioRow(): PortfolioListRow {
+  return {
+    id: "pf-seed-fund",
+    name: "Seed Fund",
+    meta: "",
+    cohort: "Pre-seed",
+    companyCount: SEED_FUND_PORTFOLIO_CHIPS.length,
+    companies: SEED_FUND_PORTFOLIO_CHIPS.slice(0, PORTFOLIO_LIST_LOGO_VISIBLE),
+    companyIds: SEED_FUND_COMPANY_IDS,
+    ownerName: "mike",
+    ownerEmail: "mike@york.ie",
+    ownerKind: "shared",
+    scope: "Account",
+    updatedAt: "1mo ago",
+    digest: "Off",
+    starred: false,
+  };
+}
+
+export function buildInitialPortfolioLists(): PortfolioListRow[] {
+  return [
+    {
+      id: "pf-personal",
+      name: "Shreya Gokani",
+      meta: "",
+      cohort: "Seed",
+      companyCount: 1,
+      companies: [
+        portfolioCompanyToChip(INVESTOR_PORTFOLIO[0]!),
+      ],
+      companyIds: ["patriotpay"],
+      ownerName: "shreya.g",
+      ownerEmail: "shreya.g@york.ie",
+      ownerKind: "mine",
+      scope: "Account",
+      updatedAt: "1mo ago",
+      digest: "Off",
+      starred: false,
+    },
+    buildSeedFundPortfolioRow(),
+  ];
+}
+
 export type PortfolioListRow = {
   id: string;
   name: string;
   meta: string;
+  cohort: PortfolioCohortStage;
   companyCount: number;
   companies: WatchlistCompanyChip[];
   companyIds: string[];
@@ -654,53 +1023,28 @@ export type PortfolioListRow = {
 };
 
 /** Fund / category portfolios — create the bucket first, then add companies. */
-export const INVESTOR_PORTFOLIO_LISTS: PortfolioListRow[] = [
-  {
-    id: "pf-personal",
-    name: "Shreya Gokani",
-    meta: "portfolio",
-    companyCount: 1,
-    companies: [
-      { logo: "PI", logoBg: "#1E4D8C", name: "Pirimid Fintech" },
-    ],
-    companyIds: ["patriotpay"],
-    ownerName: "You",
-    ownerEmail: "",
-    ownerKind: "mine",
-    scope: "Account",
-    updatedAt: "28d ago",
-    digest: "Off",
-    starred: false,
-  },
-  {
-    id: "pf-seed-fund",
-    name: "Seed Fund",
-    meta: "portfolio · Seed Fund",
-    companyCount: 3,
-    companies: [
-      { logo: "P", logoBg: "#1E4D8C", name: "Patriot Pay" },
-      { logo: "O", logoBg: "#5B3A8C", name: "Operator AI" },
-      { logo: "S", logoBg: "#8C5B3A", name: "Sync Sports" },
-    ],
-    companyIds: ["patriotpay", "operator-ai", "sync-sports"],
-    ownerName: "mike",
-    ownerEmail: "mike@york.ie",
-    ownerKind: "shared",
-    scope: "Account",
-    updatedAt: "1mo ago",
-    digest: "Off",
-    starred: false,
-  },
-];
+export const INVESTOR_PORTFOLIO_LISTS: PortfolioListRow[] = buildInitialPortfolioLists();
 
 export function companiesForPortfolioList(
   list: PortfolioListRow,
   portfolio: PortfolioCompany[] = INVESTOR_PORTFOLIO,
 ): PortfolioCompany[] {
+  if (list.id === "pf-seed-fund") {
+    return SEED_FUND_EXTENDED_PORTFOLIO;
+  }
+
   const byId = new Map(portfolio.map(company => [company.id, company]));
-  return list.companyIds
+  const ids = list.companyIds.length > 0 ? list.companyIds : portfolio.map(company => company.id);
+  return ids
     .map(id => byId.get(id))
     .filter((company): company is PortfolioCompany => Boolean(company));
+}
+
+export function normalizePortfolioListRow(row: PortfolioListRow): PortfolioListRow {
+  if (row.id === "pf-seed-fund") {
+    return buildSeedFundPortfolioRow();
+  }
+  return row;
 }
 
 export type PortfolioBenchmarkDot = {

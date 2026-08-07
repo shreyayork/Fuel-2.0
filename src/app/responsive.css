@@ -26,7 +26,8 @@
   html[data-theme="light"] {
     --fuel-content-padding-x: 16px;
     --fuel-content-padding-y: 14px;
-    --fuel-side-panel-width: min(100vw, 720px);
+    --fuel-side-panel-width: 40vw;
+    --fuel-side-panel-max-width: min(92vw, 100vw);
   }
 }
 
@@ -37,6 +38,7 @@
     --fuel-content-padding-x: 14px;
     --fuel-content-padding-y: 12px;
     --fuel-side-panel-width: 100vw;
+    --fuel-side-panel-max-width: 100vw;
   }
 }
 
@@ -346,7 +348,9 @@
 
 @media (max-width: 640px) {
   .profile-complete-drawer,
-  .bench-drawer {
+  .bench-drawer,
+  .sc-drawer,
+  .afc {
     max-width: 100vw;
     width: 100vw;
   }

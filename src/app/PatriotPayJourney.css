@@ -20,7 +20,6 @@ html[data-theme="dark"] {
   --accent-dim: var(--status-good-dim);
   --accent-line: var(--status-good-line);
   --purple: #8B76D4;
-  --fuel-side-panel-width: 720px;
   --panel: rgb(23, 38, 50);
   --panel-border: rgb(38, 57, 71);
   --panel-body: rgb(203, 211, 219);
@@ -80,7 +79,6 @@ html[data-theme="light"] {
   --accent-dim: var(--status-good-dim);
   --accent-line: var(--status-good-line);
   --purple: #7c3aed;
-  --fuel-side-panel-width: 720px;
   --panel: #ffffff;
   --panel-border: #e8eaed;
   --panel-body: #3d4f5f;
@@ -20180,7 +20178,7 @@ html[data-theme="light"] .ai-actions-menu.is-tour-open .ai-actions-dropdown {
 
 .profile-complete-drawer {
   width: var(--fuel-side-panel-width);
-  max-width: 92vw;
+  max-width: var(--fuel-side-panel-max-width);
   min-width: 0;
   height: 100vh;
   background: var(--panel);
@@ -21098,7 +21096,7 @@ html[data-theme="light"] .profile-complete-drawer .benchmark-actions {
 
 .bench-drawer {
   width: var(--fuel-side-panel-width);
-  max-width: 92vw;
+  max-width: var(--fuel-side-panel-max-width);
   height: 100vh;
   background: var(--panel);
   border-left: 1px solid var(--border-strong);
@@ -24990,14 +24988,15 @@ html[data-theme="dark"] .sc-glance-score-popover.is-fixed.is-above::before {
   background: var(--bg);
   border-left: 1px solid var(--border-strong);
   bottom: 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  max-width: 560px;
-  min-width: 380px;
+  max-width: var(--fuel-side-panel-max-width);
+  min-width: 0;
   position: fixed;
   right: 0;
   top: 0;
-  width: 32vw;
+  width: var(--fuel-side-panel-width);
   z-index: 96;
   animation: scDrawerFade 0.2s ease;
 }
@@ -25375,10 +25374,6 @@ html[data-theme="dark"] .sc-glance-score-popover.is-fixed.is-above::before {
 .sc-ask-cta-body span { color: var(--text-3); font-size: 12px; line-height: 1.45; }
 .sc-ask-cta-arrow { color: var(--accent); flex-shrink: 0; font-size: 15px; margin-left: auto; }
 
-@media (max-width: 720px) {
-  .afc { width: 92vw; }
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    Detail-enrichment drawer
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -25398,7 +25393,7 @@ html[data-theme="dark"] .sc-glance-score-popover.is-fixed.is-above::before {
   bottom: 0;
   display: flex;
   flex-direction: column;
-  max-width: 92vw;
+  max-width: var(--fuel-side-panel-max-width);
   position: fixed;
   right: 0;
   top: 0;

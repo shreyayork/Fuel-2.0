@@ -5,7 +5,8 @@
 }
 
 .cpp-panel.profile-complete-drawer {
-  max-width: min(var(--fuel-side-panel-width, 720px), 92vw);
+  max-width: var(--fuel-side-panel-max-width);
+  width: var(--fuel-side-panel-width);
 }
 
 .cpp-head.sc-drawer-head {

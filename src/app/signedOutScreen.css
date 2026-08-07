@@ -1,0 +1,86 @@
+.signed-out-screen {
+  background: var(--surface-1, var(--bg));
+  color: var(--text-1);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.signed-out-topbar {
+  align-items: center;
+  border-bottom: 1px solid var(--panel-border, var(--border));
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 24px;
+}
+
+.signed-out-brand {
+  align-items: center;
+  color: var(--text-1);
+  display: flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 10px;
+  letter-spacing: 0.08em;
+}
+
+.signed-out-theme-btn {
+  align-items: center;
+  background: var(--panel, var(--surface-2));
+  border: 1px solid var(--panel-border, var(--border));
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.signed-out-main {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  padding: 32px 20px;
+}
+
+.signed-out-card {
+  background: var(--panel, var(--surface-2));
+  border: 1px solid var(--panel-border, var(--border));
+  border-radius: 14px;
+  max-width: 440px;
+  padding: 32px 28px;
+  text-align: center;
+  width: 100%;
+}
+
+.signed-out-card h1 {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+}
+
+.signed-out-card p {
+  color: var(--text-3, var(--text-2));
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+
+.signed-out-primary {
+  background: var(--btn-primary-bg, #1e293b);
+  border: 1px solid var(--btn-primary-border, #1e293b);
+  border-radius: 8px;
+  color: var(--btn-primary-text, #fff);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 18px;
+}
+
+.signed-out-primary:hover {
+  filter: brightness(1.05);
+}

@@ -3,8 +3,6 @@ import { fuel } from "./fuelTokens";
 import { statusLineCss, signalUrgencyToStatus } from "./statusSystem";
 import {
   clearReloadLandingActive,
-  isBrowserReload,
-  isReloadLandingActive,
   landingDisplayPercent,
   landingDisplayScore,
 } from "./workspaceSession";
@@ -7216,14 +7214,14 @@ export default function ScorecardV2({
   onProfileCreditsChange,
   onProfileCreditReward,
   onLandingContentRestore,
-  reloadLandingActive = isReloadLandingActive(),
+  reloadLandingActive = false,
   tourCompleteSignal = 0,
   benchmarkEditRequestKey = 0,
   onBenchmarkEditClosed,
   onOpenProfilePreview,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
-  const [displayScoresZero, setDisplayScoresZero] = useState(() => reloadLandingActive || isReloadLandingActive());
+  const [displayScoresZero, setDisplayScoresZero] = useState(false);
   const landingBaselineRef = useRef<string | null>(null);
   const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
   const [benchmarkEditElevated, setBenchmarkEditElevated] = useState(false);
@@ -7236,25 +7234,20 @@ export default function ScorecardV2({
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const [wikiSummaryOpen, setWikiSummaryOpen] = useState(false);
   const [wikiHighlightRefId, setWikiHighlightRefId] = useState<number | null>(null);
-  const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => {
-    if (reloadLandingActive || isReloadLandingActive()) return {};
-    return loadDetailAnswers(companyStorageKey);
-  });
+  const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() =>
+    loadDetailAnswers(companyStorageKey),
+  );
 
   const mergedDetailAnswers = useMemo(() => {
     if (reloadLandingActive || displayScoresZero) return detailAnswers;
     return mergeDetailAnswers(detailAnswers, onboardingAnswers);
   }, [detailAnswers, onboardingAnswers, reloadLandingActive, displayScoresZero]);
 
+  // Re-hydrate saved answers once the company name resolves (prop may arrive after mount).
   useEffect(() => {
-    if (!isBrowserReload()) return;
-    setActiveView("overview");
-    setEditBenchmarkOpen(false);
-    setAddSourcesOpen(false);
-    setWikiSummaryOpen(false);
-    setOpenGlancePopover(null);
-    window.scrollTo(0, 0);
-  }, []);
+    if (profileDrawerOpen) return;
+    setDetailAnswers(loadDetailAnswers(companyStorageKey));
+  }, [companyStorageKey, profileDetailsSyncKey, profileDrawerOpen]);
 
   useEffect(() => {
     if (!tourCompleteSignal) return;
@@ -7265,12 +7258,6 @@ export default function ScorecardV2({
     setOpenGlancePopover(null);
     window.scrollTo(0, 0);
   }, [tourCompleteSignal]);
-
-  useEffect(() => {
-    if (!displayScoresZero) {
-      landingBaselineRef.current = null;
-    }
-  }, [displayScoresZero]);
 
   useEffect(() => {
     if (!displayScoresZero) return;
@@ -7323,16 +7310,6 @@ export default function ScorecardV2({
       saveStoredQuarter(`fuel-details-q-${cName}`);
     }
   }, [cName, onboardingAnswers]);
-
-  // Re-hydrate saved answers once the company name resolves (prop may arrive after mount).
-  useEffect(() => {
-    if (profileDrawerOpen) return;
-    if (reloadLandingActive && displayScoresZero) {
-      setDetailAnswers({});
-      return;
-    }
-    setDetailAnswers(loadDetailAnswers(companyStorageKey));
-  }, [companyStorageKey, profileDetailsSyncKey, profileDrawerOpen, reloadLandingActive, displayScoresZero]);
 
   const openDetailsDrawer = (category?: ScorecardCategory) => {
     if (!onOpenProfileDetails) return;

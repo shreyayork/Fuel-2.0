@@ -9,25 +9,38 @@ import { EMPTY_EARNED_PROFILE_CREDITS, saveEarnedProfileCredits } from "./profil
 // Short onboarding lands in workspace with analytics locked until profile completion.
 import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
 import DesignSystemPage from "./design-system/DesignSystemPage.tsx";
+import { SignedOutScreen } from "./SignedOutScreen.tsx";
 import { applyFuelTheme, readFuelTheme } from "./fuelTheme";
 import {
-  isBrowserReload,
+  clearSignedOut,
+  clearStaleReloadLandingFlag,
+  isSignedOut,
+  loadActivePage,
   loadWorkspaceSession,
+  markSignedOut,
   saveWorkspaceSession,
 } from "./workspaceSession";
 import "./PatriotPayJourney.css";
 import "./responsive.css";
+import "../styles/drawer-layout.css";
+import "./signedOutScreen.css";
 
-type View = "onboarding" | "integrations" | "workspace";
+type View = "onboarding" | "integrations" | "workspace" | "signed-out";
 
 function isDesignSystemPreview(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).has("design-system");
 }
 
+function resolveInitialView(): View {
+  if (loadWorkspaceSession()) return "workspace";
+  if (isSignedOut()) return "signed-out";
+  return "onboarding";
+}
+
 export default function App() {
   const restoredSession = loadWorkspaceSession();
-  const [view, setView] = useState<View>(() => (restoredSession ? "workspace" : "onboarding"));
+  const [view, setView] = useState<View>(resolveInitialView);
   const [onboardingBenchmark, setOnboardingBenchmark] = useState<OnboardingBenchmarkInput | null>(
     () => restoredSession?.onboardingBenchmark ?? null,
   );
@@ -38,6 +51,7 @@ export default function App() {
 
   useEffect(() => {
     applyFuelTheme(readFuelTheme());
+    clearStaleReloadLandingFlag();
   }, []);
 
   useEffect(() => {
@@ -45,18 +59,36 @@ export default function App() {
     saveWorkspaceSession({ onboardingAnswers, onboardingBenchmark });
   }, [view, onboardingAnswers, onboardingBenchmark]);
 
+  const handleLogout = () => {
+    markSignedOut();
+    setOnboardingBenchmark(null);
+    setOnboardingAnswers(null);
+    setView("signed-out");
+  };
+
+  const handleSignIn = () => {
+    clearSignedOut();
+    setView("onboarding");
+  };
+
   if (showDesignSystem) {
     return <DesignSystemPage onClose={() => setShowDesignSystem(false)} />;
   }
+  if (view === "signed-out") {
+    return <SignedOutScreen onSignIn={handleSignIn} />;
+  }
   if (view === "workspace") {
     const isInvestor = isInvestorPersona(onboardingAnswers);
-    const resumeWorkspace = Boolean(restoredSession) || isBrowserReload();
+    const persona = isInvestor ? "investor" : "founder";
+    const restoredPage = loadActivePage(persona);
+    const defaultPage = isInvestor ? "investor-portfolios" : "scorecard-v2";
     return (
       <PatriotPayJourney
-        initialPage={isInvestor ? "investor-portfolios" : resumeWorkspace ? "scorecard-v2" : "overview-building"}
+        initialPage={restoredPage ?? defaultPage}
         initialBenchmark={onboardingBenchmark}
         initialOnboardingAnswers={onboardingAnswers}
-        persona={isInvestor ? "investor" : "founder"}
+        persona={persona}
+        onLogout={handleLogout}
       />
     );
   }
@@ -74,6 +106,7 @@ export default function App() {
         setOnboardingBenchmark(benchmark);
         setOnboardingAnswers(answers);
         saveEarnedProfileCredits(EMPTY_EARNED_PROFILE_CREDITS, "patriotpay");
+        clearSignedOut();
         saveWorkspaceSession({ onboardingAnswers: answers, onboardingBenchmark: benchmark });
         setView("workspace");
       }}
