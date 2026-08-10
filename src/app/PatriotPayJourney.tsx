@@ -36,8 +36,17 @@ import {
   type ProfileModuleId,
 } from "./profileCredits";
 import { ProfileCreditRewardToast } from "./ProfileCreditRewardToast";
+import {
+  ProfileCompletionPrompt,
+} from "./ProfileCompletionPrompt";
+import {
+  isFounderProfilePromptSurface,
+  isProfileCompletionPromptDue,
+  markProfileCompletionPromptDismissed,
+  shouldGateFounderProfilePrompt,
+} from "./profileCompletionPromptStorage";
 import { UnifiedProfileDrawer } from "./UnifiedProfileDrawer";
-import { CompanyProfilePreview, type ProfilePreviewTab } from "./CompanyProfilePreview";
+import { CompanyProfilePage, type ProfilePreviewTab } from "./CompanyProfilePreview";
 import {
   BENCHMARK_PERIOD,
   CompleteBenchmarkDrawer,
@@ -9147,6 +9156,9 @@ function PatriotPayJourneyInner({
     || initialPage === "investor-watchlists";
   const resolveInitialActivePage = () => {
     if (initialPage === "investor-home" || initialPage === "investor-portfolios") return "investor-portfolios";
+    if (persona !== "investor" && isProfileCompletionPromptDue("patriotpay", initialOnboardingAnswers)) {
+      return "scorecard-v2";
+    }
     if (startsWithTour) return "overview";
     if (startsWithScorecard || startsWithOverviewBuilding) return "scorecard-v2";
     if (startsWithOverview) return "signals-loading";
@@ -9180,8 +9192,8 @@ function PatriotPayJourneyInner({
     },
   );
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
-  const [profilePreviewOpen, setProfilePreviewOpen] = useState(false);
   const [profilePreviewTab, setProfilePreviewTab] = useState<ProfilePreviewTab>("company");
+  const profilePreviewReturnPageRef = useRef("scorecard-v2");
   const editProfileFromPreviewRef = useRef(false);
   const editBenchmarkFromPreviewRef = useRef(false);
   const [benchmarkDrawerOpen, setBenchmarkDrawerOpen] = useState(false);
@@ -9189,6 +9201,11 @@ function PatriotPayJourneyInner({
   const [benchmarkEditRequestKey, setBenchmarkEditRequestKey] = useState(0);
   const [profileDrawerSection, setProfileDrawerSection] = useState<ProfileDrawerSection>("company");
   const [profileDrawerResetKey, setProfileDrawerResetKey] = useState(0);
+  const initialFounderProfilePromptDue = persona !== "investor"
+    && isProfileCompletionPromptDue("patriotpay", initialOnboardingAnswers);
+  const [profileCompletionPromptOpen, setProfileCompletionPromptOpen] = useState(
+    () => initialFounderProfilePromptDue && isFounderProfilePromptSurface(resolveInitialActivePage()),
+  );
   const [profileDetailsSyncKey, setProfileDetailsSyncKey] = useState(0);
   const [earnedProfileCredits, setEarnedProfileCredits] = useState(() =>
     loadEarnedProfileCredits(FOUNDER_COMPANY.id),
@@ -9220,8 +9237,14 @@ function PatriotPayJourneyInner({
   }, [openBenchmarkDrawer]);
 
   const openProfilePreview = useCallback((tab: ProfilePreviewTab = "company") => {
+    profilePreviewReturnPageRef.current = activePage;
     setProfilePreviewTab(tab);
-    setProfilePreviewOpen(true);
+    setActivePage("company-profile");
+  }, [activePage]);
+
+  const closeCompanyProfilePage = useCallback(() => {
+    const returnPage = profilePreviewReturnPageRef.current;
+    setActivePage(returnPage === "company-profile" ? "scorecard-v2" : returnPage);
   }, []);
 
   const reopenProfilePreviewAfterBenchmark = useCallback(() => {
@@ -9229,7 +9252,7 @@ function PatriotPayJourneyInner({
     editBenchmarkFromPreviewRef.current = false;
     setProfileDetailsSyncKey(key => key + 1);
     window.requestAnimationFrame(() => {
-      setProfilePreviewOpen(true);
+      setActivePage("company-profile");
     });
   }, []);
 
@@ -9246,7 +9269,6 @@ function PatriotPayJourneyInner({
   const handleEditBenchmarkFromPreview = useCallback(() => {
     editBenchmarkFromPreviewRef.current = true;
     setProfileDrawerOpen(false);
-    setProfilePreviewOpen(false);
 
     if (activePage === "scorecard-v2") {
       window.requestAnimationFrame(() => {
@@ -9267,7 +9289,6 @@ function PatriotPayJourneyInner({
       return;
     }
     editProfileFromPreviewRef.current = true;
-    setProfilePreviewOpen(false);
     openProfileDrawer(section);
   }, [handleEditBenchmarkFromPreview, openProfileDrawer]);
 
@@ -9275,7 +9296,6 @@ function PatriotPayJourneyInner({
     setProfileDetailsSyncKey(key => key + 1);
     if (!editProfileFromPreviewRef.current) return;
     editProfileFromPreviewRef.current = false;
-    setProfilePreviewOpen(true);
   }, []);
 
   const syncProfileCompleteFromStorage = useCallback((companyId: string) => {
@@ -9359,6 +9379,16 @@ function PatriotPayJourneyInner({
   useEffect(() => {
     syncProfileCompleteFromStorage(selectedCompany.id);
   }, [selectedCompany.id, syncProfileCompleteFromStorage]);
+
+  const dismissProfileCompletionPrompt = useCallback(() => {
+    markProfileCompletionPromptDismissed(selectedCompany.id);
+    setProfileCompletionPromptOpen(false);
+  }, [selectedCompany.id]);
+
+  const completeProfileFromPrompt = useCallback(() => {
+    setProfileCompletionPromptOpen(false);
+    openProfileDrawer("company");
+  }, [openProfileDrawer]);
 
   const handleProfileModuleSaved = useCallback((
     module: ProfileModuleId,
@@ -9875,6 +9905,50 @@ function PatriotPayJourneyInner({
       return false;
     }
   });
+
+  useEffect(() => {
+    if (isInvestorPersona) return;
+    if (!isProfileCompletionPromptDue(selectedCompany.id, initialOnboardingAnswers)) return;
+    if (activePage === "scorecard-v2") return;
+    if (activePage === "company-profile" || activePage === "signals-loading" || activePage === "overview") {
+      setActivePage("scorecard-v2");
+    }
+  }, [
+    activePage,
+    initialOnboardingAnswers,
+    isInvestorPersona,
+    selectedCompany.id,
+  ]);
+
+  useEffect(() => {
+    if (isInvestorPersona) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    if (!isFounderProfilePromptSurface(activePage)) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    if (!isProfileCompletionPromptDue(selectedCompany.id, initialOnboardingAnswers)) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    setProfileCompletionPromptOpen(true);
+  }, [
+    activePage,
+    initialOnboardingAnswers,
+    isInvestorPersona,
+    profileDetailsSyncKey,
+    selectedCompany.id,
+  ]);
+
+  const profilePromptBlocking = shouldGateFounderProfilePrompt(
+    persona,
+    selectedCompany.id,
+    activePage,
+    initialOnboardingAnswers,
+  ) && profileCompletionPromptOpen;
+
   const coreTourSteps = [
     {
       page: "scorecard-v2",
@@ -10064,6 +10138,7 @@ function PatriotPayJourneyInner({
   useEffect(() => {
     if (tourOpen) return;
     if (tourTaken && !reloadLandingActive) return;
+    if (profileCompletionPromptOpen) return;
     /** After "Maybe later", header Tour chip is shown — do not re-open the banner (module-first reload). */
     if (headerTourEnabled) return;
     if (!reloadLandingActive) {
@@ -10079,7 +10154,7 @@ function PatriotPayJourneyInner({
     if (reloadLandingActive || ready || building) {
       setShowTourPrompt(true);
     }
-  }, [profileComplete, overviewBuildPhase, tourTaken, tourOpen, reloadLandingActive, headerTourEnabled]);
+  }, [profileComplete, overviewBuildPhase, tourTaken, tourOpen, reloadLandingActive, headerTourEnabled, profileCompletionPromptOpen]);
 
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
@@ -10322,6 +10397,7 @@ function PatriotPayJourneyInner({
   }
 
   const isAccountPage = activePage === "account";
+  const isCompanyProfilePage = activePage === "company-profile";
   const isInvestorShellPage = activePage === "investor-home"
     || activePage === "investor-portfolios"
     || activePage === "investor-pipeline"
@@ -10332,6 +10408,8 @@ function PatriotPayJourneyInner({
         : "portfolios"; // home dashboard hidden — portfolios is the investor landing
   const breadcrumbLabel = isAccountPage
     ? `Account · ${accountTabLabel(accountTab)}`
+    : isCompanyProfilePage
+      ? `${selectedCompany.displayName} profile`
     : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
       : activePage === "investor-pipeline" ? "Pipeline"
         : activePage === "investor-watchlists" ? "Watchlists"
@@ -10390,7 +10468,7 @@ function PatriotPayJourneyInner({
   return (
     <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
     <SkipLink />
-    <div className={`app${mobileNavOpen ? " is-mobile-nav-open" : ""}`}>
+    <div className={`app${mobileNavOpen ? " is-mobile-nav-open" : ""}${profilePromptBlocking ? " is-profile-prompt-gated" : ""}`}>
       <button
         type="button"
         className="mobile-nav-scrim"
@@ -10529,6 +10607,50 @@ function PatriotPayJourneyInner({
           >
             <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
           </div>
+        ) : activePage === "company-profile" ? (
+          <>
+            <div className="topbar">
+              <div className="topbar-left">
+                {mobileNavToggleButton}
+                <nav className="breadcrumb" aria-label="Breadcrumb">
+                  <span>Fuel</span>
+                  <span aria-hidden="true" style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                  <span className="current" aria-current="page">{breadcrumbLabel}</span>
+                </nav>
+                <h1 className="sr-only">{breadcrumbLabel}</h1>
+              </div>
+              <div className="topbar-right">
+                <TopbarCompanySearch />
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content content--profile-page">
+              <CompanyProfilePage
+                companyName={selectedCompany.displayName}
+                companyKey={selectedCompany.id}
+                onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
+                reloadLandingActive={reloadLandingActive}
+                userFullName={initialOnboardingAnswers?.userFullName?.trim() || "Shreya Gokani"}
+                userRole={initialOnboardingAnswers?.userRole}
+                userEmail={
+                  initialOnboardingAnswers?.userFullName
+                    ? `${initialOnboardingAnswers.userFullName.trim().toLowerCase().replace(/\s+/g, ".")}@york.ie`
+                    : "shreya.g@york.ie"
+                }
+                syncKey={profileDetailsSyncKey}
+                benchmarkValues={scorecardBenchmarkForm}
+                benchmarkEarned={Boolean(earnedProfileCredits.benchmark && earnedProfileCredits.benchmarkViaSubmit)}
+                cohortLabel={selectedCompany.meta}
+                companyMeta={selectedCompany.meta}
+                companyDomain={selectedCompany.domain}
+                initialTab={profilePreviewTab}
+                canEdit={!usesPerCompanyWorkspace}
+                onBack={closeCompanyProfilePage}
+                onEditProfile={handleEditProfileFromPreview}
+                onEditBenchmark={handleEditBenchmarkFromPreview}
+              />
+            </div>
+          </>
         ) : activePage === "account" ? (
           <>
             <div className="topbar">
@@ -11244,27 +11366,11 @@ function PatriotPayJourneyInner({
         }}
         onSubmit={handleBenchmarkSubmit}
       />
-      <CompanyProfilePreview
-        open={profilePreviewOpen}
-        companyName={selectedCompany.displayName}
-        companyKey={selectedCompany.id}
-        onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
-        reloadLandingActive={reloadLandingActive}
-        userFullName={initialOnboardingAnswers?.userFullName?.trim() || "Shreya Gokani"}
-        userRole={initialOnboardingAnswers?.userRole}
-        userEmail={
-          initialOnboardingAnswers?.userFullName
-            ? `${initialOnboardingAnswers.userFullName.trim().toLowerCase().replace(/\s+/g, ".")}@york.ie`
-            : "shreya.g@york.ie"
-        }
-        syncKey={profileDetailsSyncKey}
-        benchmarkValues={scorecardBenchmarkForm}
-        benchmarkEarned={Boolean(earnedProfileCredits.benchmark && earnedProfileCredits.benchmarkViaSubmit)}
-        cohortLabel={selectedCompany.meta}
-        initialTab={profilePreviewTab}
-        onClose={() => setProfilePreviewOpen(false)}
-        onEditProfile={handleEditProfileFromPreview}
-        onEditBenchmark={handleEditBenchmarkFromPreview}
+      <ProfileCompletionPrompt
+        open={profileCompletionPromptOpen}
+        earnedProfileCredits={earnedProfileCredits}
+        onCompleteProfile={completeProfileFromPrompt}
+        onContinue={dismissProfileCompletionPrompt}
       />
       <CompleteProfileDrawer
         open={profileDrawerOpen}

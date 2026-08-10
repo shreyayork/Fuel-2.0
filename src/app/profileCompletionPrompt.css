@@ -1,0 +1,248 @@
+.profile-completion-prompt-backdrop {
+  align-items: center;
+  background: color-mix(in srgb, var(--bg, #0b1720) 18%, rgba(0, 0, 0, 0.62));
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 100010;
+}
+
+.profile-completion-prompt-backdrop.is-entering {
+  animation: profileCompletionPromptFadeIn 0.22s ease;
+}
+
+.profile-completion-prompt-dialog {
+  background: var(--panel, var(--fuel-surface, #1f3140));
+  border: 1px solid var(--panel-border, var(--border));
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+  max-width: 520px;
+  overflow: hidden;
+  padding: 0;
+  width: min(100%, 520px);
+}
+
+.profile-completion-prompt-body {
+  padding: 28px 28px 24px;
+}
+
+.profile-completion-prompt-dialog h2 {
+  color: var(--text-1, var(--fuel-text));
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0 0 10px;
+}
+
+.profile-completion-prompt-lead {
+  color: var(--text-2, var(--fuel-text-muted));
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0 0 22px;
+}
+
+.profile-completion-prompt-perks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.profile-completion-prompt-perk {
+  align-items: flex-start;
+  background: var(--panel-inset, var(--surface-2));
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.profile-completion-prompt-perk.is-credits {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fuel-accent, #12b886) 7%, var(--panel)) 0%,
+    var(--panel-inset, var(--surface-2)) 100%
+  );
+  border-color: color-mix(in srgb, var(--fuel-accent, #12b886) 18%, var(--panel-border));
+}
+
+.profile-completion-prompt-perk-icon {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--fuel-accent, #12b886);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  width: 36px;
+}
+
+.profile-completion-prompt-perk.is-credits .profile-completion-prompt-perk-icon {
+  background: color-mix(in srgb, var(--fuel-accent, #12b886) 12%, var(--panel));
+  border-color: color-mix(in srgb, var(--fuel-accent, #12b886) 24%, var(--panel-border));
+}
+
+.profile-completion-prompt-perk-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile-completion-prompt-perk-copy strong {
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.profile-completion-prompt-perk-copy strong em {
+  color: var(--fuel-accent, #12b886);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.profile-completion-prompt-perk-copy span {
+  color: var(--text-2);
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.profile-completion-prompt-benefits {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+}
+
+.profile-completion-prompt-benefits li {
+  align-items: flex-start;
+  color: var(--text-2);
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  line-height: 1.45;
+  padding: 5px 0;
+}
+
+.profile-completion-prompt-benefits li::before {
+  color: var(--fuel-accent, #12b886);
+  content: "✓";
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 1px;
+}
+
+.profile-completion-prompt-benefits em {
+  color: var(--text-1);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.profile-completion-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.profile-completion-prompt-btn {
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 11px 16px;
+}
+
+.profile-completion-prompt-btn.secondary {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--text-2);
+}
+
+.profile-completion-prompt-btn.secondary:hover {
+  background: var(--panel-inset, var(--surface-2));
+  color: var(--text-1);
+}
+
+.profile-completion-prompt-btn.primary {
+  background: var(--btn-primary-bg, var(--fuel-accent, #12b886));
+  border: 1px solid transparent;
+  color: var(--btn-primary-text, #fff);
+}
+
+.profile-completion-prompt-btn.primary:hover {
+  filter: brightness(1.05);
+}
+
+.profile-completion-prompt-btn:focus-visible {
+  outline: 2px solid var(--fuel-accent, var(--accent));
+  outline-offset: 2px;
+}
+
+.profile-completion-prompt-loading {
+  align-items: center;
+  background: color-mix(in srgb, var(--bg, #0b1720) 12%, rgba(0, 0, 0, 0.35));
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 100009;
+}
+
+.profile-completion-prompt-loading-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 14px 18px;
+}
+
+@keyframes profileCompletionPromptFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-completion-prompt-body {
+    padding: 22px 20px 20px;
+  }
+
+  .profile-completion-prompt-dialog h2 {
+    font-size: 21px;
+  }
+
+  .profile-completion-prompt-actions {
+    flex-direction: column-reverse;
+  }
+
+  .profile-completion-prompt-btn {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+.content.is-profile-prompt-gated,
+.app.is-profile-prompt-gated .sidebar,
+.app.is-profile-prompt-gated .main {
+  pointer-events: none;
+  user-select: none;
+}

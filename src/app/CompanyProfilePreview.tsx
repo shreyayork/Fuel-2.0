@@ -1,7 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
-import { useDialogA11y } from "./a11y/useDialogA11y";
+import React, { useEffect, useMemo, useState } from "react";
 import type { OnboardingFlowAnswers } from "./OnboardingFlow.tsx";
 import { mapOnboardingToDetailAnswers } from "./OnboardingFlow.tsx";
 import { loadDetailAnswers } from "./profileDetailsStorage";
@@ -376,25 +373,51 @@ function FounderCard({
   );
 }
 
-export function CompanyProfilePreview({
-  open,
-  companyName,
-  companyKey,
-  onboardingAnswers,
-  reloadLandingActive = false,
-  userFullName,
-  userRole,
-  userEmail,
-  syncKey = 0,
-  benchmarkValues,
-  benchmarkEarned = false,
-  cohortLabel: cohortLabelProp,
-  initialTab = "company",
-  onClose,
-  onEditProfile,
-  onEditBenchmark,
+function ProfileProgressRing({
+  percent,
+  display,
+  size = 64,
 }: {
-  open: boolean;
+  percent: number;
+  display: string;
+  size?: number;
+}) {
+  const ringRadius = 26;
+  const circumference = 2 * Math.PI * ringRadius;
+  const strokeOffset = circumference * (1 - Math.min(100, Math.max(0, percent)) / 100);
+
+  return (
+    <div className="cpp-page-progress-ring" aria-hidden="true">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={ringRadius}
+          fill="none"
+          stroke="var(--panel-border)"
+          strokeWidth="5"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={ringRadius}
+          fill="none"
+          stroke="var(--fuel-accent, var(--accent))"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeOffset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </svg>
+      <span className="cpp-page-progress-ring-label">
+        <strong>{display}</strong>
+      </span>
+    </div>
+  );
+}
+
+export type CompanyProfilePageProps = {
   companyName: string;
   companyKey: string;
   onboardingAnswers?: OnboardingFlowAnswers | null;
@@ -407,27 +430,39 @@ export function CompanyProfilePreview({
   benchmarkEarned?: boolean;
   cohortLabel?: string;
   initialTab?: ProfilePreviewTab;
-  onClose: () => void;
+  companyMeta?: string;
+  companyDomain?: string;
+  canEdit?: boolean;
+  onBack: () => void;
   onEditProfile: (section?: ProfileDrawerInitialSection) => void;
   onEditBenchmark?: () => void;
-}) {
-  const dialogRef = useRef<HTMLElement>(null);
+};
+
+export function CompanyProfilePage({
+  companyName,
+  companyKey,
+  onboardingAnswers,
+  reloadLandingActive = false,
+  userFullName,
+  userRole,
+  userEmail,
+  syncKey = 0,
+  benchmarkValues,
+  benchmarkEarned = false,
+  cohortLabel: cohortLabelProp,
+  initialTab = "company",
+  companyMeta,
+  companyDomain,
+  canEdit = true,
+  onBack,
+  onEditProfile,
+  onEditBenchmark,
+}: CompanyProfilePageProps) {
   const [activeTab, setActiveTab] = useState<PreviewTab>(initialTab);
-  useDialogA11y(open, dialogRef, onClose);
-  const handleScrimPointerDown = useScrimPointerClose(onClose, open);
 
   useEffect(() => {
-    if (open) setActiveTab(initialTab);
-  }, [open, initialTab]);
-
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
+    setActiveTab(initialTab);
+  }, [initialTab, companyKey]);
 
   const answers = useMemo(
     () => mergePreviewAnswers(companyKey, onboardingAnswers, reloadLandingActive),
@@ -463,13 +498,15 @@ export function CompanyProfilePreview({
     return done;
   }, [answers, benchmarkEarned, benchmarkValues]);
 
-  if (!open) return null;
-
   const founderName = userFullName?.trim() || "Not provided";
   const founderRole = userRole?.trim() || "Not provided";
   const founderEmail = userEmail?.trim() || "Not provided";
   const progressPct = progress.total > 0 ? Math.min(100, progress.percent) : 0;
   const activeEditLabel = activeTabMeta?.stepLabel ?? "section";
+
+  const progressDisplay = progress.total > 0
+    ? progress.percent.toString().padStart(2, "0")
+    : "00";
 
   const handleEditActiveSection = () => {
     if (activeTab === "benchmark") {
@@ -479,122 +516,107 @@ export function CompanyProfilePreview({
     onEditProfile(SECTION_TO_EDIT[activeTab]);
   };
 
-  return createPortal(
-    <div className="cpp-scrim profile-complete-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
-      <aside
-        ref={dialogRef}
-        className="cpp-panel profile-complete-drawer"
-        {...drawerPanelPointerProps()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cpp-title"
-      >
-        <header className="cpp-head sc-drawer-head">
-          <div className="cpp-head-main">
-            <span className="cpp-eyebrow sc-drawer-eyebrow">✦ Profile preview</span>
-            <strong id="cpp-title" className="cpp-co sc-drawer-co">{companyName}</strong>
-            <div className="cpp-progress sc-drawer-progress" aria-hidden="true">
-              <div className="cpp-progress-bar sc-drawer-progress-bar" style={{ width: `${Math.max(progressPct, progress.answered > 0 ? 4 : 0)}%` }} />
-            </div>
-            <span className="cpp-progress-label">
-              {progress.total > 0 ? `${progress.percent}% profile complete` : "Profile not started"}
-            </span>
-          </div>
-          <button type="button" className="cpp-close sc-drawer-x profile-complete-drawer-x" onClick={onClose} aria-label="Close profile preview">
-            ✕
+  return (
+    <div className="cpp-page">
+      <div className="cpp-page-toolbar">
+        <button type="button" className="cpp-page-back" onClick={onBack}>
+          ← Back
+        </button>
+        {canEdit ? (
+          <button type="button" className="cpp-page-edit-btn" onClick={handleEditActiveSection}>
+            Edit {activeEditLabel}
+            <span aria-hidden="true">→</span>
           </button>
-        </header>
+        ) : (
+          <span className="cpp-page-readonly-badge">View only</span>
+        )}
+      </div>
 
-        <div className="cpp-preview-steps profile-wizard-progress pwp-enhanced pwp-compact">
-          <ol className="pwp-steps pwp-steps-segmented" aria-label="Profile sections">
-            {PREVIEW_TABS.map(tab => {
-              const done = tabDone[tab.id];
-              const current = activeTab === tab.id;
-              return (
-                <li
-                  key={tab.id}
-                  className={`pwp-step${done ? " is-done" : ""}${current ? " is-current" : ""}`}
-                >
-                  <button
-                    type="button"
-                    className="pwp-step-btn"
-                    aria-current={current ? "step" : undefined}
-                    aria-label={`${tab.stepLabel}${current ? ", current section" : ""}`}
-                    disabled={current}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    <span className="pwp-step-inner">
-                      {done ? (
-                        <svg
-                          className="pwp-step-check"
-                          width="10"
-                          height="8"
-                          viewBox="0 0 10 8"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M1 4l2.5 2.5L9 1"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      ) : null}
-                      <span className="pwp-step-label">{tab.stepLabel}</span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-
-        <div className="cpp-shell">
-          <div className="cpp-content sc-drawer-body">
-            {activeTab === "company" ? (
-              <div className="cpp-stack">
-                <FounderCard name={founderName} role={founderRole} email={founderEmail} />
-                {section ? (
-                  <section className="cpp-card" aria-label="Company details">
-                    <div className="cpp-card-head">
-                      <PreviewSectionHeading
-                        title={section.title}
-                        meta={section.subtitle}
-                      />
-                    </div>
-                    <ProfilePreviewFields section={section} answers={answers} />
-                  </section>
-                ) : null}
-              </div>
-            ) : activeTab === "benchmark" ? (
-              <BenchmarkPreviewFields
-                values={benchmarkValues ?? EMPTY_BENCHMARK_FORM}
-                cohortLabel={cohortLabel}
-              />
-            ) : section ? (
-              <section className="cpp-card cpp-card--solo" aria-label={section.title}>
-                <div className="cpp-card-head cpp-card-head--solo">
-                  <PreviewSectionHeading title={section.title} meta={section.subtitle} />
-                </div>
-                <ProfilePreviewFields section={section} answers={answers} />
-              </section>
+      <header className="cpp-page-hero">
+        <div className="cpp-page-hero-main">
+          <div className="cpp-page-hero-copy">
+            <span className="cpp-page-eyebrow">{canEdit ? "Company profile" : "Recently viewed"}</span>
+            <h1 className="cpp-page-title">{companyName}</h1>
+            {companyMeta || companyDomain ? (
+              <p className="cpp-page-meta">
+                {companyMeta}
+                {companyMeta && companyDomain ? " · " : null}
+                {companyDomain}
+              </p>
             ) : null}
           </div>
+          <div className="cpp-page-progress-card" aria-label="Profile completion">
+            <ProfileProgressRing percent={progressPct} display={progressDisplay} />
+            <div className="cpp-page-progress-copy">
+              <span>Profile complete</span>
+              <p>
+                {progress.answered > 0
+                  ? `${progress.answered} of ${progress.total} fields answered`
+                  : "No profile fields answered yet"}
+              </p>
+            </div>
+          </div>
         </div>
+      </header>
 
-        <footer className="cpp-foot sc-drawer-foot profile-wizard-foot">
-          <button
-            type="button"
-            className="sc-drawer-btn primary"
-            onClick={handleEditActiveSection}
-          >
-            Edit {activeEditLabel}
-          </button>
-        </footer>
-      </aside>
-    </div>,
-    document.body,
+      <nav className="cpp-page-tabs" aria-label="Profile sections">
+        {PREVIEW_TABS.map(tab => {
+          const done = tabDone[tab.id];
+          const current = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={`cpp-page-tab${current ? " is-active" : ""}${done ? " is-done" : ""}`}
+              aria-current={current ? "page" : undefined}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {done ? <span className="cpp-page-tab-check" aria-hidden="true">✓</span> : null}
+              {tab.stepLabel}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="cpp-page-body">
+        <div className="cpp-page-content">
+          {activeTab === "company" ? (
+            <div className="cpp-stack">
+              <FounderCard name={founderName} role={founderRole} email={founderEmail} />
+              {section ? (
+                <section className="cpp-card" aria-label="Company details">
+                  <div className="cpp-card-head">
+                    <PreviewSectionHeading
+                      title={section.title}
+                      meta={section.subtitle}
+                    />
+                  </div>
+                  <ProfilePreviewFields section={section} answers={answers} />
+                </section>
+              ) : null}
+            </div>
+          ) : activeTab === "benchmark" ? (
+            <BenchmarkPreviewFields
+              values={benchmarkValues ?? EMPTY_BENCHMARK_FORM}
+              cohortLabel={cohortLabel}
+            />
+          ) : section ? (
+            <section className="cpp-card cpp-card--solo" aria-label={section.title}>
+              <div className="cpp-card-head cpp-card-head--solo">
+                <PreviewSectionHeading title={section.title} meta={section.subtitle} />
+              </div>
+              <ProfilePreviewFields section={section} answers={answers} />
+            </section>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
+}
+
+/** @deprecated Use CompanyProfilePage — drawer preview removed in favor of full-page profile. */
+export function CompanyProfilePreview(props: CompanyProfilePageProps & { open: boolean; onClose: () => void }) {
+  const { open, onClose, ...pageProps } = props;
+  if (!open) return null;
+  return <CompanyProfilePage {...pageProps} onBack={onClose} />;
 }

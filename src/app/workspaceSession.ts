@@ -28,6 +28,7 @@ const FOUNDER_ACTIVE_PAGES = new Set([
   "marketing-setup",
   "connectors",
   "account",
+  "company-profile",
 ]);
 
 const INVESTOR_ACTIVE_PAGES = new Set([
@@ -146,6 +147,11 @@ export function markSignedOut(): void {
   }
   clearWorkspaceSession();
   clearStaleReloadLandingFlag();
+  try {
+    localStorage.removeItem("fuel-profile-completion-prompt-dismissed:v2:patriotpay");
+  } catch {
+    /* ignore */
+  }
 }
 
 export function clearSignedOut(): void {

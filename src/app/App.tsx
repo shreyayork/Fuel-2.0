@@ -11,6 +11,7 @@ import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
 import DesignSystemPage from "./design-system/DesignSystemPage.tsx";
 import { SignedOutScreen } from "./SignedOutScreen.tsx";
 import { applyFuelTheme, readFuelTheme } from "./fuelTheme";
+import { resetProfileCompletionPromptForNewLogin } from "./profileCompletionPromptStorage";
 import {
   clearSignedOut,
   clearStaleReloadLandingFlag,
@@ -106,6 +107,7 @@ export default function App() {
         setOnboardingBenchmark(benchmark);
         setOnboardingAnswers(answers);
         saveEarnedProfileCredits(EMPTY_EARNED_PROFILE_CREDITS, "patriotpay");
+        resetProfileCompletionPromptForNewLogin("patriotpay");
         clearSignedOut();
         saveWorkspaceSession({ onboardingAnswers: answers, onboardingBenchmark: benchmark });
         setView("workspace");

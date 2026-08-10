@@ -1064,6 +1064,9 @@ export type PortfolioBenchmarkMetric = {
   sampleSize: number;
   cohortP50Label: string;
   portfolioLabel: string;
+  /** Approximate cohort min / max shown on the performance axis */
+  axisMinLabel: string;
+  axisMaxLabel: string;
   /** Portfolio median marker 0–100 */
   portfolioPosition: number;
   /** Green cohort band on the track (P25–P90 style) */
@@ -1100,6 +1103,33 @@ function seededUnit(seed: string): number {
   return (hash % 1000) / 1000;
 }
 
+function makeBenchmarkDot(
+  id: string,
+  name: string,
+  seed: string,
+  lowerIsBetter: boolean,
+  bandStart: number,
+  bandEnd: number,
+): PortfolioBenchmarkDot {
+  const roll = seededUnit(seed);
+  const position = Math.round(
+    roll < 0.12
+      ? 4 + seededUnit(`${seed}-lo`) * Math.max(8, bandStart - 4)
+      : roll > 0.88
+        ? bandEnd + seededUnit(`${seed}-hi`) * Math.max(6, 96 - bandEnd)
+        : bandStart + seededUnit(`${seed}-mid`) * Math.max(8, bandEnd - bandStart),
+  );
+  const clamped = Math.min(96, Math.max(4, position));
+  const score = lowerIsBetter ? 100 - clamped : clamped;
+  return {
+    id,
+    name,
+    position: clamped,
+    score,
+    color: colorForBenchmarkScore(score),
+  };
+}
+
 function buildDotsForMetric(
   metricId: string,
   companies: PortfolioCompany[],
@@ -1107,28 +1137,44 @@ function buildDotsForMetric(
   bandStart: number,
   bandEnd: number,
 ): PortfolioBenchmarkDot[] {
-  const makeDot = (id: string, name: string, seed: string): PortfolioBenchmarkDot => {
-    // Bias dots into / near the cohort band, with some outliers.
-    const roll = seededUnit(seed);
-    const position = Math.round(
-      roll < 0.12
-        ? 4 + seededUnit(`${seed}-lo`) * Math.max(8, bandStart - 4)
-        : roll > 0.88
-          ? bandEnd + seededUnit(`${seed}-hi`) * Math.max(6, 96 - bandEnd)
-          : bandStart + seededUnit(`${seed}-mid`) * Math.max(8, bandEnd - bandStart),
-    );
-    const clamped = Math.min(96, Math.max(4, position));
-    const score = lowerIsBetter ? 100 - clamped : clamped;
-    return {
-      id,
-      name,
-      position: clamped,
-      score,
-      color: colorForBenchmarkScore(score),
-    };
-  };
+  return companies.map(company => makeBenchmarkDot(
+    company.id,
+    company.displayName,
+    `${metricId}-${company.id}`,
+    lowerIsBetter,
+    bandStart,
+    bandEnd,
+  ));
+}
 
-  return companies.map(company => makeDot(company.id, company.displayName, `${metricId}-${company.id}`));
+/** Portfolio-company dots for a single metric (used in the company list drawer). */
+export function buildBenchmarkDotsForCompanies(
+  metricId: string,
+  companies: PortfolioCompany[],
+  lowerIsBetter: boolean,
+  bandStart: number,
+  bandEnd: number,
+): PortfolioBenchmarkDot[] {
+  return buildDotsForMetric(metricId, companies, lowerIsBetter, bandStart, bandEnd);
+}
+
+/** Synthetic cohort for large-n preview (1k–10k) — same distribution shape, no per-logo render. */
+export function buildSyntheticBenchmarkDots(
+  metricId: string,
+  count: number,
+  lowerIsBetter: boolean,
+  bandStart: number,
+  bandEnd: number,
+): PortfolioBenchmarkDot[] {
+  const safeCount = Math.max(1, Math.min(100_000, Math.round(count)));
+  return Array.from({ length: safeCount }, (_, index) => makeBenchmarkDot(
+    `cohort-${metricId}-${index}`,
+    `Cohort co. ${index + 1}`,
+    `${metricId}-synthetic-${index}`,
+    lowerIsBetter,
+    bandStart,
+    bandEnd,
+  ));
 }
 
 const PORTFOLIO_BENCHMARK_DEFS: Array<{
@@ -1137,6 +1183,8 @@ const PORTFOLIO_BENCHMARK_DEFS: Array<{
   hint: string | null;
   cohortP50Label: string;
   portfolioLabel: string;
+  axisMinLabel: string;
+  axisMaxLabel: string;
   portfolioPosition: number;
   bandStart: number;
   bandEnd: number;
@@ -1144,40 +1192,69 @@ const PORTFOLIO_BENCHMARK_DEFS: Array<{
   trend: "up" | "down" | "flat";
   isLeader: boolean;
 }> = [
-  { id: "burn", label: "Burn multiple", hint: "lower is better", cohortP50Label: "2.1x", portfolioLabel: "1.6x", portfolioPosition: 28, bandStart: 18, bandEnd: 58, lowerIsBetter: true, trend: "down", isLeader: true },
-  { id: "cac", label: "CAC payback", hint: "lower is better", cohortP50Label: "16 mo", portfolioLabel: "11 mo", portfolioPosition: 32, bandStart: 20, bandEnd: 62, lowerIsBetter: true, trend: "down", isLeader: true },
-  { id: "gm", label: "Gross margin", hint: null, cohortP50Label: "72%", portfolioLabel: "78%", portfolioPosition: 68, bandStart: 48, bandEnd: 88, lowerIsBetter: false, trend: "up", isLeader: true },
-  { id: "r40", label: "Rule of 40", hint: null, cohortP50Label: "28", portfolioLabel: "41", portfolioPosition: 72, bandStart: 30, bandEnd: 78, lowerIsBetter: false, trend: "up", isLeader: true },
-  { id: "cash", label: "Cash on hand", hint: null, cohortP50Label: "$1.5M", portfolioLabel: "$2.1M", portfolioPosition: 58, bandStart: 22, bandEnd: 55, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "burnUsd", label: "Monthly burn", hint: "lower is better", cohortP50Label: "$80K", portfolioLabel: "$64K", portfolioPosition: 36, bandStart: 16, bandEnd: 56, lowerIsBetter: true, trend: "flat", isLeader: false },
-  { id: "arr", label: "ARR", hint: null, cohortP50Label: "$500K", portfolioLabel: "$890K", portfolioPosition: 62, bandStart: 10, bandEnd: 52, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "arrGrowth", label: "ARR growth YoY", hint: null, cohortP50Label: "180%", portfolioLabel: "210%", portfolioPosition: 56, bandStart: 22, bandEnd: 62, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "customers", label: "Paid customers", hint: null, cohortP50Label: "40", portfolioLabel: "62", portfolioPosition: 48, bandStart: 8, bandEnd: 42, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "logo", label: "Logo retention", hint: null, cohortP50Label: "88%", portfolioLabel: "91%", portfolioPosition: 70, bandStart: 58, bandEnd: 92, lowerIsBetter: false, trend: "flat", isLeader: false },
-  { id: "nrr", label: "Net revenue retention", hint: null, cohortP50Label: "108%", portfolioLabel: "114%", portfolioPosition: 64, bandStart: 50, bandEnd: 84, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "fte", label: "Headcount (FTE)", hint: null, cohortP50Label: "12", portfolioLabel: "18", portfolioPosition: 52, bandStart: 18, bandEnd: 58, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "burn", label: "Burn multiple", hint: "lower is better", cohortP50Label: "2.1x", portfolioLabel: "1.6x", axisMinLabel: "0.8x", axisMaxLabel: "5.0x", portfolioPosition: 28, bandStart: 18, bandEnd: 58, lowerIsBetter: true, trend: "down", isLeader: true },
+  { id: "cac", label: "CAC payback", hint: "lower is better", cohortP50Label: "16 mo", portfolioLabel: "11 mo", axisMinLabel: "6 mo", axisMaxLabel: "36 mo", portfolioPosition: 32, bandStart: 20, bandEnd: 62, lowerIsBetter: true, trend: "down", isLeader: true },
+  { id: "gm", label: "Gross margin", hint: null, cohortP50Label: "72%", portfolioLabel: "78%", axisMinLabel: "45%", axisMaxLabel: "92%", portfolioPosition: 68, bandStart: 48, bandEnd: 88, lowerIsBetter: false, trend: "up", isLeader: true },
+  { id: "r40", label: "Rule of 40", hint: null, cohortP50Label: "28", portfolioLabel: "41", axisMinLabel: "5", axisMaxLabel: "65", portfolioPosition: 72, bandStart: 30, bandEnd: 78, lowerIsBetter: false, trend: "up", isLeader: true },
+  { id: "cash", label: "Cash on hand", hint: null, cohortP50Label: "$1.5M", portfolioLabel: "$2.1M", axisMinLabel: "$200K", axisMaxLabel: "$8M", portfolioPosition: 58, bandStart: 22, bandEnd: 55, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "burnUsd", label: "Monthly burn", hint: "lower is better", cohortP50Label: "$80K", portfolioLabel: "$64K", axisMinLabel: "$25K", axisMaxLabel: "$250K", portfolioPosition: 36, bandStart: 16, bandEnd: 56, lowerIsBetter: true, trend: "flat", isLeader: false },
+  { id: "arr", label: "ARR", hint: null, cohortP50Label: "$500K", portfolioLabel: "$890K", axisMinLabel: "$50K", axisMaxLabel: "$5M", portfolioPosition: 62, bandStart: 10, bandEnd: 52, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "arrGrowth", label: "ARR growth YoY", hint: null, cohortP50Label: "180%", portfolioLabel: "210%", axisMinLabel: "20%", axisMaxLabel: "400%", portfolioPosition: 56, bandStart: 22, bandEnd: 62, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "customers", label: "Paid customers", hint: null, cohortP50Label: "40", portfolioLabel: "62", axisMinLabel: "5", axisMaxLabel: "250", portfolioPosition: 48, bandStart: 8, bandEnd: 42, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "logo", label: "Logo retention", hint: null, cohortP50Label: "88%", portfolioLabel: "91%", axisMinLabel: "60%", axisMaxLabel: "99%", portfolioPosition: 70, bandStart: 58, bandEnd: 92, lowerIsBetter: false, trend: "flat", isLeader: false },
+  { id: "nrr", label: "Net revenue retention", hint: null, cohortP50Label: "108%", portfolioLabel: "114%", axisMinLabel: "75%", axisMaxLabel: "140%", portfolioPosition: 64, bandStart: 50, bandEnd: 84, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "fte", label: "Headcount (FTE)", hint: null, cohortP50Label: "12", portfolioLabel: "18", axisMinLabel: "3", axisMaxLabel: "80", portfolioPosition: 52, bandStart: 18, bandEnd: 58, lowerIsBetter: false, trend: "up", isLeader: false },
 ];
+
+export type BenchmarkCohortScale = "portfolio" | "full" | "xlarge" | "percentile";
+
+/** Synthetic cohort sizes for benchmark view dropdown (portfolio uses actual company count). */
+export const BENCHMARK_COHORT_SAMPLE_SIZES: Record<"full" | "xlarge", number> = {
+  full: 10_000,
+  xlarge: 100_000,
+};
+
+/** Cohort size used when the percentile table view is selected. */
+export const BENCHMARK_PERCENTILE_VIEW_SAMPLE_SIZE = 100;
+
+function benchmarkCohortSampleSize(scale: BenchmarkCohortScale, portfolioCount: number): number {
+  if (scale === "portfolio") return portfolioCount;
+  if (scale === "percentile") return BENCHMARK_PERCENTILE_VIEW_SAMPLE_SIZE;
+  return BENCHMARK_COHORT_SAMPLE_SIZES[scale];
+}
 
 export function buildPortfolioBenchmarkSummary(
   list: PortfolioListRow,
   portfolio: PortfolioCompany[] = INVESTOR_PORTFOLIO,
+  options?: { cohortScale?: BenchmarkCohortScale },
 ): PortfolioBenchmarkSummary {
   const companies = companiesForPortfolioList(list, portfolio);
-  const sampleSize = Math.max(1, companies.length);
+  const portfolioCount = Math.max(1, companies.length);
+  const cohortScale = options?.cohortScale ?? "portfolio";
+  const sampleSize = benchmarkCohortSampleSize(cohortScale, portfolioCount);
   const metrics: PortfolioBenchmarkMetric[] = PORTFOLIO_BENCHMARK_DEFS.map(def => ({
     ...def,
     sampleSize,
-    dots: buildDotsForMetric(
-      def.id,
-      companies,
-      def.lowerIsBetter,
-      def.bandStart,
-      def.bandEnd,
-    ),
+    dots: cohortScale !== "portfolio"
+      ? buildSyntheticBenchmarkDots(
+        def.id,
+        sampleSize,
+        def.lowerIsBetter,
+        def.bandStart,
+        def.bandEnd,
+      )
+      : buildDotsForMetric(
+        def.id,
+        companies,
+        def.lowerIsBetter,
+        def.bandStart,
+        def.bandEnd,
+      ),
   }));
   const leadersCount = metrics.filter(metric => metric.isLeader).length;
+  const filterSample = cohortScale === "portfolio" ? Math.max(portfolioCount, 3) : sampleSize;
   return {
-    filterLabel: `B2B SaaS · Seed · US · n=${Math.max(sampleSize, 3)}`,
+    filterLabel: `B2B SaaS · Seed · US · n=${filterSample}`,
     leadersCount,
     leadersDenom: metrics.length,
     topPerformer: companies[1]?.displayName ?? companies[0]?.displayName ?? "—",
