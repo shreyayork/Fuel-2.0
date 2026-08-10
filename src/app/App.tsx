@@ -3,8 +3,10 @@ import PatriotPayJourney, { type OnboardingBenchmarkInput } from "./PatriotPayJo
 import OnboardingFlow, {
   answersToOnboardingBenchmark,
   isInvestorPersona,
+  mapOnboardingToDetailAnswers,
   type OnboardingFlowAnswers,
 } from "./OnboardingFlow.tsx";
+import { loadDetailAnswers, saveDetailAnswers } from "./profileDetailsStorage.ts";
 import { EMPTY_EARNED_PROFILE_CREDITS, saveEarnedProfileCredits } from "./profileCredits.ts";
 // Short onboarding lands in workspace with analytics locked until profile completion.
 import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
@@ -13,8 +15,14 @@ import { SignedOutScreen } from "./SignedOutScreen.tsx";
 import { applyFuelTheme, readFuelTheme } from "./fuelTheme";
 import { resetProfileCompletionPromptForNewLogin } from "./profileCompletionPromptStorage";
 import {
+  clearOnboardingProgress,
+  clearBusinessType,
+} from "./onboardingProgressStorage.ts";
+import {
   clearSignedOut,
   clearStaleReloadLandingFlag,
+  clearWorkspaceSession,
+  isBrowserReload,
   isSignedOut,
   loadActivePage,
   loadWorkspaceSession,
@@ -34,13 +42,14 @@ function isDesignSystemPreview(): boolean {
 }
 
 function resolveInitialView(): View {
+  if (isBrowserReload()) return "onboarding";
   if (loadWorkspaceSession()) return "workspace";
   if (isSignedOut()) return "signed-out";
   return "onboarding";
 }
 
 export default function App() {
-  const restoredSession = loadWorkspaceSession();
+  const restoredSession = isBrowserReload() ? null : loadWorkspaceSession();
   const [view, setView] = useState<View>(resolveInitialView);
   const [onboardingBenchmark, setOnboardingBenchmark] = useState<OnboardingBenchmarkInput | null>(
     () => restoredSession?.onboardingBenchmark ?? null,
@@ -52,6 +61,11 @@ export default function App() {
 
   useEffect(() => {
     applyFuelTheme(readFuelTheme());
+    if (isBrowserReload()) {
+      clearWorkspaceSession();
+      clearOnboardingProgress();
+      clearBusinessType();
+    }
     clearStaleReloadLandingFlag();
   }, []);
 
@@ -82,7 +96,7 @@ export default function App() {
     const isInvestor = isInvestorPersona(onboardingAnswers);
     const persona = isInvestor ? "investor" : "founder";
     const restoredPage = loadActivePage(persona);
-    const defaultPage = isInvestor ? "investor-portfolios" : "scorecard-v2";
+    const defaultPage = isInvestor ? "investor-portfolios" : "overview-building";
     return (
       <PatriotPayJourney
         initialPage={restoredPage ?? defaultPage}
@@ -104,6 +118,9 @@ export default function App() {
     <OnboardingFlow
       onComplete={answers => {
         const benchmark = answersToOnboardingBenchmark(answers);
+        const detailPayload = mapOnboardingToDetailAnswers(answers);
+        const existing = loadDetailAnswers("patriotpay");
+        saveDetailAnswers("patriotpay", { ...existing, ...detailPayload });
         setOnboardingBenchmark(benchmark);
         setOnboardingAnswers(answers);
         saveEarnedProfileCredits(EMPTY_EARNED_PROFILE_CREDITS, "patriotpay");

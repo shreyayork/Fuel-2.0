@@ -22,7 +22,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
           background: "#f7f8fa",
           color: "#1a2332",
           display: "flex",
-          fontFamily: "Inter, system-ui, sans-serif",
+          fontFamily: "var(--font-family)",
           justifyContent: "center",
           minHeight: "100vh",
           padding: 24,

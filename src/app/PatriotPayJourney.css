@@ -152,7 +152,7 @@ html[data-theme="light"] {
 }
 
 body {
-  font-family: var(--font-family, Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif);
+  font-family: var(--font-family);
   background: var(--bg);
   color: var(--text-1);
   font-size: var(--font-size-base, 14px);
@@ -15885,7 +15885,7 @@ html[data-theme="light"] .guided-tour-controls button.secondary:hover:not(:disab
 
 .context-feed-system {
   border-radius: 4px;
-  font-family: Inter, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--font-family);
   font-size: 9px;
   font-weight: 800;
   padding: 2px 6px;

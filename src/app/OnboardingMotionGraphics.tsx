@@ -138,6 +138,8 @@ function MaskedValue({ fontSize = 13, wide = false }: { fontSize?: number; wide?
 type DevSelectionRow = { label: string; value: string; meaning: string };
 
 const BUILD_STAGE_MEANINGS: Record<string, string> = {
+  "Pre-launch — still building": "Intelligence weighted toward MVP scope, launch gates, and first ship.",
+  "Scaling — product is proven, growing fast": "Intelligence weighted toward reliability, scale guardrails, and throughput.",
   "Idea — not yet in development": "Intelligence weighted toward problem validation and first build bets.",
   "In active development": "Intelligence weighted toward MVP scope, launch gates, and first ship.",
   "Built — not yet launched": "Intelligence weighted toward launch readiness and early-user feedback loops.",
@@ -153,6 +155,9 @@ const PRODUCT_TYPE_MEANINGS: Record<string, string> = {
 };
 
 const CONSTRAINT_SUMMARIES: Record<string, string> = {
+  "Speed of execution": "Fuel centers Development intelligence on shipping velocity, cycle time, and execution bottlenecks.",
+  "Roadmap clarity": "Fuel centers Development intelligence on roadmap clarity, stakeholder alignment, and revenue-tied bets.",
+  "Not enough engineers": "Fuel centers Development intelligence on capacity planning, hiring sequence, and leverage per engineer.",
   "Planning and prioritization": "Fuel centers Development intelligence on roadmap clarity, stakeholder alignment, and revenue-tied bets.",
   "Capacity and hiring": "Fuel centers Development intelligence on capacity planning, hiring sequence, and leverage per engineer.",
   "Quality and reliability": "Fuel centers Development intelligence on release stability, defect reduction, and test coverage.",
@@ -232,8 +237,12 @@ function deriveGtmIntelligence(answers: Partial<Answers>) {
 
   const introsLine = answers.rev_capital_priority === "Actively fundraising"
     ? "Fundraise mode — investor intro signals active"
+    : answers.rev_capital_priority === "Yes"
+      ? "Open to York IE investor introductions"
     : answers.rev_capital_priority === "Open to investor introductions"
       ? "Open to York IE investor introductions"
+      : answers.rev_capital_priority === "Not right now"
+        ? "Not seeking investor introductions right now"
       : answers.rev_capital_priority === "Focused on extending runway / reaching profitability"
         ? "Runway extension mode — efficiency playbooks prioritized"
         : null;
@@ -248,15 +257,15 @@ function deriveGtmIntelligence(answers: Partial<Answers>) {
 }
 
 function deriveRevopsIntelligence(answers: Partial<Answers>) {
-  const finance = answers.rev_finance_management;
+  const salesProcess = answers.mkt_icp_clarity;
   const tracking = answers.mkt_revenue_tracking;
   const runway = answers.rev_runway;
 
-  const maturityLabel = !finance && !tracking
+  const maturityLabel = !salesProcess && !tracking
     ? "Profiling"
-    : finance === "Accounting software with regular close" && tracking === "CRM with a defined sales process"
+    : salesProcess === "Documented" && (tracking === "CRM" || tracking?.includes("CRM"))
       ? "Operational"
-      : finance?.includes("Accounting") || tracking?.includes("CRM")
+      : salesProcess || tracking
         ? "Emerging"
         : "Early-stage";
 
@@ -270,8 +279,8 @@ function deriveRevopsIntelligence(answers: Partial<Answers>) {
   const runwayInfo = runway ? runwayMeta[runway] : null;
 
   const stackSignals = [
-    tracking ? { label: "Revenue tracking", value: tracking } : null,
-    finance ? { label: "Finance management", value: finance } : null,
+    tracking ? { label: "Pipeline tool", value: tracking } : null,
+    salesProcess ? { label: "Sales process", value: salesProcess } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
   return {
@@ -279,8 +288,8 @@ function deriveRevopsIntelligence(answers: Partial<Answers>) {
     runwayInfo,
     maturityLabel,
     stackSignals,
-    stackLine: [tracking, finance].filter(Boolean).join(" · ") || "Answer G&A questions to model your stack",
-    insight: runwayInfo?.insight ?? (tracking && finance ? "Fuel links finance discipline to pipeline and forecast confidence." : "Finance setup and revenue tracking shape your G&A model."),
+    stackLine: [tracking, salesProcess].filter(Boolean).join(" · ") || "Pipeline tool and sales process shape your RevOps model.",
+    insight: runwayInfo?.insight ?? (tracking && salesProcess ? "Fuel links pipeline discipline to forecast confidence." : "Pipeline tool and sales process shape your RevOps model."),
   };
 }
 

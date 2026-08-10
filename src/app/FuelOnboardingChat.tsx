@@ -7910,7 +7910,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
       <div style={{
         width: "100vw", height: "100vh", background: "var(--bg)",
         display: "flex", flexDirection: "column",
-        fontFamily: "Inter, -apple-system, sans-serif",
+        fontFamily: "var(--font-family)",
       }}>
         {/* Top bar */}
         <div style={{

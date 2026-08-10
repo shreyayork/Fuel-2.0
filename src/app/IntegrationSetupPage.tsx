@@ -207,7 +207,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
   const isConnected  = statuses[active.id] === "connected";
 
   return (
-    <div style={{ flex: embedded ? 1 : undefined, height: embedded ? "100%" : undefined, minHeight: embedded ? "unset" : "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
+    <div style={{ flex: embedded ? 1 : undefined, height: embedded ? "100%" : undefined, minHeight: embedded ? "unset" : "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "var(--font-family)" }}>
 
       {/* Top bar */}
       <div style={{
