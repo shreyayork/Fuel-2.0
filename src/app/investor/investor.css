@@ -2763,8 +2763,7 @@
 
 .data-room-investor-gate {
   align-items: center;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--panel) 90%, var(--fuel-accent) 10%), var(--panel));
+  background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 14px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);

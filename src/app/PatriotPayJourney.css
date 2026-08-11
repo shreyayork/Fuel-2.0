@@ -1172,20 +1172,15 @@ html[data-theme="light"] .york-rail--overview .york-rail-mark {
 
 .crunchbase-profile-notice {
   align-items: flex-start;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 16%, var(--surface-1)),
-    color-mix(in srgb, var(--accent-dim) 70%, var(--surface-1)) 48%,
-    var(--surface-1)
-  );
-  border: 1px solid var(--accent-line);
+  background: var(--surface-1);
+  border: 1.5px solid rgba(18, 184, 134, 0.35);
   border-radius: 12px;
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: 0 10px 24px rgba(18, 184, 134, 0.16);
   display: flex;
-  gap: 12px;
+  gap: 14px;
   justify-content: space-between;
   margin-bottom: 18px;
-  padding: 16px 18px 16px 20px;
+  padding: 16px 18px;
 }
 
 .crunchbase-profile-notice-copy {
@@ -1196,8 +1191,8 @@ html[data-theme="light"] .york-rail--overview .york-rail-mark {
   color: var(--accent);
   display: block;
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   margin-bottom: 6px;
   text-transform: uppercase;
 }
@@ -1212,8 +1207,8 @@ html[data-theme="light"] .york-rail--overview .york-rail-mark {
 
 .crunchbase-profile-notice-dismiss {
   align-items: center;
-  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
-  border: 1px solid var(--accent-line);
+  background: color-mix(in srgb, var(--surface-1) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   border-radius: 8px;
   color: var(--text-2);
   cursor: pointer;
