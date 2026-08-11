@@ -1152,8 +1152,90 @@ html[data-theme="light"] .york-rail--overview .york-rail-mark {
   text-align: left;
 }
 
+.company-identity-block {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  gap: 18px;
+  min-width: 0;
+}
+
 .company-profile-link:hover .company-name {
   color: var(--accent);
+}
+
+.header-actions .initiatives-secondary-btn {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.crunchbase-profile-notice {
+  align-items: flex-start;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 16%, var(--surface-1)),
+    color-mix(in srgb, var(--accent-dim) 70%, var(--surface-1)) 48%,
+    var(--surface-1)
+  );
+  border: 1px solid var(--accent-line);
+  border-radius: 12px;
+  box-shadow: inset 3px 0 0 var(--accent);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 16px 18px 16px 20px;
+}
+
+.crunchbase-profile-notice-copy {
+  min-width: 0;
+}
+
+.crunchbase-profile-notice-copy span {
+  color: var(--accent);
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.crunchbase-profile-notice-copy strong {
+  color: var(--text-1);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.crunchbase-profile-notice-dismiss {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
+  border: 1px solid var(--accent-line);
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 16px;
+  height: 28px;
+  justify-content: center;
+  line-height: 1;
+  width: 28px;
+}
+
+.crunchbase-profile-notice-dismiss:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.crunchbase-profile-notice-dismiss:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .company-profile-link:focus-visible {
@@ -8208,8 +8290,7 @@ html[data-theme="light"] .launch-queue-next {
 }
 
 .data-room-card {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--panel) 92%, var(--fuel-accent) 8%), var(--panel));
+  background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 14px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);

@@ -14,6 +14,7 @@ import {
   FolderKanban,
   Gauge,
   GitBranch,
+  Globe,
   Landmark,
   LayoutList,
   LogOut,
@@ -47,6 +48,7 @@ export const fuelIcons = {
   appearanceDark: Moon,
   logout: LogOut,
   gauge: Gauge,
+  publicProfile: Globe,
 } as const;
 
 export type FuelIconName = keyof typeof fuelIcons;

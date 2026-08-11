@@ -105,6 +105,10 @@ import {
   getThirdPartyOverview,
   type ThirdPartyOverviewRecord,
 } from "./thirdPartyOverviewData";
+import {
+  dismissCrunchbaseProfileNotice,
+  isCrunchbaseProfileNoticeDismissed,
+} from "./crunchbaseProfileNoticeStorage";
 import { FuelIcon, type FuelIconName } from "./icons";
 import { applyFuelTheme, readFuelTheme, type FuelTheme } from "./fuelTheme";
 import {
@@ -8139,12 +8143,53 @@ function resolveThirdPartyOverview(
   return getThirdPartyOverview(company.id);
 }
 
+function CrunchbasePublicProfileNotice({
+  companyKey,
+  onDismissed,
+}: {
+  companyKey: string;
+  onDismissed?: () => void;
+}) {
+  const [dismissed, setDismissed] = useState(() => isCrunchbaseProfileNoticeDismissed(companyKey));
+
+  useEffect(() => {
+    setDismissed(isCrunchbaseProfileNoticeDismissed(companyKey));
+  }, [companyKey]);
+
+  if (dismissed) return null;
+
+  return (
+    <div className="crunchbase-profile-notice" role="status">
+      <div className="crunchbase-profile-notice-copy">
+        <span>Public company data</span>
+        <strong>
+          This profile is derived from Crunchbase data. You can view it as public information, but you can&apos;t edit this data here.
+        </strong>
+      </div>
+      <button
+        type="button"
+        className="crunchbase-profile-notice-dismiss"
+        aria-label="Dismiss Crunchbase notice"
+        onClick={() => {
+          dismissCrunchbaseProfileNotice(companyKey);
+          setDismissed(true);
+          onDismissed?.();
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 function ThirdPartyCompanyOverview({
   company,
   onOpenInitiatives,
+  showCrunchbaseNotice = false,
 }: {
   company: ThirdPartyOverviewCompany;
   onOpenInitiatives?: () => void;
+  showCrunchbaseNotice?: boolean;
 }) {
   const record = resolveThirdPartyOverview(company);
   const headquarters = record?.headquarters || company.headquarters || "—";
@@ -8173,6 +8218,9 @@ function ThirdPartyCompanyOverview({
 
   return (
     <section className="overview-tour-page third-party-overview" aria-label={`${company.displayName} overview`}>
+      {showCrunchbaseNotice ? (
+        <CrunchbasePublicProfileNotice companyKey={company.id} />
+      ) : null}
       <div className="overview-metric-grid">
         {stats.map(stat => (
           <div className={`overview-metric-card${!stat.value ? " is-empty" : ""}`} key={stat.label}>
@@ -9672,6 +9720,8 @@ function PatriotPayJourneyInner({
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
   const [activePage, setActivePage] = useState(resolveInitialActivePage);
+  /** My Company: explicit public/Crunchbase profile mode (third-party is always public). */
+  const [viewingPublicCompanyProfile, setViewingPublicCompanyProfile] = useState(false);
   const [tourOpen, setTourOpen] = useState(() => startsWithTour);
   const [tourStep, setTourStep] = useState(0);
   const [tourCompleteSignal, setTourCompleteSignal] = useState(0);
@@ -9748,6 +9798,7 @@ function PatriotPayJourneyInner({
     setBenchmarkDrawerOpen(false);
     editProfileFromPreviewRef.current = false;
     editBenchmarkFromPreviewRef.current = false;
+    setViewingPublicCompanyProfile(false);
     setActivePage("company-profile");
   }, [activePage]);
 
@@ -9760,6 +9811,7 @@ function PatriotPayJourneyInner({
     setBenchmarkDrawerElevated(false);
     editProfileFromPreviewRef.current = false;
     editBenchmarkFromPreviewRef.current = false;
+    setViewingPublicCompanyProfile(false);
     setActivePage("company-profile");
   }, [activePage]);
 
@@ -9973,6 +10025,12 @@ function PatriotPayJourneyInner({
   const isOwnCompany = isClaimedFounderCompany;
   const isInvestorCompanyView = isInvestorPersona && isOnCompanyWorkspace;
   const usesPerCompanyWorkspace = isOnCompanyWorkspace && !isClaimedFounderCompany;
+  /** Public Crunchbase-style profile (third-party always; My Company when explicitly opened). */
+  const showPublicCompanyProfile = usesPerCompanyWorkspace || (isOwnCompany && viewingPublicCompanyProfile);
+
+  useEffect(() => {
+    setViewingPublicCompanyProfile(false);
+  }, [selectedCompany.id]);
 
   const requestEditBenchmarkFromPreview = useCallback(() => {
     if (!isOwnCompany) return;
@@ -10417,7 +10475,18 @@ function PatriotPayJourneyInner({
     setBenchmarkDrawerElevated(false);
     editProfileFromPreviewRef.current = false;
     editBenchmarkFromPreviewRef.current = false;
+    setViewingPublicCompanyProfile(false);
     // Overview tab — third-party company public profile (view-only).
+    setActivePage("scorecard-v2");
+  }, []);
+
+  const openPublicCompanyProfile = useCallback(() => {
+    setViewingPublicCompanyProfile(true);
+    setActivePage("scorecard-v2");
+  }, []);
+
+  const exitPublicCompanyProfile = useCallback(() => {
+    setViewingPublicCompanyProfile(false);
     setActivePage("scorecard-v2");
   }, []);
 
@@ -11328,26 +11397,15 @@ function PatriotPayJourneyInner({
         </div>
 
         {!isInvestorShellPage ? <div className="company-header">
-          <div className={`company-card${usesPerCompanyWorkspace ? " is-external" : ""}`}>
-            <button
-              type="button"
-              className={`company-profile-link${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
-              data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
-              onClick={() => {
-                if (isOwnCompany) {
-                  openCompanyProfileFor(selectedCompany, "overview");
-                  return;
-                }
-                // Third-party: keep the company workspace Overview (view-only public profile).
-                setActivePage("scorecard-v2");
-              }}
-              aria-label={`${isOwnCompany ? "Edit" : "View"} ${selectedCompany.displayName} profile`}
+          <div className={`company-card${showPublicCompanyProfile ? " is-external" : ""}`}>
+            <div
+              className="company-identity-block"
             >
               <CompanyBrandMark company={selectedCompany} className="company-logo" size={48} />
               <div className="company-identity">
                 <div className="company-name-row">
                   <div className="company-name">{selectedCompany.displayName}</div>
-                  {usesPerCompanyWorkspace ? (
+                  {showPublicCompanyProfile ? (
                     <>
                       <span className="company-industry-tag">
                         {selectedCompany.meta.split("·")[0]?.trim() || "Company"}
@@ -11357,7 +11415,6 @@ function PatriotPayJourneyInner({
                         href={`https://${selectedCompany.domain}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
                       >
                         {selectedCompany.domain}
                       </a>
@@ -11367,8 +11424,12 @@ function PatriotPayJourneyInner({
                   )}
                 </div>
                 <div className="company-meta">
-                  {usesPerCompanyWorkspace ? (
-                    <span>External company — sourced from fuel-data</span>
+                  {showPublicCompanyProfile ? (
+                    <span>
+                      {isOwnCompany
+                        ? "Public profile — sourced from Crunchbase"
+                        : "External company — sourced from fuel-data"}
+                    </span>
                   ) : (
                     <>
                       <span>Engaged Feb 2024</span>
@@ -11380,8 +11441,27 @@ function PatriotPayJourneyInner({
                   )}
                 </div>
               </div>
-            </button>
+            </div>
             <div className="header-actions">
+              {isOwnCompany && !viewingPublicCompanyProfile ? (
+                <button
+                  type="button"
+                  className="initiatives-secondary-btn"
+                  onClick={openPublicCompanyProfile}
+                >
+                  <FuelIcon name="publicProfile" size={14} />
+                  View Public Profile
+                </button>
+              ) : null}
+              {isOwnCompany && viewingPublicCompanyProfile ? (
+                <button
+                  type="button"
+                  className="initiatives-secondary-btn"
+                  onClick={exitPublicCompanyProfile}
+                >
+                  Back to Product
+                </button>
+              ) : null}
               {usesPerCompanyWorkspace ? (
                 <button type="button" className="company-add-list-btn">
                   + Add to list
@@ -11569,7 +11649,7 @@ function PatriotPayJourneyInner({
               onAttemptSourceGeneration={handleAttemptSourceGeneration}
             />
           ) : activePage === "overview" ? (
-            usesPerCompanyWorkspace ? (
+            showPublicCompanyProfile ? (
               <ThirdPartyResearchEmpty
                 companyName={selectedCompany.displayName}
                 onGenerateBrief={() => {
@@ -11594,7 +11674,7 @@ function PatriotPayJourneyInner({
               />
             )
           ) : activePage === "context-feed" ? (
-            usesPerCompanyWorkspace ? (
+            showPublicCompanyProfile ? (
               <ThirdPartyContextFeed
                 companyId={selectedCompany.id}
                 companyName={selectedCompany.displayName}
@@ -11696,9 +11776,10 @@ function PatriotPayJourneyInner({
               }))}
             />
           ) : activePage === "scorecard-v2" ? (
-            usesPerCompanyWorkspace ? (
+            showPublicCompanyProfile ? (
               <ThirdPartyCompanyOverview
                 company={selectedCompany}
+                showCrunchbaseNotice={isOwnCompany && viewingPublicCompanyProfile}
                 onOpenInitiatives={() => {
                   setFocusInitiativeId(null);
                   setActivePage("initiatives");

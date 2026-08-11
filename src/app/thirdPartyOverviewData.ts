@@ -193,6 +193,72 @@ export const SWIGGY_OVERVIEW: ThirdPartyOverviewRecord = {
 
 /** Sector-aligned overview fixtures for portfolio third-party companies. */
 export const THIRD_PARTY_OVERVIEW_BY_ID: Record<string, ThirdPartyOverviewRecord> = {
+  patriotpay: {
+    companyId: "patriotpay",
+    about:
+      "Patriot Pay is a healthcare payments company helping medical practices modernize patient billing, collections, and revenue operations through workflow automation and AI-assisted billing support.",
+    totalFunding: "$4.2M",
+    fundingRoundsCount: "2",
+    lastRound: "Feb 2024",
+    lastRoundHint: "Seed",
+    founded: "2021",
+    foundedHint: "4 yrs active",
+    headquarters: "Boston, MA, US",
+    employees: "11-50",
+    sectors: ["healthcare", "patient billing", "fintech", "b2b saas"],
+    keywords: [
+      "patient billing",
+      "healthcare payments",
+      "revenue cycle",
+      "ai agent",
+      "smb practices",
+      "collections",
+      "payments",
+      "fintech",
+    ],
+    keywordTotal: 16,
+    rounds: [
+      {
+        date: "Feb 2024",
+        round: "Seed",
+        amount: "$4.2M",
+        investors: ["York IE", "Angels"],
+      },
+      {
+        date: "Aug 2022",
+        round: "Pre-seed",
+        amount: "$750K",
+        investors: ["Founder network"],
+      },
+    ],
+    cumulativeRaisedMm: [0.75, 4.95],
+    news: [
+      {
+        title: "Patriot Pay expands AI billing support for SMB practices",
+        source: "PATRIOT PAY",
+        when: "1w ago",
+      },
+      {
+        title: "York IE highlights Patriot Pay in healthcare payments thesis",
+        source: "YORK IE",
+        when: "3w ago",
+      },
+    ],
+    publicLinks: [],
+    similarCompanies: [
+      { name: "Cedar", logo: "C", logoBg: "#1E4D8C" },
+      { name: "Inbox Health", logo: "I", logoBg: "#0D9488" },
+      { name: "Rivet Health", logo: "R", logoBg: "#5B3A8C" },
+      { name: "PayZen", logo: "P", logoBg: "#C9A227" },
+      { name: "Finpay", logo: "F", logoBg: "#4A90B8" },
+    ],
+    dataSources: [
+      { name: "Crunchbase", detail: "organizations", badge: "PUBLIC" },
+      { name: "LinkedIn", detail: "company profile", badge: "PUBLIC" },
+      { name: "Website", detail: "public" },
+    ],
+    advisorPoolTotal: 12,
+  },
   swiggy: SWIGGY_OVERVIEW,
   "operator-ai": {
     companyId: "operator-ai",
