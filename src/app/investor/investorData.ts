@@ -1483,5 +1483,6 @@ export function investorCompanyToSelected(company: InvestorCompanyRef) {
     headquarters: company.headquarters,
     employees: company.employees,
     linkedin: company.linkedin,
+    onFuel: company.onFuel,
   };
 }

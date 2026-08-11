@@ -2622,7 +2622,7 @@ function OverviewWorkspaceDashboard({
           <button
             type="button"
             className="sc-workspace-preview-bar-btn"
-            onClick={() => onOpenProfilePreview("company")}
+            onClick={() => onOpenProfilePreview("overview")}
           >
             Preview profile
           </button>

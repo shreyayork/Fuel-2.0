@@ -20,13 +20,44 @@ import {
   getBenchmarkTier,
   getBenchmarkTierStyle,
 } from "./FuelOnboardingChat";
-import { isModuleInsightReady } from "./profileProgress";
 import type { ProfileModuleId } from "./profileCredits";
 import "./companyProfilePreview.css";
 
-export type ProfilePreviewTab = "company" | "dev" | "gtm" | "rev" | "benchmark";
+export type ProfilePreviewTab = "overview" | "company" | "dev" | "gtm" | "rev" | "benchmark";
 
 type PreviewTab = ProfilePreviewTab;
+
+/** Optional portfolio / company identity snapshot already available in-app (no invented fields). */
+export type CompanyProfileSnapshot = {
+  logo?: string;
+  logoBg?: string;
+  logoUrl?: string;
+  domain?: string;
+  meta?: string;
+  stage?: string;
+  sector?: string;
+  health?: "strong" | "watch" | "struggling";
+  onFuel?: boolean;
+  headquarters?: string;
+  employees?: string;
+  invested?: string;
+  estimatedValueLabel?: string;
+  moicLabel?: string;
+  ownership?: string;
+  arr?: string;
+  arrGrowthLabel?: string;
+  runway?: string;
+  nrrLabel?: string;
+  investedAt?: string;
+  lastUpdate?: string;
+  daysSinceBenchmark?: number;
+  redFlags?: string[];
+  strugglingAreas?: string[];
+  founderName?: string;
+  founderTitle?: string;
+  founderEmail?: string;
+  founderLinkedin?: string;
+};
 
 const BENCHMARK_FORM_KEY_ALIASES: Partial<Record<string, keyof BenchmarkFormValues>> = {
   payingCustomers: "paidCustomers",
@@ -44,17 +75,18 @@ const PREVIEW_TABS: {
   label: string;
   stepLabel: string;
   sectionId?: DetailSectionId;
-  icon: string;
   moduleId?: ProfileModuleId;
 }[] = [
-  { id: "company", label: "Company & founder", stepLabel: "Profile", sectionId: "profile", icon: "◆", moduleId: "company" },
-  { id: "dev", label: "R&D", stepLabel: "R&D", sectionId: "dev", icon: "⚙", moduleId: "dev" },
-  { id: "gtm", label: "GTM", stepLabel: "GTM", sectionId: "mkt", icon: "◎", moduleId: "gtm" },
-  { id: "rev", label: "G&A", stepLabel: "G&A", sectionId: "rev", icon: "◈", moduleId: "rev" },
-  { id: "benchmark", label: "Benchmark metrics", stepLabel: "Benchmark", icon: "◉" },
+  { id: "overview", label: "Overview", stepLabel: "Overview" },
+  { id: "company", label: "Company", stepLabel: "Company", sectionId: "profile", moduleId: "company" },
+  { id: "dev", label: "R&D", stepLabel: "R&D", sectionId: "dev", moduleId: "dev" },
+  { id: "gtm", label: "GTM", stepLabel: "GTM", sectionId: "mkt", moduleId: "gtm" },
+  { id: "rev", label: "G&A", stepLabel: "G&A", sectionId: "rev", moduleId: "rev" },
+  { id: "benchmark", label: "Benchmarks", stepLabel: "Benchmarks" },
 ];
 
 const SECTION_TO_EDIT: Record<PreviewTab, ProfileDrawerInitialSection> = {
+  overview: "company",
   company: "company",
   dev: "dev",
   gtm: "gtm",
@@ -67,14 +99,6 @@ function parseBenchmarkPreviewNumber(raw: string): number | null {
   if (!cleaned) return null;
   const value = Number(cleaned);
   return Number.isFinite(value) ? value : null;
-}
-
-function countFilledBenchmarkMetrics(values: BenchmarkFormValues): number {
-  return BENCHMARK_WIZARD_FIELDS.filter(field => {
-    const formKey = BENCHMARK_FORM_KEY_ALIASES[field.key] ?? field.key;
-    const raw = values[formKey as keyof BenchmarkFormValues];
-    return typeof raw === "string" && raw.trim().length > 0;
-  }).length;
 }
 
 type BenchmarkSnapshotTier = ReturnType<typeof getBenchmarkTier>;
@@ -142,9 +166,11 @@ function buildPreviewCohortLabel(answers: DetailAnswers, externalLabel?: string)
 function BenchmarkPreviewFields({
   values,
   cohortLabel,
+  canEdit = true,
 }: {
   values: BenchmarkFormValues;
   cohortLabel: string;
+  canEdit?: boolean;
 }) {
   const snapshotRows = buildBenchmarkSnapshotRows(values);
 
@@ -161,8 +187,12 @@ function BenchmarkPreviewFields({
     <section className="cpp-card cpp-card--solo cpp-benchmark-snapshot" aria-label="Benchmark metrics">
       {filledCount === 0 && textEntries.length === 0 && !hasOpenToIntros ? (
         <div className="cpp-empty-card">
-          <strong>No benchmark metrics yet</strong>
-          <p>Add cohort numbers in Edit benchmark to unlock peer comparisons.</p>
+          <strong>{canEdit ? "No benchmark metrics yet" : "No benchmark metrics available"}</strong>
+          <p>
+            {canEdit
+              ? "Add cohort numbers in Edit benchmark to unlock peer comparisons."
+              : "This company has not shared benchmark metrics."}
+          </p>
         </div>
       ) : (
         <>
@@ -175,7 +205,7 @@ function BenchmarkPreviewFields({
                     <thead>
                       <tr>
                         <th scope="col">Metric</th>
-                        <th scope="col">You</th>
+                        <th scope="col">{canEdit ? "You" : "Company"}</th>
                         <th scope="col">Cohort p50</th>
                         <th scope="col">p25</th>
                         <th scope="col">p75</th>
@@ -235,7 +265,7 @@ function BenchmarkPreviewFields({
               </div>
             </div>
           ) : null}
-          {filledCount > 0 && filledCount < BENCHMARK_WIZARD_FIELDS.length ? (
+          {canEdit && filledCount > 0 && filledCount < BENCHMARK_WIZARD_FIELDS.length ? (
             <p className="cpp-empty cpp-empty--muted">
               {BENCHMARK_WIZARD_FIELDS.length - filledCount} more metric{BENCHMARK_WIZARD_FIELDS.length - filledCount === 1 ? "" : "s"} available in benchmark.
             </p>
@@ -281,9 +311,11 @@ function formatAnswerValue(question: DetailQuestion, raw?: string): string | nul
 function ProfilePreviewFields({
   section,
   answers,
+  canEdit = true,
 }: {
   section: DetailSection;
   answers: DetailAnswers;
+  canEdit?: boolean;
 }) {
   const questions = getVisibleQuestions(section, answers);
   const answered = questions.filter(q => formatAnswerValue(q, answers[q.id]));
@@ -297,8 +329,12 @@ function ProfilePreviewFields({
     <>
       {answered.length === 0 ? (
         <div className="cpp-empty-card">
-          <strong>Nothing submitted yet</strong>
-          <p>Add responses in Edit profile to unlock insights for this section.</p>
+          <strong>{canEdit ? "Nothing submitted yet" : "No details available"}</strong>
+          <p>
+            {canEdit
+              ? "Add responses in Edit profile to unlock insights for this section."
+              : "This company has not shared profile details for this section."}
+          </p>
         </div>
       ) : (
         <div className="cpp-field-grid">
@@ -314,7 +350,7 @@ function ProfilePreviewFields({
           })}
         </div>
       )}
-      {empty > 0 ? (
+      {canEdit && empty > 0 ? (
         <p className="cpp-empty cpp-empty--muted">
           {empty} more field{empty === 1 ? "" : "s"} available in this section.
         </p>
@@ -345,15 +381,21 @@ function FounderCard({
   name,
   role,
   email,
+  linkedin,
 }: {
   name: string;
   role: string;
   email: string;
+  linkedin?: string;
 }) {
+  const linkedinHref = linkedin
+    ? (linkedin.startsWith("http") ? linkedin : `https://${linkedin}`)
+    : null;
+
   return (
     <section className="cpp-card cpp-card--founder" aria-label="Founder details">
       <div className="cpp-card-head">
-        <PreviewSectionHeading title="Founder details" meta="From onboarding" />
+        <PreviewSectionHeading title="Founder details" />
       </div>
       <div className="cpp-field-grid cpp-field-grid--compact">
         <div className="cpp-field-card">
@@ -368,7 +410,147 @@ function FounderCard({
           <span className="cpp-field-label">Email</span>
           <p className="cpp-field-value">{email}</p>
         </div>
+        {linkedinHref ? (
+          <div className="cpp-field-card">
+            <span className="cpp-field-label">LinkedIn</span>
+            <p className="cpp-field-value">
+              <a href={linkedinHref} target="_blank" rel="noreferrer">{linkedin}</a>
+            </p>
+          </div>
+        ) : null}
       </div>
+    </section>
+  );
+}
+
+function ProfileIdentityMark({
+  companyName,
+  snapshot,
+}: {
+  companyName: string;
+  snapshot?: CompanyProfileSnapshot | null;
+}) {
+  const [useFallback, setUseFallback] = useState(false);
+  const logoUrl = snapshot?.logoUrl;
+  const initial = snapshot?.logo || companyName.slice(0, 1).toUpperCase();
+  const bg = snapshot?.logoBg || "var(--surface-3, #1F3140)";
+
+  if (logoUrl && !useFallback) {
+    return (
+      <span className="cpp-page-logo cpp-page-logo--photo" aria-hidden="true">
+        <img src={logoUrl} alt="" onError={() => setUseFallback(true)} />
+      </span>
+    );
+  }
+
+  return (
+    <span className="cpp-page-logo" style={{ background: bg }} aria-hidden="true">
+      {initial}
+    </span>
+  );
+}
+
+function healthStatusLabel(health: CompanyProfileSnapshot["health"]): string {
+  if (health === "strong") return "Strong";
+  if (health === "watch") return "Watch";
+  if (health === "struggling") return "Struggling";
+  return "";
+}
+
+function healthStatusClass(health: CompanyProfileSnapshot["health"]): string {
+  if (health === "strong") return "fuel-status-badge fuel-status-badge--good";
+  if (health === "watch") return "fuel-status-badge fuel-status-badge--watch";
+  if (health === "struggling") return "fuel-status-badge fuel-status-badge--bad";
+  return "";
+}
+
+function SnapshotFacts({ snapshot }: { snapshot: CompanyProfileSnapshot }) {
+  const facts = [
+    { label: "Website", value: snapshot.domain },
+    { label: "Headquarters", value: snapshot.headquarters },
+    { label: "Team size", value: snapshot.employees },
+    { label: "Last update", value: snapshot.lastUpdate },
+    {
+      label: "Benchmark",
+      value: snapshot.daysSinceBenchmark != null ? `${snapshot.daysSinceBenchmark}d ago` : undefined,
+    },
+    { label: "On Fuel", value: snapshot.onFuel == null ? undefined : snapshot.onFuel ? "Yes" : "No" },
+  ].filter(item => Boolean(item.value));
+
+  if (facts.length === 0) return null;
+
+  return (
+    <section className="cpp-card" aria-label="Company facts">
+      <div className="cpp-card-head">
+        <PreviewSectionHeading title="Company facts" />
+      </div>
+      <div className="cpp-field-grid cpp-field-grid--compact">
+        {facts.map(fact => (
+          <div key={fact.label} className="cpp-field-card">
+            <span className="cpp-field-label">{fact.label}</span>
+            <p className="cpp-field-value">{fact.value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SnapshotMetrics({ snapshot }: { snapshot: CompanyProfileSnapshot }) {
+  const metrics = [
+    { label: "Invested", value: snapshot.invested },
+    { label: "Est. value", value: snapshot.estimatedValueLabel },
+    { label: "MOIC", value: snapshot.moicLabel },
+    { label: "Ownership", value: snapshot.ownership },
+    { label: "ARR", value: snapshot.arrGrowthLabel ? `${snapshot.arr} ${snapshot.arrGrowthLabel}` : snapshot.arr },
+    { label: "Runway", value: snapshot.runway },
+    { label: "NRR", value: snapshot.nrrLabel },
+    { label: "Invested date", value: snapshot.investedAt },
+  ].filter(item => Boolean(item.value));
+
+  if (metrics.length === 0) return null;
+
+  return (
+    <section className="cpp-card" aria-label="Key metrics">
+      <div className="cpp-card-head">
+        <PreviewSectionHeading title="Key metrics" />
+      </div>
+      <div className="cpp-metric-grid">
+        {metrics.map(metric => (
+          <article key={metric.label} className="cpp-metric-tile">
+            <em>{metric.label}</em>
+            <strong>{metric.value}</strong>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function OverviewSignals({ snapshot }: { snapshot: CompanyProfileSnapshot }) {
+  const hasFlags = (snapshot.redFlags?.length ?? 0) > 0;
+  const hasAreas = (snapshot.strugglingAreas?.length ?? 0) > 0;
+  if (!hasFlags && !hasAreas) return null;
+
+  return (
+    <section className="cpp-card" aria-label="Signals and focus">
+      <div className="cpp-card-head">
+        <PreviewSectionHeading title="Signals & focus" />
+      </div>
+      {hasFlags ? (
+        <ul className="cpp-signal-list">
+          {snapshot.redFlags!.map(flag => (
+            <li key={flag}>{flag}</li>
+          ))}
+        </ul>
+      ) : null}
+      {hasAreas ? (
+        <div className="cpp-chip-row">
+          {snapshot.strugglingAreas!.map(area => (
+            <span key={area} className="cpp-chip">{area}</span>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -432,6 +614,7 @@ export type CompanyProfilePageProps = {
   initialTab?: ProfilePreviewTab;
   companyMeta?: string;
   companyDomain?: string;
+  profileSnapshot?: CompanyProfileSnapshot | null;
   canEdit?: boolean;
   onBack: () => void;
   onEditProfile: (section?: ProfileDrawerInitialSection) => void;
@@ -450,9 +633,10 @@ export function CompanyProfilePage({
   benchmarkValues,
   benchmarkEarned = false,
   cohortLabel: cohortLabelProp,
-  initialTab = "company",
+  initialTab = "overview",
   companyMeta,
   companyDomain,
+  profileSnapshot = null,
   canEdit = true,
   onBack,
   onEditProfile,
@@ -479,36 +663,37 @@ export function CompanyProfilePage({
   const activeSection = PREVIEW_TABS.find(tab => tab.id === activeTab)?.sectionId;
   const section = activeSection ? DETAIL_SECTIONS.find(item => item.id === activeSection) : undefined;
   const activeTabMeta = PREVIEW_TABS.find(tab => tab.id === activeTab);
+  const companySection = DETAIL_SECTIONS.find(item => item.id === "profile");
 
-  const tabDone = useMemo(() => {
-    const done: Record<PreviewTab, boolean> = {
-      company: false,
-      dev: false,
-      gtm: false,
-      rev: false,
-      benchmark: false,
-    };
-    PREVIEW_TABS.forEach(tab => {
-      if (tab.id === "benchmark") {
-        done.benchmark = benchmarkEarned || (benchmarkValues ? countFilledBenchmarkMetrics(benchmarkValues) > 0 : false);
-        return;
-      }
-      if (tab.moduleId) done[tab.id] = isModuleInsightReady(tab.moduleId, answers);
-    });
-    return done;
-  }, [answers, benchmarkEarned, benchmarkValues]);
-
-  const founderName = userFullName?.trim() || "Not provided";
-  const founderRole = userRole?.trim() || "Not provided";
-  const founderEmail = userEmail?.trim() || "Not provided";
+  const founderName = canEdit
+    ? (userFullName?.trim() || profileSnapshot?.founderName?.trim() || "Not provided")
+    : (profileSnapshot?.founderName?.trim() || "Not provided");
+  const founderRole = canEdit
+    ? (userRole?.trim() || profileSnapshot?.founderTitle?.trim() || "Not provided")
+    : (profileSnapshot?.founderTitle?.trim() || "Not provided");
+  const founderEmail = canEdit
+    ? (userEmail?.trim() || profileSnapshot?.founderEmail?.trim() || "Not provided")
+    : (profileSnapshot?.founderEmail?.trim() || "Not provided");
   const progressPct = progress.total > 0 ? Math.min(100, progress.percent) : 0;
-  const activeEditLabel = activeTabMeta?.stepLabel ?? "section";
+  const activeEditLabel = activeTab === "overview"
+    ? "Company"
+    : (activeTabMeta?.stepLabel ?? "section");
 
   const progressDisplay = progress.total > 0
     ? progress.percent.toString().padStart(2, "0")
     : "00";
 
+  const metaLine = companyMeta || profileSnapshot?.meta || "";
+  const domainLine = companyDomain || profileSnapshot?.domain || "";
+  const headerMetrics = [
+    { label: "ARR", value: profileSnapshot?.arr },
+    { label: "MOIC", value: profileSnapshot?.moicLabel },
+    { label: "Runway", value: profileSnapshot?.runway },
+    { label: "NRR", value: profileSnapshot?.nrrLabel },
+  ].filter(item => Boolean(item.value));
+
   const handleEditActiveSection = () => {
+    if (!canEdit) return;
     if (activeTab === "benchmark") {
       onEditBenchmark?.();
       return;
@@ -522,57 +707,86 @@ export function CompanyProfilePage({
         <button type="button" className="cpp-page-back" onClick={onBack}>
           ← Back
         </button>
-        {canEdit ? (
-          <button type="button" className="cpp-page-edit-btn" onClick={handleEditActiveSection}>
-            Edit {activeEditLabel}
-            <span aria-hidden="true">→</span>
-          </button>
-        ) : (
-          <span className="cpp-page-readonly-badge">View only</span>
-        )}
       </div>
 
       <header className="cpp-page-hero">
         <div className="cpp-page-hero-main">
-          <div className="cpp-page-hero-copy">
-            <span className="cpp-page-eyebrow">{canEdit ? "Company profile" : "Recently viewed"}</span>
-            <h1 className="cpp-page-title">{companyName}</h1>
-            {companyMeta || companyDomain ? (
-              <p className="cpp-page-meta">
-                {companyMeta}
-                {companyMeta && companyDomain ? " · " : null}
-                {companyDomain}
-              </p>
-            ) : null}
-          </div>
-          <div className="cpp-page-progress-card" aria-label="Profile completion">
-            <ProfileProgressRing percent={progressPct} display={progressDisplay} />
-            <div className="cpp-page-progress-copy">
-              <span>Profile complete</span>
-              <p>
-                {progress.answered > 0
-                  ? `${progress.answered} of ${progress.total} fields answered`
-                  : "No profile fields answered yet"}
-              </p>
+          <div className="cpp-page-identity">
+            <ProfileIdentityMark companyName={companyName} snapshot={profileSnapshot} />
+            <div className="cpp-page-hero-copy">
+              <span className="cpp-page-eyebrow">
+                {canEdit ? "My company" : "Recently viewed"}
+              </span>
+              <h1 className="cpp-page-title">{companyName}</h1>
+              {metaLine || domainLine ? (
+                <p className="cpp-page-meta">
+                  {metaLine}
+                  {metaLine && domainLine ? " · " : null}
+                  {domainLine}
+                </p>
+              ) : null}
+              <div className="cpp-page-tags">
+                {profileSnapshot?.stage ? (
+                  <span className="cpp-page-tag">{profileSnapshot.stage}</span>
+                ) : null}
+                {profileSnapshot?.sector ? (
+                  <span className="cpp-page-tag">{profileSnapshot.sector}</span>
+                ) : null}
+                {profileSnapshot?.health ? (
+                  <span className={healthStatusClass(profileSnapshot.health)}>
+                    {healthStatusLabel(profileSnapshot.health)}
+                  </span>
+                ) : null}
+                {profileSnapshot?.onFuel ? (
+                  <span className="cpp-page-tag cpp-page-tag--accent">On Fuel</span>
+                ) : null}
+              </div>
             </div>
           </div>
+          {canEdit ? (
+            <div className="cpp-page-hero-aside">
+              <div className="cpp-page-progress-card" aria-label="Profile completion">
+                <ProfileProgressRing percent={progressPct} display={progressDisplay} />
+                <div className="cpp-page-progress-copy">
+                  <span>Profile complete</span>
+                  <p>
+                    {progress.answered > 0
+                      ? `${progress.answered} of ${progress.total} fields answered`
+                      : "No profile fields answered yet"}
+                  </p>
+                </div>
+              </div>
+              <button type="button" className="cpp-page-edit-btn" onClick={handleEditActiveSection}>
+                Edit {activeEditLabel}
+                <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          ) : headerMetrics.length > 0 ? (
+            <div className="cpp-page-header-metrics" aria-label="Key company metrics">
+              {headerMetrics.map(metric => (
+                <article key={metric.label}>
+                  <em>{metric.label}</em>
+                  <strong>{metric.value}</strong>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </div>
       </header>
 
-      <nav className="cpp-page-tabs" aria-label="Profile sections">
+      <nav className="tabs cpp-page-tabs" role="tablist" aria-label="Profile sections">
         {PREVIEW_TABS.map(tab => {
-          const done = tabDone[tab.id];
           const current = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
-              className={`cpp-page-tab${current ? " is-active" : ""}${done ? " is-done" : ""}`}
-              aria-current={current ? "page" : undefined}
+              role="tab"
+              className={`tab${current ? " active" : ""}`}
+              aria-selected={current}
               onClick={() => setActiveTab(tab.id)}
             >
-              {done ? <span className="cpp-page-tab-check" aria-hidden="true">✓</span> : null}
-              {tab.stepLabel}
+              {tab.label}
             </button>
           );
         })}
@@ -580,9 +794,43 @@ export function CompanyProfilePage({
 
       <div className="cpp-page-body">
         <div className="cpp-page-content">
-          {activeTab === "company" ? (
+          {activeTab === "overview" ? (
             <div className="cpp-stack">
-              <FounderCard name={founderName} role={founderRole} email={founderEmail} />
+              {profileSnapshot ? <SnapshotMetrics snapshot={profileSnapshot} /> : null}
+              {canEdit && companySection ? (
+                <section className="cpp-card" aria-label="Profile summary">
+                  <div className="cpp-card-head">
+                    <PreviewSectionHeading
+                      title="Profile summary"
+                      meta={companySection.subtitle}
+                    />
+                  </div>
+                  <ProfilePreviewFields section={companySection} answers={answers} canEdit={canEdit} />
+                </section>
+              ) : null}
+              {profileSnapshot ? <SnapshotFacts snapshot={profileSnapshot} /> : null}
+              <FounderCard
+                name={founderName}
+                role={founderRole}
+                email={founderEmail}
+                linkedin={profileSnapshot?.founderLinkedin}
+              />
+              {profileSnapshot ? <OverviewSignals snapshot={profileSnapshot} /> : null}
+              {!profileSnapshot && !canEdit ? (
+                <div className="cpp-empty-card">
+                  <strong>Limited profile data</strong>
+                  <p>No additional company details are available for this view.</p>
+                </div>
+              ) : null}
+            </div>
+          ) : activeTab === "company" ? (
+            <div className="cpp-stack">
+              <FounderCard
+                name={founderName}
+                role={founderRole}
+                email={founderEmail}
+                linkedin={profileSnapshot?.founderLinkedin}
+              />
               {section ? (
                 <section className="cpp-card" aria-label="Company details">
                   <div className="cpp-card-head">
@@ -591,21 +839,23 @@ export function CompanyProfilePage({
                       meta={section.subtitle}
                     />
                   </div>
-                  <ProfilePreviewFields section={section} answers={answers} />
+                  <ProfilePreviewFields section={section} answers={answers} canEdit={canEdit} />
                 </section>
               ) : null}
+              {profileSnapshot ? <SnapshotFacts snapshot={profileSnapshot} /> : null}
             </div>
           ) : activeTab === "benchmark" ? (
             <BenchmarkPreviewFields
               values={benchmarkValues ?? EMPTY_BENCHMARK_FORM}
               cohortLabel={cohortLabel}
+              canEdit={canEdit}
             />
           ) : section ? (
             <section className="cpp-card cpp-card--solo" aria-label={section.title}>
               <div className="cpp-card-head cpp-card-head--solo">
                 <PreviewSectionHeading title={section.title} meta={section.subtitle} />
               </div>
-              <ProfilePreviewFields section={section} answers={answers} />
+              <ProfilePreviewFields section={section} answers={answers} canEdit={canEdit} />
             </section>
           ) : null}
         </div>

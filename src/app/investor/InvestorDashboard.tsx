@@ -128,6 +128,7 @@ export default function InvestorDashboard({
   section = "home",
   hubspotConnected: hubspotConnectedInitial = false,
   onOpenCompany,
+  onOpenCompanyProfile,
   onOpenAccount,
   onNavigateSection,
 }: {
@@ -135,27 +136,14 @@ export default function InvestorDashboard({
   section?: InvestorDashboardSection;
   hubspotConnected?: boolean;
   onOpenCompany: (company: InvestorCompanyRef) => void;
+  onOpenCompanyProfile: (company: PortfolioCompanyView) => void;
   onOpenAccount?: () => void;
   onNavigateSection?: (section: Exclude<InvestorDashboardSection, "home">) => void;
 }) {
   const [activeBoardId, setActiveBoardId] = useState<PipelineBoardId>("growth_fund");
   const [hubspotConnected, setHubspotConnected] = useState(() => readHubspotConnected(hubspotConnectedInitial));
   const [hubspotConnecting, setHubspotConnecting] = useState(false);
-  const [profileCompany, setProfileCompany] = useState<PortfolioCompanyView | null>(null);
   const summary = useMemo(() => buildInvestorFundSummary(INVESTOR_PORTFOLIO), []);
-
-  const openCompanyProfile = useCallback((company: PortfolioCompanyView) => {
-    setProfileCompany(company);
-  }, []);
-
-  const closeCompanyProfile = useCallback(() => {
-    setProfileCompany(null);
-  }, []);
-
-  const openWorkspaceFromProfile = useCallback((company: InvestorCompanyRef) => {
-    setProfileCompany(null);
-    onOpenCompany(company);
-  }, [onOpenCompany]);
 
   function connectHubSpot() {
     if (hubspotConnected || hubspotConnecting) return;
@@ -167,30 +155,19 @@ export default function InvestorDashboard({
     }, 1400);
   }
 
-  const profileDrawer = (
-    <InvestorCompanyProfileDrawer
-      company={profileCompany}
-      onClose={closeCompanyProfile}
-      onOpenWorkspace={openWorkspaceFromProfile}
-    />
-  );
-
   if (section === "home") {
     return (
-      <>
-        <HomeDashboard
-          fundName={fundName}
-          summary={summary}
-          hubspotConnected={hubspotConnected}
-          hubspotConnecting={hubspotConnecting}
-          onConnectHubSpot={connectHubSpot}
-          onOpenCompany={onOpenCompany}
-          onOpenCompanyProfile={openCompanyProfile}
-          onOpenAccount={onOpenAccount}
-          onNavigateSection={onNavigateSection}
-        />
-        {profileDrawer}
-      </>
+      <HomeDashboard
+        fundName={fundName}
+        summary={summary}
+        hubspotConnected={hubspotConnected}
+        hubspotConnecting={hubspotConnecting}
+        onConnectHubSpot={connectHubSpot}
+        onOpenCompany={onOpenCompany}
+        onOpenCompanyProfile={onOpenCompanyProfile}
+        onOpenAccount={onOpenAccount}
+        onNavigateSection={onNavigateSection}
+      />
     );
   }
 
@@ -211,41 +188,40 @@ export default function InvestorDashboard({
     || (section === "pipeline" && hubspotConnected);
 
   return (
-    <>
-      <section className="investor-dashboard overview-tour-page">
-        {!hideShellHeader ? (
-          <header className="investor-dashboard-head">
-            <div>
-              <span className="investor-dashboard-eyebrow">Investor workspace</span>
-              <h1>{pageTitle}</h1>
-              <p>{pageLede}</p>
-            </div>
-            <button type="button" className="investor-dashboard-account-btn" onClick={onOpenAccount}>
-              Account settings
-            </button>
-          </header>
-        ) : null}
+    <section className="investor-dashboard overview-tour-page">
+      {!hideShellHeader ? (
+        <header className="investor-dashboard-head">
+          <div>
+            <span className="investor-dashboard-eyebrow">Investor workspace</span>
+            <h1>{pageTitle}</h1>
+            <p>{pageLede}</p>
+          </div>
+          <button type="button" className="investor-dashboard-account-btn" onClick={onOpenAccount}>
+            Account settings
+          </button>
+        </header>
+      ) : null}
 
-        {section === "portfolios" ? (
-          <PortfoliosPage
+      {section === "portfolios" ? (
+        <PortfoliosPage
+          onOpenCompany={onOpenCompany}
+          onOpenCompanyProfile={onOpenCompanyProfile}
+        />
+      ) : null}
+
+      {section === "watchlists" ? (
+        <WatchlistsPage onOpenCompany={onOpenCompany} />
+      ) : null}
+
+      {section === "pipeline" ? (
+        hubspotConnected ? (
+          <DealPipelineSection
+            activeBoardId={activeBoardId}
+            setActiveBoardId={setActiveBoardId}
             onOpenCompany={onOpenCompany}
-            onOpenCompanyProfile={openCompanyProfile}
           />
-        ) : null}
-
-        {section === "watchlists" ? (
-          <WatchlistsPage onOpenCompany={onOpenCompany} />
-        ) : null}
-
-        {section === "pipeline" ? (
-          hubspotConnected ? (
-            <DealPipelineSection
-              activeBoardId={activeBoardId}
-              setActiveBoardId={setActiveBoardId}
-              onOpenCompany={onOpenCompany}
-            />
-          ) : (
-            <article className="overview-panel investor-home-widget investor-home-widget-wide">
+        ) : (
+          <article className="overview-panel investor-home-widget investor-home-widget-wide">
             <HubSpotConnectPrompt
               connecting={hubspotConnecting}
               onConnect={connectHubSpot}
@@ -253,9 +229,7 @@ export default function InvestorDashboard({
           </article>
         )
       ) : null}
-      </section>
-      {profileDrawer}
-    </>
+    </section>
   );
 }
 
@@ -1619,14 +1593,6 @@ function BenchmarkRangeChart({
 
   return (
     <div className="investor-bench-range-chart">
-      <div className="investor-bench-range-chart-axis" aria-hidden="true">
-        <div className="investor-bench-range-chart-axis-gradient" />
-        <span
-          className="investor-bench-range-chart-portfolio-pin"
-          style={{ left: `${portfolioMarkerLeft}%` }}
-        />
-      </div>
-
       <div className="investor-bench-range-chart-limitations" aria-hidden="true">
         <span className="investor-bench-range-chart-limitations-label">Benchmark range</span>
         <div className="investor-bench-range-chart-limitations-track">
@@ -2102,7 +2068,7 @@ function BenchmarkTierHoverTip({
           className="investor-bench-tier-tip-action"
           onClick={() => onOpenProfile(tip.company)}
         >
-          View full company profile
+          View Profile
         </button>
       ) : null}
     </div>,
@@ -2214,21 +2180,9 @@ function PortfolioBenchmarkChart({
           {renderMode !== "density" ? (
             <div className="investor-bench-scale-labels">
               <span>{axisLowLabel}</span>
-              <span className="investor-bench-scale-count">
-                {formatBenchmarkCount(metric.sampleSize)} companies
-                {renderMode !== "logos" ? (
-                  <em className="investor-bench-scale-mode">{renderMode}</em>
-                ) : null}
-              </span>
               <span>{axisHighLabel}</span>
             </div>
-          ) : (
-            <div className="investor-bench-scale-labels investor-bench-scale-labels--range">
-              <span className="investor-bench-scale-count">
-                {formatBenchmarkCount(metric.sampleSize)} companies in cohort
-              </span>
-            </div>
-          )}
+          ) : null}
           <div className={`investor-bench-tier-track${renderMode === "density" ? " investor-bench-tier-track--range" : ""}`}>
             {renderMode === "density" ? (
               <BenchmarkRangeChart
@@ -2241,25 +2195,27 @@ function PortfolioBenchmarkChart({
               />
             ) : (
             <>
+            <div className="investor-bench-range-chart-limitations" aria-hidden="true">
+              <span className="investor-bench-range-chart-limitations-label">Benchmark range</span>
+              <div className="investor-bench-range-chart-limitations-track">
+                <span
+                  className="investor-bench-range-chart-limitations-band"
+                  style={{ left: `${cohortBandLeft}%`, width: `${Math.max(4, cohortBandWidth)}%` }}
+                />
+              </div>
+            </div>
+
             <div
-              className="investor-bench-tier-axis"
+              className="investor-bench-tier-plot"
               role="img"
-              aria-label={`Performance axis from ${axisLowLabel} to ${axisHighLabel}`}
+              aria-label={`Performance axis from ${axisLowLabel} to ${axisHighLabel}. Portfolio median at ${metric.portfolioLabel}.`}
             >
-              <div className="investor-bench-tier-axis-gradient" aria-hidden="true" />
               <span
-                className="investor-bench-tier-band"
-                style={{ left: `${cohortBandLeft}%`, width: `${Math.max(4, cohortBandWidth)}%` }}
-                title="Cohort interquartile range"
-                aria-hidden="true"
-              />
-              <span
-                className="investor-bench-tier-portfolio-mark"
+                className="investor-bench-tier-portfolio-mark investor-bench-tier-portfolio-mark--plot"
                 style={{ left: `${portfolioMarkerLeft}%` }}
                 title={`Portfolio median · ${metric.portfolioLabel}`}
                 aria-hidden="true"
               />
-            </div>
 
             {renderMode === "dots" ? (
               <BenchmarkDotStrip
@@ -2315,6 +2271,7 @@ function PortfolioBenchmarkChart({
                 })}
               </div>
             )}
+            </div>
 
             {tierSegments.length > 0 ? (
               <div className="investor-bench-tier-pills investor-bench-tier-pills--track">

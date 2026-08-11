@@ -973,19 +973,28 @@ const css = `
   }
   html[data-theme="light"] .of-progress-label { color: #7a8b9a; }
   .of-skip-link {
-    background: none;
-    border: none;
-    color: var(--text-2);
+    background: var(--btn-secondary-bg, transparent);
+    border: 1px solid var(--btn-secondary-border, rgba(255, 255, 255, 0.14));
+    border-radius: 8px;
+    color: var(--btn-secondary-text, var(--text-2));
     cursor: pointer;
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 0;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1;
+    padding: 8px 12px;
+    text-decoration: none;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     white-space: nowrap;
   }
-  .of-skip-link:hover { color: var(--text-1); }
+  .of-skip-link:hover {
+    background: var(--btn-secondary-hover-bg, rgba(255, 255, 255, 0.06));
+    color: var(--text-1);
+  }
+  .of-skip-link:focus-visible {
+    outline: 2px solid var(--fuel-accent, var(--btn-primary-bg));
+    outline-offset: 2px;
+  }
   .of-step-dots {
     display: flex;
     align-items: center;
@@ -1974,7 +1983,17 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   }
 
   function skipStep() {
+    // Product: organization selection is required — no setup-later escape.
+    if (isProductFlow && stepId === "profile" && (searchState === "idle" || searchState === "searching")) return;
     if (stepId === "profile" && searchState === "searching") return;
+
+    // Product "Setup later": save entered data and exit to the main workspace,
+    // skipping the rest of onboarding. Incomplete fields stay incomplete.
+    if (isProductFlow) {
+      finishOnboarding();
+      return;
+    }
+
     if (stepId === "investment" && investQ < 4) {
       setInvestQ(q => q + 1);
       return;
@@ -2117,6 +2136,20 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
         ? (isServiceFlow ? "Open my dashboard →" : "Start my journey")
         : "Continue";
 
+  const onProductOrgSelection =
+    isProductFlow &&
+    stepId === "profile" &&
+    (searchState === "idle" || searchState === "searching");
+  const showSetupLater =
+    isProductFlow &&
+    !showBusinessTypeEntry &&
+    !onProductOrgSelection;
+  const showLegacySkip =
+    !isProductFlow &&
+    !showBusinessTypeEntry &&
+    searchState !== "searching";
+  const showSecondarySkip = showSetupLater || showLegacySkip;
+
   return (
     <>
       <style>{css}</style>
@@ -2132,9 +2165,9 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                 <span className="of-brand-sub">by York IE</span>
               </div>
               <div className="of-brand-actions">
-                {!showBusinessTypeEntry && searchState !== "searching" ? (
+                {showSecondarySkip ? (
                   <button type="button" className="of-skip-link" onClick={skipStep}>
-                    Skip for now
+                    {showSetupLater ? "Setup later" : "Skip for now"}
                   </button>
                 ) : null}
                 <button
