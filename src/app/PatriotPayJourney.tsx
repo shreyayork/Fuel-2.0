@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SIGNAL_CATALOG, SIGNAL_CATALOG_BY_KEY, SIGNAL_CATEGORY_KEYS } from "./signalCatalog";
 import { createPortal } from "react-dom";
 import "./PatriotPayJourney.css";
@@ -94,10 +94,17 @@ import {
   formatMoic,
   formatUsdCompact,
   investorCompanyToSelected,
+  pickCompanyLogoAssetUrl,
   resolveCompanyLogoUrl,
 } from "./investor/investorData.ts";
 import type { InvestorCompanyRef, PortfolioCompanyView } from "./investor/investorData.ts";
 import { getCompanyLogoColors } from "./companyLogoColors";
+import {
+  buildThirdPartyPublicIntelligence,
+  getThirdPartyContextFeed,
+  getThirdPartyOverview,
+  type ThirdPartyOverviewRecord,
+} from "./thirdPartyOverviewData";
 import { FuelIcon, type FuelIconName } from "./icons";
 import { applyFuelTheme, readFuelTheme, type FuelTheme } from "./fuelTheme";
 import {
@@ -4465,6 +4472,7 @@ const FOUNDER_COMPANY = {
   domain: "patriotpay.com",
   logo: "P",
   logoBg: "#1E4D8C",
+  logoUrl: "/company-logos/patriot-pay.svg",
   meta: "Healthcare · Patient Billing · Seed",
   headquarters: "Boston, MA, US",
   employees: "11-50",
@@ -4594,12 +4602,13 @@ function DataRoomInvestorGate({
         <div>
           <h2>Data Room</h2>
           <p>
-            {companyName}&apos;s data room is private to the founding team. Request access to specific files —
-            you&apos;ll be notified when the company approves.
+            Pitch decks, investor notes, financial models, and other private files. {companyName}&apos;s
+            shared room stays private to the founding team until access is granted.
           </p>
         </div>
       </div>
-      <div className="data-room-investor-gate">
+      <div className="data-room-card data-room-investor-gate">
+        <div className="data-room-card-icon" aria-hidden="true">📁</div>
         <strong>Data room access restricted</strong>
         <p>
           You can still view benchmarks, run playbooks, and build your own intelligence on this company.
@@ -4666,14 +4675,15 @@ function DataRoomPage({
         </div>
       </div>
       {activeCount === 0 ? (
-        <div className="data-room-empty">
+        <div className="data-room-card data-room-empty">
+          <div className="data-room-card-icon" aria-hidden="true">📄</div>
           <strong>No documents yet</strong>
           <p>
             Choose a document type from <span>Upload document</span> — the same list as Intelligence — to add your first file.
           </p>
         </div>
       ) : (
-        <div className="data-room-list">
+        <div className="data-room-list data-room-list-cards">
           <div className="data-room-row data-room-row-head">
             <span>Type</span>
             <span>Latest file</span>
@@ -4683,7 +4693,7 @@ function DataRoomPage({
             <span>Actions</span>
           </div>
           {activeSlots.map(slot => (
-            <div className={`data-room-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`} key={slot.typeId}>
+            <div className={`data-room-row data-room-row-card${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`} key={slot.typeId}>
               <strong>{slot.typeLabel}</strong>
               <span className="data-room-latest">{slot.current?.name || "—"}</span>
               <span>{slot.current?.format || "—"}</span>
@@ -4963,6 +4973,8 @@ function SubtypeRow({
   const history = items.slice(1);
   const isBlink = blinkingIds.includes(latest.id);
   const sourceCount = latest.sources?.length ?? 0;
+  const isEmptyCopy = latest.highlight.trim().toLowerCase().startsWith("no ")
+    || latest.highlight.length > 48;
 
   return (
     <div className={`intel-signal-row${isBlink ? " blink-once" : ""}`}>
@@ -4977,7 +4989,7 @@ function SubtypeRow({
           <span className="intel-signal-category">{categoryLabel}</span>
           <span className="intel-signal-name">{subtypeKey}</span>
         </div>
-        <strong className="intel-signal-value">{latest.highlight}</strong>
+        <strong className={`intel-signal-value${isEmptyCopy ? " is-empty-copy" : ""}`}>{latest.highlight}</strong>
         <time className="intel-signal-period" dateTime={latest.date}>
           {formatBenchmarkPeriodLabel(latest.date)}
         </time>
@@ -8028,16 +8040,446 @@ function InitiativesPage({
   );
 }
 
+type ThirdPartyOverviewCompany = {
+  id: string;
+  displayName: string;
+  domain: string;
+  headquarters: string;
+  employees: string;
+  linkedin: string;
+  meta: string;
+};
+
+function CompanyBrandMark({
+  company,
+  className = "company-logo",
+  size = 48,
+}: {
+  company: {
+    id?: string;
+    displayName: string;
+    domain?: string;
+    logo?: string;
+    logoBg?: string;
+    logoUrl?: string;
+  };
+  className?: string;
+  size?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  const logoUrl = resolveCompanyLogoUrl({
+    id: company.id,
+    displayName: company.displayName,
+    domain: company.domain || "",
+    logoUrl: company.logoUrl,
+  });
+  const fallback = getCompanyLogoColors(company.displayName || company.logo);
+
+  if (!failed) {
+    return (
+      <div className={`${className} company-logo--photo`} aria-hidden="true">
+        <img
+          src={logoUrl}
+          alt=""
+          width={size}
+          height={size}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={className}
+      data-letter={fallback.letter.toLowerCase()}
+      style={{ background: fallback.bg, color: fallback.fg }}
+      aria-hidden="true"
+    >
+      {fallback.letter}
+    </div>
+  );
+}
+
+function FundingCumulativeSparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null;
+  const width = 120;
+  const height = 28;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const span = Math.max(max - min, 1);
+  const points = values
+    .map((value, index) => {
+      const x = (index / (values.length - 1)) * width;
+      const y = height - ((value - min) / span) * (height - 4) - 2;
+      return `${x},${y}`;
+    })
+    .join(" ");
+  return (
+    <div className="overview-funding-spark" aria-hidden="true">
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <polyline
+          fill="none"
+          stroke="var(--fuel-accent)"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          points={points}
+        />
+      </svg>
+      <em>Cumulative raised</em>
+    </div>
+  );
+}
+
+function resolveThirdPartyOverview(
+  company: ThirdPartyOverviewCompany,
+): ThirdPartyOverviewRecord | null {
+  return getThirdPartyOverview(company.id);
+}
+
+function ThirdPartyCompanyOverview({
+  company,
+  onOpenInitiatives,
+}: {
+  company: ThirdPartyOverviewCompany;
+  onOpenInitiatives?: () => void;
+}) {
+  const record = resolveThirdPartyOverview(company);
+  const headquarters = record?.headquarters || company.headquarters || "—";
+  const employees = record?.employees || company.employees || "—";
+  const sectors = record?.sectors?.length
+    ? record.sectors
+    : company.meta.split("·").map(part => part.trim()).filter(Boolean);
+  const keywords = record?.keywords ?? [];
+  const keywordTotal = record?.keywordTotal ?? keywords.length;
+  const keywordExtra = Math.max(keywordTotal - keywords.length, 0);
+  const rounds = record?.rounds ?? [];
+  const news = record?.news ?? [];
+  const similarCompanies = record?.similarCompanies ?? [];
+  const dataSources = record?.dataSources ?? [
+    { name: "fuel-data", detail: "external company profile" },
+  ];
+  const publicLinks = record?.publicLinks ?? [];
+  const advisorPoolTotal = record?.advisorPoolTotal ?? 0;
+
+  const stats = [
+    { label: "Total funding", value: record?.totalFunding ?? null, hint: null as string | null },
+    { label: "Funding rounds", value: record?.fundingRoundsCount ?? null, hint: null },
+    { label: "Last round", value: record?.lastRound ?? null, hint: record?.lastRoundHint ?? null },
+    { label: "Founded", value: record?.founded ?? null, hint: record?.foundedHint ?? null },
+  ];
+
+  return (
+    <section className="overview-tour-page third-party-overview" aria-label={`${company.displayName} overview`}>
+      <div className="overview-metric-grid">
+        {stats.map(stat => (
+          <div className={`overview-metric-card${!stat.value ? " is-empty" : ""}`} key={stat.label}>
+            <span>{stat.label}</span>
+            <strong>{stat.value ?? "—"}</strong>
+            {stat.hint ? <em>{stat.hint}</em> : !stat.value ? <em>Not on record</em> : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="overview-layout-grid">
+        <div className="overview-main-column">
+          <div className="overview-panel">
+            <span>About</span>
+            {record?.about ? (
+              <p>{record.about}</p>
+            ) : (
+              <p className="overview-empty-copy">No company description on record.</p>
+            )}
+          </div>
+
+          <div className="overview-panel">
+            <span>Company Details</span>
+            <div className="overview-detail-list">
+              <div className="overview-detail-row">
+                <em>Headquarters</em>
+                <strong>{headquarters}</strong>
+              </div>
+              <div className="overview-detail-row">
+                <em>Employees</em>
+                <strong>{employees}</strong>
+              </div>
+              <div className="overview-detail-row">
+                <em>Founded</em>
+                <strong>
+                  {record?.founded
+                    ? `${record.founded}${record.foundedHint ? ` · ${record.foundedHint}` : ""}`
+                    : "—"}
+                </strong>
+              </div>
+              <div className="overview-detail-row overview-detail-row-tags">
+                <em>Sectors</em>
+                <div className="overview-tag-list">
+                  {sectors.length
+                    ? sectors.map(tag => <span className="overview-tag" key={tag}>{tag}</span>)
+                    : <strong>—</strong>}
+                </div>
+              </div>
+              <div className="overview-detail-row overview-detail-row-tags">
+                <em>Keywords{keywordTotal ? ` (${keywordTotal})` : ""}</em>
+                <div className="overview-tag-list">
+                  {keywords.length ? (
+                    <>
+                      {keywords.map(tag => <span className="overview-tag" key={tag}>{tag}</span>)}
+                      {keywordExtra > 0 ? (
+                        <span className="overview-tag overview-tag-more">+{keywordExtra} more</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <strong>—</strong>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="overview-panel">
+            <div className="overview-panel-head overview-panel-head-funding">
+              <span>Funding Rounds</span>
+              {record?.cumulativeRaisedMm?.length ? (
+                <FundingCumulativeSparkline values={record.cumulativeRaisedMm} />
+              ) : rounds.length ? (
+                <em>{rounds.length} round{rounds.length === 1 ? "" : "s"}</em>
+              ) : null}
+            </div>
+            {rounds.length ? (
+              <div className="overview-funding-table">
+                <div className="overview-funding-header">
+                  <span>Date</span>
+                  <span>Round</span>
+                  <span>Amount</span>
+                  <span>Investors</span>
+                </div>
+                {rounds.map(round => (
+                  <div className="overview-funding-row" key={`${round.date}-${round.round}`}>
+                    <span>{round.date}</span>
+                    <span>{round.round}</span>
+                    <span>{round.amount}</span>
+                    <span className="overview-funding-investors">
+                      {round.investors.map((investor, index) => (
+                        <Fragment key={investor}>
+                          {index > 0 ? ", " : null}
+                          <span className="overview-investor-link">{investor}</span>
+                        </Fragment>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="overview-empty-copy">No funding rounds on record.</p>
+            )}
+          </div>
+
+          <div className="overview-panel">
+            <div className="overview-panel-head">
+              <span>Recent News</span>
+              {news.length ? <em>See all news</em> : null}
+            </div>
+            {news.length ? (
+              <div className="overview-news-list">
+                {news.map(item => (
+                  <div className="overview-news-row" key={item.title}>
+                    <strong>{item.title}</strong>
+                    <em>{item.source} · {item.when}</em>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="overview-empty-copy">No recent news on record.</p>
+            )}
+          </div>
+
+          <div className="overview-panel">
+            <div className="overview-panel-head">
+              <span>Advisors on active initiatives</span>
+              {onOpenInitiatives ? (
+                <button type="button" onClick={onOpenInitiatives}>Manage initiatives →</button>
+              ) : null}
+            </div>
+            <p className="overview-empty-copy">No advisors linked to any initiative yet.</p>
+            <div className="overview-advisor-pool">
+              Advisor pool: <strong>{advisorPoolTotal} Total</strong>
+              <em>View-only list</em>
+            </div>
+          </div>
+        </div>
+
+        <aside className="overview-side-column">
+          <div className="overview-panel">
+            <span>Links</span>
+            {publicLinks.length ? (
+              <div className="overview-link-list">
+                {publicLinks.map(link => (
+                  <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer">
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="overview-empty-copy">No public links on record.</p>
+            )}
+          </div>
+
+          <div className="overview-panel">
+            <span>Similar Companies</span>
+            {similarCompanies.length ? (
+              <div className="overview-company-list overview-company-list-rich">
+                {similarCompanies.map(item => (
+                  <div key={item.name}>
+                    <span className="overview-company-logo overview-company-logo--photo">
+                      <img
+                        src={pickCompanyLogoAssetUrl(`${item.name}-similar`)}
+                        alt=""
+                        loading="lazy"
+                      />
+                    </span>
+                    <strong>{item.name}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="overview-empty-copy">No similar companies on record.</p>
+            )}
+          </div>
+
+          <div className="overview-panel">
+            <span>Data Sources</span>
+            <div className="overview-source-list">
+              {dataSources.map(source => (
+                <div key={source.name}>
+                  <strong>
+                    {source.name}
+                    {source.badge ? <span className="overview-source-badge">{source.badge}</span> : null}
+                  </strong>
+                  <em>{source.detail}</em>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function ThirdPartyResearchEmpty({
+  companyName,
+  onGenerateBrief,
+}: {
+  companyName: string;
+  onGenerateBrief?: () => void;
+}) {
+  return (
+    <section className="overview-tour-page third-party-research-empty" aria-label={`${companyName} research`}>
+      <div className="overview-panel overview-research-empty-card">
+        <strong>No research yet</strong>
+        <p>
+          {onGenerateBrief
+            ? "Click Generate brief at the top of the page to produce a signal-driven briefing. Playbook runs, diligence reports, and other AI research artifacts also land here — they're account-wide and visible to every member."
+            : "Playbook runs, diligence reports, and other AI research artifacts land here when available."}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function ThirdPartyContextFeed({
+  companyId,
+  companyName,
+}: {
+  companyId: string;
+  companyName: string;
+}) {
+  const [query, setQuery] = useState("");
+  const items = useMemo(
+    () => getThirdPartyContextFeed(companyId, companyName),
+    [companyId, companyName],
+  );
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter(item => (
+      item.title.toLowerCase().includes(needle)
+      || item.description.toLowerCase().includes(needle)
+      || item.source.toLowerCase().includes(needle)
+    ));
+  }, [items, query]);
+
+  return (
+    <section className="context-feed-page third-party-context-feed" aria-label={`${companyName} context feed`}>
+      <div className="signals-page-head">
+        <div>
+          <h2>Context Feed</h2>
+          <p>Public market updates and sourced context for {companyName} — view only on third-party profiles.</p>
+        </div>
+      </div>
+
+      <div className="context-feed-toolbar">
+        <label className="signals-intel-search">
+          <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder="Search context…"
+            aria-label="Search context feed"
+          />
+        </label>
+        <div className="context-feed-filter-chips" role="tablist" aria-label="Context filters">
+          <button type="button" className="intel-category-tab is-active" role="tab" aria-selected="true">
+            All items
+          </button>
+        </div>
+      </div>
+
+      {filtered.length ? (
+        <div className="context-feed-card-list">
+          {filtered.map(item => (
+            <article className="context-feed-card" key={item.id}>
+              <div className="context-feed-card-thumb" aria-hidden="true">
+                <img src={pickCompanyLogoAssetUrl(item.logoSeed)} alt="" loading="lazy" />
+              </div>
+              <div className="context-feed-card-body">
+                <strong>{item.title}</strong>
+                <p>{item.description}</p>
+                <div className="context-feed-card-meta">
+                  <span>{item.source}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{item.when}</span>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="signals-intel-empty">
+          <strong>No context matches</strong>
+          <p>Try a different search term.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function OverviewPage({
   activeTourTarget,
   profileComplete,
   onEditProfile,
+  onManageInitiatives,
   company,
   visitorMode = false,
 }: {
   activeTourTarget?: string;
   profileComplete: boolean;
   onEditProfile: () => void;
+  onManageInitiatives?: () => void;
   company: { displayName: string; domain: string; headquarters: string; employees: string; linkedin: string };
   visitorMode?: boolean;
 }) {
@@ -8101,7 +8543,9 @@ function OverviewPage({
           <div className="overview-panel">
             <div className="overview-panel-head">
               <span>About</span>
-              <button onClick={onEditProfile}>Edit profile →</button>
+              {!visitorMode ? (
+                <button type="button" onClick={onEditProfile}>Edit profile →</button>
+              ) : null}
             </div>
             <p>
               {company.displayName} is a healthcare payments company helping medical practices modernize patient billing, collections,
@@ -8156,7 +8600,9 @@ function OverviewPage({
           <div className={`overview-panel ${activeTourTarget === "initiatives" ? "tour-highlight" : ""}`}>
             <div className="overview-panel-head">
               <span>Initiatives</span>
-              <button>Manage initiatives →</button>
+              {onManageInitiatives ? (
+                <button type="button" onClick={onManageInitiatives}>Manage initiatives →</button>
+              ) : null}
             </div>
             <p>
               Initiatives will be recommended from benchmark gaps, York IE project context, and generated intelligence once
@@ -9278,6 +9724,7 @@ function PatriotPayJourneyInner({
     if (reward) setProfileCreditReward(reward);
   }, []);
   const openBenchmarkDrawer = useCallback(() => {
+    // Company profile metrics are editable for own company; third-party allows private investor benchmark only.
     window.requestAnimationFrame(() => {
       setBenchmarkDrawerOpen(true);
     });
@@ -9315,10 +9762,6 @@ function PatriotPayJourneyInner({
     editBenchmarkFromPreviewRef.current = false;
     setActivePage("company-profile");
   }, [activePage]);
-
-  const openInvestorCompanyProfile = useCallback((company: PortfolioCompanyView) => {
-    openCompanyProfileFor(company, "overview");
-  }, [openCompanyProfileFor]);
 
   const closeCompanyProfilePage = useCallback(() => {
     const returnPage = profilePreviewReturnPageRef.current;
@@ -9443,11 +9886,15 @@ function PatriotPayJourneyInner({
   const [selectedCompany, setSelectedCompany] = useState(() => {
     const companyName = initialOnboardingAnswers?.profileCompany?.trim();
     if (!companyName || companyName === FOUNDER_COMPANY.displayName) return FOUNDER_COMPANY;
-    return {
+    const next = {
       ...FOUNDER_COMPANY,
       displayName: companyName,
       domain: companyName.toLowerCase().replace(/[^a-z0-9]+/g, "") + ".com",
       logo: companyName[0]?.toUpperCase() ?? "C",
+    };
+    return {
+      ...next,
+      logoUrl: resolveCompanyLogoUrl(next),
     };
   });
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
@@ -9539,12 +9986,18 @@ function PatriotPayJourneyInner({
 
   useEffect(() => {
     if (isOwnCompany) return;
+    // Never leave company-profile edit UI open on a third-party company.
+    // Private investor benchmark on third-party companies remains allowed.
     setProfileDrawerOpen(false);
+    editProfileFromPreviewRef.current = false;
+  }, [isOwnCompany, selectedCompany.id]);
+
+  useEffect(() => {
+    if (isOwnCompany || usesPerCompanyWorkspace) return;
     setBenchmarkDrawerOpen(false);
     setBenchmarkDrawerElevated(false);
-    editProfileFromPreviewRef.current = false;
     editBenchmarkFromPreviewRef.current = false;
-  }, [isOwnCompany, selectedCompany.id]);
+  }, [isOwnCompany, usesPerCompanyWorkspace, selectedCompany.id]);
 
   const markInvestorWorkspaceStarted = useCallback((companyId: string) => {
     if (!usesPerCompanyWorkspace && companyId === FOUNDER_CLAIMED_COMPANY_ID) return;
@@ -9888,16 +10341,47 @@ function PatriotPayJourneyInner({
   };
   const investorScopedIntelligence = useMemo(() => {
     if (!usesPerCompanyWorkspace) return intelligenceItems;
-    return getInvestorCompanyIntelligence(
+    const privateItems = getInvestorCompanyIntelligence(
       investorIntelligenceByCompany[selectedCompany.id] ?? [],
       investorBenchmarkByCompany[selectedCompany.id],
     );
+    const publicSeed = buildThirdPartyPublicIntelligence(
+      selectedCompany.id,
+      selectedCompany.displayName,
+    ).map((row): IntelligenceItem => ({
+      id: row.id,
+      type: row.type,
+      subtype: row.subtype,
+      text: row.text,
+      highlight: row.highlight,
+      date: row.date,
+      age: row.age,
+      title: row.title,
+      sources: [{
+        id: `src-public-${row.id}`,
+        title: "fuel-data",
+        description: "External company profile",
+        system: "fuel-data",
+        sourceType: "public",
+        meta: "Public",
+        date: row.date,
+      }],
+      updatedAtMs: Date.now(),
+    }));
+    const privateKeys = new Set(
+      privateItems.map(item => `${item.type}::${item.subtype || item.text}`),
+    );
+    const mergedPublic = publicSeed.filter(
+      item => !privateKeys.has(`${item.type}::${item.subtype || item.text}`),
+    );
+    return [...privateItems, ...mergedPublic];
   }, [
     intelligenceItems,
     investorBenchmarkByCompany,
     investorIntelligenceByCompany,
     usesPerCompanyWorkspace,
     selectedCompany.id,
+    selectedCompany.displayName,
   ]);
   const setScopedIntelligenceItems = useCallback((
     updater: React.SetStateAction<IntelligenceItem[]>,
@@ -9913,7 +10397,10 @@ function PatriotPayJourneyInner({
       );
       const next = typeof updater === "function" ? updater(current) : updater;
       const investorItems = next
-        .filter(item => !item.id.startsWith("intel-bench-"))
+        .filter(item => (
+          !item.id.startsWith("intel-bench-")
+          && !item.id.startsWith("intel-public-")
+        ))
         .map(item => (
           isInvestorOwnedIntelligence(item)
             ? item
@@ -9925,21 +10412,35 @@ function PatriotPayJourneyInner({
   const openInvestorCompany = useCallback((company: InvestorCompanyRef) => {
     setSelectedCompany(investorCompanyToSelected(company));
     setProfileComplete(true);
-    setActivePage("overview");
+    setProfileDrawerOpen(false);
+    setBenchmarkDrawerOpen(false);
+    setBenchmarkDrawerElevated(false);
+    editProfileFromPreviewRef.current = false;
+    editBenchmarkFromPreviewRef.current = false;
+    // Overview tab — third-party company public profile (view-only).
+    setActivePage("scorecard-v2");
   }, []);
+
   const openRecentCompany = useCallback((companyId: string) => {
     const company = INVESTOR_PORTFOLIO.find(item => item.id === companyId)
       ?? SUGGESTED_FOUNDERS.find(item => item.id === companyId);
     if (!company) return;
-    // Recently viewed → Company Profile Overview (editable only when it is My Company).
-    openCompanyProfileFor(company, "overview");
-  }, [openCompanyProfileFor]);
+    // Own company stays editable workspace; all others open the third-party workspace (view-only company data).
+    openInvestorCompany(company);
+  }, [openInvestorCompany]);
+
+  const openInvestorCompanyProfile = useCallback((company: PortfolioCompanyView) => {
+    // Portfolio "View Profile" → full third-party company workspace (same as Recently Viewed).
+    openInvestorCompany(company);
+  }, [openInvestorCompany]);
+
   const recentCompanies = useMemo(() => {
-    const ids = ["patriotpay", "operator-ai", "sync-sports", "winrate"];
+    const ids = ["swiggy", "operator-ai", "sync-sports", "winrate"];
     return ids
       .map(id => INVESTOR_PORTFOLIO.find(item => item.id === id) ?? SUGGESTED_FOUNDERS.find(item => item.id === id))
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
   }, []);
+
   const fundName = initialOnboardingAnswers?.profileCompany || "Your fund";
   const applyBenchmarkSubmission = (values: BenchmarkFormValues, forCompanyId?: string) => {
     const { items, submission } = createBenchmarkIntelligence(values);
@@ -10540,11 +11041,6 @@ function PatriotPayJourneyInner({
     ? investorBenchmarkByCompany[selectedCompany.id]?.period
     : benchmarkSubmission?.period;
 
-  const selectedCompanyLogo = useMemo(
-    () => getCompanyLogoColors(selectedCompany.displayName || selectedCompany.logo),
-    [selectedCompany.displayName, selectedCompany.logo],
-  );
-
   /** Tour chip in the top bar — same entry point across all overview designs. */
   const effectiveTourTaken = tourTaken && !reloadLandingActive;
 
@@ -10656,9 +11152,7 @@ function PatriotPayJourneyInner({
         </div>
         <div className="nav-section">
           <div className="nav-label">Recently viewed</div>
-          {recentCompanies.map(company => {
-            const companyLogo = getCompanyLogoColors(company.displayName || company.logo);
-            return (
+          {recentCompanies.map(company => (
             <div
               key={company.id}
               className={`recent-item${selectedCompany.id === company.id && !isInvestorShellPage ? " active" : ""}`}
@@ -10675,17 +11169,10 @@ function PatriotPayJourneyInner({
                 }
               }}
             >
-              <div
-                className="recent-favicon"
-                data-letter={companyLogo.letter.toLowerCase()}
-                style={{ background: companyLogo.bg, color: companyLogo.fg }}
-              >
-                {companyLogo.letter}
-              </div>
+              <CompanyBrandMark company={company} className="recent-favicon" size={14} />
               {company.displayName}
             </div>
-            );
-          })}
+          ))}
         </div>
         </nav>
         <SidebarProfileFooter
@@ -10846,16 +11333,17 @@ function PatriotPayJourneyInner({
               type="button"
               className={`company-profile-link${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
               data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
-              onClick={() => openCompanyProfileFor(selectedCompany, "overview")}
+              onClick={() => {
+                if (isOwnCompany) {
+                  openCompanyProfileFor(selectedCompany, "overview");
+                  return;
+                }
+                // Third-party: keep the company workspace Overview (view-only public profile).
+                setActivePage("scorecard-v2");
+              }}
               aria-label={`${isOwnCompany ? "Edit" : "View"} ${selectedCompany.displayName} profile`}
             >
-              <div
-                className="company-logo"
-                data-letter={selectedCompanyLogo.letter.toLowerCase()}
-                style={{ background: selectedCompanyLogo.bg, color: selectedCompanyLogo.fg }}
-              >
-                {selectedCompanyLogo.letter}
-              </div>
+              <CompanyBrandMark company={selectedCompany} className="company-logo" size={48} />
               <div className="company-identity">
                 <div className="company-name-row">
                   <div className="company-name">{selectedCompany.displayName}</div>
@@ -10993,7 +11481,8 @@ function PatriotPayJourneyInner({
 
         {overviewBuildPhase
           && overviewBuildPhase !== "ready"
-          && activePage !== "scorecard-v2" ? (
+          && activePage !== "scorecard-v2"
+          && !usesPerCompanyWorkspace ? (
           <div className="intel-building-banner" role="status">
             <span>Building Overview</span>
             <strong>Fuel is still generating scores and advisor context.</strong>
@@ -11050,12 +11539,16 @@ function PatriotPayJourneyInner({
               isProfileComplete={profileComplete}
               onLogBenchmarkData={openBenchmarkDrawer}
               onLinkConnectors={() => setActivePage("connectors")}
-              documentSlots={documentSlots}
-              processingDocumentTypeId={processingDocumentTypeId}
-              onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Intelligence · Private upload")}
-              onPersistSourceDocument={(typeId, typeLabel, file, intelligenceIds) => (
-                persistSourceDocument(typeId, typeLabel, file, intelligenceIds, "Intelligence · Source upload")
-              )}
+              documentSlots={usesPerCompanyWorkspace ? [] : documentSlots}
+              processingDocumentTypeId={usesPerCompanyWorkspace ? null : processingDocumentTypeId}
+              onUploadDocument={(typeId, typeLabel, file) => {
+                if (usesPerCompanyWorkspace) return;
+                handleDocumentUpload(typeId, typeLabel, file, "Intelligence · Private upload");
+              }}
+              onPersistSourceDocument={(typeId, typeLabel, file, intelligenceIds) => {
+                if (usesPerCompanyWorkspace) return;
+                persistSourceDocument(typeId, typeLabel, file, intelligenceIds, "Intelligence · Source upload");
+              }}
               onOpenDataRoom={() => setActivePage("data-room")}
               intelligenceItems={investorScopedIntelligence}
               setIntelligenceItems={setScopedIntelligenceItems}
@@ -11076,14 +11569,37 @@ function PatriotPayJourneyInner({
               onAttemptSourceGeneration={handleAttemptSourceGeneration}
             />
           ) : activePage === "overview" ? (
-            <OverviewPage
-              activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
-              profileComplete={profileComplete}
-              onEditProfile={() => openProfileDrawer("company")}
-              company={selectedCompany}
-              visitorMode={isInvestorPersona}
-            />
+            usesPerCompanyWorkspace ? (
+              <ThirdPartyResearchEmpty
+                companyName={selectedCompany.displayName}
+                onGenerateBrief={() => {
+                  setBriefFocusSignal(s => s + 1);
+                  setAskFuelOpen(true);
+                }}
+              />
+            ) : (
+              <OverviewPage
+                activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
+                profileComplete={profileComplete}
+                onEditProfile={() => {
+                  if (!isOwnCompany) return;
+                  openProfileDrawer("company");
+                }}
+                onManageInitiatives={() => {
+                  setFocusInitiativeId(null);
+                  setActivePage("initiatives");
+                }}
+                company={selectedCompany}
+                visitorMode={false}
+              />
+            )
           ) : activePage === "context-feed" ? (
+            usesPerCompanyWorkspace ? (
+              <ThirdPartyContextFeed
+                companyId={selectedCompany.id}
+                companyName={selectedCompany.displayName}
+              />
+            ) : (
             <SignalsPage
               isProfileComplete={profileComplete}
               onLogBenchmarkData={openBenchmarkDrawer}
@@ -11113,6 +11629,7 @@ function PatriotPayJourneyInner({
               onDismissPendingSource={handleDismissPendingSource}
               onAttemptSourceGeneration={handleAttemptSourceGeneration}
             />
+            )
           ) : activePage === "initiatives" ? (
             <InitiativesPage
               investorMode={usesPerCompanyWorkspace}
@@ -11170,7 +11687,7 @@ function PatriotPayJourneyInner({
               onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Data Room · Private upload")}
               onViewIntelligence={handleViewIntelligenceFromDataRoom}
               onOpenDocumentHistory={setDocumentHistorySlot}
-              investorMode={isInvestorCompanyView}
+              investorMode={usesPerCompanyWorkspace}
               investorAccessRequested={Boolean(dataRoomAccessRequests[selectedCompany.id])}
               companyName={selectedCompany.displayName}
               onRequestDataRoomAccess={() => setDataRoomAccessRequests(previous => ({
@@ -11179,6 +11696,15 @@ function PatriotPayJourneyInner({
               }))}
             />
           ) : activePage === "scorecard-v2" ? (
+            usesPerCompanyWorkspace ? (
+              <ThirdPartyCompanyOverview
+                company={selectedCompany}
+                onOpenInitiatives={() => {
+                  setFocusInitiativeId(null);
+                  setActivePage("initiatives");
+                }}
+              />
+            ) : (
             <ScorecardV2
               benchmark={scorecardBenchmark}
               onBenchmarkChange={(next) => {
@@ -11330,8 +11856,12 @@ function PatriotPayJourneyInner({
               onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
               isProfileComplete={profileComplete}
               userFirstName={(initialOnboardingAnswers?.userFullName || "there").trim().split(/\s+/)[0]}
-              onStartProfileCompletion={(section) => openProfileDrawer(section ?? "company")}
+              onStartProfileCompletion={(section) => {
+                if (!isOwnCompany) return;
+                openProfileDrawer(section ?? "company");
+              }}
               onOpenProfileDetails={(section) => {
+                if (!isOwnCompany) return;
                 if (section === "dev" || section === "mkt" || section === "rev") {
                   const moduleMap = { dev: "dev", mkt: "gtm", rev: "rev" } as const;
                   openProfileDrawer(moduleMap[section]);
@@ -11386,6 +11916,7 @@ function PatriotPayJourneyInner({
               }
               onDismissOverviewReady={skipOverviewReadyPrompt}
             />
+            )
           ) : activePage === "journey" ? (
             <>
               <div className="journey-header">
@@ -11464,7 +11995,7 @@ function PatriotPayJourneyInner({
         focusPlaybookSignal={playbookFocusSignal}
       />
       <CompleteBenchmarkDrawer
-        open={benchmarkDrawerOpen && isOwnCompany}
+        open={benchmarkDrawerOpen && (isOwnCompany || usesPerCompanyWorkspace)}
         companyName={selectedCompany.displayName}
         companyKey={selectedCompany.id}
         initialValues={scorecardBenchmarkForm}
@@ -11472,12 +12003,12 @@ function PatriotPayJourneyInner({
         elevatedScrim={benchmarkDrawerElevated}
         onClose={closeBenchmarkDrawer}
         onSaveDraft={values => {
-          if (!isOwnCompany) return;
+          if (!isOwnCompany && !usesPerCompanyWorkspace) return;
           if (usesPerCompanyWorkspace) applyBenchmarkSubmission(values, selectedCompany.id);
           else applyBenchmarkSubmission(values);
         }}
         onSubmit={(values) => {
-          if (!isOwnCompany) return;
+          if (!isOwnCompany && !usesPerCompanyWorkspace) return;
           handleBenchmarkSubmit(values);
         }}
       />

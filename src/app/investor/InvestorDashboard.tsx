@@ -486,9 +486,7 @@ function HomeThesisMatchRow({
   return (
     <article className="investor-home-thesis-card">
       <button type="button" className="investor-home-thesis-identity" onClick={onOpen}>
-        <span className="investor-company-logo" style={{ background: company.logoBg }}>
-          {company.logo}
-        </span>
+        <PortfolioCompanyLogo company={company} size="sm" />
         <span className="investor-home-thesis-identity-copy">
           <span className="investor-home-thesis-name-row">
             <strong>{company.displayName}</strong>

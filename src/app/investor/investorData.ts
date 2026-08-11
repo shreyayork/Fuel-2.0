@@ -151,14 +151,75 @@ export function companyLogoSlug(label: string): string {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+/** Portfolio / benchmark graph logo set (files in /public/company-logos/). */
+export const COMPANY_LOGO_ASSET_SLUGS = [
+  "airtable",
+  "anthropic",
+  "brex",
+  "canva",
+  "checkout-com",
+  "databricks",
+  "datadog",
+  "deel",
+  "discord",
+  "dropbox",
+  "figma",
+  "gusto",
+  "klarna",
+  "linear",
+  "mongodb",
+  "monzo",
+  "notion",
+  "openai",
+  "operator-ai",
+  "patriot-pay",
+  "plaid",
+  "ramp",
+  "retool",
+  "rippling",
+  "scale-ai",
+  "slack",
+  "snowflake",
+  "stripe",
+  "sync-sports",
+  "vercel",
+] as const;
+
+const COMPANY_LOGO_ASSET_SET = new Set<string>(COMPANY_LOGO_ASSET_SLUGS);
+
+function hashSeed(seed: string): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+/** Deterministic pick from the portfolio logo set (stable per company). */
+export function pickCompanyLogoAssetUrl(seed: string): string {
+  const slug = COMPANY_LOGO_ASSET_SLUGS[hashSeed(seed) % COMPANY_LOGO_ASSET_SLUGS.length]!;
+  return `/company-logos/${slug}.svg`;
+}
+
 export function buildCompanyLogoAssetUrl(label: string): string {
   return `/company-logos/${companyLogoSlug(label)}.svg`;
 }
 
 export function resolveCompanyLogoUrl(
-  company: Pick<InvestorCompanyRef, "displayName" | "domain" | "logoUrl">,
+  company: Pick<InvestorCompanyRef, "displayName" | "domain" | "logoUrl"> & { id?: string },
 ): string {
-  return company.logoUrl ?? buildCompanyLogoAssetUrl(company.displayName);
+  if (company.logoUrl) {
+    const explicitSlug = company.logoUrl.replace(/^.*\//, "").replace(/\.svg$/i, "");
+    if (COMPANY_LOGO_ASSET_SET.has(explicitSlug) || company.logoUrl.startsWith("http")) {
+      return company.logoUrl;
+    }
+  }
+  const namedSlug = companyLogoSlug(company.displayName);
+  if (COMPANY_LOGO_ASSET_SET.has(namedSlug)) {
+    return `/company-logos/${namedSlug}.svg`;
+  }
+  return pickCompanyLogoAssetUrl(company.id || company.domain || company.displayName);
 }
 
 export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
@@ -501,6 +562,30 @@ export const INVESTOR_PIPELINE: PipelineDeal[] = [
 ];
 
 export const SUGGESTED_FOUNDERS: SuggestedFounder[] = [
+  {
+    id: "swiggy",
+    name: "swiggy",
+    displayName: "Swiggy",
+    domain: "swiggy.com",
+    logo: "S",
+    logoBg: "#FC8019",
+    meta: "ipo · restaurants",
+    headquarters: "Bangalore, Karnataka, IN",
+    employees: "5001-10000",
+    linkedin: "linkedin.com/company/swiggy",
+    onFuel: false,
+    matchScore: 64,
+    matchReason:
+      "Large public consumer marketplace with deep funding history — useful third-party reference for food delivery and hyperlocal logistics comps.",
+    stage: "IPO",
+    sector: "Consumer Marketplace",
+    geography: "India",
+    timing: "Public company",
+    yorkIe: "External · fuel-data",
+    similarTo: "Zomato",
+    overlap: "Third-party company — not in portfolio",
+    arrBand: "Public",
+  },
   {
     id: "ledgerly",
     name: "ledgerly",
@@ -1479,6 +1564,7 @@ export function investorCompanyToSelected(company: InvestorCompanyRef) {
     domain: company.domain,
     logo: company.logo,
     logoBg: company.logoBg,
+    logoUrl: resolveCompanyLogoUrl(company),
     meta: company.meta,
     headquarters: company.headquarters,
     employees: company.employees,
