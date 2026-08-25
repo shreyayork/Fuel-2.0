@@ -14,21 +14,50 @@ import {
   type MetricPlaybookOption,
 } from "./FuelOnboardingChat";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney";
-import { mapOnboardingToDetailAnswers, OnboardingBenchmarkFieldList, type OnboardingFlowAnswers } from "./OnboardingFlow.tsx";
+import {
+  isOnboardingBenchmarkComplete,
+  mapOnboardingToDetailAnswers,
+  OnboardingBenchmarkFieldList,
+  type OnboardingFlowAnswers,
+} from "./OnboardingFlow.tsx";
 import {
   DETAIL_SECTIONS,
   DETAIL_QUESTION_LABEL,
   DETAIL_QUESTION_BY_ID,
   TRACK_DETAIL_SECTIONS,
+  completedOnboardingModules,
+  hasMandatoryProfileAnswers,
   countApplicableQuestions,
   countDetailAnswers as countTrackDetailAnswers,
   countSectionAnswers,
   getVisibleQuestions,
+  uniqueQuestions,
   isMultiSelectSelected,
   parseMultiSelectAnswer,
+  parseProfileFundingRounds,
+  partitionCreditQuestions,
+  PROFILE_FUNDING_ROUND_TYPES,
+  serializeProfileFundingRounds,
   toggleMultiSelectAnswer,
   type DetailAnswers,
+  type DetailQuestion,
+  type DetailSectionId,
+  type DetailTextInputType,
+  type ProfileFundingRound,
 } from "./trackQuestions.ts";
+import {
+  BENCHMARK_REWARD_CREDITS,
+  EMPTY_EARNED_PROFILE_CREDITS,
+  PROFILE_MODULE_REWARDS,
+  moduleCreditsHeadline,
+  moduleCreditsMessage,
+  remainingEarnableCredits,
+  tryMarkBenchmarkEarned,
+  tryMarkModuleEarned,
+  type EarnedProfileCredits,
+  type ProfileCreditReward,
+  type ProfileModuleId,
+} from "./profileCredits.ts";
 import {
   resolveYorkOfferForPillar,
   YORK_COMMON_OFFER,
@@ -227,7 +256,7 @@ export type ScorecardActiveInitiative = {
 
 export type ScorecardV2Props = {
   benchmark: OnboardingBenchmarkInput;
-  onBenchmarkChange?: (benchmark: OnboardingBenchmarkInput) => void;
+  onBenchmarkChange?: (benchmark: OnboardingBenchmarkInput, context?: ScorecardBenchmarkContext) => void;
   cohortLabel?: string;
   companyName?: string;
   journeyStage?: string;
@@ -262,9 +291,13 @@ export type ScorecardV2Props = {
   overviewBuildPhase?: OverviewBuildPhase | null;
   onStartOptionalTour?: () => void;
   onDismissOverviewReady?: () => void;
-  /** Controlled tip next to Recommended Actions after Overview finishes building. */
-  recActionsTipOpen?: boolean;
-  onDismissRecActionsTip?: () => void;
+  earnedProfileCredits?: EarnedProfileCredits;
+  companyKey?: string;
+  onProfileCreditsChange?: (earned: EarnedProfileCredits) => void;
+  onProfileCreditReward?: (reward: ProfileCreditReward) => void;
+  creditRewardVisible?: boolean;
+  openProfileModuleKey?: number;
+  openProfileModuleSection?: DetailSectionId | "benchmark";
 };
 
 export type OverviewBuildPhase =
@@ -351,7 +384,7 @@ const CATEGORY_META: Record<ScorecardCategory, {
 }> = {
   dev: { label: "R&D", fullLabel: "Research and Development", description: "Headcount, gross margin, R&D velocity and technical execution.", icon: "⚙", colour: "#12b886", colourDim: "rgba(18,184,134,0.1)",   colourBorder: "rgba(18,184,134,0.28)",   drillTitle: "Engineering & product",  urgentLabel: "R&D velocity"  },
   mkt: { label: "GTM", fullLabel: "Go-to-Market",          description: "Revenue, growth, retention, customers and GTM execution.",       icon: "↗", colour: "#12b886", colourDim: "rgba(18,184,134,0.1)", colourBorder: "rgba(18,184,134,0.28)", drillTitle: "GTM & acquisition",      urgentLabel: "GTM motion"    },
-  rev: { label: "G&A", fullLabel: "General and Administrative",  description: "Cash, burn, runway and operational performance.",                icon: "◎", colour: "#F5A623", colourDim: "rgba(245,166,35,0.1)", colourBorder: "rgba(245,166,35,0.28)", drillTitle: "Revenue operations",     urgentLabel: "Cash runway"   },
+  rev: { label: "G&A", fullLabel: "General and Administrative",  description: "Cash, burn, runway and operational performance.",                icon: "◎", colour: "#F5A623", colourDim: "rgba(245,166,35,0.1)", colourBorder: "rgba(245,166,35,0.28)", drillTitle: "G&A operations",          urgentLabel: "Cash runway"   },
 };
 
 // Status labels — richer than raw quartile
@@ -469,7 +502,16 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Launched — early users or customers": 78,
     "Launched — scaling usage or revenue": 90,
   },
-  dev_product_type: { "SaaS / web app": 78, "API or developer platform": 82, Marketplace: 70, Other: 62 },
+  dev_product_type: {
+    "SaaS Platform": 78,
+    "AI Application": 82,
+    "AI Infrastructure": 84,
+    Marketplace: 70,
+    "Developer Platform / API": 82,
+    "Mobile App": 72,
+    "Hardware / IoT": 68,
+    Other: 62,
+  },
   dev_delivery_constraint: {
     "Planning and prioritization": 50,
     "Capacity and hiring": 46,
@@ -508,7 +550,13 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Ad hoc — no regular cadence": 38,
     "Not shipping yet": 30,
   },
-  dev_ai_role: { "Core to the product": 86, "Important feature": 72, Exploring: 58, "Not applicable": 54 },
+  dev_ai_role: {
+    "AI is our core product": 86,
+    "AI powers major features": 80,
+    "AI improves internal operations": 70,
+    Experimenting: 58,
+    "No AI today": 50,
+  },
   dev_compliance: { "Already certified": 92, "In progress": 78, "On roadmap (e.g. SOC 2, ISO)": 62, "Not yet": 48 },
   dev_prioritization: {
     "Data/Usage Analytics": 86,
@@ -529,17 +577,29 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Hiring and capacity": 46,
     "Technical debt / architecture": 44,
   },
-  mkt_sales_motion: { "Product-led": 86, "Sales-led": 78, "Founder-led": 52, "Not yet": 36 },
-  mkt_funnel_gap: { Awareness: 58, Conversion: 50, Retention: 44 },
+  dev_six_month_impact: {
+    "Ship product faster": 68,
+    "Improve product quality": 68,
+    "Reduce engineering costs": 64,
+    "Hire engineering talent": 64,
+    "Implement AI": 64,
+    "Improve product strategy": 68,
+    "Modernize architecture": 64,
+    "Prepare for enterprise customers": 68,
+  },
+  mkt_sales_motion: { "Product-led": 86, "Sales-led": 80, "Founder-led": 56, "Not yet defined": 34, "Other (Please specify)": 54 },
+  mkt_funnel_gap: {
+    "Not enough awareness": 52,
+    "Not enough qualified pipeline": 48,
+    "Too few opportunities convert": 44,
+    "Customers aren't expanding or renewing": 40,
+    Unsure: 34,
+  },
   mkt_icp_clarity: {
-    "Documented and shared": 92,
-    "Written ICP the team uses for targeting and qualification": 90,
-    "Clear in founder's head": 62,
-    "We know who fits, but it's not written or enforced yet": 56,
-    "Still a hypothesis": 48,
-    "Early signal from customers, but not validated": 52,
-    "Not defined yet": 38,
-    "Selling broadly or still figuring out who fits": 34,
+    "Documented and shared - Written ICP the team uses for targeting and qualification": 92,
+    "Clear in founder's head - We know who fits, but it's not written or enforced yet": 66,
+    "Still a hypothesis - Early signal from customers, but not validated": 50,
+    "Not defined yet - Selling broadly or still figuring out who fits": 32,
   },
   mkt_revenue_tracking: {
     "CRM with a defined sales process": 88,
@@ -548,7 +608,7 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "No systematic pipeline yet": 30,
   },
   mkt_deal_size: { "Over $100K": 86, "$25K–$100K": 78, "$5K–$25K": 68, "Under $5K": 58, "Not sure yet": 44 },
-  mkt_pricing_model: { "Flat subscription": 78, "Usage-based": 82, "Tiered / per seat": 76, Hybrid: 80, "Still figuring out": 40 },
+  mkt_pricing_model: { "Flat subscription": 72, "Usage-based": 76, "Tiered / per seat": 78, "Hybrid (Recurring + One-time)": 72, "One-time purchase / license": 58, "Still figuring out": 36 },
   mkt_demand_source: { "Inbound / content": 78, "Product-led / self-serve": 82, "Outbound sales": 72, "Partners / channel": 76, "Paid acquisition": 64, "Mix of channels": 70, "Still figuring out": 40 },
   mkt_sales_team: {
     "Larger sales org (6+)": 90,
@@ -564,24 +624,29 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "No dedicated marketing — founders or sales cover it": 48,
     "Not applicable yet": 40,
   },
-  mkt_cac_payback: { "Yes — tracked regularly": 88, "Rough estimate only": 58, "Not yet": 34 },
+  mkt_marketing_measurement: { "CAC / Payback / LTV": 90, "Pipeline created": 82, "Qualified leads": 70, "Website traffic": 52, "We don't have consistent metrics": 30 },
   mkt_competitive_pressure: {
     "Low — category is early or we lead": 82,
     "Moderate — several credible alternatives": 62,
     "High — crowded market, price or feature pressure": 44,
     "Not sure yet": 48,
   },
+  mkt_momentum_constraint: { "Lead generation and pipeline": 48, "Sales capacity and hiring": 52, "Pricing and positioning": 46, "Sales and marketing alignment": 44, "Everything is well optimized": 90, "Other (please specify)": 58 },
+  mkt_twelve_month_priority: { "Generate more pipeline": 68, "Improve conversion rates": 68, "Increase deal size": 68, "Expand into enterprise": 68, "Improve customer retention": 68, "Build a repeatable GTM engine": 72 },
   mkt_pipeline_definitions: {
     "Yes, documented and shared — We have written criteria that the team uses.": 90,
     "Informal / Shared understanding — We have a general idea of what these terms mean, but it's not documented or strictly enforced.": 58,
     "Not defined yet — We don't use these definitions or are still figuring out our pipeline stages.": 36,
   },
+  mkt_mql_sql_visibility: { "Yes, we track this regularly": 90, "Rough estimate only": 56, "Not tracking this currently": 28 },
+  mkt_pricing_governance: { "Yes, structured process/tool in place": 90, "Informal / Manual process": 58, "No specific process yet": 30 },
+  mkt_cross_functional_slas: { "Yes, defined and tracked": 90, "Informal / Verbal agreements": 56, "No, we don't have these agreements": 30 },
   rev_runway: { "Over 18 months": 90, "12–18 months": 78, "6–12 months": 58, "Under 6 months": 34 },
   rev_finance_management: {
-    "Accounting software with regular close": 90,
-    "Spreadsheet + accountant or bookkeeper": 68,
-    "Founder-managed / informal": 46,
-    "Not set up yet": 30,
+    "Dedicated finance leader": 92,
+    "Outsourced finance/accounting": 78,
+    "Founder manages finances": 50,
+    "Minimal financial processes": 28,
   },
   rev_capital_priority: {
     "Actively fundraising": 74,
@@ -596,6 +661,7 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Explore strategic options (M&A, partnerships)": 68,
     "Not sure yet": 44,
   },
+  rev_operational_challenge: { "Finance & reporting": 48, "Hiring & people": 54, "Legal & compliance": 50, "Internal operations": 50, "Strategic planning": 52, Unsure: 36 },
   rev_unit_economics: {
     "Real-time / Automated": 92,
     "Monthly / Spreadsheet-based": 68,
@@ -607,12 +673,13 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Yes, static annual budget": 72,
     "No, we track historicals only": 40,
   },
+  rev_diligence_readiness: { "Ready today": 92, "Mostly prepared": 76, "Some work needed": 54, "Significant work needed": 30 },
   rev_operating_mode: {
     "Balanced growth and efficiency": 82,
     "Growth-first": 74,
     "Efficiency / path to profitability": 76,
   },
-  rev_team_size: { "50+": 88, "16–50": 78, "6–15": 66, "1–5": 52 },
+  rev_diligence_readiness_followup: { "Ready today": 92, "Mostly prepared": 76, "Some work needed": 54, "Significant work needed": 30 },
   rev_hiring_plans: {
     "Selective hires only": 78,
     "Hiring aggressively": 72,
@@ -656,18 +723,27 @@ const DETAIL_ANSWER_IMPACT: Record<string, Record<string, string>> = {
     "Contract dev / agency": "Heavy agency reliance slows iteration when GTM needs product moves.",
     "Not building yet — manual or services first": "Manual delivery becomes the bottleneck once demand shows up.",
   },
-  mkt_sales_motion: { "Founder-led": "Founder-led sales caps growth — you become the bottleneck.", "Not yet": "No motion yet — investors will ask how revenue actually happens." },
+  mkt_sales_motion: { "Founder-led": "Founder-led sales caps growth — you become the bottleneck.", "Not yet defined": "No motion yet — investors will ask how revenue actually happens." },
   mkt_marketing_capacity: { "No dedicated marketing — founders or sales cover it": "Founder-owned marketing steals time from product and fundraising." },
   mkt_icp_clarity: {
-    "Not defined yet": "Fuzzy ICP wastes outbound and lengthens sales cycles.",
-    "Selling broadly or still figuring out who fits": "Broad selling spreads founder attention across too many bets.",
+    "Not defined yet - Selling broadly or still figuring out who fits": "Fuzzy ICP wastes outbound and lengthens sales cycles.",
+    "Still a hypothesis - Early signal from customers, but not validated": "An unvalidated ICP spreads founder attention across too many bets.",
   },
-  mkt_funnel_gap: { Retention: "Retention gaps show up late — founders feel it in NRR conversations first.", Conversion: "Conversion leaks burn cash before you can prove GTM fit." },
+  mkt_funnel_gap: {
+    "Customers aren't expanding or renewing": "Retention gaps show up late — founders feel it in NRR conversations first.",
+    "Too few opportunities convert": "Conversion leaks burn cash before you can prove GTM fit.",
+  },
   mkt_revenue_tracking: { "No systematic pipeline yet": "No pipeline system — founders manually track deals and miss follow-ups.", "Spreadsheet or lightweight tracking": "Spreadsheet RevOps breaks the moment you add a second seller." },
+  mkt_marketing_measurement: { "We don't have consistent metrics": "Without consistent marketing measures, the team cannot tell which channels create revenue." },
+  mkt_mql_sql_visibility: { "Not tracking this currently": "No conversion visibility means the team cannot find where qualified demand is leaking." },
   rev_forecast: { "No, we track historicals only": "Historical-only finance leaves founders surprised at month-end." },
   rev_runway: { "Under 6 months": "Tight runway is the fastest path to a founder crisis." },
   rev_unit_economics: { "Not yet": "Untracked unit economics weaken every fundraising conversation." },
-  rev_finance_management: { "Founder-managed / informal": "Founder-managed books steal 5–10 hrs/mo and delay close." },
+  rev_finance_management: {
+    "Founder manages finances": "Founder-managed finance steals operating time and can delay reporting.",
+    "Minimal financial processes": "Minimal finance processes weaken forecasting, reporting, and fundraising readiness.",
+  },
+  rev_diligence_readiness: { "Significant work needed": "Major diligence gaps can slow or derail a capital raise." },
 };
 
 function makeContributor(
@@ -1170,6 +1246,8 @@ function GlanceScoreRing({
   onRequestOpen,
   onRequestClose,
   className,
+  size = 88,
+  scoreLabel,
 }: {
   cat: CategoryData;
   score: number;
@@ -1177,13 +1255,14 @@ function GlanceScoreRing({
   onRequestOpen: () => void;
   onRequestClose: () => void;
   className?: string;
+  size?: number;
+  scoreLabel?: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties | undefined>();
   const [placement, setPlacement] = useState<"above" | "below">("below");
-  const size = 88;
-  const stroke = 7;
+  const stroke = size <= 56 ? 5 : 7;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
@@ -1317,7 +1396,7 @@ function GlanceScoreRing({
             />
           </svg>
           <div className="sc-glance-ring-label">
-            <strong style={{ color: cat.barColour }}>{score}</strong>
+            <strong style={{ color: cat.barColour }}>{scoreLabel ?? score}</strong>
           </div>
         </div>
         {typeof document !== "undefined" && popoverNode
@@ -1387,49 +1466,102 @@ function buildGlanceAnswersCta(
   };
 }
 
-function GlanceInsightsWrap({
-  strengths,
-  weaknesses,
-  previewLimit = 2,
+/** Minimum track answers before improvement previews unlock (matches mandatory profile count). */
+const MIN_TRACK_ANSWERS_TO_UNLOCK_INSIGHTS = 3;
+
+/** Improvement teasers unlock once mandatory profile is done or this track has enough answers. */
+function areTrackInsightsLocked(
+  cat: Pick<CategoryData, "detailAnsweredCount" | "detailQuestionCount">,
+  hasMinimumProfileAnswers = false,
+): boolean {
+  if (cat.detailAnsweredCount >= MIN_TRACK_ANSWERS_TO_UNLOCK_INSIGHTS) return false;
+  if (hasMinimumProfileAnswers) return false;
+  return true;
+}
+
+/** Premium insight labels shown as locked placeholders per track */
+const PREMIUM_INSIGHTS: Record<string, string[]> = {
+  "R&D": ["Competitive benchmark", "Build vs buy analysis", "Peer R&D comparison", "Investor readiness"],
+  GTM: ["Ideal customer clarity", "Revenue benchmark", "Market position", "Growth opportunities"],
+  "G&A": ["Burn multiple benchmark", "Runway comparison", "Finance maturity", "Capital efficiency"],
+};
+
+function buildTopImprovementRows(trackLabel: string, items: TrackInsightItem[], limit = 2): TrackInsightItem[] {
+  const premium = (PREMIUM_INSIGHTS[trackLabel] || PREMIUM_INSIGHTS["R&D"]!) ?? [];
+  const rows = items.length > 0
+    ? items.slice(0, limit)
+    : premium.slice(0, limit).map((label, i) => ({
+        id: `premium-${i}`,
+        label,
+        detail: "Unlocks with profile",
+      }));
+
+  if (rows.length >= limit) return rows;
+
+  const filled = [...rows];
+  for (let i = rows.length; i < limit; i += 1) {
+    filled.push({
+      id: `premium-fill-${i}`,
+      label: premium[i] ?? "Additional recommendation",
+      detail: "Unlocks with profile",
+    });
+  }
+  return filled;
+}
+
+function TopImprovementsPreview({
+  trackLabel,
+  items,
+  insightsLocked,
+  onCompleteProfile,
+  limit = 2,
+  moreCount = 0,
 }: {
-  strengths: TrackInsightItem[];
-  weaknesses: TrackInsightItem[];
-  previewLimit?: number;
+  trackLabel: string;
+  items: TrackInsightItem[];
+  insightsLocked: boolean;
+  onCompleteProfile?: () => void;
+  limit?: number;
+  moreCount?: number;
 }) {
-  const [expanded, setExpanded] = React.useState(false);
-  const hiddenCount = expanded
-    ? 0
-    : Math.max(0, strengths.length - previewLimit) + Math.max(0, weaknesses.length - previewLimit);
-  const visibleStrengths = expanded ? strengths : strengths.slice(0, previewLimit);
-  const visibleWeaknesses = expanded ? weaknesses : weaknesses.slice(0, previewLimit);
+  const rows = buildTopImprovementRows(trackLabel, items, limit);
 
   return (
-    <div className="sc-glance-insights-wrap">
-      <div className="sc-glance-strength-col">
-        <TrackInsightPanel
-          tone="strong"
-          title="Primary strengths"
-          items={visibleStrengths}
-          empty="No strengths flagged yet."
-          compact
-        />
-      </div>
-      <div className="sc-glance-needs-col">
-        <TrackInsightPanel
-          tone="weak"
-          title="Needs improvement"
-          items={visibleWeaknesses}
-          empty="No gaps flagged yet."
-          compact
-        />
-      </div>
-      {hiddenCount > 0 ? (
+    <div className="sc-glance-insight-block is-compact">
+      <span className="sc-glance-insight-label sc-cat-tone-weak">Needs improvement</span>
+      {rows.length > 0 ? (
+        <ul className="sc-cat-sw-list">
+          {rows.map((item, index) => (
+            <li
+              key={item.id}
+              className={insightsLocked && index >= 1 ? "is-locked-blur" : undefined}
+              aria-hidden={insightsLocked && index >= 1 ? true : undefined}
+            >
+              <strong>{shortInsightChipLabel(item.label)}</strong>
+              <em>{item.detail}</em>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="sc-cat-sw-empty">Complete track details to surface improvements.</p>
+      )}
+      {moreCount > 0 ? (
+        <p className="sc-glance-insight-more-count">+{moreCount} more</p>
+      ) : null}
+      {insightsLocked ? (
         <button
           type="button"
-          className="sc-glance-insight-more-btn"
-          onClick={e => { e.stopPropagation(); setExpanded(true); }}
+          className="sc-glance-complete-profile-btn"
+          onClick={e => {
+            e.stopPropagation();
+            onCompleteProfile?.();
+          }}
         >
-          View more <span aria-hidden="true">→</span>
+          <svg width="11" height="13" viewBox="0 0 11 13" fill="none" aria-hidden="true">
+            <rect x="1" y="5.5" width="9" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M3 5.5V3.8a2.5 2.5 0 0 1 5 0V5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
+          Complete profile to unlock
         </button>
       ) : null}
     </div>
@@ -1453,36 +1585,49 @@ function CategoryGlanceHeaderBar({
   onRunPlaybook?: (id: string) => void;
   suggestionsReady?: boolean;
 }) {
+  const initiativeCount = suggestionsReady ? cat.openInitiatives.length : 0;
+  const playbookCount = suggestionsReady ? cat.suggestedPlaybooks.length : 0;
+  const intelCount = cat.intelDisplayCount;
+  const answeredMeta = cat.detailQuestionCount > 0
+    ? `${cat.detailAnsweredCount} of ${cat.detailQuestionCount} answered`
+    : null;
+
   return (
     <div className="sc-glance-header-bar" onClick={e => e.stopPropagation()}>
       <div className="sc-glance-header-bar-start">
-        <div className="sc-glance-header-bar-links">
-          {suggestionsReady && cat.openInitiatives.length > 0 ? (
-            <button type="button" className="sc-cat-header-btn" onClick={() => onOpenInitiatives?.()}>
-              {cat.openInitiatives.length} initiative{cat.openInitiatives.length === 1 ? "" : "s"} <span aria-hidden="true">→</span>
+        <div className="sc-glance-meta-badges">
+          {initiativeCount > 0 ? (
+            <button type="button" className="sc-glance-meta-badge" onClick={() => onOpenInitiatives?.()}>
+              {initiativeCount} initiative{initiativeCount === 1 ? "" : "s"} <span aria-hidden="true">→</span>
             </button>
+          ) : suggestionsReady ? (
+            <span className="sc-glance-meta-badge">0 initiatives <span aria-hidden="true">→</span></span>
           ) : null}
-          <button type="button" className="sc-cat-header-btn" onClick={() => onOpenIntelligence?.()}>
-            Intelligence <span aria-hidden="true">→</span>
+          <button type="button" className="sc-glance-meta-badge is-intel" onClick={() => onOpenIntelligence?.()}>
+            {intelCount} Intelligence signal{intelCount === 1 ? "" : "s"} <span aria-hidden="true">→</span>
           </button>
-          {suggestionsReady && cat.suggestedPlaybooks.length > 0 ? (
-            <button type="button" className="sc-cat-header-btn" onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}>
-              {cat.suggestedPlaybooks.length} playbook{cat.suggestedPlaybooks.length === 1 ? "" : "s"} <span aria-hidden="true">→</span>
+          {playbookCount > 0 ? (
+            <button type="button" className="sc-glance-meta-badge" onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}>
+              {playbookCount} playbook{playbookCount === 1 ? "" : "s"} <span aria-hidden="true">→</span>
             </button>
+          ) : suggestionsReady ? (
+            <span className="sc-glance-meta-badge">0 playbooks <span aria-hidden="true">→</span></span>
           ) : null}
         </div>
       </div>
       {onUpdateDetails ? (
         <div className="sc-glance-header-bar-end">
-          {answersCta.meta ? (
-            <p className="sc-glance-header-bar-hint">{answersCta.meta}</p>
+          {answeredMeta ? (
+            <p className="sc-glance-header-bar-answered">{answeredMeta}</p>
+          ) : answersCta.meta ? (
+            <p className="sc-glance-header-bar-answered">{answersCta.meta}</p>
           ) : null}
           <button
             type="button"
-            className={`sc-cat-header-btn sc-glance-details-btn${answersCta.tone !== "complete" ? " is-priority" : ""}`}
+            className="sc-glance-details-link"
             onClick={e => { e.stopPropagation(); onUpdateDetails(); }}
           >
-            {answersCta.label} <span aria-hidden="true">→</span>
+            {answersCta.label} →
           </button>
         </div>
       ) : null}
@@ -1541,23 +1686,23 @@ function OverviewAdvisorSkeleton() {
 
 function CategoryGlanceRowSkeleton({ label }: { label: string }) {
   return (
-    <article className="sc-glance-row sc-glance-row-skeleton" aria-hidden="true">
-      <div className="sc-glance-layout">
-        <div className="sc-glance-brief-col">
-          <div className="sc-glance-id">
-            <div className="sc-skel-ring" />
-            <div className="sc-glance-copy">
-              <h3 className="sc-glance-name">
-                <span>{label}</span>
-              </h3>
-              <div className="sc-skel-line" />
-              <div className="sc-skel-line sc-skel-line-mid" />
-            </div>
+    <article className="sc-glance-row sc-glance-row--track sc-glance-row--ref sc-glance-row-skeleton" aria-hidden="true">
+      <div className="sc-glance-track-body">
+        <div className="sc-glance-track-lead">
+          <div className="sc-skel-ring" />
+          <div className="sc-glance-track-lead-copy">
+            <h3 className="sc-glance-track-title-link">{label}</h3>
+            <div className="sc-skel-line" />
+            <div className="sc-skel-line sc-skel-line-mid" />
           </div>
         </div>
-        <div className="sc-skel-insights">
+        <div className="sc-glance-track-mid">
           <div className="sc-skel-line" />
           <div className="sc-skel-line sc-skel-line-mid" />
+        </div>
+        <div className="sc-glance-track-improve sc-glance-track-improve-panel">
+          <div className="sc-skel-line sc-skel-line-mid" />
+          <div className="sc-skel-line" />
         </div>
       </div>
     </article>
@@ -1566,7 +1711,7 @@ function CategoryGlanceRowSkeleton({ label }: { label: string }) {
 
 function CategoryGlanceRow({
   cat,
-  runway,
+  runway: _runway,
   onOpen,
   onUpdateDetails,
   onOpenIntelligence,
@@ -1577,6 +1722,8 @@ function CategoryGlanceRow({
   onGlancePopoverClose,
   tourTarget,
   suggestionsReady = true,
+  hasMinimumProfileAnswers = false,
+  onCompleteProfile,
 }: {
   cat: CategoryData;
   runway: number | null;
@@ -1590,20 +1737,28 @@ function CategoryGlanceRow({
   onGlancePopoverClose: () => void;
   tourTarget?: string;
   suggestionsReady?: boolean;
+  hasMinimumProfileAnswers?: boolean;
+  onCompleteProfile?: () => void;
 }) {
   const score = Math.max(0, Math.min(100, cat.score));
   const focusLine = cat.glanceFocus;
   const answersCta = buildGlanceAnswersCta(cat.label, cat.detailAnsweredCount, cat.detailQuestionCount);
+  const strengthItems = cat.glanceStrengthItems.slice(0, 2);
+  const improvementItems = cat.glanceWeaknessItems.slice(0, 2);
+  const strengthMoreCount = Math.max(0, cat.glanceStrengthItems.length - 2);
+  const improvementMoreCount = Math.max(0, cat.glanceWeaknessItems.length - 2);
+  const insightsLocked = areTrackInsightsLocked(cat, hasMinimumProfileAnswers);
+  const openProfileForTrack = () => (onCompleteProfile ?? onUpdateDetails)?.();
 
   return (
     <article
-      className={`sc-glance-row${tourTarget ? " tour-highlight" : ""}`}
+      className={`sc-glance-row sc-glance-row--track sc-glance-row--ref${tourTarget ? " tour-highlight" : ""}`}
       data-tour-target={tourTarget}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       role="button"
       tabIndex={0}
-      aria-label={`${cat.fullLabel}, ${score} out of 100, ${cat.statusLabel}`}
+      aria-label={`${cat.fullLabel}, ${score} out of 100, ${cat.statusLabel}. Open track details.`}
     >
       <CategoryGlanceHeaderBar
         cat={cat}
@@ -1614,33 +1769,46 @@ function CategoryGlanceRow({
         onRunPlaybook={onRunPlaybook}
         suggestionsReady={suggestionsReady}
       />
-      <div className="sc-glance-layout">
-        <div className="sc-glance-brief-col">
-          <div className="sc-glance-id">
-            <GlanceScoreRing
-              cat={cat}
-              score={score}
-              isOpen={glancePopoverOpen}
-              onRequestOpen={onGlancePopoverOpen}
-              onRequestClose={onGlancePopoverClose}
-              className="sc-glance-ring-wrap--lead"
-            />
-            <div className="sc-glance-copy">
-              <h3 className="sc-glance-name">
-                <span>{cat.label}</span>
-                <span className="sc-glance-name-sep" aria-hidden>·</span>
-                <span>{cat.fullLabel}</span>
-                <span className="sc-glance-name-arrow" aria-hidden>→</span>
-              </h3>
-              {focusLine ? <p className="sc-glance-focus">{focusLine}</p> : null}
-            </div>
+
+      <div className="sc-glance-track-body">
+        <div className="sc-glance-track-lead">
+          <GlanceScoreRing
+            cat={cat}
+            score={score}
+            isOpen={glancePopoverOpen}
+            onRequestOpen={onGlancePopoverOpen}
+            onRequestClose={onGlancePopoverClose}
+            size={88}
+            className="sc-glance-ring-wrap--track sc-glance-ring-wrap--ref"
+          />
+          <div className="sc-glance-track-lead-copy">
+            <h3 className="sc-glance-track-title-link">
+              {cat.label} — {cat.fullLabel} <span aria-hidden="true">→</span>
+            </h3>
+            {focusLine ? <p className="sc-glance-track-focus">{focusLine}</p> : null}
           </div>
         </div>
-        <GlanceInsightsWrap
-          strengths={cat.glanceStrengthItems}
-          weaknesses={cat.glanceWeaknessItems}
-          previewLimit={2}
-        />
+
+        <div className="sc-glance-track-mid">
+          <TrackInsightPanel
+            tone="strong"
+            title="Primary strengths"
+            items={strengthItems}
+            empty="Complete more track details to surface strengths."
+            compact
+            moreCount={strengthMoreCount}
+          />
+        </div>
+
+        <div className="sc-glance-track-improve sc-glance-track-improve-panel">
+          <TopImprovementsPreview
+            trackLabel={cat.label}
+            items={improvementItems}
+            insightsLocked={insightsLocked}
+            onCompleteProfile={openProfileForTrack}
+            moreCount={improvementMoreCount}
+          />
+        </div>
       </div>
     </article>
   );
@@ -1944,7 +2112,7 @@ function humanizeWeakContributor(c: ScoreContributor): string | null {
         if (val === "Contract dev / agency" || val === "Not building yet — manual or services first") return `Product is ${val.toLowerCase()}.`;
         return null;
       case "mkt_sales_motion":
-        if (val === "Founder-led" || val === "Not yet") return `GTM is still ${val.toLowerCase()}.`;
+        if (val === "Founder-led" || val === "Not yet defined") return `GTM is still ${val.toLowerCase()}.`;
         return null;
       case "mkt_funnel_gap":
         return `The funnel breaks down most at ${val.toLowerCase()}.`;
@@ -2093,7 +2261,7 @@ function humanizeFounderFocus(c: ScoreContributor): string | null {
       }
       return null;
     case "mkt_sales_motion":
-      if (val === "Founder-led" || val === "Not yet") {
+      if (val === "Founder-led" || val === "Not yet defined") {
         return "Sales is still founder-led — document what works before you hire reps.";
       }
       return null;
@@ -2382,12 +2550,14 @@ function TrackInsightPanel({
   items,
   empty,
   compact = false,
+  moreCount = 0,
 }: {
   tone: "strong" | "weak";
   title: string;
   items: TrackInsightItem[];
   empty: string;
   compact?: boolean;
+  moreCount?: number;
 }) {
   return (
     <div className={`sc-glance-insight-block${compact ? " is-compact" : ""}`}>
@@ -2404,6 +2574,9 @@ function TrackInsightPanel({
       ) : (
         <p className="sc-cat-sw-empty">{empty}</p>
       )}
+      {moreCount > 0 ? (
+        <p className="sc-glance-insight-more-count">+{moreCount} more</p>
+      ) : null}
     </div>
   );
 }
@@ -2915,7 +3088,7 @@ function synthesizeTrackOperatingAnalysis(category: ScorecardCategory, answers: 
     ? "On product and engineering,"
     : category === "mkt"
       ? "On go-to-market,"
-      : "On finance and operations,";
+      : "On G&A operations,";
 
   if (insights.length === 1) return `${opening} ${insights[0]}`;
   return `${opening} ${insights[0]} ${insights[1]}`;
@@ -3679,94 +3852,6 @@ function isQuarterStale(stored: string | null): boolean {
   return !!stored && stored !== getCurrentQuarterLabel();
 }
 
-function recActionsTipStorageKey(companyName: string): string {
-  return `fuel-rec-actions-tip-${companyName}`;
-}
-
-function recActionsTipPendingKey(companyName: string): string {
-  return `fuel-rec-actions-tip-pending-${companyName}`;
-}
-
-/** Call when Overview finishes post-onboarding build — survives navigating away from Overview. */
-export function markRecActionsTipPending(companyName: string) {
-  try {
-    window.sessionStorage.setItem(recActionsTipPendingKey(companyName), "1");
-  } catch { /* ignore */ }
-}
-
-/** Clear dismiss + pending so a new post-onboarding Overview build can queue the tip on ready. */
-export function resetRecActionsTipForOnboarding(companyName: string) {
-  try {
-    window.localStorage.removeItem(recActionsTipStorageKey(companyName));
-    window.sessionStorage.removeItem(recActionsTipPendingKey(companyName));
-  } catch { /* ignore */ }
-}
-
-export function isRecActionsTipPending(companyName: string): boolean {
-  try {
-    return window.sessionStorage.getItem(recActionsTipPendingKey(companyName)) === "1";
-  } catch {
-    return false;
-  }
-}
-
-export function isRecActionsTipDismissed(companyName: string): boolean {
-  try {
-    return window.localStorage.getItem(recActionsTipStorageKey(companyName)) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function clearRecActionsTipPending(companyName: string) {
-  try {
-    window.sessionStorage.removeItem(recActionsTipPendingKey(companyName));
-  } catch { /* ignore */ }
-}
-
-export function dismissRecActionsTip(companyName: string) {
-  try {
-    window.localStorage.setItem(recActionsTipStorageKey(companyName), "1");
-    clearRecActionsTipPending(companyName);
-  } catch { /* ignore */ }
-}
-
-function RecommendedActionsShareTip({
-  companyName,
-  onDismiss,
-}: {
-  companyName: string;
-  onDismiss: () => void;
-}) {
-  const dismissRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    dismissRef.current?.focus();
-  }, []);
-
-  return (
-    <div className="sc-adv-rec-tip" role="dialog" aria-modal="true" aria-label="Why complete recommended actions">
-      <span className="sc-adv-rec-tip-eyebrow">Start here</span>
-      <strong className="sc-adv-rec-tip-title">This is how {companyName} gets an edge</strong>
-      <p>
-        Every metric, source, and track detail you add turns Fuel into a sharper operator for
-        your company — clearer peer gaps, tighter priorities, and the moves that actually move
-        growth. Incomplete inputs = generic advice. Finish these and you get a plan built on
-        your numbers.
-      </p>
-      <p className="sc-adv-rec-tip-privacy">Your data is only visible to you.</p>
-      <button
-        ref={dismissRef}
-        type="button"
-        className="sc-adv-rec-tip-dismiss"
-        onClick={onDismiss}
-      >
-        Got it
-      </button>
-    </div>
-  );
-}
-
 type AdvisorRecAction = {
   title: string;
   sub: string;
@@ -3921,14 +4006,14 @@ function buildAdvisorRecommendedActions(
   } else if (privateWorkspace && detailAnswered === 0) {
     detailsAction = {
       title: "Add track context",
-      sub: `R&D, GTM, and Finance — capture what you know about ${companyName} from diligence and conversations.`,
+      sub: `R&D, GTM, and G&A — capture what you know about ${companyName} from diligence and conversations.`,
       cta: "Add Context",
       done: false,
     };
   } else if (privateWorkspace) {
     detailsAction = {
       title: "Add track context",
-      sub: `${detailAnswered} of ${detailTotal} fields · ${detailRemaining} left across R&D, GTM, and Finance.`,
+      sub: `${detailAnswered} of ${detailTotal} fields · ${detailRemaining} left across R&D, GTM, and G&A.`,
       cta: "Add Context",
       done: false,
     };
@@ -3942,7 +4027,7 @@ function buildAdvisorRecommendedActions(
   } else if (detailComplete) {
     detailsAction = {
       title: "Review Company Details",
-      sub: "All 21 answered — keep details current each quarter.",
+      sub: `All ${detailTotal} answered — keep details current each quarter.`,
       cta: "Review Details",
       done: true,
     };
@@ -3994,8 +4079,390 @@ function isPrivateWorkspaceOverviewReady(
 }
 
 // ─── UI: Detail-enrichment drawer ─────────────────────────────────────────────
+function resolveTextInputType(question: DetailQuestion): DetailTextInputType {
+  if (question.inputType) return question.inputType;
+  return "textarea";
+}
+
+function fundingRoundId(): string {
+  return `fr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function ProfileFundingRoundsInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const rounds = parseProfileFundingRounds(value);
+
+  const updateRounds = (next: ProfileFundingRound[]) => {
+    onChange(next.length > 0 ? serializeProfileFundingRounds(next) : "");
+  };
+
+  return (
+    <div className="sc-drawer-funding">
+      <div className="sc-drawer-funding-head">
+        <button
+          type="button"
+          className="sc-drawer-funding-add"
+          onClick={() => updateRounds([
+            ...rounds,
+            { id: fundingRoundId(), type: "Seed", amount: "", date: "", investors: "" },
+          ])}
+        >
+          + Add round
+        </button>
+      </div>
+      {rounds.length > 0 ? (
+        <div className="sc-drawer-funding-list">
+          {rounds.map(round => (
+            <div key={round.id} className="sc-drawer-funding-row">
+              <select
+                className="sc-drawer-input sc-drawer-funding-type"
+                value={round.type}
+                aria-label="Round type"
+                onChange={event => updateRounds(rounds.map(item => (
+                  item.id === round.id ? { ...item, type: event.target.value } : item
+                )))}
+              >
+                {PROFILE_FUNDING_ROUND_TYPES.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <input
+                className="sc-drawer-input sc-drawer-funding-amount"
+                value={round.amount}
+                placeholder="$1.2M"
+                aria-label="Round amount"
+                onChange={event => updateRounds(rounds.map(item => (
+                  item.id === round.id ? { ...item, amount: event.target.value } : item
+                )))}
+              />
+              <input
+                type="date"
+                className="sc-drawer-input sc-drawer-funding-date"
+                value={round.date}
+                aria-label="Round date"
+                onChange={event => updateRounds(rounds.map(item => (
+                  item.id === round.id ? { ...item, date: event.target.value } : item
+                )))}
+              />
+              <input
+                className="sc-drawer-input sc-drawer-funding-investors"
+                value={round.investors}
+                placeholder="Investors"
+                aria-label="Round investors"
+                onChange={event => updateRounds(rounds.map(item => (
+                  item.id === round.id ? { ...item, investors: event.target.value } : item
+                )))}
+              />
+              <button
+                type="button"
+                className="sc-drawer-funding-remove"
+                aria-label="Remove funding round"
+                onClick={() => updateRounds(rounds.filter(item => item.id !== round.id))}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type DrawerStepId = DetailSectionId | "benchmark";
+
+type DrawerStepDef = {
+  id: DrawerStepId;
+  title: string;
+  subtitle: string;
+  icon: string;
+};
+
+const DRAWER_STEPS: DrawerStepDef[] = [
+  ...DETAIL_SECTIONS.map(section => ({
+    id: section.id,
+    title: section.title,
+    subtitle: section.subtitle,
+    icon: section.icon,
+  })),
+  {
+    id: "benchmark",
+    title: "Benchmark",
+    subtitle: "Optional — compare metrics",
+    icon: "▦",
+  },
+];
+
+function emptyBenchmarkContext(source?: ScorecardBenchmarkContext): ScorecardBenchmarkContext {
+  return {
+    notableCustomers: source?.notableCustomers ?? "",
+    notableHires: source?.notableHires ?? "",
+    biggestChallenges: source?.biggestChallenges ?? "",
+    otherUpdates: source?.otherUpdates ?? "",
+    openToIntros: Boolean(source?.openToIntros),
+  };
+}
+
+function countFilledBenchmarkMetrics(values: OnboardingBenchmarkInput): number {
+  return METRIC_COHORTS.filter(metric => parseMetricValue(values[metric.key] ?? "") != null).length;
+}
+
+function DrawerBenchmarkForm({
+  companyName,
+  values,
+  onChangeValue,
+}: {
+  companyName: string;
+  values: OnboardingBenchmarkInput;
+  onChangeValue: (key: keyof OnboardingBenchmarkInput, value: string) => void;
+}) {
+  return (
+    <div className="sc-drawer-benchmark">
+      <div className="bench-drawer-intro">
+        <strong>✦ The more you share, the sharper your intelligence</strong>
+        <p>
+          Every number narrows your cohort. Once metrics are entered, Fuel rebuilds {companyName}&rsquo;s intelligence, suggested initiatives, and playbooks. This step is optional.
+        </p>
+      </div>
+      <OnboardingBenchmarkFieldList
+        values={values}
+        onChange={onChangeValue}
+        inputClassName="bench-field-input"
+      />
+      <p className="bench-drawer-foot">Numbers stay in your workspace and are never shared externally.</p>
+    </div>
+  );
+}
+
+function ProfileQuestionInput({
+  question,
+  value,
+  onChange,
+}: {
+  question: DetailQuestion;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const inputType = resolveTextInputType(question);
+  if (inputType === "funding_rounds") {
+    return <ProfileFundingRoundsInput value={value} onChange={onChange} />;
+  }
+  if (inputType === "year") {
+    return (
+      <input
+        id={question.id}
+        type="text"
+        inputMode="numeric"
+        className="sc-drawer-input sc-drawer-input--year"
+        value={value}
+        placeholder={question.placeholder}
+        maxLength={4}
+        autoComplete="off"
+        aria-label={question.prompt}
+        onChange={event => onChange(event.target.value.replace(/[^\d]/g, "").slice(0, 4))}
+      />
+    );
+  }
+  if (inputType === "url") {
+    return (
+      <input
+        id={question.id}
+        type="url"
+        className="sc-drawer-input sc-drawer-input--url"
+        value={value}
+        placeholder={question.placeholder}
+        autoComplete="url"
+        spellCheck={false}
+        onChange={event => onChange(event.target.value)}
+      />
+    );
+  }
+  if (inputType === "short") {
+    return (
+      <input
+        id={question.id}
+        type="text"
+        className="sc-drawer-input sc-drawer-input--short"
+        value={value}
+        placeholder={question.placeholder}
+        autoComplete="off"
+        onChange={event => onChange(event.target.value)}
+      />
+    );
+  }
+  const rows = question.rows ?? 3;
+  return (
+    <textarea
+      id={question.id}
+      className={`sc-drawer-text${rows <= 2 ? " sc-drawer-text--compact" : ""}`}
+      rows={rows}
+      value={value}
+      placeholder={question.placeholder}
+      onChange={event => onChange(event.target.value)}
+    />
+  );
+}
+
+type DrawerQuestionBlock = { header?: string; questions: DetailQuestion[] };
+
+function buildDrawerQuestionBlocks(questions: DetailQuestion[]): DrawerQuestionBlock[] {
+  const blocks: DrawerQuestionBlock[] = [];
+  let index = 0;
+  while (index < questions.length) {
+    const question = questions[index];
+    const pairable = question.kind === "text"
+      && Boolean(question.group)
+      && (question.inputType === "short" || question.inputType === "year");
+    if (pairable) {
+      const grouped = [question];
+      while (index + grouped.length < questions.length) {
+        const next = questions[index + grouped.length];
+        if (next.group !== question.group || next.kind !== "text") break;
+        if (next.inputType !== "short" && next.inputType !== "year") break;
+        grouped.push(next);
+      }
+      blocks.push({ header: question.group, questions: grouped });
+      index += grouped.length;
+      continue;
+    }
+    blocks.push({ questions: [question] });
+    index += 1;
+  }
+  return blocks;
+}
+
+function DrawerQuestionList({
+  blocks,
+  answers,
+  onSelect,
+}: {
+  blocks: DrawerQuestionBlock[];
+  answers: DetailAnswers;
+  onSelect: (qid: string, value: string) => void;
+}) {
+  return (
+    <>
+      {blocks.map(block => {
+        if (block.questions.length > 1) {
+          return (
+            <React.Fragment key={block.questions.map(item => item.id).join("-")}>
+              {block.header ? <div className="sc-drawer-group-label">{block.header}</div> : null}
+              <div className="sc-drawer-field-grid">
+                {block.questions.map(question => (
+                  <div key={question.id} className="sc-drawer-q sc-drawer-q--inline">
+                    <div className="sc-drawer-q-prompt">{question.prompt}</div>
+                    {question.subtitle ? <div className="sc-drawer-q-sub">{question.subtitle}</div> : null}
+                    {question.sourceHint ? <div className="sc-drawer-source-hint">• {question.sourceHint}</div> : null}
+                    <ProfileQuestionInput
+                      question={question}
+                      value={answers[question.id] ?? ""}
+                      onChange={value => onSelect(question.id, value)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </React.Fragment>
+          );
+        }
+
+        const q = block.questions[0];
+        const options = q.options ?? [];
+        const otherOption = options.find(opt => opt.toLowerCase().startsWith("other (please specify)"));
+        const otherSelected = Boolean(
+          otherOption
+          && (answers[q.id] === otherOption || answers[q.id]?.startsWith(`${otherOption}:`)),
+        );
+        const otherText = otherSelected && otherOption
+          ? (answers[q.id] ?? "").slice(otherOption.length + 1).trimStart()
+          : "";
+        const isFunding = resolveTextInputType(q) === "funding_rounds";
+        return (
+          <React.Fragment key={q.id}>
+            <div className={`sc-drawer-q${isFunding ? " sc-drawer-q--funding" : ""}`}>
+              <div className="sc-drawer-q-prompt">{q.prompt}</div>
+              {q.subtitle ? <div className="sc-drawer-q-sub">{q.subtitle}</div> : null}
+              {q.sourceHint ? <div className="sc-drawer-source-hint">• {q.sourceHint}</div> : null}
+              {q.kind === "text" ? (
+                <ProfileQuestionInput
+                  question={q}
+                  value={answers[q.id] ?? ""}
+                  onChange={value => onSelect(q.id, value)}
+                />
+              ) : (
+                <>
+                  <div className="sc-drawer-opts">
+                    {options.map((opt, index) => {
+                      const selected = q.multi
+                        ? isMultiSelectSelected(answers[q.id], opt)
+                        : answers[q.id] === opt || answers[q.id]?.startsWith(`${opt}:`);
+                      const isOddLastOption = options.length % 2 === 1 && index === options.length - 1;
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          className={`sc-drawer-opt${selected ? " is-selected" : ""}${isOddLastOption ? " is-full-width" : ""}`}
+                          onClick={() => {
+                            if (q.multi) {
+                              onSelect(q.id, toggleMultiSelectAnswer(answers[q.id], opt));
+                              return;
+                            }
+                            onSelect(q.id, selected ? "" : opt);
+                          }}
+                        >
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {otherSelected && otherOption ? (
+                    <input
+                      className="sc-drawer-text sc-drawer-other-text"
+                      type="text"
+                      value={otherText}
+                      onChange={event => onSelect(q.id, `${otherOption}: ${event.target.value}`)}
+                      placeholder="Please specify"
+                      aria-label={`${q.prompt} — please specify`}
+                      autoFocus
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+function drawerSectionCreditReward(sectionId: DetailSectionId): number {
+  if (sectionId === "profile") return PROFILE_MODULE_REWARDS.company;
+  if (sectionId === "dev") return PROFILE_MODULE_REWARDS.dev;
+  if (sectionId === "mkt") return PROFILE_MODULE_REWARDS.gtm;
+  if (sectionId === "rev") return PROFILE_MODULE_REWARDS.rev;
+  return 0;
+}
+
+function scrollDrawerNodeIntoView(node: HTMLElement | null) {
+  if (!node) return;
+  const scroller = node.closest(".sc-drawer-body");
+  if (!(scroller instanceof HTMLElement)) {
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  const nextTop =
+    node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 12;
+  scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+}
+
 function DetailsDrawer({
   companyName, answers, onSelect, onSaveClose, onClose, initialStep = 0,
+  benchmark, benchmarkContext, onBenchmarkChange, creditRewardVisible = false,
 }: {
   companyName: string;
   answers: DetailAnswers;
@@ -4003,128 +4470,231 @@ function DetailsDrawer({
   onSaveClose: () => void;
   onClose: () => void;
   initialStep?: number;
+  benchmark: OnboardingBenchmarkInput;
+  benchmarkContext?: ScorecardBenchmarkContext;
+  onBenchmarkChange: (next: OnboardingBenchmarkInput, context: ScorecardBenchmarkContext, commit?: boolean) => void;
+  creditRewardVisible?: boolean;
 }) {
   const [step, setStep] = useState(initialStep);
+  const [benchDraft, setBenchDraft] = useState<OnboardingBenchmarkInput>(benchmark);
+  const contextDraft = emptyBenchmarkContext(benchmarkContext);
 
   useEffect(() => {
     setStep(initialStep);
   }, [initialStep]);
 
-  const section = DETAIL_SECTIONS[step];
-  const visibleQuestions = getVisibleQuestions(section, answers);
-  const detailTotal = countApplicableQuestions(answers);
-  const answeredTotal = countTrackDetailAnswers(answers);
-  const isLast = step === DETAIL_SECTIONS.length - 1;
+  const stepDef = DRAWER_STEPS[step] ?? DRAWER_STEPS[0];
+  const isBenchmark = stepDef.id === "benchmark";
+  const section = isBenchmark ? undefined : DETAIL_SECTIONS.find(item => item.id === stepDef.id);
+  const visibleQuestions = section ? getVisibleQuestions(section, answers) : [];
+  const benchFilled = countFilledBenchmarkMetrics(benchDraft);
+  const isLast = step === DRAWER_STEPS.length - 1;
   const isFirst = step === 0;
-  let lastGroup: string | undefined;
+
+  const flushBenchmark = (commit = false) => {
+    onBenchmarkChange(benchDraft, contextDraft, commit);
+  };
+
+  const goToStep = (next: number) => {
+    if (isBenchmark) flushBenchmark();
+    setStep(next);
+  };
+
+  const handleSaveClose = () => {
+    flushBenchmark(true);
+    onSaveClose();
+  };
+
+  const handleClose = () => {
+    flushBenchmark();
+    onClose();
+  };
+  const { creditQuestions, extraQuestions, creditReward } = useMemo(() => {
+    if (!section) {
+      return { creditQuestions: [] as DetailQuestion[], extraQuestions: [] as DetailQuestion[], creditReward: 0 };
+    }
+    const split = partitionCreditQuestions(section.id, visibleQuestions);
+    return {
+      creditQuestions: split.credit,
+      extraQuestions: split.extra,
+      creditReward: drawerSectionCreditReward(section.id),
+    };
+  }, [section, visibleQuestions]);
+  const extraQuestionsRef = useRef<HTMLDivElement>(null);
+  const sawIncompleteCreditsRef = useRef(false);
+  const pendingExtraRevealRef = useRef(false);
+  const creditRewardWasVisibleRef = useRef(creditRewardVisible);
+  const highlightTimerRef = useRef(0);
+  const [highlightExtraQuestions, setHighlightExtraQuestions] = useState(false);
+  const creditBlocks = useMemo(() => buildDrawerQuestionBlocks(creditQuestions), [creditQuestions]);
+  const extraBlocks = useMemo(() => buildDrawerQuestionBlocks(extraQuestions), [extraQuestions]);
+  const creditQuestionsComplete = creditQuestions.length > 0
+    && creditQuestions.every(question => Boolean(answers[question.id]?.trim()));
+  const showExtraQuestions = creditQuestionsComplete && extraBlocks.length > 0;
+
+  const revealExtraQuestions = useCallback(() => {
+    setHighlightExtraQuestions(true);
+    const run = () => scrollDrawerNodeIntoView(extraQuestionsRef.current);
+    run();
+    window.requestAnimationFrame(() => window.requestAnimationFrame(run));
+    window.setTimeout(run, 80);
+    window.clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = window.setTimeout(() => setHighlightExtraQuestions(false), 5600);
+  }, []);
+
+  useLayoutEffect(() => {
+    sawIncompleteCreditsRef.current = false;
+    pendingExtraRevealRef.current = false;
+    setHighlightExtraQuestions(false);
+    window.clearTimeout(highlightTimerRef.current);
+  }, [step]);
+
+  useLayoutEffect(() => {
+    const toastJustDismissed = creditRewardWasVisibleRef.current && !creditRewardVisible;
+    creditRewardWasVisibleRef.current = creditRewardVisible;
+
+    if (!creditQuestions.length) return;
+    if (!creditQuestionsComplete) {
+      sawIncompleteCreditsRef.current = true;
+      pendingExtraRevealRef.current = false;
+      return;
+    }
+    if (sawIncompleteCreditsRef.current && showExtraQuestions) {
+      pendingExtraRevealRef.current = true;
+    }
+    if (!pendingExtraRevealRef.current || !showExtraQuestions) return;
+
+    if (creditRewardVisible && !toastJustDismissed) return;
+
+    if (!toastJustDismissed) {
+      const waitForToast = window.setTimeout(() => {
+        if (!pendingExtraRevealRef.current) return;
+        pendingExtraRevealRef.current = false;
+        sawIncompleteCreditsRef.current = false;
+        revealExtraQuestions();
+      }, 80);
+      return () => window.clearTimeout(waitForToast);
+    }
+
+    pendingExtraRevealRef.current = false;
+    sawIncompleteCreditsRef.current = false;
+    revealExtraQuestions();
+  }, [creditQuestions.length, creditQuestionsComplete, creditRewardVisible, revealExtraQuestions, showExtraQuestions, step]);
+
+  useEffect(() => () => window.clearTimeout(highlightTimerRef.current), []);
 
   return (
-    <div className="sc-drawer-scrim" onClick={onClose}>
+    <div className="sc-drawer-scrim" onClick={handleClose}>
       <aside className="sc-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Add company details">
         <header className="sc-drawer-head">
           <div>
             <span className="sc-drawer-eyebrow">✦ Fuel AI · Add details</span>
             <strong className="sc-drawer-co">{companyName}</strong>
           </div>
-          <button type="button" className="sc-drawer-x" onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="sc-drawer-x" onClick={handleClose} aria-label="Close">✕</button>
         </header>
 
-        <div className="sc-drawer-steps">
-          {DETAIL_SECTIONS.map((s, i) => {
-            const done = countSectionAnswers(s, answers);
-            const total = getVisibleQuestions(s, answers).length;
+        <div className="profile-wizard-progress pwp-compact sc-drawer-pwp">
+          <ol
+            className="pwp-steps pwp-steps-segmented"
+            aria-label="Profile sections"
+            style={{ gridTemplateColumns: `repeat(${DRAWER_STEPS.length}, minmax(0, 1fr))` }}
+          >
+            {DRAWER_STEPS.map((s, i) => {
+              const detailSection = DETAIL_SECTIONS.find(item => item.id === s.id);
+              const done = s.id === "benchmark"
+                ? benchFilled
+                : (detailSection ? countSectionAnswers(detailSection, answers) : 0);
+              const total = s.id === "benchmark"
+                ? METRIC_COHORTS.length
+                : (detailSection ? getVisibleQuestions(detailSection, answers).length : 0);
+              const complete = total > 0 && done >= total;
+              const current = i === step;
             return (
-              <button
+                <li
                 key={s.id}
+                  className={`pwp-step${complete ? " is-done" : ""}${current ? " is-current" : ""}`}
+                >
+                  <button
                 type="button"
-                className={`sc-drawer-step${i === step ? " is-active" : ""}`}
-                onClick={() => setStep(i)}
-              >
-                <span className="sc-drawer-step-ix">{i + 1}</span>
-                <span className="sc-drawer-step-label">{s.title}</span>
-                <span className="sc-drawer-step-count">{done}/{total}</span>
+                    className="pwp-step-btn"
+                    aria-current={current ? "step" : undefined}
+                    aria-label={`${s.title}${current ? ", current section" : complete ? ", complete" : ""}`}
+                    disabled={current}
+                    onClick={() => goToStep(i)}
+                  >
+                    <span className="pwp-step-inner">
+                      {complete ? (
+                        <svg className="pwp-step-check" width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+                          <path d="M1 4l2.5 2.5L9 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : null}
+                      <span className="pwp-step-label">{s.title}</span>
+                    </span>
               </button>
+                </li>
             );
           })}
-        </div>
-
-        <div className="sc-drawer-progress">
-          <div className="sc-drawer-progress-bar" style={{ width: `${Math.round((answeredTotal / Math.max(detailTotal, 1)) * 100)}%` }} />
+          </ol>
         </div>
 
         <div className="sc-drawer-body">
           <div className="sc-drawer-section-head">
-            <span className="sc-drawer-section-icon" aria-hidden>{section.icon}</span>
+            <span className="sc-drawer-section-icon" aria-hidden>{stepDef.icon}</span>
             <div>
-              <div className="sc-drawer-section-title">{section.title}</div>
-              <div className="sc-drawer-section-sub">{section.subtitle}</div>
+              <div className="sc-drawer-section-title">{stepDef.title}</div>
+              <div className="sc-drawer-section-sub">{stepDef.subtitle}</div>
             </div>
           </div>
 
-          {visibleQuestions.map(q => {
-            const groupHeader = q.group && q.group !== lastGroup ? q.group : null;
-            if (q.group) lastGroup = q.group;
-            return (
-              <React.Fragment key={q.id}>
-                {groupHeader ? <div className="sc-drawer-group-label">{groupHeader}</div> : null}
-                <div className="sc-drawer-q">
-                  <div className="sc-drawer-q-prompt">{q.prompt}</div>
-                  {q.subtitle ? <div className="sc-drawer-q-sub">{q.subtitle}</div> : null}
-                  {q.kind === "text" ? (
-                    <textarea
-                      className="sc-drawer-text"
-                      rows={3}
-                      value={answers[q.id] ?? ""}
-                      placeholder={q.placeholder}
-                      onChange={e => onSelect(q.id, e.target.value)}
-                    />
-                  ) : (
-                    <div className="sc-drawer-opts">
-                      {(q.options ?? []).map(opt => {
-                        const selected = q.multi
-                          ? isMultiSelectSelected(answers[q.id], opt)
-                          : answers[q.id] === opt;
-                        return (
-                        <button
-                          key={opt}
-                          type="button"
-                          className={`sc-drawer-opt${selected ? " is-selected" : ""}`}
-                          onClick={() => {
-                            if (q.multi) {
-                              onSelect(q.id, toggleMultiSelectAnswer(answers[q.id], opt));
-                              return;
-                            }
-                            onSelect(q.id, answers[q.id] === opt ? "" : opt);
-                          }}
-                        >
-                          {opt}
-                        </button>
-                        );
-                      })}
-                    </div>
-                  )}
+          {isBenchmark ? (
+            <DrawerBenchmarkForm
+              companyName={companyName}
+              values={benchDraft}
+              onChangeValue={(key, value) => setBenchDraft(prev => ({ ...prev, [key]: value }))}
+            />
+          ) : (
+            <>
+              {creditBlocks.length > 0 ? (
+                <p className="sc-drawer-credit-mark">+{creditReward} credits</p>
+              ) : null}
+              <DrawerQuestionList
+                blocks={creditBlocks.length > 0 ? creditBlocks : extraBlocks}
+                answers={answers}
+                onSelect={onSelect}
+              />
+              {showExtraQuestions ? (
+                <div
+                  ref={extraQuestionsRef}
+                  className={`sc-drawer-extra-questions${highlightExtraQuestions ? " is-revealed" : ""}`}
+                >
+                  <DrawerQuestionList
+                    blocks={extraBlocks}
+                    answers={answers}
+                    onSelect={onSelect}
+                  />
                 </div>
-              </React.Fragment>
-            );
-          })}
+              ) : null}
+            </>
+          )}
         </div>
 
         <footer className="sc-drawer-foot">
-          <button type="button" className="sc-drawer-btn ghost" onClick={onSaveClose}>
+          <button type="button" className="sc-drawer-btn ghost" onClick={handleSaveClose}>
             Save &amp; close
           </button>
           <div className="sc-drawer-foot-nav">
             {!isFirst && (
-              <button type="button" className="sc-drawer-btn secondary" onClick={() => setStep(s => s - 1)}>
+              <button type="button" className="sc-drawer-btn secondary" onClick={() => goToStep(step - 1)}>
                 Back
               </button>
             )}
             {!isLast ? (
-              <button type="button" className="sc-drawer-btn primary" onClick={() => setStep(s => s + 1)}>
+              <button type="button" className="sc-drawer-btn primary" onClick={() => goToStep(step + 1)}>
                 Next →
               </button>
             ) : (
-              <button type="button" className="sc-drawer-btn primary" onClick={onSaveClose}>
+              <button type="button" className="sc-drawer-btn primary" onClick={handleSaveClose}>
                 Save details
               </button>
             )}
@@ -4178,7 +4748,7 @@ function buildFocusIntelTags(
       add("gtm", "GTM", urgency);
     }
     if (cat.id === "rev") {
-      add("finance", "Finance", urgency);
+      add("finance", "G&A", urgency);
       if (runway != null && runway < 12) add("fundraising", "Fundraising", urgency);
     }
   });
@@ -4249,8 +4819,6 @@ function OverviewWorkspaceSetupPanel({
   onEditBenchmark,
   onAddSources,
   onViewDetails,
-  showShareTip = false,
-  onDismissShareTip,
   tourHighlightRecommended = false,
 }: {
   companyName: string;
@@ -4258,8 +4826,6 @@ function OverviewWorkspaceSetupPanel({
   onEditBenchmark?: () => void;
   onAddSources?: () => void;
   onViewDetails?: () => void;
-  showShareTip?: boolean;
-  onDismissShareTip?: () => void;
   tourHighlightRecommended?: boolean;
 }) {
   const handlers = [onEditBenchmark, onAddSources, onViewDetails];
@@ -4275,22 +4841,17 @@ function OverviewWorkspaceSetupPanel({
           <div className="sc-adv-rec-title">Getting started</div>
           <p className="sc-adv-summary">
             Build your private view of {companyName}. Add benchmark metrics, intelligence sources,
-            and at least one answer in each of R&amp;D, GTM, and Finance to generate your overview.
+            and at least one answer in each of R&amp;D, GTM, and G&amp;A to generate your overview.
             Whatever you add here is your personal setup.
           </p>
         </div>
       </div>
       <div className="sc-adv-featured-rec-col">
         <div
-          className={`sc-adv-rec-spotlight${showShareTip ? " is-active" : ""}${tourHighlightRecommended ? " tour-highlight" : ""}`}
+          className={`sc-adv-rec-spotlight${tourHighlightRecommended ? " tour-highlight" : ""}`}
           data-tour-target="recommended-actions"
         >
-          <div className="sc-adv-rec-title-wrap">
-            <div className="sc-adv-rec-title">Next steps</div>
-            {showShareTip && onDismissShareTip ? (
-              <RecommendedActionsShareTip companyName={companyName} onDismiss={onDismissShareTip} />
-            ) : null}
-          </div>
+          <div className="sc-adv-rec-title">Next steps</div>
           <ol className="sc-adv-rec-list">
             {actions.map((action, i) => (
               <li key={action.title} className="sc-adv-rec-item">
@@ -4328,8 +4889,6 @@ function OverviewAdvisorPanel({
   onOpenWikiSummary,
   suggestionsReady = true,
   overviewBuildPhase = null,
-  showShareTip = false,
-  onDismissShareTip,
   tourHighlightRecommended = false,
 }: {
   categories: CategoryData[];
@@ -4347,8 +4906,6 @@ function OverviewAdvisorPanel({
   onOpenWikiSummary: (highlightRefId?: number) => void;
   suggestionsReady?: boolean;
   overviewBuildPhase?: OverviewBuildPhase | null;
-  showShareTip?: boolean;
-  onDismissShareTip?: () => void;
   tourHighlightRecommended?: boolean;
 }) {
   const actions = buildAdvisorRecommendedActions(
@@ -4370,7 +4927,7 @@ function OverviewAdvisorPanel({
             <span className="sc-adv-company">{companyName}</span>
           </div>
           <div className="sc-adv-rec-title-row">
-            <div className="sc-adv-rec-title">Summary</div>
+          <div className="sc-adv-rec-title">Summary</div>
             <span className="sc-wiki-source-count">
               {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
             </span>
@@ -4382,7 +4939,7 @@ function OverviewAdvisorPanel({
             >
               ✦ Open brief
             </button>
-          </div>
+                  </div>
           <p className="sc-adv-summary sc-wiki-summary-compact">
             {wikiParagraphPlainText(wikiSummary.compact)}
           </p>
@@ -4431,29 +4988,24 @@ function OverviewAdvisorPanel({
       </div>
       <div className="sc-adv-featured-rec-col">
         <div
-          className={`sc-adv-rec-spotlight${showShareTip ? " is-active" : ""}${tourHighlightRecommended ? " tour-highlight" : ""}`}
+          className={`sc-adv-rec-spotlight${tourHighlightRecommended ? " tour-highlight" : ""}`}
           data-tour-target="recommended-actions"
         >
-          <div className="sc-adv-rec-title-wrap">
-            <div className="sc-adv-rec-title">{privateWorkspace ? "Next steps" : "Recommended Actions"}</div>
-            {showShareTip && onDismissShareTip ? (
-              <RecommendedActionsShareTip companyName={companyName} onDismiss={onDismissShareTip} />
-            ) : null}
-          </div>
-          <ol className="sc-adv-rec-list">
-            {actions.map((action, i) => (
-              <li key={action.title} className="sc-adv-rec-item">
-                <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
-                <div className="sc-adv-rec-body">
-                  <strong className="sc-adv-rec-name">{action.title}</strong>
-                  <p className="sc-adv-rec-sub">{action.sub}</p>
-                </div>
-                <button type="button" className="sc-adv-rec-cta" onClick={actionHandlers[i]}>
-                  {action.cta} <span aria-hidden="true">→</span>
-                </button>
-              </li>
-            ))}
-          </ol>
+          <div className="sc-adv-rec-title">{privateWorkspace ? "Next steps" : "Recommended Actions"}</div>
+        <ol className="sc-adv-rec-list">
+          {actions.map((action, i) => (
+            <li key={action.title} className="sc-adv-rec-item">
+              <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
+              <div className="sc-adv-rec-body">
+                <strong className="sc-adv-rec-name">{action.title}</strong>
+                <p className="sc-adv-rec-sub">{action.sub}</p>
+              </div>
+              <button type="button" className="sc-adv-rec-cta" onClick={actionHandlers[i]}>
+                {action.cta} <span aria-hidden="true">→</span>
+              </button>
+            </li>
+          ))}
+        </ol>
         </div>
       </div>
     </div>
@@ -4645,7 +5197,7 @@ function DetailInsightChipStrip({
                 <span className="sc-detail-insight-tip" role="tooltip">
                   <strong>{tone === "strong" ? "Why it's working" : "Why it needs work"}</strong>
                   <em>{why}</em>
-                </span>
+              </span>
               </span>
             );
           })}
@@ -4860,9 +5412,9 @@ function CategoryDetailInitiativesWidget({
     const scored = suggested
       .filter(init => !activeTitles.has(init.title.trim().toLowerCase()))
       .map(init => ({
-        init,
-        gap: initiativeMatchesWeakness(init, weaknesses),
-      }));
+      init,
+      gap: initiativeMatchesWeakness(init, weaknesses),
+    }));
     return scored.sort((a, b) => Number(Boolean(b.gap)) - Number(Boolean(a.gap)));
   }, [suggested, weaknesses, activeTitles]);
 
@@ -4907,25 +5459,25 @@ function CategoryDetailInitiativesWidget({
       {sortedSuggested.map(({ init, gap }) => {
         const isAdding = addingId === init.id;
         return (
-          <div
-            key={init.id}
+        <div
+          key={init.id}
             className={`scorecard-drill-init-row${isAdding ? " is-adding" : ""}`}
-            style={{ "--init-col": init.colour } as React.CSSProperties}
-          >
-            <div className="scorecard-drill-init-body">
-              <div className="scorecard-drill-init-title">{init.title}</div>
-              <div className="scorecard-drill-init-desc">
-                {gap ? (
-                  <>
-                    <span className="sc-detail-init-reason-label">Why: </span>
-                    {truncateAdvisorLine(formatInitiativeReason(gap), 140)}
-                  </>
-                ) : (
-                  init.description
-                )}
-              </div>
+          style={{ "--init-col": init.colour } as React.CSSProperties}
+        >
+          <div className="scorecard-drill-init-body">
+            <div className="scorecard-drill-init-title">{init.title}</div>
+            <div className="scorecard-drill-init-desc">
+              {gap ? (
+                <>
+                  <span className="sc-detail-init-reason-label">Why: </span>
+                  {truncateAdvisorLine(formatInitiativeReason(gap), 140)}
+                </>
+              ) : (
+                init.description
+              )}
             </div>
-            <div className="scorecard-drill-init-action">
+          </div>
+          <div className="scorecard-drill-init-action">
               <button
                 type="button"
                 className={`scorecard-drill-init-btn${isAdding ? " is-loading" : ""}`}
@@ -4941,9 +5493,9 @@ function CategoryDetailInitiativesWidget({
                 ) : (
                   <>Add <span aria-hidden="true">→</span></>
                 )}
-              </button>
-            </div>
+            </button>
           </div>
+        </div>
         );
       })}
     </div>
@@ -5005,10 +5557,10 @@ function CategoryDetailInitiativesWidget({
           <div className="scorecard-drill-init-list sc-detail-init-list">
             {activeForTrack.map(init => (
               <div key={init.id} className="scorecard-drill-init-row" style={{ "--init-col": categoryColour } as React.CSSProperties}>
-                <div className="scorecard-drill-init-body">
-                  <div className="scorecard-drill-init-title">{init.title}</div>
-                  <div className="scorecard-drill-init-desc">{init.description}</div>
-                </div>
+              <div className="scorecard-drill-init-body">
+                <div className="scorecard-drill-init-title">{init.title}</div>
+                <div className="scorecard-drill-init-desc">{init.description}</div>
+              </div>
                 <div className="scorecard-drill-init-action">
                   <button
                     type="button"
@@ -5022,8 +5574,8 @@ function CategoryDetailInitiativesWidget({
                     View
                   </button>
                 </div>
-              </div>
-            ))}
+            </div>
+          ))}
           </div>
         </div>
       ) : (
@@ -5226,16 +5778,16 @@ function CategoryDetailView({
           ) : null}
         >
           {suggestionsReady ? (
-            <CategoryDetailInitiativesWidget
+          <CategoryDetailInitiativesWidget
               suggested={suggestedInitiatives}
               active={activeInitiatives}
               categoryId={cat.id}
               categoryColour={cat.colour}
-              weaknesses={cat.glanceWeaknessItems}
+            weaknesses={cat.glanceWeaknessItems}
               onAddInitiative={onAddInitiative}
-              onOpenInitiatives={onOpenInitiatives}
+            onOpenInitiatives={onOpenInitiatives}
               onViewInitiative={onViewInitiative}
-            />
+          />
           ) : (
             <p className="sc-cat-sw-empty">Initiative suggestions are still preparing.</p>
           )}
@@ -5668,6 +6220,69 @@ function AddSourcesDrawer({
   );
 }
 
+type OverviewModuleTile = {
+  id: "profile" | "dev" | "mkt" | "rev" | "benchmark";
+  title: string;
+  footer: string;
+  icon: string;
+  answered: number;
+  total: number;
+  credits: number;
+  creditsEarned: boolean;
+  onSelect: () => void;
+};
+
+function OverviewModuleTileGrid({ modules }: { modules: OverviewModuleTile[] }) {
+  return (
+    <section className="sc-workspace-modules-panel" aria-label="5 modules to complete">
+      <div className="sc-workspace-modules-panel-head">
+        <div className="sc-workspace-modules-panel-head-main">
+          <h3>Your 5 modules</h3>
+          <p>Open any module to add or update the context Fuel uses across your Overview.</p>
+        </div>
+      </div>
+      <div className="sc-workspace-module-grid">
+        {modules.map(module => {
+          const complete = module.total > 0 && module.answered >= module.total;
+          const started = module.answered > 0;
+          const cardStatus = complete ? "complete" : started ? "building" : "idle";
+          const statusLabel = complete ? "Complete" : started ? "In progress" : "Not started";
+          const cta = complete ? "Review" : started ? "Continue" : "Start";
+
+          return (
+            <button
+              key={module.id}
+              type="button"
+              className={`sc-workspace-module-card is-${cardStatus}`}
+              onClick={module.onSelect}
+            >
+              <div className="sc-workspace-module-card-head">
+                <span className="sc-workspace-module-card-icon" aria-hidden="true">{module.icon}</span>
+                <span
+                  className="sc-workspace-module-card-pct"
+                  aria-label={`${module.answered} of ${module.total} questions answered`}
+                >
+                  <strong>{module.answered}/{module.total}</strong>
+                  <em>answered</em>
+                </span>
+              </div>
+              <h4 className="sc-workspace-module-card-title">{module.title}</h4>
+              <p className="sc-workspace-module-card-desc">{module.footer}</p>
+              <div className="sc-workspace-module-card-foot">
+                <span className={`sc-workspace-module-card-status is-${cardStatus}`}>{statusLabel}</span>
+                <span className={`sc-workspace-module-card-credits${module.creditsEarned ? " is-earned" : ""}`}>
+                  {module.creditsEarned ? `+${module.credits} unlocked` : `Get +${module.credits}`}
+                </span>
+                <span className="sc-workspace-module-card-cta">{cta} →</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function ScorecardV2({
   benchmark,
   onBenchmarkChange,
@@ -5702,11 +6317,15 @@ export default function ScorecardV2({
   overviewBuildPhase = null,
   onStartOptionalTour,
   onDismissOverviewReady,
-  recActionsTipOpen = false,
-  onDismissRecActionsTip,
+  earnedProfileCredits,
+  companyKey = "patriotpay",
+  onProfileCreditsChange,
+  onProfileCreditReward,
+  creditRewardVisible = false,
+  openProfileModuleKey = 0,
+  openProfileModuleSection = "profile",
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
-  const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
   const [benchmarkValues, setBenchmarkValues] = useState<OnboardingBenchmarkInput>(benchmark);
   const benchmarkSyncKey = useMemo(() => JSON.stringify(benchmark), [benchmark]);
@@ -5725,18 +6344,25 @@ export default function ScorecardV2({
     [detailAnswers, onboardingAnswers],
   );
 
-  // Keep advisor expanded and tip in view while the post-onboarding tip is open on Overview.
-  useEffect(() => {
-    if (!recActionsTipOpen) return;
-    if (activeView !== "overview") return;
-    if (overviewBuildPhase != null && overviewBuildPhase !== "ready") return;
-    setAdvisorOpen(true);
-    setWikiSummaryOpen(false);
-    const frame = window.requestAnimationFrame(() => {
-      document.querySelector(".sc-adv-rec-tip")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  const syncModuleCredits = useCallback((answers: DetailAnswers) => {
+    const ready = completedOnboardingModules({
+      ...answers,
+      profileCompany: answers.profile_company || onboardingAnswers?.profileCompany,
+      profileProductDescription: answers.profile_product_description || onboardingAnswers?.profileProductDescription,
+      profileIndustry: answers.profile_industry || onboardingAnswers?.profileIndustry,
     });
-    return () => window.cancelAnimationFrame(frame);
-  }, [recActionsTipOpen, overviewBuildPhase, activeView]);
+    ready.forEach(module => {
+      const { earned, reward } = tryMarkModuleEarned(
+        module,
+        companyKey,
+        moduleCreditsHeadline(module),
+        moduleCreditsMessage(module),
+      );
+      if (!reward) return;
+      onProfileCreditsChange?.(earned);
+      onProfileCreditReward?.(reward);
+    });
+  }, [companyKey, onboardingAnswers, onProfileCreditReward, onProfileCreditsChange]);
 
   // Expand advisor when the guided tour points at it or Recommended Actions.
   useEffect(() => {
@@ -5774,19 +6400,121 @@ export default function ScorecardV2({
       if (value) next[qid] = value; else delete next[qid];
       saveDetailAnswers(cName, next);
       if (value) onWorkspaceActivity?.();
+      syncModuleCredits(mergeDetailAnswers(next, onboardingAnswers));
       return next;
     });
   };
 
-  const openDetailsDrawer = (category?: ScorecardCategory) => {
-    const idx = category ? DETAIL_SECTIONS.findIndex(s => s.id === category) : 0;
+  const persistDrawerBenchmark = (
+    next: OnboardingBenchmarkInput,
+    context: ScorecardBenchmarkContext,
+    commit = false,
+  ) => {
+    setBenchmarkValues(next);
+    onBenchmarkChange?.(next, context);
+    if (!commit || countFilledBenchmarkMetrics(next) === 0) return;
+    setBenchmarkSaved(true);
+    saveStoredQuarter(`fuel-benchmark-q-${cName}`);
+    if (!isOnboardingBenchmarkComplete(next)) return;
+    const { earned, reward } = tryMarkBenchmarkEarned(companyKey);
+    onProfileCreditsChange?.(earned);
+    if (reward) onProfileCreditReward?.(reward);
+  };
+
+  const openDrawerStep = (stepId: DrawerStepId) => {
+    const idx = DRAWER_STEPS.findIndex(item => item.id === stepId);
     setDrawerStep(idx >= 0 ? idx : 0);
     setDrawerOpen(true);
   };
 
+  const openDetailsDrawer = (category?: ScorecardCategory) => {
+    openDrawerStep(category ?? "profile");
+  };
+
+  const openModuleDetails = (sectionId: "profile" | ScorecardCategory) => {
+    openDrawerStep(sectionId);
+  };
+
+  useEffect(() => {
+    if (!openProfileModuleKey) return;
+    setActiveView("overview");
+    openDrawerStep(openProfileModuleSection);
+  }, [openProfileModuleKey]);
+
   const metrics   = useMemo(() => evaluateMetrics(benchmarkValues), [benchmarkValues]);
   const metricMap = useMemo(() => getMetricMap(metrics), [metrics]);
   const runway    = useMemo(() => estimateRunwayMonths(metricMap.cashOnHand, metricMap.monthlyBurn), [metricMap]);
+
+  const profileCreditsUnlocked = Boolean(
+    earnedProfileCredits?.modules.includes("company")
+    || hasMandatoryProfileAnswers(mergedDetailAnswers),
+  );
+  const allProfileCreditsEarned = remainingEarnableCredits(
+    earnedProfileCredits ?? EMPTY_EARNED_PROFILE_CREDITS,
+  ) === 0;
+
+  const overviewModules = useMemo<OverviewModuleTile[]>(() => {
+    const creditMeta = (id: OverviewModuleTile["id"]) => {
+      if (id === "benchmark") {
+        return {
+          credits: BENCHMARK_REWARD_CREDITS,
+          creditsEarned: Boolean(earnedProfileCredits?.benchmark && earnedProfileCredits?.benchmarkViaSubmit),
+        };
+      }
+      const moduleId: ProfileModuleId = id === "profile" ? "company" : id === "mkt" ? "gtm" : id;
+      return {
+        credits: PROFILE_MODULE_REWARDS[moduleId],
+        creditsEarned: earnedProfileCredits?.modules.includes(moduleId) ?? false,
+      };
+    };
+    const sectionTile = (
+      id: "profile" | ScorecardCategory,
+      title: string,
+      footer: string,
+      fallbackIcon: string,
+    ): OverviewModuleTile => {
+      const section = DETAIL_SECTIONS.find(item => item.id === id);
+      const contextSection = id === "profile"
+        ? DETAIL_SECTIONS.find(item => item.id === "context")
+        : undefined;
+      const profileQuestions = uniqueQuestions([
+        ...(section ? getVisibleQuestions(section, mergedDetailAnswers) : []),
+        ...(contextSection ? getVisibleQuestions(contextSection, mergedDetailAnswers) : []),
+      ]);
+      const answered = profileQuestions.filter(question => mergedDetailAnswers[question.id]?.trim()).length;
+      const total = profileQuestions.length;
+      return {
+        id,
+        title,
+        footer,
+        icon: section?.icon ?? fallbackIcon,
+        answered,
+        total,
+        ...creditMeta(id),
+        onSelect: () => openModuleDetails(id),
+      };
+    };
+    const benchmarkAnswered = METRIC_COHORTS.filter(
+      metric => parseMetricValue(benchmarkValues[metric.key] ?? "") != null,
+    ).length;
+
+    return [
+      sectionTile("profile", "Complete Profile", "Company · Industry · Location · Headcount · Context", "◆"),
+      sectionTile("dev", "R&D", "Stage · Type · Constraint", "◈"),
+      sectionTile("mkt", "GTM", "Motion · ICP · Pipeline", "↗"),
+      sectionTile("rev", "G&A", "Runway · Finance · Capital", "▣"),
+      {
+        id: "benchmark",
+        title: "Benchmark",
+        footer: "Metrics · Cohort · Peer scores",
+        icon: "▦",
+        answered: benchmarkAnswered,
+        total: METRIC_COHORTS.length,
+        ...creditMeta("benchmark"),
+        onSelect: () => openDrawerStep("benchmark"),
+      },
+    ];
+  }, [benchmarkValues, earnedProfileCredits, mergedDetailAnswers]);
 
   const categoryIds: ScorecardCategory[] = ["dev", "mkt", "rev"];
   const buildContext = useMemo<CategoryBuildContext>(() => ({
@@ -5865,12 +6593,6 @@ export default function ScorecardV2({
   useEffect(() => {
     setYorkOverviewHidden(isYorkOfferDismissed(YORK_COMMON_OFFER.id));
   }, []);
-  /** Tip + scrim only on Overview — never on R&D / GTM / G&A detail or full brief. */
-  const showRecActionsTip =
-    recActionsTipOpen
-    && suggestionsReady
-    && activeView === "overview"
-    && !wikiSummaryOpen;
 
   if (activeView === "benchmark") {
     return (
@@ -5886,10 +6608,7 @@ export default function ScorecardV2({
   }
 
   return (
-    <div className={`scorecard-v2${showRecActionsTip ? " is-rec-tip-focus" : ""}`}>
-      {showRecActionsTip ? (
-        <div className="sc-adv-rec-tip-scrim" aria-hidden="true" />
-      ) : null}
+    <div className="scorecard-v2">
       {workspaceIntroOpen ? (
         <div className="sc-workspace-intro">
           <div>
@@ -5926,6 +6645,9 @@ export default function ScorecardV2({
         />
       ) : (
         <>
+      {!isCategoryDetail && !allProfileCreditsEarned ? (
+        <OverviewModuleTileGrid modules={overviewModules} />
+      ) : null}
       {!isCategoryDetail && overviewBuildPhase && overviewBuildPhase !== "ready" ? (
         <OverviewBuildPanel
           phase={overviewBuildPhase}
@@ -5947,14 +6669,13 @@ export default function ScorecardV2({
       ) : null}
       {!isCategoryDetail ? (
       <div
-        className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}${showRecActionsTip ? " has-rec-tip-focus" : ""}${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
+        className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
         data-tour-target="ai-advisor"
       >
         <div className="sc-adv-featured-border" aria-hidden="true" />
         <div
           className="sc-adv-featured-toggle"
           onClick={() => {
-            if (showRecActionsTip) return;
             setAdvisorOpen(o => !o);
           }}
           role="button"
@@ -5962,7 +6683,6 @@ export default function ScorecardV2({
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              if (showRecActionsTip) return;
               setAdvisorOpen(o => !o);
             }
           }}
@@ -5983,34 +6703,30 @@ export default function ScorecardV2({
             <OverviewWorkspaceSetupPanel
               companyName={cName}
               actions={advisorActions}
-              onEditBenchmark={() => setEditBenchmarkOpen(true)}
+              onEditBenchmark={() => openDrawerStep("benchmark")}
               onAddSources={() => setAddSourcesOpen(true)}
               onViewDetails={() => openDetailsDrawer()}
-              showShareTip={showRecActionsTip}
-              onDismissShareTip={onDismissRecActionsTip}
               tourHighlightRecommended={activeTourTarget === "recommended-actions"}
             />
-          ) : (
-          <OverviewAdvisorPanel
-            categories={categoryData}
-            runway={runway}
-            companyName={cName}
-            buildContext={buildContext}
-            benchmarkSaved={benchmarkSaved}
+            ) : (
+              <OverviewAdvisorPanel
+                categories={categoryData}
+                runway={runway}
+                companyName={cName}
+                buildContext={buildContext}
+                benchmarkSaved={benchmarkSaved}
             privateWorkspace={Boolean(privateWorkspaceLabel)}
-            onOpenIntelligence={onOpenIntelligence}
-            onEditBenchmark={() => setEditBenchmarkOpen(true)}
-            onAddSources={() => setAddSourcesOpen(true)}
-            onViewDetails={() => openDetailsDrawer()}
-            documentSlots={documentSlots}
+                onOpenIntelligence={onOpenIntelligence}
+            onEditBenchmark={() => openDrawerStep("benchmark")}
+                onAddSources={() => setAddSourcesOpen(true)}
+                onViewDetails={() => openDetailsDrawer()}
+                documentSlots={documentSlots}
             wikiSummary={wikiSummary}
             onOpenWikiSummary={openWikiSummary}
             suggestionsReady={suggestionsReady}
             overviewBuildPhase={overviewBuildPhase}
-            showShareTip={showRecActionsTip}
-            onDismissShareTip={onDismissRecActionsTip}
             tourHighlightRecommended={activeTourTarget === "recommended-actions"}
-          />
+              />
           )
         ) : null}
       </div>
@@ -6026,7 +6742,7 @@ export default function ScorecardV2({
           activeInitiatives={activeInitiatives}
           onBack={() => setActiveView("overview")}
           onUpdateDetails={() => openDetailsDrawer(activeCategory.id)}
-          onEditBenchmark={() => setEditBenchmarkOpen(true)}
+          onEditBenchmark={() => openDrawerStep("benchmark")}
           onOpenIntelligence={onOpenIntelligence}
           onOpenInitiatives={onOpenInitiatives}
           onAddInitiative={onAddInitiative}
@@ -6048,20 +6764,22 @@ export default function ScorecardV2({
         <div className="sc-overview-tracks sc-overview-tracks-glance">
           {categoryData.map(cat => (
             overviewTrackReady(cat.id, overviewBuildPhase) ? (
-              <CategoryGlanceRow
-                key={cat.id}
-                cat={cat}
-                runway={runway}
-                onOpen={() => setActiveView(cat.id)}
-                onUpdateDetails={() => openDetailsDrawer(cat.id)}
-                onOpenIntelligence={onOpenIntelligence}
-                onOpenInitiatives={onOpenInitiatives}
-                onRunPlaybook={onRunPlaybook}
-                glancePopoverOpen={openGlancePopover === cat.id}
-                onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
-                onGlancePopoverClose={() => setOpenGlancePopover(null)}
-                tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
+            <CategoryGlanceRow
+              key={cat.id}
+              cat={cat}
+              runway={runway}
+              onOpen={() => setActiveView(cat.id)}
+              onUpdateDetails={() => openDetailsDrawer(cat.id)}
+              onOpenIntelligence={onOpenIntelligence}
+              onOpenInitiatives={onOpenInitiatives}
+              onRunPlaybook={onRunPlaybook}
+              glancePopoverOpen={openGlancePopover === cat.id}
+              onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
+              onGlancePopoverClose={() => setOpenGlancePopover(null)}
+              tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
                 suggestionsReady={suggestionsReady}
+                hasMinimumProfileAnswers={profileCreditsUnlocked}
+                onCompleteProfile={() => openModuleDetails("profile")}
               />
             ) : (
               <CategoryGlanceRowSkeleton key={cat.id} label={cat.label} />
@@ -6089,28 +6807,20 @@ export default function ScorecardV2({
           companyName={cName}
           answers={mergedDetailAnswers}
           initialStep={drawerStep}
+          benchmark={benchmarkValues}
+          benchmarkContext={benchmarkContext}
+          onBenchmarkChange={persistDrawerBenchmark}
+          creditRewardVisible={creditRewardVisible}
           onSelect={selectDetail}
           onSaveClose={() => {
             setDrawerOpen(false);
             saveStoredQuarter(`fuel-details-q-${cName}`);
             onWorkspaceActivity?.();
+            syncModuleCredits(mergedDetailAnswers);
           }}
           onClose={() => setDrawerOpen(false)}
         />
       )}
-
-      <BenchmarkEditDrawer
-        open={editBenchmarkOpen}
-        onClose={() => setEditBenchmarkOpen(false)}
-        benchmark={benchmarkValues}
-        companyName={cName}
-        onSave={next => {
-          setBenchmarkValues(next);
-          onBenchmarkChange?.(next);
-          setBenchmarkSaved(true);
-          saveStoredQuarter(`fuel-benchmark-q-${cName}`);
-        }}
-      />
 
       <AddSourcesDrawer
         open={addSourcesOpen}

@@ -42,6 +42,21 @@ export function CreditPopover() {
   let body: React.ReactNode;
 
   switch (popoverState) {
+    case "noneEarned":
+      body = (
+        <>
+          <h4>Earn credits to start</h4>
+          <p>
+            Complete your company profile, tracks, and benchmark. Each one adds 50 credits you can spend on chat, uploads, and playbooks.
+          </p>
+          {renderActions(
+            <button type="button" className="credit-btn-primary" onClick={() => setPopoverOpen(false)}>
+              Got it
+            </button>,
+          )}
+        </>
+      );
+      break;
     case "dailyBlocked":
       body = (
         <>

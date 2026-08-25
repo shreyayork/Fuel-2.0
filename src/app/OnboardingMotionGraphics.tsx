@@ -94,6 +94,9 @@ export const GTM_FUNNEL_CALLOUTS: Record<GtmFunnelStage, string> = {
 
 function normalizeFunnelStage(raw?: string): GtmFunnelStage {
   if (!raw) return "Conversion";
+  if (raw === "Not enough awareness") return "Awareness";
+  if (raw === "Not enough qualified pipeline" || raw === "Too few opportunities convert" || raw === "Unsure") return "Conversion";
+  if (raw === "Customers aren't expanding or renewing") return "Retention";
   if (raw === "Close" || raw === "Pipeline" || raw === "Interest" || raw === "Consideration") return "Conversion";
   if (GTM_FUNNEL_OPTIONS.includes(raw as GtmFunnelStage)) return raw as GtmFunnelStage;
   return "Conversion";
@@ -146,17 +149,21 @@ const BUILD_STAGE_MEANINGS: Record<string, string> = {
 };
 
 const PRODUCT_TYPE_MEANINGS: Record<string, string> = {
-  "SaaS / web app": "Recurring software — roadmap tied to adoption, retention, and release cadence.",
+  "SaaS Platform": "Recurring software — roadmap tied to adoption, retention, and release cadence.",
+  "AI Application": "AI application — model quality, workflow fit, and trust shape delivery.",
+  "AI Infrastructure": "AI infrastructure — reliability, developer experience, and scale shape delivery.",
   "Marketplace": "Two-sided platform — balance supply-side and demand-side delivery priorities.",
-  "API or developer platform": "Developer product — API stability, docs, and integration velocity.",
+  "Developer Platform / API": "Developer product — API stability, docs, and integration velocity.",
+  "Mobile App": "Mobile product — release quality, adoption, and platform constraints shape delivery.",
+  "Hardware / IoT": "Connected product — hardware lead times and software reliability shape delivery.",
   "Other": "Custom product model — Fuel adapts intelligence to your stack and motion.",
 };
 
 const CONSTRAINT_SUMMARIES: Record<string, string> = {
-  "Planning and prioritization": "Fuel centers Development intelligence on roadmap clarity, stakeholder alignment, and revenue-tied bets.",
-  "Capacity and hiring": "Fuel centers Development intelligence on capacity planning, hiring sequence, and leverage per engineer.",
-  "Quality and reliability": "Fuel centers Development intelligence on release stability, defect reduction, and test coverage.",
-  "Technical debt / Architecture": "Fuel centers Development intelligence on architecture health, refactor sequencing, and scale guardrails.",
+  "Planning and prioritization": "Fuel centers R&D intelligence on roadmap clarity, stakeholder alignment, and revenue-tied bets.",
+  "Capacity and hiring": "Fuel centers R&D intelligence on capacity planning, hiring sequence, and leverage per engineer.",
+  "Quality and reliability": "Fuel centers R&D intelligence on release stability, defect reduction, and test coverage.",
+  "Technical debt / Architecture": "Fuel centers R&D intelligence on architecture health, refactor sequencing, and scale guardrails.",
 };
 
 function shortBuildStage(stage: string): string {
@@ -172,7 +179,7 @@ function deriveDevIntelligence(answers: Partial<Answers>) {
     selections.push({
       label: "Product stage",
       value: shortBuildStage(stage),
-      meaning: BUILD_STAGE_MEANINGS[stage] ?? "Shapes which Development intelligence Fuel prioritizes.",
+      meaning: BUILD_STAGE_MEANINGS[stage] ?? "Shapes which R&D intelligence Fuel prioritizes.",
     });
   }
   if (answers.dev_product_type) {
@@ -186,24 +193,27 @@ function deriveDevIntelligence(answers: Partial<Answers>) {
     selections.push({
       label: "Delivery constraint",
       value: constraint,
-      meaning: CONSTRAINT_SUMMARIES[constraint] ?? "Primary Development focus for intelligence.",
+      meaning: CONSTRAINT_SUMMARIES[constraint] ?? "Primary R&D focus for intelligence.",
     });
   }
 
   return {
     focus: constraint
-      ? { label: constraint, summary: CONSTRAINT_SUMMARIES[constraint] ?? "Fuel maps Development intelligence to your stated constraint." }
+      ? { label: constraint, summary: CONSTRAINT_SUMMARIES[constraint] ?? "Fuel maps R&D intelligence to your stated constraint." }
       : null,
     selections,
     stackLine: [stage ? shortBuildStage(stage) : null, answers.dev_product_type?.split("/")[0]?.trim()].filter(Boolean).join(" · ")
-      || "Answer Development questions to shape your profile",
+      || "Answer R&D questions to shape your profile",
   };
 }
 
 type GtmFunnelRow = { label: GtmFunnelStage; pct: number; desc: string; signal: string; isHot: boolean };
 
 function deriveGtmIntelligence(answers: Partial<Answers>) {
-  const motion = answers.mkt_sales_motion || "Not yet";
+  const rawMotion = answers.mkt_sales_motion || "Not yet defined";
+  const motion = rawMotion.startsWith("Other (Please specify)")
+    ? "Other (Please specify)"
+    : rawMotion;
   const breakdown = answers.mkt_funnel_gap ? normalizeFunnelStage(answers.mkt_funnel_gap) : null;
 
   const stageOk: Record<GtmFunnelStage, string> = {
@@ -227,21 +237,18 @@ function deriveGtmIntelligence(answers: Partial<Answers>) {
     "Sales-led": [{ label: "Primary motion", value: "AE-led" }, { label: "Deal shape", value: "Multi-touch" }],
     "Product-led": [{ label: "Primary motion", value: "Self-serve" }, { label: "Conversion", value: "PQL → paid" }],
     "Founder-led": [{ label: "Primary motion", value: "Founder-close" }, { label: "Deal shape", value: "High-touch" }],
-    "Not yet": [{ label: "Primary motion", value: "Forming" }, { label: "GTM stage", value: "Early" }],
+    "Not yet defined": [{ label: "Primary motion", value: "Forming" }, { label: "GTM stage", value: "Early" }],
+    "Other (Please specify)": [{ label: "Primary motion", value: "Other" }, { label: "GTM stage", value: "Custom" }],
   };
 
-  const introsLine = answers.rev_capital_priority === "Actively fundraising"
-    ? "Fundraise mode — investor intro signals active"
-    : answers.rev_capital_priority === "Open to investor introductions"
-      ? "Open to York IE investor introductions"
-      : answers.rev_capital_priority === "Focused on extending runway / reaching profitability"
-        ? "Runway extension mode — efficiency playbooks prioritized"
-        : null;
+  const introsLine = answers.mkt_icp_clarity
+    ? `Ideal customer profile · ${answers.mkt_icp_clarity.split(" - ")[0]}`
+    : null;
 
   return {
     funnel,
-    kpis: motionKpis[motion] ?? motionKpis["Not yet"],
-    callout: breakdown ? GTM_FUNNEL_CALLOUTS[breakdown] : motion !== "Not yet" ? `Playbooks aligned to ${motion.toLowerCase()} motion` : "Select your sales motion and funnel gap",
+    kpis: motionKpis[motion] ?? motionKpis["Not yet defined"],
+    callout: breakdown ? GTM_FUNNEL_CALLOUTS[breakdown] : motion !== "Not yet defined" ? `Playbooks aligned to ${motion.toLowerCase()} motion` : "Select your go-to-market motion and growth bottleneck",
     introsLine,
     motion,
   };
@@ -249,14 +256,14 @@ function deriveGtmIntelligence(answers: Partial<Answers>) {
 
 function deriveRevopsIntelligence(answers: Partial<Answers>) {
   const finance = answers.rev_finance_management;
-  const tracking = answers.mkt_revenue_tracking;
+  const capitalPriority = answers.rev_capital_priority;
   const runway = answers.rev_runway;
 
-  const maturityLabel = !finance && !tracking
+  const maturityLabel = !finance && !capitalPriority
     ? "Profiling"
-    : finance === "Accounting software with regular close" && tracking === "CRM with a defined sales process"
+    : finance === "Dedicated finance leader"
       ? "Operational"
-      : finance?.includes("Accounting") || tracking?.includes("CRM")
+      : finance === "Outsourced finance/accounting"
         ? "Emerging"
         : "Early-stage";
 
@@ -270,8 +277,8 @@ function deriveRevopsIntelligence(answers: Partial<Answers>) {
   const runwayInfo = runway ? runwayMeta[runway] : null;
 
   const stackSignals = [
-    tracking ? { label: "Revenue tracking", value: tracking } : null,
-    finance ? { label: "Finance management", value: finance } : null,
+    finance ? { label: "Finance operation", value: finance } : null,
+    capitalPriority ? { label: "Capital priority", value: capitalPriority } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
   return {
@@ -279,8 +286,8 @@ function deriveRevopsIntelligence(answers: Partial<Answers>) {
     runwayInfo,
     maturityLabel,
     stackSignals,
-    stackLine: [tracking, finance].filter(Boolean).join(" · ") || "Answer G&A questions to model your stack",
-    insight: runwayInfo?.insight ?? (tracking && finance ? "Fuel links finance discipline to pipeline and forecast confidence." : "Finance setup and revenue tracking shape your G&A model."),
+    stackLine: [finance, capitalPriority].filter(Boolean).join(" · ") || "Answer G&A questions to model your stack",
+    insight: runwayInfo?.insight ?? (capitalPriority && finance ? "Fuel links finance maturity to capital and reporting priorities." : "Finance maturity and capital priorities shape your G&A model."),
   };
 }
 
@@ -603,7 +610,7 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
   );
 }
 
-// ─── Development scene ───────────────────────────────────────────────────────
+// ─── R&D scene ───────────────────────────────────────────────────────────────
 
 export function DevMotion({ answers, companyName = "Your company" }: { answers: Partial<Answers>; companyName?: string }) {
   const intel = useMemo(() => deriveDevIntelligence(answers), [answers]);
@@ -619,14 +626,14 @@ export function DevMotion({ answers, companyName = "Your company" }: { answers: 
             style={{ marginBottom: 14, padding: "10px 12px", background: "#E8F8F3", borderRadius: 8, border: "1px solid #B8E8D8" }}
           >
             <div style={{ fontSize: M.xs, fontWeight: 700, color: "#00B48A", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 4 }}>
-              Development focus
+              R&D focus
             </div>
             <div style={{ fontSize: M.lg, fontWeight: 800, color: "#1A2B26", marginBottom: 4 }}>{intel.focus.label}</div>
             <div style={{ fontSize: M.md, color: "#5A7A70", lineHeight: 1.55 }}>{intel.focus.summary}</div>
           </motion.div>
         ) : (
           <div style={{ fontSize: M.md, color: "#8A9E96", lineHeight: 1.6, marginBottom: 14 }}>
-            Answer the Development questions — Fuel will map your selections to intelligence.
+            Answer the R&D questions — Fuel will map your selections to intelligence.
           </div>
         )}
         {intel.selections.length > 0 ? (

@@ -4,6 +4,7 @@ import {
   blockRemainingMs,
   canAfford,
   createDefaultSnapshot,
+  freeMonthlyLimitFromEarned,
   getBarTone,
   getPopoverState,
   getUpgradeReason,
@@ -15,6 +16,7 @@ import {
 import { createDemoProSnapshot, isDemoCreditMode } from "./demoFlow";
 import { PLAN_LIMITS, PRO_TAGLINE } from "./constants";
 import type { CreditActionType, CreditSnapshot, UpgradeReason } from "./types";
+import { computeEarnedCredits, loadEarnedProfileCredits } from "../profileCredits";
 
 export type CreditToast = {
   id: string;
@@ -46,6 +48,8 @@ type CreditContextValue = {
   dismissToast: () => void;
   completeProUpgrade: () => void;
   completeTopUp: (credits: number) => void;
+  /** Free plan: monthly limit is the credits earned from profile / benchmark (0–250). */
+  syncFreeEarnedAllowance: (earnedCredits: number) => void;
   clearJustUnblocked: () => void;
 };
 
@@ -54,7 +58,9 @@ const CreditContext = createContext<CreditContextValue | null>(null);
 let toastSeq = 0;
 
 export function CreditProvider({ children }: { children: React.ReactNode }) {
-  const [snapshot, setSnapshot] = useState<CreditSnapshot>(() => createDefaultSnapshot("free"));
+  const [snapshot, setSnapshot] = useState<CreditSnapshot>(() =>
+    createDefaultSnapshot("free", computeEarnedCredits(loadEarnedProfileCredits("patriotpay"))),
+  );
   const [now, setNow] = useState(() => Date.now());
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -164,6 +170,15 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     });
   }, [snapshot.stats]);
 
+  const syncFreeEarnedAllowance = useCallback((earnedCredits: number) => {
+    setSnapshot(current => {
+      if (current.plan !== "free") return current;
+      const nextLimit = freeMonthlyLimitFromEarned(earnedCredits);
+      if (current.monthlyLimit === nextLimit) return current;
+      return { ...current, monthlyLimit: nextLimit };
+    });
+  }, []);
+
   const completeTopUp = useCallback((credits: number) => {
     const purchasedAt = Date.now();
     setSnapshot(current => {
@@ -212,6 +227,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     dismissToast: () => setToast(null),
     completeProUpgrade,
     completeTopUp,
+    syncFreeEarnedAllowance,
     clearJustUnblocked: () => setSnapshot(current => ({ ...current, justUnblocked: false })),
   }), [
     barFill,
@@ -219,6 +235,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     blockCountdownMs,
     completeProUpgrade,
     completeTopUp,
+    syncFreeEarnedAllowance,
     deductSilent,
     generationBlocked,
     openUpgrade,

@@ -17,12 +17,23 @@ import { dailyRemaining, totalRemaining } from "./credits/creditLogic";
 import ScorecardV2, {
   type OverviewBuildPhase,
   BenchmarkEditDrawer,
-  dismissRecActionsTip,
-  isRecActionsTipDismissed,
-  isRecActionsTipPending,
-  markRecActionsTipPending,
-  resetRecActionsTipForOnboarding,
 } from "./ScorecardV2";
+import { ProfileCreditRewardToast } from "./ProfileCreditRewardToast";
+import { ProfileCompletionPrompt } from "./ProfileCompletionPrompt";
+import {
+  isFounderProfilePromptSurface,
+  isProfileCompletionPromptDue,
+  markProfileCompletionPromptDismissed,
+  shouldGateFounderProfilePrompt,
+} from "./profileCompletionPromptStorage";
+import {
+  computeEarnedCredits,
+  loadEarnedProfileCredits,
+  onboardingModuleCreditReward,
+  tryMarkBenchmarkEarned,
+  type EarnedProfileCredits,
+  type ProfileCreditReward,
+} from "./profileCredits";
 import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 import { AccountSettings } from "./account/AccountSettings.tsx";
@@ -55,7 +66,8 @@ import {
   type IntelligenceCustomRange,
   type IntelligenceDatePreset,
 } from "./intelligenceFilters";
-import { DETAIL_QUESTION_LABEL } from "./trackQuestions.ts";
+import { DETAIL_QUESTION_LABEL, completedOnboardingModules, type DetailSectionId } from "./trackQuestions.ts";
+import { getCompanyLogoColors } from "./companyLogoColors";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -3326,6 +3338,10 @@ function parseBenchmarkMetricValue(raw: string): number | null {
 
 function hasFilledBenchmarkMetric(form: BenchmarkFormValues): boolean {
   return BENCHMARK_METRIC_FORM_KEYS.some(key => parseBenchmarkMetricValue(String(form[key] ?? "")) != null);
+}
+
+function isBenchmarkFormComplete(form: BenchmarkFormValues): boolean {
+  return BENCHMARK_METRIC_FORM_KEYS.every(key => parseBenchmarkMetricValue(String(form[key] ?? "")) != null);
 }
 
 function mergeBenchmarkFormValues(
@@ -9208,6 +9224,27 @@ function PatriotPayJourneyInner({
   const [investorWorkspaceStarted, setInvestorWorkspaceStarted] = useState<Record<string, boolean>>({});
   const [dataRoomAccessRequests, setDataRoomAccessRequests] = useState<Record<string, boolean>>({});
   const [selectedCompany, setSelectedCompany] = useState(FOUNDER_COMPANY);
+  const [earnedProfileCredits, setEarnedProfileCredits] = useState<EarnedProfileCredits>(() =>
+    loadEarnedProfileCredits(FOUNDER_CLAIMED_COMPANY_ID),
+  );
+  const [profileCreditReward, setProfileCreditReward] = useState<ProfileCreditReward | null>(() => (
+    initialOnboardingAnswers
+      ? onboardingModuleCreditReward(
+          completedOnboardingModules(initialOnboardingAnswers),
+          loadEarnedProfileCredits(FOUNDER_CLAIMED_COMPANY_ID),
+        )
+      : null
+  ));
+  const [profileCompletionPromptOpen, setProfileCompletionPromptOpen] = useState(() =>
+    persona !== "investor"
+    && isProfileCompletionPromptDue(
+      FOUNDER_CLAIMED_COMPANY_ID,
+      FOUNDER_COMPANY.displayName,
+      initialOnboardingAnswers,
+    ),
+  );
+  const [openProfileModuleKey, setOpenProfileModuleKey] = useState(0);
+  const [openProfileModuleSection, setOpenProfileModuleSection] = useState<DetailSectionId | "benchmark">("profile");
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
   const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(
     () => loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission,
@@ -9217,6 +9254,19 @@ function PatriotPayJourneyInner({
   const openAccountSettings = useCallback((tab: AccountSettingsTab = "profile") => {
     setAccountTab(tab);
     setActivePage("account");
+  }, []);
+  const dismissProfileCompletionPrompt = useCallback(() => {
+    markProfileCompletionPromptDismissed(selectedCompany.id);
+    setProfileCompletionPromptOpen(false);
+  }, [selectedCompany.id]);
+  const openCompanyHeaderProfile = useCallback(() => {
+    setActivePage("overview");
+  }, []);
+  const completeProfileFromPrompt = useCallback(() => {
+    setProfileCompletionPromptOpen(false);
+    setOpenProfileModuleSection("profile");
+    setActivePage("scorecard-v2");
+    setOpenProfileModuleKey(key => key + 1);
   }, []);
   const openMyCompanyProfile = useCallback(() => {
     setSelectedCompany(FOUNDER_COMPANY);
@@ -9234,7 +9284,10 @@ function PatriotPayJourneyInner({
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
-  const { tryAction } = useCredits();
+  const { tryAction, syncFreeEarnedAllowance } = useCredits();
+  useLayoutEffect(() => {
+    syncFreeEarnedAllowance(computeEarnedCredits(earnedProfileCredits));
+  }, [earnedProfileCredits, syncFreeEarnedAllowance]);
   const isOnCompanyWorkspace = activePage !== "investor-home"
     && activePage !== "investor-portfolios"
     && activePage !== "investor-pipeline"
@@ -9672,6 +9725,11 @@ function PatriotPayJourneyInner({
     } else {
       applyBenchmarkSubmission(values);
     }
+    if (isBenchmarkFormComplete(values)) {
+      const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
+      setEarnedProfileCredits(earned);
+      if (reward) setProfileCreditReward(reward);
+    }
     setActivePage("signals");
   };
   const handleViewIntelligenceFromDataRoom = (record: DataRoomFileRecord) => {
@@ -9774,10 +9832,6 @@ function PatriotPayJourneyInner({
   const [overviewBuildPhase, setOverviewBuildPhase] = useState<OverviewBuildPhase | null>(
     startsWithOverviewBuilding ? "summary" : null,
   );
-  const [recActionsTipOpen, setRecActionsTipOpen] = useState(false);
-  /** True once this post-onboarding Overview build hit "ready" — tip may show even after the ready bar is dismissed. */
-  const overviewContentReadyRef = useRef(false);
-
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
     return weakest ? suggestionMessages[weakest.id] : null;
@@ -9836,14 +9890,6 @@ function PatriotPayJourneyInner({
 
   useEffect(() => {
     if (!overviewBuildActive) return;
-    // Fresh post-onboarding build — tip must wait until Overview is fully ready.
-    overviewContentReadyRef.current = false;
-    setRecActionsTipOpen(false);
-    resetRecActionsTipForOnboarding(selectedCompany.displayName);
-  }, [overviewBuildActive, selectedCompany.displayName]);
-
-  useEffect(() => {
-    if (!overviewBuildActive) return;
 
     const timers = [
       window.setTimeout(() => setOverviewBuildPhase("dev"), 4000),
@@ -9858,23 +9904,29 @@ function PatriotPayJourneyInner({
     };
   }, [overviewBuildActive]);
 
-  // Queue tip only when Overview content is fully ready — survives tab switches until Got it.
   useEffect(() => {
-    if (overviewBuildPhase !== "ready") return;
-    overviewContentReadyRef.current = true;
-    if (isRecActionsTipDismissed(selectedCompany.displayName)) return;
-    markRecActionsTipPending(selectedCompany.displayName);
-    setRecActionsTipOpen(true);
-  }, [overviewBuildPhase, selectedCompany.displayName]);
+    if (isInvestorPersona) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    if (!isFounderProfilePromptSurface(activePage)) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    if (!isProfileCompletionPromptDue(selectedCompany.id, selectedCompany.displayName, initialOnboardingAnswers)) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    setProfileCompletionPromptOpen(true);
+  }, [activePage, initialOnboardingAnswers, isInvestorPersona, selectedCompany.displayName, selectedCompany.id]);
 
-  // Returning to Overview after ready: show tip again if not yet dismissed.
-  useEffect(() => {
-    if (activePage !== "scorecard-v2") return;
-    if (!overviewContentReadyRef.current) return;
-    if (isRecActionsTipDismissed(selectedCompany.displayName)) return;
-    if (!isRecActionsTipPending(selectedCompany.displayName)) return;
-    setRecActionsTipOpen(true);
-  }, [activePage, selectedCompany.displayName]);
+  const profilePromptBlocking = shouldGateFounderProfilePrompt(
+    persona,
+    selectedCompany.id,
+    selectedCompany.displayName,
+    activePage,
+    initialOnboardingAnswers,
+  ) && profileCompletionPromptOpen;
 
   useEffect(() => {
     function closeDropdown(event) {
@@ -10016,10 +10068,14 @@ function PatriotPayJourneyInner({
   const scorecardBenchmarkPeriod = usesPerCompanyWorkspace
     ? investorBenchmarkByCompany[selectedCompany.id]?.period
     : benchmarkSubmission?.period;
+  const selectedCompanyLogo = useMemo(
+    () => getCompanyLogoColors(selectedCompany.displayName || selectedCompany.logo),
+    [selectedCompany.displayName, selectedCompany.logo],
+  );
 
   return (
     <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
-    <div className="app">
+    <div className={`app${profilePromptBlocking ? " is-profile-prompt-gated" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-logo">Y</div>
@@ -10158,13 +10214,6 @@ function PatriotPayJourneyInner({
             <div className="search-box">
               <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
             </div>
-            <span
-              data-tour-target="ask-fuel-ai"
-              className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
-              style={{ display: "inline-flex" }}
-            >
-              <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-            </span>
             {!isProfileWizard && !tourTaken && headerTourEnabled ? (
               <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
                 <button
@@ -10197,36 +10246,75 @@ function PatriotPayJourneyInner({
                 ) : null}
               </div>
             ) : null}
-            <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Q4 '25 · Nov 8</span>
+            <span
+              data-tour-target="ask-fuel-ai"
+              className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
+              style={{ display: "inline-flex" }}
+            >
+              <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+            </span>
           </div>
         </div>
 
         {!isProfileWizard && !isInvestorShellPage ? <div className="company-header">
-          <div className="company-card">
-            <div className="company-logo" style={{ background: selectedCompany.logoBg }}>{selectedCompany.logo}</div>
-            <div className="company-identity">
-              <div className="company-name-row">
-                <div className="company-name">{selectedCompany.displayName}</div>
-                <span className="badge">{selectedCompany.domain}</span>
-              </div>
-              <div className="company-meta">
-                <span>Engaged Feb 2024</span>
-                <span className="dot" />
-                <span>{selectedCompany.meta}</span>
-                <span className="dot" />
-                <span>9 months active</span>
-              </div>
-            </div>
-            <div className="header-actions">
-              <button
-                type="button"
-                className={`company-overview-chip${activePage === "overview" ? " active" : ""}${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
-                data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
-                onClick={() => setActivePage("overview")}
+          <div className={`company-card${usesPerCompanyWorkspace ? " is-external" : ""}`}>
+            <button
+              type="button"
+              className={`company-profile-link${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
+              data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
+              onClick={openCompanyHeaderProfile}
+              aria-label={`View ${selectedCompany.displayName} profile`}
+            >
+              <div
+                className="company-logo"
+                data-letter={selectedCompanyLogo.letter.toLowerCase()}
+                style={{ background: selectedCompanyLogo.bg, color: selectedCompanyLogo.fg }}
               >
-                <span className="company-overview-chip-dot" />
-                View Profile
-              </button>
+                {selectedCompanyLogo.letter}
+              </div>
+              <div className="company-identity">
+                <div className="company-name-row">
+                  <div className="company-name">{selectedCompany.displayName}</div>
+                  {usesPerCompanyWorkspace ? (
+                    <>
+                      <span className="company-industry-tag">
+                        {selectedCompany.meta.split("·")[0]?.trim() || "Company"}
+                      </span>
+                      <a
+                        className="company-domain-link"
+                        href={`https://${selectedCompany.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {selectedCompany.domain}
+                      </a>
+                    </>
+                  ) : (
+                    <span className="badge">{selectedCompany.domain}</span>
+                  )}
+                </div>
+                <div className="company-meta">
+                  {usesPerCompanyWorkspace ? (
+                    <span>External company — sourced from fuel-data</span>
+                  ) : (
+                    <>
+                      <span>Engaged Feb 2024</span>
+                      <span className="dot" />
+                      <span>{selectedCompany.meta}</span>
+                      <span className="dot" />
+                      <span>9 months active</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </button>
+            <div className="header-actions">
+              {usesPerCompanyWorkspace ? (
+                <button type="button" className="company-add-list-btn">
+                  + Add to list
+                </button>
+              ) : null}
               <AiActionsMenu
                 companyName={selectedCompany.displayName}
                 tourActive={
@@ -10494,8 +10582,15 @@ function PatriotPayJourneyInner({
           ) : activePage === "scorecard-v2" ? (
             <ScorecardV2
               benchmark={scorecardBenchmark}
-              onBenchmarkChange={(next) => {
-                applyBenchmarkSubmission(toBenchmarkFormValues(next));
+              onBenchmarkChange={(next, context) => {
+                applyBenchmarkSubmission({
+                  ...toBenchmarkFormValues(next),
+                  notableCustomers: context?.notableCustomers ?? scorecardBenchmarkForm.notableCustomers,
+                  notableHires: context?.notableHires ?? scorecardBenchmarkForm.notableHires,
+                  biggestChallenges: context?.biggestChallenges ?? scorecardBenchmarkForm.biggestChallenges,
+                  otherUpdates: context?.otherUpdates ?? scorecardBenchmarkForm.otherUpdates,
+                  openToIntros: context?.openToIntros ?? scorecardBenchmarkForm.openToIntros,
+                });
               }}
               cohortLabel={selectedCompany.meta}
               companyName={selectedCompany.displayName}
@@ -10602,6 +10697,13 @@ function PatriotPayJourneyInner({
               onAddSources={() => setActivePage("signals")}
               onAddDetails={() => setActivePage("scorecard-v2")}
               onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
+              earnedProfileCredits={earnedProfileCredits}
+              companyKey={selectedCompany.id}
+              onProfileCreditsChange={setEarnedProfileCredits}
+              onProfileCreditReward={setProfileCreditReward}
+              creditRewardVisible={Boolean(profileCreditReward)}
+              openProfileModuleKey={openProfileModuleKey}
+              openProfileModuleSection={openProfileModuleSection}
               brief={generatedBrief}
               lastPlaybook={lastPlaybook}
               onDismissPlaybook={() => setLastPlaybook(null)}
@@ -10613,11 +10715,6 @@ function PatriotPayJourneyInner({
               onWorkspaceActivity={() => tryUnlockInvestorOverview(selectedCompany.id)}
               privateWorkspaceLabel={usesPerCompanyWorkspace ? "Your private workspace" : undefined}
               overviewBuildPhase={overviewBuildPhase}
-              recActionsTipOpen={recActionsTipOpen}
-              onDismissRecActionsTip={() => {
-                dismissRecActionsTip(selectedCompany.displayName);
-                setRecActionsTipOpen(false);
-              }}
               onStartOptionalTour={() => {
                 setOverviewBuildPhase(null);
                 setOverviewBuildActive(false);
@@ -10702,6 +10799,18 @@ function PatriotPayJourneyInner({
         focusBriefSignal={briefFocusSignal}
         focusPlaybook={pendingPlaybook}
         focusPlaybookSignal={playbookFocusSignal}
+      />
+      {profileCreditReward ? (
+        <ProfileCreditRewardToast
+          reward={profileCreditReward}
+          onDismiss={() => setProfileCreditReward(null)}
+        />
+      ) : null}
+      <ProfileCompletionPrompt
+        open={profileCompletionPromptOpen}
+        earnedProfileCredits={earnedProfileCredits}
+        onCompleteProfile={completeProfileFromPrompt}
+        onContinue={dismissProfileCompletionPrompt}
       />
     </div>
     </AccountSettingsNavProvider>

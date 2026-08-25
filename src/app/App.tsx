@@ -3,9 +3,16 @@ import PatriotPayJourney, { type OnboardingBenchmarkInput } from "./PatriotPayJo
 import OnboardingFlow, {
   answersToOnboardingBenchmark,
   isInvestorPersona,
+  isOnboardingBenchmarkComplete,
   type OnboardingFlowAnswers,
 } from "./OnboardingFlow.tsx";
 import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
+import { resetAndAwardOnboardingCredits } from "./profileCredits.ts";
+import { completedOnboardingModules } from "./trackQuestions.ts";
+import {
+  clearStoredDetailAnswers,
+  resetProfileCompletionPromptForNewLogin,
+} from "./profileCompletionPromptStorage.ts";
 
 type View = "onboarding" | "integrations" | "workspace";
 
@@ -35,8 +42,15 @@ export default function App() {
   return (
     <OnboardingFlow
       onComplete={answers => {
+        clearStoredDetailAnswers(answers.profileCompany, "Patriot Pay", "patriotpay");
         setOnboardingBenchmark(answersToOnboardingBenchmark(answers));
         setOnboardingAnswers(answers);
+        resetAndAwardOnboardingCredits(
+          completedOnboardingModules(answers),
+          isOnboardingBenchmarkComplete(answers),
+          "patriotpay",
+        );
+        resetProfileCompletionPromptForNewLogin("patriotpay");
         setView("workspace");
       }}
     />
