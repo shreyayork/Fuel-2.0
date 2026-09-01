@@ -1,0 +1,17 @@
+{
+  "name": "Fuel 2.0",
+  "install": "npm install",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "npm run dev",
+      "description": "Vite dev server for the Fuel 2.0 frontend (http://localhost:5173)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "vite",
+      "port": 5173
+    }
+  ]
+}
