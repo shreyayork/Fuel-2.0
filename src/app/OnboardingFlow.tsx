@@ -1102,29 +1102,78 @@ const css = `
     font-weight: 700; padding: 4px 9px;
   }
   .of-funding-row {
-    align-items: center; background: var(--panel); border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 8px; display: grid; gap: 6px;
-    grid-template-columns: minmax(72px, 96px) minmax(70px, 86px) minmax(90px, 128px) minmax(0, 1fr) 26px;
-    margin-bottom: 6px; padding: 7px;
+    align-items: stretch;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.9fr) minmax(0, 1.15fr) 34px;
+    grid-template-areas:
+      "type amount date remove"
+      "investors investors investors investors";
+    margin-bottom: 8px;
+    padding: 10px;
   }
   .of-funding-row .of-input {
-    font-size: 11px; min-height: 34px; min-width: 0; padding: 6px 7px; width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+    height: 36px;
+    min-height: 36px;
+    min-width: 0;
+    padding: 0 10px;
+    width: 100%;
   }
   .of-funding-row select.of-input {
-    color: var(--text-1); cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%238FA99A' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: right 10px center;
+    background-repeat: no-repeat;
+    color: var(--text-1);
+    cursor: pointer;
+    padding-right: 28px;
   }
   .of-funding-row select.of-input option {
     background: #1A2D3F; color: var(--text-1);
   }
+  .of-funding-type { grid-area: type; }
+  .of-funding-amount { grid-area: amount; }
+  .of-funding-date { grid-area: date; }
+  .of-funding-investors { grid-area: investors; }
   .of-funding-remove {
-    align-items: center; background: rgba(201,95,95,0.1); border: 1px solid rgba(201,95,95,0.2);
-    border-radius: 5px; color: #C95F5F; cursor: pointer; display: inline-flex; font: inherit;
-    font-size: 14px; height: 26px; justify-content: center; padding: 0; width: 26px;
+    align-items: center;
+    align-self: center;
+    background: rgba(201,95,95,0.1);
+    border: 1px solid rgba(201,95,95,0.22);
+    border-radius: 8px;
+    color: #C95F5F;
+    cursor: pointer;
+    display: inline-flex;
+    flex-shrink: 0;
+    font: inherit;
+    font-size: 16px;
+    grid-area: remove;
+    height: 36px;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    width: 34px;
+  }
+  .of-funding-remove:hover {
+    background: rgba(201,95,95,0.18);
+    border-color: rgba(201,95,95,0.35);
   }
   .of-teammates-note { color: var(--text-3); font-size: 12px; line-height: 1.55; margin: 18px 0 0; }
   .of-profile-error { color: var(--status-bad, #E05C5C); font-size: 12px; margin: 8px 0 0; }
   html[data-theme="light"] .of-funding-row { background: #fff; border-color: #e8eaed; }
+  html[data-theme="light"] .of-funding-row select.of-input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236B7C8A' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
   html[data-theme="light"] .of-funding-row select.of-input option { background: #fff; color: #1a2332; }
+  html[data-theme="light"] .of-funding-remove {
+    background: rgba(201,95,95,0.08);
+    border-color: rgba(201,95,95,0.2);
+  }
 
   @media (min-width: 1280px) {
     .of-left-col { width: 48%; }
@@ -2325,7 +2374,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                                 {fundingRounds.map(r => (
                                   <div key={r.id} className="of-funding-row">
                                     <select
-                                      className="of-input"
+                                      className="of-input of-funding-type"
                                       value={r.type}
                                       onChange={e => updateRound(r.id, "type", e.target.value)}
                                       aria-label="Round type"
@@ -2333,21 +2382,21 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                                       {ROUND_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                     <input
-                                      className="of-input"
+                                      className="of-input of-funding-amount"
                                       value={r.amount}
                                       onChange={e => updateRound(r.id, "amount", e.target.value)}
                                       placeholder="$4.2M"
                                       aria-label="Round amount"
                                     />
                                     <input
-                                      className="of-input"
+                                      className="of-input of-funding-date"
                                       value={r.date}
                                       onChange={e => updateRound(r.id, "date", e.target.value)}
                                       placeholder="dd/mm/yyyy"
                                       aria-label="Round date"
                                     />
                                     <input
-                                      className="of-input"
+                                      className="of-input of-funding-investors"
                                       value={r.investors}
                                       onChange={e => updateRound(r.id, "investors", e.target.value)}
                                       placeholder="Investors"
