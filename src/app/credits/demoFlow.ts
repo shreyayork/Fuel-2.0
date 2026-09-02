@@ -11,12 +11,12 @@ export function getDemoBlockMs(plan: CreditPlan): number {
   return plan === "free" ? 2 * 60 * 1000 : 45 * 1000;
 }
 
-/** Post-onboarding free start: full trial balance (250), nothing pre-spent. */
-export function createDemoFreeSnapshot(): CreditSnapshot {
+/** Post-onboarding free start: spendable pool matches credits earned from profile (0 until first +50). */
+export function createDemoFreeSnapshot(earnedCredits = 0): CreditSnapshot {
   return {
     plan: "free",
     monthlyUsed: 0,
-    monthlyLimit: PLAN_LIMITS.free.monthly,
+    monthlyLimit: Math.max(0, Math.min(PLAN_LIMITS.free.monthly, Math.round(earnedCredits))),
     dailyUsed: 0,
     dailyLimit: PLAN_LIMITS.free.daily,
     topUpBalance: 0,

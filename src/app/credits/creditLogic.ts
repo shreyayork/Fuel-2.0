@@ -2,6 +2,18 @@ import { ACTION_LABELS, CREDIT_COSTS, PLAN_LIMITS } from "./constants";
 import { createDemoFreeSnapshot, getDemoBlockMs, isDemoCreditMode } from "./demoFlow";
 import type { CreditActionType, CreditPlan, CreditSnapshot, PopoverState, UpgradeReason } from "./types";
 
+export function freeMonthlyLimitFromEarned(earnedCredits: number): number {
+  return Math.max(0, Math.min(PLAN_LIMITS.free.monthly, Math.round(earnedCredits)));
+}
+
+/** Free plan with nothing earned yet — not the same as spending the pool down to zero. */
+export function isAwaitingEarnedCredits(snapshot: CreditSnapshot): boolean {
+  return snapshot.plan === "free"
+    && snapshot.monthlyLimit <= 0
+    && snapshot.topUpBalance <= 0
+    && snapshot.monthlyUsed <= 0;
+}
+
 export function totalRemaining(snapshot: CreditSnapshot): number {
   return Math.max(0, snapshot.monthlyLimit + snapshot.topUpBalance - snapshot.monthlyUsed);
 }
@@ -29,6 +41,7 @@ export function isGenerationBlocked(snapshot: CreditSnapshot, now = Date.now()):
 }
 
 export function getBarTone(snapshot: CreditSnapshot, now = Date.now()): "teal" | "amber" | "red" {
+  if (isAwaitingEarnedCredits(snapshot)) return "amber";
   if (isGenerationBlocked(snapshot, now)) return "red";
   const ratio = monthlyRemainingRatio(snapshot);
   if (ratio <= 0.1) return "red";
@@ -38,6 +51,7 @@ export function getBarTone(snapshot: CreditSnapshot, now = Date.now()): "teal" |
 
 export function getPopoverState(snapshot: CreditSnapshot, now = Date.now()): PopoverState {
   if (snapshot.justUnblocked) return "justUnblocked";
+  if (isAwaitingEarnedCredits(snapshot)) return "noneEarned";
   if (isDailyBlocked(snapshot, now)) return "dailyBlocked";
   if (isMonthlyEmpty(snapshot)) return "monthlyEmpty";
   const ratio = monthlyRemainingRatio(snapshot);
@@ -46,6 +60,7 @@ export function getPopoverState(snapshot: CreditSnapshot, now = Date.now()): Pop
 }
 
 export function getUpgradeReason(snapshot: CreditSnapshot, now = Date.now()): UpgradeReason {
+  if (isAwaitingEarnedCredits(snapshot)) return "healthy";
   if (isMonthlyEmpty(snapshot)) return "monthlyEmpty";
   if (isDailyBlocked(snapshot, now)) return "dailyBlocked";
   if (monthlyRemainingRatio(snapshot) <= 0.3) return "runningLow";
@@ -133,16 +148,15 @@ export function applyDeduction(snapshot: CreditSnapshot, action: CreditActionTyp
   return next;
 }
 
-export function createDefaultSnapshot(plan: CreditPlan = "free"): CreditSnapshot {
+export function createDefaultSnapshot(plan: CreditPlan = "free", earnedCredits = 0): CreditSnapshot {
   if (isDemoCreditMode() && plan === "free") {
-    return createDemoFreeSnapshot();
+    return createDemoFreeSnapshot(earnedCredits);
   }
   const limits = PLAN_LIMITS[plan];
-  // Fresh workspace after onboarding — full allowance, nothing pre-spent.
   return {
     plan,
     monthlyUsed: 0,
-    monthlyLimit: limits.monthly,
+    monthlyLimit: plan === "free" ? freeMonthlyLimitFromEarned(earnedCredits) : limits.monthly,
     dailyUsed: 0,
     dailyLimit: limits.daily,
     topUpBalance: 0,

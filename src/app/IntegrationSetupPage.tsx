@@ -45,13 +45,13 @@ const INTEGRATIONS: Integration[] = [
     dataProvided: ["Active cycles & projects", "Issue velocity & throughput", "Team workload", "Roadmap milestones"],
   },
   {
-    id: "launchpad", name: "Launchpad", category: "Development", abbr: "LP", color: "var(--btn-primary-bg)",
+    id: "launchpad", name: "Launchpad", category: "Development", abbr: "LP", color: "#3DD68C",
     method: "york",
     description: "York IE's design platform — design previews, approval status, and handoff state flow directly into Fuel.",
     dataProvided: ["Design previews & URLs", "Design status & approval state", "Handoff readiness"],
   },
   {
-    id: "pulse", name: "Pulse", category: "Development", abbr: "PL", color: "var(--btn-primary-bg)",
+    id: "pulse", name: "Pulse", category: "Development", abbr: "PL", color: "#3DD68C",
     method: "york",
     description: "York IE's code quality platform — stability, speed, risk scores, and weekly health summaries.",
     dataProvided: ["Code quality score", "Stability & speed metrics", "Risk flags", "Weekly quality trends"],
@@ -127,7 +127,7 @@ function StatusPill({ status }: { status: Status }) {
   const map: Record<Status, { label: string; color: string; bg: string }> = {
     pending:    { label: "Not connected", color: "#3A4F5E", bg: "rgba(255,255,255,0.04)" },
     connecting: { label: "Connecting…",   color: "#D4924A", bg: "rgba(212,146,74,0.1)"  },
-    connected:  { label: "Connected",     color: "var(--btn-primary-bg)", bg: "rgba(61,214,140,0.1)"  },
+    connected:  { label: "Connected",     color: "#3DD68C", bg: "rgba(61,214,140,0.1)"  },
     skipped:    { label: "Skipped",       color: "#556878", bg: "rgba(255,255,255,0.04)" },
   };
   const { label, color, bg } = map[status];
@@ -207,7 +207,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
   const isConnected  = statuses[active.id] === "connected";
 
   return (
-    <div style={{ flex: embedded ? 1 : undefined, height: embedded ? "100%" : undefined, minHeight: embedded ? "unset" : "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "var(--font-family)" }}>
+    <div style={{ flex: embedded ? 1 : undefined, height: embedded ? "100%" : undefined, minHeight: embedded ? "unset" : "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
 
       {/* Top bar */}
       <div style={{
@@ -247,7 +247,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ fontSize: 12, color: "#556878" }}>
-            <span style={{ color: "var(--btn-primary-bg)", fontWeight: 700 }}>{connectedCount}</span> of {INTEGRATIONS.length} connected
+            <span style={{ color: "#3DD68C", fontWeight: 700 }}>{connectedCount}</span> of {INTEGRATIONS.length} connected
           </span>
           {selectedPremium.length > 0 && (
             <span style={{ fontSize: 12, color: "#D4924A", fontWeight: 700 }}>
@@ -284,7 +284,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
 
               {CATEGORIES.map(cat => {
                 const items = INTEGRATIONS.filter(i => i.category === cat);
-                const catColor = items.find(i => i.method !== "york")?.color ?? "var(--btn-primary-bg)";
+                const catColor = items.find(i => i.method !== "york")?.color ?? "#3DD68C";
                 return (
                   <div key={cat} style={{ marginBottom: 28 }}>
                     <div style={{
@@ -326,14 +326,14 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                               </div>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                                 {isYork && (
-                                  <span style={{ fontSize: 11.5, color: "var(--btn-primary-bg)", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>York IE · Included</span>
+                                  <span style={{ fontSize: 11.5, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>York IE · Included</span>
                                 )}
                                 {isPremium ? (
                                   <span style={{ fontSize: 11.5, color: "#D4924A", background: "rgba(212,146,74,0.1)", border: "1px solid rgba(212,146,74,0.22)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
                                     Premium · ${item.addOnPrice}/mo
                                   </span>
                                 ) : !isYork && (
-                                  <span style={{ fontSize: 11.5, color: "var(--btn-primary-bg)", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
+                                  <span style={{ fontSize: 11.5, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
                                     Free
                                   </span>
                                 )}
@@ -345,7 +345,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                               border: isSel ? "1px solid rgba(61,214,140,0.5)" : "1px solid rgba(255,255,255,0.12)",
                               display: "flex", alignItems: "center", justifyContent: "center",
                             }}>
-                              {isSel && <span style={{ fontSize: 12, color: "var(--btn-primary-bg)" }}>✓</span>}
+                              {isSel && <span style={{ fontSize: 12, color: "#3DD68C" }}>✓</span>}
                             </div>
                           </button>
                         );
@@ -376,7 +376,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
                 <span>Free connectors</span>
-                <strong style={{ color: "var(--btn-primary-bg)" }}>{selectedFree.length}</strong>
+                <strong style={{ color: "#3DD68C" }}>{selectedFree.length}</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)" }}>
                 <span>Premium add-ons</span>
@@ -491,7 +491,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                               padding: "7px 16px",
                               background: isActive ? "rgba(61,214,140,0.06)" : "transparent",
                               borderTop: "none", borderRight: "none", borderBottom: "none",
-                              borderLeft: isActive ? "2px solid var(--btn-primary-bg)" : "2px solid transparent",
+                              borderLeft: isActive ? "2px solid #3DD68C" : "2px solid transparent",
                               cursor: "pointer", textAlign: "left", transition: "all 0.15s",
                             }}
                           >
@@ -509,13 +509,13 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                             {item.method !== "york" && (
                               <span style={{
                                 flexShrink: 0, fontSize: 9, fontWeight: 800,
-                                color: item.premium ? "#D4924A" : "var(--btn-primary-bg)",
+                                color: item.premium ? "#D4924A" : "#3DD68C",
                               }}>
                                 {item.premium ? `$${item.addOnPrice}` : "Free"}
                               </span>
                             )}
                             <span style={{ flexShrink: 0, fontSize: 11 }}>
-                              {status === "connected"  && <span style={{ color: "var(--btn-primary-bg)" }}>✓</span>}
+                              {status === "connected"  && <span style={{ color: "#3DD68C" }}>✓</span>}
                               {status === "skipped"    && <span style={{ color: "#3A4F5E" }}>–</span>}
                               {status === "connecting" && <span style={{ color: "#D4924A" }}>●</span>}
                             </span>
@@ -564,7 +564,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                         background: active.color + "18", color: active.color, border: `1px solid ${active.color}30`,
                       }}>{active.category}</span>
                       {active.method === "york" && (
-                        <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--btn-primary-bg)", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 4, padding: "2px 7px" }}>York IE</span>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 4, padding: "2px 7px" }}>York IE</span>
                       )}
                       {active.premium && (
                         <span style={{ fontSize: 9.5, fontWeight: 800, color: "#D4924A", background: "rgba(212,146,74,0.1)", border: "1px solid rgba(212,146,74,0.22)", borderRadius: 4, padding: "2px 7px" }}>
@@ -572,7 +572,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                         </span>
                       )}
                       {active.method !== "york" && !active.premium && (
-                        <span style={{ fontSize: 9.5, fontWeight: 800, color: "var(--btn-primary-bg)", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 4, padding: "2px 7px" }}>
+                        <span style={{ fontSize: 9.5, fontWeight: 800, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 4, padding: "2px 7px" }}>
                           Free
                         </span>
                       )}
@@ -612,7 +612,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                   }}>
                     <span style={{ fontSize: 18, marginTop: 1 }}>✓</span>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--btn-primary-bg)", marginBottom: 4 }}>Automatically connected via York IE</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#3DD68C", marginBottom: 4 }}>Automatically connected via York IE</div>
                       <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.55 }}>This integration is part of your York IE relationship and requires no additional setup.</div>
                     </div>
                   </div>
@@ -640,7 +640,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                         {isConnecting ? "Connecting…" : (active.oauthLabel ?? `Connect with ${active.name}`)}
                       </button>
                     ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--btn-primary-bg)", fontSize: 13, fontWeight: 600 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3DD68C", fontSize: 13, fontWeight: 600 }}>
                         ✓ Connected successfully
                       </div>
                     )}
@@ -683,7 +683,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                         {isConnecting ? "Verifying credentials…" : "Verify & connect"}
                       </button>
                     ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--btn-primary-bg)", fontSize: 13, fontWeight: 600 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#3DD68C", fontSize: 13, fontWeight: 600 }}>
                         ✓ Credentials verified — connected
                       </div>
                     )}
@@ -761,7 +761,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
               {CATEGORIES.map(cat => {
                 const items = selectedIntegrations.filter(i => i.category === cat);
                 if (items.length === 0) return null;
-                const catColor = items[0]?.color ?? "var(--btn-primary-bg)";
+                const catColor = items[0]?.color ?? "#3DD68C";
                 return (
                   <div key={cat} style={{ marginBottom: 16 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: catColor, textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 8 }}>{cat}</div>
@@ -769,7 +769,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                       const s = statuses[item.id];
                       return (
                         <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
-                          <span style={{ fontSize: 13, color: s === "connected" ? "var(--btn-primary-bg)" : s === "skipped" ? "#3A4F5E" : s === "connecting" ? "#D4924A" : "#3A4F5E" }}>
+                          <span style={{ fontSize: 13, color: s === "connected" ? "#3DD68C" : s === "skipped" ? "#3A4F5E" : s === "connecting" ? "#D4924A" : "#3A4F5E" }}>
                             {s === "connected" ? "✓" : s === "skipped" ? "–" : s === "connecting" ? "●" : "○"}
                           </span>
                           <span style={{ fontSize: 13, color: s === "connected" ? "var(--text-2)" : "#3A4F5E" }}>{item.name}</span>

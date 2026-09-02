@@ -79,8 +79,6 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-family);
-  --font-mono: var(--font-family-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -128,7 +126,6 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-family);
   }
 
   /**

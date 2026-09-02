@@ -1,23 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useDialogA11y } from "./a11y/useDialogA11y";
 import {
-  PROFILE_EARNABLE_CREDITS,
-  PROFILE_STARTING_CREDITS,
   PROFILE_TOTAL_CREDITS,
-  remainingEarnableCredits,
+  computeCreditBalance,
   type EarnedProfileCredits,
 } from "./profileCredits";
 import "./profileCompletionPrompt.css";
-
-export function ProfileCompletionPromptLoading() {
-  return createPortal(
-    <div className="profile-completion-prompt-loading" role="status" aria-live="polite" aria-busy="true">
-      <div className="profile-completion-prompt-loading-card">Preparing your workspace…</div>
-    </div>,
-    document.body,
-  );
-}
 
 export function ProfileCompletionPrompt({
   open,
@@ -31,7 +19,6 @@ export function ProfileCompletionPrompt({
   onContinue: () => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogA11y(open, dialogRef, onContinue);
 
   useEffect(() => {
     if (!open) return;
@@ -43,8 +30,6 @@ export function ProfileCompletionPrompt({
   }, [open, onContinue]);
 
   if (!open) return null;
-
-  const remainingCredits = remainingEarnableCredits(earnedProfileCredits);
 
   return createPortal(
     <div
@@ -65,7 +50,7 @@ export function ProfileCompletionPrompt({
             Complete your profile. Unlock more intelligence.
           </h2>
           <p id="profile-completion-prompt-desc" className="profile-completion-prompt-lead">
-            The more we know about your portfolio and preferences, the smarter your insights become.
+            The more we know about your company and priorities, the smarter your insights become.
           </p>
 
           <div className="profile-completion-prompt-perks">
@@ -73,11 +58,11 @@ export function ProfileCompletionPrompt({
               <span className="profile-completion-prompt-perk-icon" aria-hidden="true">✦</span>
               <div className="profile-completion-prompt-perk-copy">
                 <strong>
-                  Up to <em>{remainingCredits}</em> free credits
+                  Up to <em>{PROFILE_TOTAL_CREDITS}</em> credits
                 </strong>
                 <span>
-                  You have {PROFILE_STARTING_CREDITS} of {PROFILE_TOTAL_CREDITS} today. Complete your profile to
-                  {" "}unlock up to {PROFILE_EARNABLE_CREDITS} more.
+                  You have {computeCreditBalance(earnedProfileCredits)} of {PROFILE_TOTAL_CREDITS} today.
+                  {" "}Complete your profile and onboarding questions to earn the rest — same credits you spend in Fuel.
                 </span>
               </div>
             </article>
@@ -85,7 +70,7 @@ export function ProfileCompletionPrompt({
               <span className="profile-completion-prompt-perk-icon" aria-hidden="true">◎</span>
               <div className="profile-completion-prompt-perk-copy">
                 <strong>Sharper intelligence</strong>
-                <span>Get recommendations and portfolio insights tailored to your company and stage.</span>
+                <span>Get recommendations tailored to your company and stage.</span>
               </div>
             </article>
           </div>
@@ -95,10 +80,10 @@ export function ProfileCompletionPrompt({
               <span><em>Personalized intelligence</em> and recommendations</span>
             </li>
             <li>
-              <span><em>More relevant portfolio insights</em> across Overview and Intelligence</span>
+              <span><em>More relevant insights</em> across Overview and Intelligence</span>
             </li>
             <li>
-              <span><em>Free credits</em> to explore the platform</span>
+              <span><em>Credits</em> to spend on chat, uploads, and playbooks</span>
             </li>
           </ul>
 

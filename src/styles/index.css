@@ -2,6 +2,3 @@
 @import './tailwind.css';
 @import './theme.css';
 @import './fuel-tokens.css';
-@import './drawer-layout.css';
-@import './status-indicators.css';
-@import '../app/a11y/accessibility.css';

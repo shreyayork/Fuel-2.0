@@ -47,7 +47,7 @@ export const ACCOUNT_SETTINGS_TABS: { id: AccountSettingsTab; label: string; hid
   { id: "users", label: "Users" },
   { id: "teams", label: "Teams" },
   { id: "settings", label: "Settings" },
-  { id: "integrations", label: "Connectors" },
+  { id: "integrations", label: "Integrations" },
   { id: "usage", label: "Usage" },
   { id: "developer", label: "Developer" },
   { id: "billing", label: "Billing" },

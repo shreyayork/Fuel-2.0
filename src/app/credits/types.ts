@@ -9,7 +9,7 @@ export type CreditActionType =
 
 export type UpgradeReason = "monthlyEmpty" | "dailyBlocked" | "runningLow" | "healthy";
 
-export type PopoverState = "dailyBlocked" | "monthlyEmpty" | "runningLow" | "healthy" | "justUnblocked";
+export type PopoverState = "dailyBlocked" | "monthlyEmpty" | "runningLow" | "healthy" | "justUnblocked" | "noneEarned";
 
 export type MonthlyUsageStats = {
   signals: number;

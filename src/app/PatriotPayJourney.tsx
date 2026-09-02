@@ -14,62 +14,27 @@ import {
   useCreditsOptional,
 } from "./credits";
 import { dailyRemaining, totalRemaining } from "./credits/creditLogic";
-import {
-  BENCHMARK_REWARD_CREDITS,
-  computeCreditBalance,
-  EMPTY_EARNED_PROFILE_CREDITS,
-  getModuleReward,
-  loadEarnedProfileCredits,
-  INTELLIGENCE_SOURCES_REWARD_CREDITS,
-  markModuleEarned,
-  markModulesEarned,
-  PROFILE_MODULE_EARNABLE_TOTAL,
-  PROFILE_STARTING_CREDITS,
-  PROFILE_TOTAL_CREDITS,
-  remainingBenchmarkRewardCredits,
-  remainingIntelligenceRewardCredits,
-  sumModuleRewards,
-  tryMarkBenchmarkEarned,
-  tryMarkIntelligenceSourcesEarned,
-  type EarnedProfileCredits,
-  type ProfileCreditReward,
-  type ProfileModuleId,
-} from "./profileCredits";
+import ScorecardV2, {
+  type OverviewBuildPhase,
+  BenchmarkEditDrawer,
+} from "./ScorecardV2";
 import { ProfileCreditRewardToast } from "./ProfileCreditRewardToast";
-import {
-  ProfileCompletionPrompt,
-} from "./ProfileCompletionPrompt";
+import { ProfileCompletionPrompt } from "./ProfileCompletionPrompt";
 import {
   isFounderProfilePromptSurface,
   isProfileCompletionPromptDue,
   markProfileCompletionPromptDismissed,
   shouldGateFounderProfilePrompt,
 } from "./profileCompletionPromptStorage";
-import { UnifiedProfileDrawer } from "./UnifiedProfileDrawer";
-import { CompanyProfilePage, type ProfilePreviewTab } from "./CompanyProfilePreview";
 import {
-  BENCHMARK_PERIOD,
-  CompleteBenchmarkDrawer,
-  EMPTY_BENCHMARK_FORM,
-  type BenchmarkFormValues,
-} from "./UnifiedBenchmarkDrawer";
-import ScorecardV2, {
-  type OverviewBuildPhase,
-  BenchmarkEditDrawer,
-  dismissRecActionsTip,
-  isRecActionsTipDismissed,
-  isRecActionsTipPending,
-  markRecActionsTipPending,
-  OVERVIEW_ALL_BUILT_PHASES,
-  profileModuleToBuildPhase,
-  resetRecActionsTipForOnboarding,
-} from "./ScorecardV2";
-import { hasCompletedOnboardingTracks, mapOnboardingToDetailAnswers, ORGANIZATION_TYPES } from "./OnboardingFlow.tsx";
+  computeEarnedCredits,
+  loadEarnedProfileCredits,
+  onboardingModuleCreditReward,
+  tryMarkBenchmarkEarned,
+  type EarnedProfileCredits,
+  type ProfileCreditReward,
+} from "./profileCredits";
 import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
-import { SkipLink } from "./a11y/SkipLink";
-import { TopbarCompanySearch } from "./a11y/TopbarCompanySearch";
-import { useDialogA11y } from "./a11y/useDialogA11y";
-import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 import { AccountSettings } from "./account/AccountSettings.tsx";
 import {
@@ -83,7 +48,6 @@ import {
   type YorkServiceOffer,
 } from "./yorkIeUpsell";
 import { isYorkOfferDismissed } from "./yorkDismiss";
-import { saveActivePage } from "./workspaceSession";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import InvestorDashboard, { type InvestorDashboardSection } from "./investor/InvestorDashboard.tsx";
 import {
@@ -92,9 +56,6 @@ import {
   investorCompanyToSelected,
 } from "./investor/investorData.ts";
 import type { InvestorCompanyRef } from "./investor/investorData.ts";
-import { getCompanyLogoColors } from "./companyLogoColors";
-import { FuelIcon, type FuelIconName } from "./icons";
-import { applyFuelTheme, readFuelTheme, type FuelTheme } from "./fuelTheme";
 import {
   buildYearOptions,
   filterIntelligenceByDate,
@@ -105,15 +66,8 @@ import {
   type IntelligenceCustomRange,
   type IntelligenceDatePreset,
 } from "./intelligenceFilters";
-import {
-  countSectionAnswers,
-  DETAIL_QUESTION_LABEL,
-  DETAIL_SECTIONS,
-  getVisibleQuestions,
-  hasProfileBasicsStarted,
-  type DetailAnswers,
-} from "./trackQuestions.ts";
-import { loadDetailAnswers } from "./profileDetailsStorage.ts";
+import { DETAIL_QUESTION_LABEL, completedOnboardingModules, type DetailSectionId } from "./trackQuestions.ts";
+import { getCompanyLogoColors } from "./companyLogoColors";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -121,8 +75,8 @@ const tracks = [
   {
     id: "rd",
     icon: "⚙",
-    iconBg: "rgba(18, 184, 134, 0.12)",
-    iconColor: "var(--btn-primary-bg)",
+    iconBg: "rgba(63,224,164,0.12)",
+    iconColor: "#3DD68C",
     name: "Development",
     sub: "R&D · Engineering, AI, UX, QA, DevOps",
     health: "green",
@@ -145,10 +99,10 @@ const tracks = [
       { pct: 82, label: "QA regression suite · 4 envs", done: true },
     ],
     chips: [
-      { label: "MVP build", color: "var(--btn-primary-bg)" },
-      { label: "AI Agent", color: "var(--btn-primary-bg)" },
-      { label: "Postgres migration", color: "var(--btn-primary-bg)" },
-      { label: "QA suite live", color: "var(--btn-primary-bg)" },
+      { label: "MVP build", color: "#3DD68C" },
+      { label: "AI Agent", color: "#3DD68C" },
+      { label: "Postgres migration", color: "#3DD68C" },
+      { label: "QA suite live", color: "#3DD68C" },
       { label: "Operator Thread — in progress", color: "#D4924A" },
     ],
   },
@@ -174,9 +128,9 @@ const tracks = [
       { pct: 52, label: "First 12 customers signed", done: true },
     ],
     chips: [
-      { label: "Website live", color: "var(--btn-primary-bg)" },
-      { label: "Outreach sequences", color: "var(--btn-primary-bg)" },
-      { label: "12 customers", color: "var(--btn-primary-bg)" },
+      { label: "Website live", color: "#3DD68C" },
+      { label: "Outreach sequences", color: "#3DD68C" },
+      { label: "12 customers", color: "#3DD68C" },
       { label: "No repeatable GTM motion", color: "#D4924A" },
       { label: "SEO not started", color: "#E56B6B" },
     ],
@@ -201,8 +155,8 @@ const tracks = [
       { pct: 38, label: "CAC tracking — partial", done: false },
     ],
     chips: [
-      { label: "HubSpot live", color: "var(--btn-primary-bg)" },
-      { label: "Pipeline built", color: "var(--btn-primary-bg)" },
+      { label: "HubSpot live", color: "#3DD68C" },
+      { label: "Pipeline built", color: "#3DD68C" },
       { label: "CAC tracking partial", color: "#D4924A" },
       { label: "Attribution not set up", color: "#E56B6B" },
     ],
@@ -470,7 +424,7 @@ const integrationOptions = [
     productType: "York IE product",
     tag: "Design approvals",
     icon: "✦",
-    color: "var(--btn-primary-bg)",
+    color: "#3DD68C",
     price: 149,
     description: "Create and approve product screens, then bring decision-ready design context into Fuel.",
     bullets: ["Approval workflow", "Preview links", "Client-ready handoff"],
@@ -482,7 +436,7 @@ const integrationOptions = [
     productType: "York IE product",
     tag: "Code quality",
     icon: "◆",
-    color: "#00B48A",
+    color: "#2BB8A0",
     price: 199,
     description: "Turn engineering activity into simple quality, stability, and release-readiness signals.",
     bullets: ["Quality summaries", "Stability signals", "Release confidence"],
@@ -574,7 +528,7 @@ const marketingIntegrationOptions = [
     productType: "Organic search",
     tag: "Google search visibility",
     icon: "SC",
-    color: "var(--btn-primary-bg)",
+    color: "#3DD68C",
     price: 69,
     description: "Pull organic clicks, impressions, CTR, ranking movement, and query opportunities from Google Search Console.",
     bullets: ["Clicks", "Queries", "CTR"],
@@ -587,7 +541,7 @@ const gtmDashboardAccessOption = {
   productType: "York IE service",
   tag: "Managed marketing reporting",
   icon: "Y",
-  color: "var(--btn-primary-bg)",
+  color: "#3DD68C",
   price: 0,
   description: "Request access to the York IE-managed GTM dashboard that already combines traffic, paid media, SEO, and social signals.",
   bullets: ["Managed setup", "Dashboard access", "York IE support"],
@@ -624,7 +578,7 @@ const journeyIntegrationGroups = [
     id: "finops",
     label: "FinOps",
     options: [
-      { id: "quickbooks", name: "QuickBooks", productType: "Finance", tag: "Accounting", icon: "QB", color: "var(--btn-primary-bg)", price: 89, description: "Connect accounting data for financial visibility and operating cadence.", bullets: ["Accounting", "P&L", "Cash"] },
+      { id: "quickbooks", name: "QuickBooks", productType: "Finance", tag: "Accounting", icon: "QB", color: "#3DD68C", price: 89, description: "Connect accounting data for financial visibility and operating cadence.", bullets: ["Accounting", "P&L", "Cash"] },
       { id: "stripe", name: "Stripe", productType: "Payments", tag: "Revenue", icon: "$", color: "#8B76D4", price: 79, description: "Bring payment, subscription, and revenue movement into your operating view.", bullets: ["Payments", "MRR", "Revenue"] },
     ],
   },
@@ -1309,7 +1263,7 @@ function ManualDevelopmentWizard({ data, onClose, onSave }) {
             <span>Manual tracking</span>
             <strong>Edit development plan</strong>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close manual tracking dialog">×</button>
+          <button onClick={onClose}>×</button>
         </div>
         <div className="manual-wizard-steps">
           {steps.map((label, index) => (
@@ -1515,106 +1469,6 @@ function DevelopmentDetailPage({ onBack }) {
   const [releaseNoteClosing, setReleaseNoteClosing] = useState(false);
   const [mvpTargetDate, setMvpTargetDate] = useState("2025-07-20");
   const [targetReleaseDate, setTargetReleaseDate] = useState("2025-08-05");
-  /*
-   * Assumption: "Launch Queue message" maps to Development Overview launch-queue
-   * messaging — what is waiting to ship, why it is blocked, and the next action.
-   * Preview mock only; live Jira/Pulse sync belongs in backend lock.
-   */
-  type LaunchQueueStatus = "ready" | "blocked" | "waiting";
-  type LaunchQueueItem = {
-    id: string;
-    roadmapKey: string;
-    source: string;
-    date: string;
-    title: string;
-    status: LaunchQueueStatus;
-    message: string;
-    nextAction: string;
-    owner: string;
-  };
-  const launchQueueItems: LaunchQueueItem[] = [
-    {
-      id: "lq-operator-thread",
-      roadmapKey: "PP-128",
-      source: "Release",
-      date: "Nov 8",
-      title: "Operator Thread staging note ready for review",
-      status: "ready",
-      message:
-        "Staging release note is drafted for Patriot Pay Operator Thread. Critical paths are green; share the note with York before the rollout window.",
-      nextAction: "Open the release note and confirm client-facing wording",
-      owner: "Pierre H.",
-    },
-    {
-      id: "lq-billing-agent",
-      roadmapKey: "PP-141",
-      source: "Pulse",
-      date: "Nov 8",
-      title: "Billing Agent QA blocked on flaky recovery paths",
-      status: "blocked",
-      message:
-        "Regression is passing on patient billing happy paths, but two flaky recovery tests are still open. Do not promote until those are isolated or waived.",
-      nextAction: "Review stability watch items in Execution Health",
-      owner: "QA · Pulse",
-    },
-    {
-      id: "lq-mobile-intake",
-      roadmapKey: "PP-149",
-      source: "Team",
-      date: "Nov 5",
-      title: "Mobile Intake waiting on sprint capacity",
-      status: "waiting",
-      message:
-        "Launchpad design is approved. Implementation is intentionally queued behind active regression so Operator Thread can clear staging first.",
-      nextAction: "Keep queued until PP-128 clears QA sign-off",
-      owner: "Eng capacity",
-    },
-    {
-      id: "lq-design-polish",
-      roadmapKey: "PP-128",
-      source: "Launchpad",
-      date: "Nov 8",
-      title: "Operator Thread copy polish before client share",
-      status: "ready",
-      message:
-        "Core workflow is approved. Only small label and empty-state copy remain before the design package is client-ready.",
-      nextAction: "Open Design Studio and finish remaining copy notes",
-      owner: "Design",
-    },
-    {
-      id: "lq-analytics-future",
-      roadmapKey: "PP-160",
-      source: "Jira",
-      date: "Nov 4",
-      title: "Analytics dashboard held in future planning",
-      status: "waiting",
-      message:
-        "No sprint is assigned. Keep this out of the launch queue until requirements and owners are locked.",
-      nextAction: "Park until post-MVP roadmap review",
-      owner: "Product",
-    },
-  ];
-  const [launchQueueFilter, setLaunchQueueFilter] = useState<"all" | LaunchQueueStatus>("all");
-  const [selectedLaunchQueueId, setSelectedLaunchQueueId] = useState(launchQueueItems[0].id);
-  const [acknowledgedLaunchIds, setAcknowledgedLaunchIds] = useState<string[]>([]);
-  const filteredLaunchQueue = launchQueueItems.filter(
-    (item) => launchQueueFilter === "all" || item.status === launchQueueFilter,
-  );
-  const selectedLaunchQueue =
-    filteredLaunchQueue.find((item) => item.id === selectedLaunchQueueId) ||
-    filteredLaunchQueue[0] ||
-    null;
-  const launchQueueCounts = {
-    all: launchQueueItems.length,
-    ready: launchQueueItems.filter((item) => item.status === "ready").length,
-    blocked: launchQueueItems.filter((item) => item.status === "blocked").length,
-    waiting: launchQueueItems.filter((item) => item.status === "waiting").length,
-  };
-  const launchQueueStatusLabel: Record<LaunchQueueStatus, string> = {
-    ready: "Ready to share",
-    blocked: "Blocked",
-    waiting: "Waiting",
-  };
   const activeRoadmap = developmentDetail.roadmap.find((item) => item.key === activeRoadmapKey) || developmentDetail.roadmap[0];
   const activeSignal = roadmapSignals[activeRoadmap.key] || roadmapSignals[developmentDetail.roadmap[0].key];
   const activeDesigns = activeSignal.designs || [];
@@ -1725,6 +1579,13 @@ function DevelopmentDetailPage({ onBack }) {
       text: "The AI Leverage score captures how effectively the team is using AI to summarize QA notes, reuse prompts, generate release-ready updates, and turn execution context into useful operating signals.",
     },
   ];
+  const overviewUpdates = [
+    { source: "Launchpad", title: "Operator Thread workflow approved", date: "Nov 8", detail: "Client approved the core workflow; only small copy polish remains." },
+    { source: "Pulse", title: "Quality remains healthy", date: "Nov 8", detail: "Review confidence is strong, with stability as the main watch area." },
+    { source: "Jira", title: "Billing Agent QA moved to regression", date: "Nov 7", detail: "Critical paths are passing while two non-critical flaky tests are isolated." },
+    { source: "Release", title: "Operator Thread staging note drafted", date: "Nov 6", detail: "Release note is ready for internal review before your rollout." },
+    { source: "Team", title: "Mobile Intake remains queued", date: "Nov 5", detail: "Design is approved, but implementation waits for sprint capacity." },
+  ];
   const valueStages = ["Foundation", "Acceleration", "Scale", "Optimization"];
   const releaseHighlights = [
     "Release timeline is aligned with the client and reviewed weekly.",
@@ -1767,7 +1628,7 @@ function DevelopmentDetailPage({ onBack }) {
           <div>
             <div className="detail-eyebrow">Development · York Services</div>
             <div className="detail-title">Latest Development Updates</div>
-            <div className="detail-subtitle">Launch queue, roadmap, Pulse quality, and Launchpad design approval for Patriot Pay.</div>
+            <div className="detail-subtitle">Roadmap, Pulse quality signals, and Launchpad design approval for patriotpay.</div>
           </div>
           <div className="detail-title-actions">
             <ResourceAllocation track={developmentTrack} />
@@ -1835,139 +1696,21 @@ function DevelopmentDetailPage({ onBack }) {
                 <p>Market study should focus on patient billing automation and practice workflow ROI.</p>
               </div>
             </div>
-            <div className="launch-queue" aria-label="Launch queue">
-              <div className="panel-heading launch-queue-heading">
-                <span>Launch queue</span>
-                <strong>{launchQueueCounts.ready} ready · {launchQueueCounts.blocked} blocked</strong>
+            <div className="overview-timeline">
+              <div className="panel-heading">
+                <span>Latest Updates</span>
+                <strong>Top 5</strong>
               </div>
-              <p className="launch-queue-lede">
-                Messages for what is waiting to ship on Patriot Pay — status, blocker, and the next owner action.
-              </p>
-              <div className="launch-queue-filters" role="tablist" aria-label="Launch queue status">
-                {(
-                  [
-                    { id: "all" as const, label: "All" },
-                    { id: "ready" as const, label: "Ready" },
-                    { id: "blocked" as const, label: "Blocked" },
-                    { id: "waiting" as const, label: "Waiting" },
-                  ]
-                ).map((filter) => (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={launchQueueFilter === filter.id}
-                    className={`launch-queue-filter ${launchQueueFilter === filter.id ? "selected" : ""}`}
-                    onClick={() => {
-                      setLaunchQueueFilter(filter.id);
-                      const next = launchQueueItems.find(
-                        (item) => filter.id === "all" || item.status === filter.id,
-                      );
-                      if (next) setSelectedLaunchQueueId(next.id);
-                    }}
-                  >
-                    <span>{filter.label}</span>
-                    <strong>{launchQueueCounts[filter.id]}</strong>
-                  </button>
-                ))}
-              </div>
-              <div className={`launch-queue-layout ${selectedLaunchQueue ? "with-detail" : ""}`}>
-                <ul className="launch-queue-list" role="listbox" aria-label="Queued launch messages">
-                  {filteredLaunchQueue.length === 0 ? (
-                    <li className="launch-queue-empty">
-                      No launch messages in this view. Switch filter or clear blockers on active roadmap items.
-                    </li>
-                  ) : (
-                    filteredLaunchQueue.map((item) => {
-                      const isSelected = selectedLaunchQueue?.id === item.id;
-                      const isAcked = acknowledgedLaunchIds.includes(item.id);
-                      return (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={isSelected}
-                            className={`launch-queue-item status-${item.status} ${isSelected ? "active" : ""} ${isAcked ? "acked" : ""}`}
-                            onClick={() => {
-                              setSelectedLaunchQueueId(item.id);
-                              setActiveRoadmapKey(item.roadmapKey);
-                            }}
-                          >
-                            <div className="launch-queue-item-top">
-                              <span className={`launch-queue-status status-${item.status}`}>
-                                {launchQueueStatusLabel[item.status]}
-                              </span>
-                              <span className="launch-queue-meta">
-                                {item.source} · {item.date}
-                                {isAcked ? " · Seen" : ""}
-                              </span>
-                            </div>
-                            <strong>{item.title}</strong>
-                            <p>{item.message}</p>
-                          </button>
-                        </li>
-                      );
-                    })
-                  )}
-                </ul>
-                {selectedLaunchQueue ? (
-                  <aside className="launch-queue-detail" aria-live="polite">
-                    <span>
-                      {selectedLaunchQueue.roadmapKey} · {selectedLaunchQueue.source} · {selectedLaunchQueue.date}
-                    </span>
-                    <h3>{selectedLaunchQueue.title}</h3>
-                    <p className="launch-queue-detail-message">{selectedLaunchQueue.message}</p>
-                    <div className="launch-queue-next">
-                      <span>Next action</span>
-                      <strong>{selectedLaunchQueue.nextAction}</strong>
-                      <p>Owner: {selectedLaunchQueue.owner}</p>
-                    </div>
-                    <div className="launch-queue-detail-actions">
-                      <button
-                        type="button"
-                        className="launch-queue-primary"
-                        onClick={() => {
-                          setActiveRoadmapKey(selectedLaunchQueue.roadmapKey);
-                          if (selectedLaunchQueue.status === "blocked") {
-                            setActiveDevTab("quality");
-                          } else if (selectedLaunchQueue.id === "lq-design-polish") {
-                            setActiveDevTab("design");
-                          } else if (selectedLaunchQueue.status === "ready") {
-                            setActiveDevTab("roadmap");
-                            setOpenReleaseNoteKey(selectedLaunchQueue.roadmapKey);
-                          } else {
-                            setActiveDevTab("roadmap");
-                          }
-                        }}
-                      >
-                        {selectedLaunchQueue.status === "blocked"
-                          ? "Open Execution Health"
-                          : selectedLaunchQueue.id === "lq-design-polish"
-                            ? "Open Design Studio"
-                            : selectedLaunchQueue.status === "ready"
-                              ? "View release note"
-                              : "Open Roadmap"}
-                      </button>
-                      <button
-                        type="button"
-                        className="launch-queue-secondary"
-                        disabled={acknowledgedLaunchIds.includes(selectedLaunchQueue.id)}
-                        onClick={() => {
-                          setAcknowledgedLaunchIds((prev) =>
-                            prev.includes(selectedLaunchQueue.id)
-                              ? prev
-                              : [...prev, selectedLaunchQueue.id],
-                          );
-                        }}
-                      >
-                        {acknowledgedLaunchIds.includes(selectedLaunchQueue.id)
-                          ? "Marked as seen"
-                          : "Mark as seen"}
-                      </button>
-                    </div>
-                  </aside>
-                ) : null}
-              </div>
+              {overviewUpdates.map((update) => (
+                <div className="overview-update" key={`${update.source}-${update.title}`} style={{ paddingLeft: "12px", paddingRight: "12px" }}>
+                  <div className="overview-dot"></div>
+                  <div>
+                    <span>{update.source} · {update.date}</span>
+                    <strong>{update.title}</strong>
+                    <p>{update.detail}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         ) : null}
@@ -2148,7 +1891,7 @@ function DevelopmentDetailPage({ onBack }) {
             </div>
             {openReleaseSignal?.releaseNote ? (
               <aside className={`release-note-panel ${releaseNoteOrigin} ${releaseNoteClosing ? "closing" : ""}`}>
-                <button type="button" className="release-note-close" onClick={closeReleaseNote} aria-label="Close release note">×</button>
+                <button className="release-note-close" onClick={closeReleaseNote}>×</button>
                 <span>{openReleaseRoadmap?.key} · {openReleaseSignal.releaseNote.date}</span>
                 <h3>{openReleaseSignal.releaseNote.title}</h3>
                 <p>{openReleaseSignal.releaseNote.body}</p>
@@ -2242,7 +1985,7 @@ function DevelopmentDetailPage({ onBack }) {
             </div>
             {openDesignNote && activeDesign ? (
               <aside className="design-note-panel">
-                <button type="button" className="release-note-close" onClick={() => setOpenDesignNote(false)} aria-label="Close design note">×</button>
+                <button className="release-note-close" onClick={() => setOpenDesignNote(false)}>×</button>
                 <span>{activeRoadmap.key} · {activeDesign.updated}</span>
                 <h3>{activeDesign.title}</h3>
                 <p>{activeDesign.note}</p>
@@ -2349,7 +2092,7 @@ function DevelopmentDetailPage({ onBack }) {
             </div>
             {openQualityWeek ? (
               <aside className="quality-summary-panel">
-                <button type="button" className="release-note-close" onClick={() => setOpenQualityWeek(null)} aria-label="Close quality week note">×</button>
+                <button className="release-note-close" onClick={() => setOpenQualityWeek(null)}>×</button>
                 <span>{activeRoadmap.key} · {selectedQualityWeek.week}</span>
                 <h3>Weekly quality summary</h3>
                 <p>{selectedQualityWeek.summary}</p>
@@ -2995,7 +2738,7 @@ function inferMainCategoryFromSource(
 
 const SOURCE_CATEGORY_COPY: Record<string, { text: string; label: string }> = {
   fundraising: { text: "Fundraising signal", label: "Fundraising" },
-  gtm: { text: "GTM signal", label: "Go to market" },
+  gtm: { text: "GTM signal", label: "Go-to-market" },
   product: { text: "Product signal", label: "Product" },
   finance: { text: "Finance signal", label: "Finance / G&A" },
   strategic: { text: "Strategic signal", label: "Strategy" },
@@ -3443,6 +3186,26 @@ type IntelligenceFocus = {
   label: string;
 };
 
+type BenchmarkFormValues = {
+  headcount: string;
+  paidCustomers: string;
+  arr: string;
+  arrGrowth: string;
+  nrr: string;
+  logoRetention: string;
+  grossMargin: string;
+  cacPayback: string;
+  burnMultiple: string;
+  ruleOf40: string;
+  cashOnHand: string;
+  monthlyBurn: string;
+  openToIntros: boolean;
+  notableCustomers: string;
+  notableHires: string;
+  otherUpdates: string;
+  biggestChallenges: string;
+};
+
 type BenchmarkSubmission = {
   period: string;
   submittedAt: string;
@@ -3452,6 +3215,8 @@ type BenchmarkSubmission = {
   intelligenceIds: string[];
   formValues: BenchmarkFormValues;
 };
+
+const BENCHMARK_PERIOD = "2026-Q2";
 
 function formatBenchmarkPeriodLabel(period: string): string {
   const match = period.trim().match(/^(\d{4})-Q([1-4])$/i);
@@ -3472,6 +3237,26 @@ const WIZARD_DEFAULT_BENCHMARK: BenchmarkFormValues = {
   ruleOf40: "20",
   cashOnHand: "200",
   monthlyBurn: "200",
+  openToIntros: false,
+  notableCustomers: "",
+  notableHires: "",
+  otherUpdates: "",
+  biggestChallenges: "",
+};
+
+const EMPTY_BENCHMARK_FORM: BenchmarkFormValues = {
+  headcount: "",
+  paidCustomers: "",
+  arr: "",
+  arrGrowth: "",
+  nrr: "",
+  logoRetention: "",
+  grossMargin: "",
+  cacPayback: "",
+  burnMultiple: "",
+  ruleOf40: "",
+  cashOnHand: "",
+  monthlyBurn: "",
   openToIntros: false,
   notableCustomers: "",
   notableHires: "",
@@ -3553,6 +3338,10 @@ function parseBenchmarkMetricValue(raw: string): number | null {
 
 function hasFilledBenchmarkMetric(form: BenchmarkFormValues): boolean {
   return BENCHMARK_METRIC_FORM_KEYS.some(key => parseBenchmarkMetricValue(String(form[key] ?? "")) != null);
+}
+
+function isBenchmarkFormComplete(form: BenchmarkFormValues): boolean {
+  return BENCHMARK_METRIC_FORM_KEYS.every(key => parseBenchmarkMetricValue(String(form[key] ?? "")) != null);
 }
 
 function mergeBenchmarkFormValues(
@@ -3749,6 +3538,21 @@ const BENCHMARK_COHORT_ROWS = [
   { key: "headcount", metric: "FTE headcount", bot25: "6", median: "12", top25: "22" },
 ] as const;
 
+const BENCHMARK_FIELD_COHORT: Record<string, { bot25: string; median: string; top25: string; top10: string }> = {
+  headcount: { bot25: "6", median: "11", top25: "22", top10: "45" },
+  paidCustomers: { bot25: "10", median: "48", top25: "150", top10: "500" },
+  arr: { bot25: "$250K", median: "$500K", top25: "$1.2M", top10: "$2.5M" },
+  arrGrowth: { bot25: "120%", median: "180%", top25: "350%", top10: "450%" },
+  nrr: { bot25: "95%", median: "105%", top25: "125%", top10: "145%" },
+  logoRetention: { bot25: "75%", median: "85%", top25: "93%", top10: "97%" },
+  grossMargin: { bot25: "55%", median: "72%", top25: "82%", top10: "88%" },
+  cacPayback: { bot25: "30.0m", median: "16.0m", top25: "10.0m", top10: "6.0m" },
+  burnMultiple: { bot25: "3.50x", median: "2.10x", top25: "1.40x", top10: "0.50x" },
+  ruleOf40: { bot25: "—", median: "—", top25: "—", top10: "—" },
+  cashOnHand: { bot25: "$500K", median: "$1.3M", top25: "$3.0M", top10: "$6.0M" },
+  monthlyBurn: { bot25: "$50K", median: "$100K", top25: "$200K", top10: "$350K" },
+};
+
 function formatRelativeAge(timestampMs: number) {
   const minutes = Math.max(0, Math.floor((Date.now() - timestampMs) / 60000));
   if (minutes < 1) return "Just now";
@@ -3858,6 +3662,137 @@ function createBenchmarkIntelligence(values: BenchmarkFormValues, period = BENCH
   };
 
   return { items, submission };
+}
+
+function BenchmarkMetricField({
+  label,
+  cohortKey,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  cohortKey: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const cohort = BENCHMARK_FIELD_COHORT[cohortKey];
+    return (
+    <label className="log-private-metric">
+      <span>{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+      {cohort ? (
+        <div className="log-private-metric-cohort">
+          <div className="signals-bar"><b /><i /></div>
+          <div className="signals-benchmark-scale">
+            <span>Bot 25% ({cohort.bot25})</span>
+            <span>Median ({cohort.median})</span>
+            <span>Top 25% ({cohort.top25})</span>
+            <span>Top 10% ({cohort.top10})</span>
+          </div>
+        </div>
+      ) : (
+        <em className="log-private-no-cohort">no cohort data</em>
+      )}
+    </label>
+  );
+}
+
+function LogPrivateDataPage({
+  onBack,
+  onSubmit,
+  initialValues = EMPTY_BENCHMARK_FORM,
+}: {
+  onBack: () => void;
+  onSubmit: (values: BenchmarkFormValues) => void;
+  initialValues?: BenchmarkFormValues;
+}) {
+  const [values, setValues] = useState(initialValues);
+  const update = (key: keyof BenchmarkFormValues, next: string | boolean) => {
+    setValues(previous => ({ ...previous, [key]: next }));
+  };
+
+  return (
+    <section className="log-private-data-page">
+      <button type="button" className="profile-wizard-back" onClick={onBack}>← Back</button>
+      <div className="log-private-data-head">
+          <div>
+          <span>Private benchmark</span>
+          <h2>Log private data · 2026-Q2</h2>
+        </div>
+            <label className="signals-cohort-select">
+          cohort
+          <select defaultValue="b2b_saas:seed:us">
+            <option value="b2b_saas:seed:us">b2b_saas · seed · us</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="log-private-sections">
+        <section className="log-private-section">
+          <h3>Scale</h3>
+          <div className="log-private-grid">
+            <BenchmarkMetricField label="Headcount (FTE)" cohortKey="headcount" value={values.headcount} onChange={(v) => update("headcount", v)} placeholder="100" />
+            <BenchmarkMetricField label="Paid customers" cohortKey="paidCustomers" value={values.paidCustomers} onChange={(v) => update("paidCustomers", v)} placeholder="9990" />
+            <BenchmarkMetricField label="ARR USD" cohortKey="arr" value={values.arr} onChange={(v) => update("arr", v)} placeholder="1200" />
+          </div>
+        </section>
+
+        <section className="log-private-section">
+          <h3>Growth</h3>
+          <BenchmarkMetricField label="ARR growth YoY %" cohortKey="arrGrowth" value={values.arrGrowth} onChange={(v) => update("arrGrowth", v)} placeholder="10" />
+        </section>
+
+        <section className="log-private-section">
+          <h3>Retention</h3>
+          <div className="log-private-grid two">
+            <BenchmarkMetricField label="Net revenue retention %" cohortKey="nrr" value={values.nrr} onChange={(v) => update("nrr", v)} placeholder="10" />
+            <BenchmarkMetricField label="Logo retention %" cohortKey="logoRetention" value={values.logoRetention} onChange={(v) => update("logoRetention", v)} placeholder="10" />
+          </div>
+        </section>
+
+        <section className="log-private-section">
+          <h3>Efficiency</h3>
+          <div className="log-private-grid two">
+            <BenchmarkMetricField label="Gross margin %" cohortKey="grossMargin" value={values.grossMargin} onChange={(v) => update("grossMargin", v)} placeholder="100" />
+            <BenchmarkMetricField label="CAC payback months" cohortKey="cacPayback" value={values.cacPayback} onChange={(v) => update("cacPayback", v)} placeholder="100" />
+            <BenchmarkMetricField label="Burn multiple" cohortKey="burnMultiple" value={values.burnMultiple} onChange={(v) => update("burnMultiple", v)} placeholder="200" />
+            <BenchmarkMetricField label="Rule of 40 %" cohortKey="ruleOf40" value={values.ruleOf40} onChange={(v) => update("ruleOf40", v)} placeholder="20" />
+          </div>
+        </section>
+
+        <section className="log-private-section">
+          <h3>Capital</h3>
+          <div className="log-private-grid two">
+            <BenchmarkMetricField label="Cash on hand USD" cohortKey="cashOnHand" value={values.cashOnHand} onChange={(v) => update("cashOnHand", v)} placeholder="200" />
+            <BenchmarkMetricField label="Monthly burn USD" cohortKey="monthlyBurn" value={values.monthlyBurn} onChange={(v) => update("monthlyBurn", v)} placeholder="200" />
+          </div>
+        </section>
+
+        <section className="log-private-section">
+          <h3>Narrative</h3>
+          <div className="log-private-narrative">
+            <label><span>Notable customer wins</span><textarea value={values.notableCustomers} onChange={(e) => update("notableCustomers", e.target.value)} rows={2} /></label>
+            <label><span>Notable hires</span><textarea value={values.notableHires} onChange={(e) => update("notableHires", e.target.value)} rows={2} /></label>
+            <label><span>Other updates worth surfacing</span><textarea value={values.otherUpdates} onChange={(e) => update("otherUpdates", e.target.value)} rows={2} /></label>
+            <label><span>Biggest challenges</span><textarea value={values.biggestChallenges} onChange={(e) => update("biggestChallenges", e.target.value)} rows={2} /></label>
+          </div>
+        </section>
+      </div>
+
+      <div className="log-private-footer">
+        <label className="log-private-intros">
+          <input type="checkbox" checked={values.openToIntros} onChange={(e) => update("openToIntros", e.target.checked)} />
+          Open to investor intros this quarter
+        </label>
+        <div className="log-private-footer-actions">
+          <button type="button" className="wizard-link">Save draft</button>
+          <button type="button" className="wizard-primary" onClick={() => onSubmit(values)}>Submit for 2026-Q2</button>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function formatBenchmarkSummaryValue(key: string, raw: string) {
@@ -5020,11 +4955,9 @@ function SourcesDrawer({
   onDismissPendingSource?: (id: string) => void;
   onFocusIntelligence?: (focus: IntelligenceFocus) => void;
 }) {
-  const handleScrimPointerDown = useScrimPointerClose(onClose);
-
   return (
-    <div className="bench-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
-      <aside className="bench-drawer" {...drawerPanelPointerProps()} role="dialog" aria-label="Sources">
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside className="bench-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Sources">
         <header className="bench-drawer-head">
           <div>
             <h2 className="bench-drawer-title">Sources</h2>
@@ -5102,11 +5035,10 @@ function LogIntelligenceDrawer({
   onClose: () => void;
 }) {
   const submitRef = useRef<(() => void) | null>(null);
-  const handleScrimPointerDown = useScrimPointerClose(onClose);
 
   return (
-    <div className="bench-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
-      <aside className="bench-drawer" {...drawerPanelPointerProps()} role="dialog" aria-label="Log intelligence">
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside className="bench-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Log intelligence">
         <header className="bench-drawer-head">
           <div>
             <h2 className="bench-drawer-title">Log intelligence</h2>
@@ -5268,7 +5200,10 @@ function SignalsPage({
     || activeTimelineFilter !== "All"
     || datePreset !== "current-quarter",
   );
-  const showIntelligenceTimeline = true;
+  const showIntelligenceTimeline = isProfileComplete
+    || intelligenceFocusActive
+    || Boolean(benchmarkSubmission)
+    || intelligenceItems.some(item => !item.id.startsWith("intel-bench-"));
   const selectedIntelligence = intelligenceItems.find(item => item.id === selectedIntelligenceId) || null;
 
   // All items with the same category + signal as the selected item, sorted latest→oldest
@@ -5698,34 +5633,13 @@ function SignalsPage({
         <div>
           <h2>Intelligence</h2>
           <p>
-            You can add intelligence manually now. Complete your profile to earn more credits and give Fuel better company context.
+            Log private benchmark data to overlay Patriot Pay on a peer cohort — private to your account, stamped by quarter.
           </p>
         </div>
         <div className="signals-page-head-actions">
-          {activeTourTarget === "add-source" || activeTourTarget === "log-intelligence" ? (
-            <>
-              <button
-                type="button"
-                className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
-                data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
-                onClick={() => setSourceFormOpen(true)}
-              >
-                Add source
-              </button>
-              <button
-                type="button"
-                className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
-                data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
-                onClick={() => setShowLogForm(true)}
-              >
-                Log intelligence
-              </button>
-            </>
-          ) : (
-            <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
-              Complete profile
-            </button>
-          )}
+          <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
+            Log benchmark data
+          </button>
         </div>
       </div>
 
@@ -5734,13 +5648,13 @@ function SignalsPage({
       <article className="overview-panel signals-gate-panel">
         <div className="overview-panel-head">
           <div>
-            <span>Better results with a full profile</span>
-            <strong>This page is open. Completing your profile adds context and credits so Fuel can run stronger intelligence.</strong>
+            <span>Private data</span>
+            <strong>See how you stack up against peers</strong>
           </div>
         </div>
         <p>
-          Choose a cohort, then log ARR, retention, burn, and headcount. Fuel places your numbers on the distribution
-          and builds intelligence from what you submit. A fuller profile improves those insights and expands your credits.
+          Pick a cohort, then log ARR, retention, burn, and headcount. Fuel places your numbers on the distribution
+          and generates intelligence from what you submit — visible only to you.
         </p>
         <div className="signals-gate-controls">
           <SignalsCohortSelect value={cohortValue} onChange={setCohortValue} id="signals-cohort-gate" />
@@ -5786,103 +5700,254 @@ function SignalsPage({
   );
 }
 
-type ProfileDrawerSection = ProfileModuleId | "bench";
+function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void; onSubmitBenchmark: () => void }) {
+  const [stage, setStage] = useState("profile");
+  const [benchmarkStep, setBenchmarkStep] = useState(0);
+  const benchmarkSteps = [
+    {
+      title: "Revenue + retention",
+      subtitle: "The headline number every benchmark band keys off. ARR in USD, growth + retention in %.",
+      fields: ["ARR (annualized)", "ARR growth, YoY", "Net revenue retention", "Logo retention (annual)"],
+    },
+    {
+      title: "Capital efficiency",
+      subtitle: "Burn, runway, margin, and unit economics — how efficiently capital converts.",
+      fields: ["Monthly burn (net)", "Cash on hand", "Gross margin", "CAC payback", "Burn multiple", "Rule of 40"],
+    },
+    {
+      title: "Team + customers",
+      subtitle: "Size of the org and your paying-customer count.",
+      fields: ["Headcount (FTEs)", "Paying customers"],
+    },
+    {
+      title: "Anything worth flagging?",
+      subtitle: "Optional context that helps Fuel interpret the numbers.",
+      fields: ["Notable customers", "Current challenges"],
+      textarea: true,
+    },
+  ];
+  const currentBenchmark = benchmarkSteps[benchmarkStep];
+  const businessModels = ["SaaS / Software product", "Services / Consultancy", "Investment firm", "Operating + investment firm", "Other"];
 
-/** Right-rail complete-profile popup — 30% viewport width, full height. Task surface: no illustration. */
-function CompleteProfileDrawer({
-  open,
-  companyName,
-  companyKey,
-  initialSection = "company",
-  initialAnswers,
-  onClose,
-  onComplete,
-  onModuleEarned,
-  onModuleSaved,
-  onModuleProgress,
-  onModuleCreditReward,
-  onAnswersChange,
-  earnedProfileCredits,
-  reloadLandingActive = false,
-  drawerResetKey = 0,
-  onSaved,
-}: {
-  open: boolean;
-  companyName: string;
-  companyKey?: string;
-  initialSection?: ProfileDrawerSection;
-  initialAnswers?: DetailAnswers;
-  onClose: () => void;
-  onComplete: (completedModules: ProfileModuleId[]) => void;
-  onModuleEarned?: (earned: EarnedProfileCredits) => void;
-  onModuleSaved?: (module: ProfileModuleId, answers: DetailAnswers) => void;
-  onModuleProgress?: (module: ProfileModuleId, answers: DetailAnswers) => void;
-  onModuleCreditReward?: (reward: import("./profileCredits").ProfileCreditReward) => void;
-  onAnswersChange?: () => void;
-  earnedProfileCredits?: EarnedProfileCredits;
-  reloadLandingActive?: boolean;
-  drawerResetKey?: number;
-  onSaved?: () => void;
-}) {
-  const dialogRef = useRef<HTMLElement>(null);
-  const requestCloseRef = useRef<() => void>(() => {});
-  useDialogA11y(open, dialogRef, () => requestCloseRef.current());
-  const handleScrimPointerDown = useScrimPointerClose(() => requestCloseRef.current(), open);
+  if (stage === "profile") {
+    return (
+      <section className="finish-profile-shell">
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Intelligence</button>
+        <div className="finish-profile-card">
+          <span>Profile ready</span>
+          <h2>You're from Patriot Pay.</h2>
+          <p>Confirm your profile so Fuel can match you to the right peer cohort and generate relevant intelligence from day one.</p>
 
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  if (!open) return null;
-
-  return createPortal(
-    <div
-      className="profile-complete-drawer-scrim"
-      onPointerDown={handleScrimPointerDown}
-      role="presentation"
-    >
-      <aside
-        ref={dialogRef}
-        className="profile-complete-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="profile-complete-drawer-title"
-        {...drawerPanelPointerProps()}
-      >
-        <h2 id="profile-complete-drawer-title" className="sr-only">Complete your profile</h2>
-        <div className="profile-complete-drawer-body">
-          <UnifiedProfileDrawer
-            key={`${companyKey ?? companyName}-${initialSection}-drawer-${drawerResetKey}`}
-            embedded
-            companyName={companyName}
-            companyKey={companyKey ?? companyName}
-            initialSection={initialSection}
-            initialAnswers={reloadLandingActive ? undefined : initialAnswers}
-            earnedProfileCredits={earnedProfileCredits}
-            reloadLandingActive={reloadLandingActive}
-            onClose={onClose}
-            onModuleEarned={onModuleEarned}
-            onModuleSaved={onModuleSaved}
-            onModuleProgress={onModuleProgress}
-            onModuleCreditReward={onModuleCreditReward}
-            onAnswersChange={onAnswersChange}
-            onBindRequestClose={(requestClose) => {
-              requestCloseRef.current = requestClose;
-            }}
-            onComplete={(completedModules) => {
-              onComplete(completedModules);
-            }}
-            onSaveClose={onSaved}
-          />
+          <label>
+            <em>Company</em>
+            <input defaultValue="Patriot Pay" />
+          </label>
+          <label>
+            <em>What they do</em>
+            <textarea defaultValue="Healthcare payments company helping practices modernize patient billing, collections, and revenue operations." />
+          </label>
+          <div className="wizard-section-label">Business model</div>
+          <div className="business-model-grid">
+            {businessModels.map(model => (
+              <button className={model === "Operating + investment firm" ? "active" : ""} key={model}>
+                <strong>{model}</strong>
+                <small>{model === "Operating + investment firm" ? "Both operating revenue and portfolio / investments." : "Fuel will tailor benchmarks and intelligence to this model."}</small>
+              </button>
+            ))}
+          </div>
+          <div className="profile-field-grid">
+            <label><em>Industry</em><input defaultValue="Healthcare payments" /></label>
+            <label><em>Founded</em><input placeholder="2021" /></label>
+            <label><em>City</em><input defaultValue="Boston" /></label>
+            <label><em>State / region</em><input defaultValue="MA" /></label>
+            <label><em>Country</em><input defaultValue="United States" /></label>
+            <label><em>Website</em><input defaultValue="https://patriotpay.com" /></label>
+          </div>
+          <label>
+            <em>LinkedIn</em>
+            <input placeholder="https://www.linkedin.com/company/patriotpay" />
+          </label>
+          <div className="verified-domain-note">We'll link patriotpay.com to your Fuel profile. Teammates can create their own profiles for the same company.</div>
+          <button className="wizard-primary" onClick={() => setStage("benchmark")}>Create my profile</button>
         </div>
-      </aside>
-    </div>,
-    document.body,
+
+        <aside className="agent-worklog-card">
+          <span>Agent worklog</span>
+          <p>Everything Fuel read to build this profile.</p>
+          {["Scanned homepage", "Detected company category", "Reading details into a profile", "Identified peer cohort"].map(item => (
+            <div className="agent-worklog-row" key={item}><i />{item}</div>
+          ))}
+        </aside>
+      </section>
+    );
+  }
+
+  if (stage === "review") {
+    return (
+      <section className="benchmark-wizard-shell">
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Intelligence</button>
+        <WizardRail activeStep={4} />
+        <div className="benchmark-card">
+          <span>Step 5 of 5 · Review</span>
+          <h2>Review and submit your benchmark.</h2>
+          <p>Submitting locks these numbers in for Patriot Pay · 2026-Q2 and contributes them to the verified cohort dataset.</p>
+          {["Revenue + retention", "Capital efficiency", "Team + customers", "Anything worth flagging"].map(group => (
+            <div className="benchmark-review-group" key={group}>
+              <strong>{group}</strong>
+              <div><span>Key numbers</span><em>You edited</em></div>
+              <div><span>Context</span><em>Needs your review</em></div>
+            </div>
+          ))}
+          <div className="benchmark-actions">
+            <button className="wizard-primary" onClick={() => setStage("results")}>Submit benchmark</button>
+            <button className="wizard-link" onClick={() => setStage("benchmark")}>Back to edit</button>
+          </div>
+        </div>
+        <BenchmarkGuide verifiedCount="9 of 11 fields verified" />
+      </section>
+    );
+  }
+
+  if (stage === "results") {
+    const journeyStages = [
+      { stage: "Stage 1", title: "Idea", detail: "Problem identified", done: true },
+      { stage: "Stage 2", title: "Pre-Product", detail: "Building MVP", active: true },
+      { stage: "Stage 3", title: "Pre-Revenue", detail: "MVP live · first users" },
+      { stage: "Stage 4", title: "Early Revenue", detail: "Paying customers" },
+      { stage: "Stage 5", title: "Product-Market Fit", detail: "Repeatable growth" },
+      { stage: "Stage 6", title: "Scaling", detail: "Rapid expansion" },
+      { stage: "Stage 7", title: "Market Leader", detail: "Category dominance" },
+    ];
+    const kpiGroups = [
+      {
+        group: "GTM",
+        sub: "Revenue + retention",
+        rows: [
+          { label: "ARR", values: "p25 $150K · p50 $500K · p75 $1.2M · p90 $2.5M", start: 6, end: 48, marker: 20 },
+          { label: "ARR growth, YoY", values: "p25 120% · p50 200% · p75 350% · p90 600%", start: 20, end: 58, marker: 34 },
+          { label: "Net revenue retention", values: "p25 95% · p50 108% · p75 125% · p90 145%", start: 66, end: 84, marker: 75 },
+        ],
+      },
+      {
+        group: "R&D",
+        sub: "Engineering + product",
+        rows: [
+          { label: "Headcount", values: "p25 6 · p50 12 · p75 22 · p90 40", start: 15, end: 55, marker: 30 },
+          { label: "Product maturity", values: "MVP build active · profile context ready", start: 18, end: 62, marker: 42 },
+        ],
+      },
+      {
+        group: "G&A",
+        sub: "Capital + efficiency",
+        rows: [
+          { label: "Cash on hand", values: "p25 $500K · p50 $1.5M · p75 $3.0M · p90 $6.0M", start: 22, end: 50, marker: 31 },
+          { label: "Monthly burn", values: "p25 $40K · p50 $80K · p75 $180K · p90 $350K", start: 12, end: 52, marker: 29 },
+          { label: "Gross margin", values: "p25 55% · p50 72% · p75 82% · p90 88%", start: 64, end: 92, marker: 73 },
+        ],
+      },
+    ];
+
+    return (
+      <section className="benchmark-wizard-shell generated-benchmark-shell">
+        <button className="profile-wizard-back" onClick={onBack}>← Back to Intelligence</button>
+        <div className="generated-benchmark-card">
+          <div className="generated-stage-card">
+            <span>Your startup journey</span>
+            <div className="generated-stage-head">
+              <h2>Currently at <b>Pre-Product.</b></h2>
+              <em>AI estimate · from profile signal</em>
+            </div>
+            <div className="generated-stage-grid">
+              {journeyStages.map(item => (
+                <div className={`${item.active ? "active" : ""} ${item.done ? "done" : ""}`} key={item.stage}>
+                  {item.done ? <i>✓</i> : null}
+                  <span>{item.stage}</span>
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                </div>
+              ))}
+            </div>
+            <p className="generated-helper">We inferred this from your confirmed profile and benchmark inputs.</p>
+          </div>
+
+          <div className="generated-kpi-card">
+            <div className="generated-kpi-head">
+              <div>
+                <span>KPI snapshot</span>
+                <h2>How your cohort performs across R&D, GTM, and G&A.</h2>
+              </div>
+              <button onClick={() => setStage("benchmark")} aria-label="Edit benchmark numbers">✎</button>
+            </div>
+            <div className="generated-cohort-pill">Cohort · b2b saas · seed · US · n=147</div>
+            <p className="generated-helper">Cohort distribution shown below. Fuel uses this benchmark to generate stronger intelligence.</p>
+            <div className="generated-kpi-list">
+              {kpiGroups.map(group => (
+                <div className="generated-kpi-group" key={group.group}>
+                  <div>
+                    <strong>{group.group}</strong>
+                    <small>{group.sub}</small>
+                  </div>
+                  <div className="generated-kpi-rows">
+                    {group.rows.map(row => (
+                      <div className="generated-kpi-row" key={row.label}>
+                        <div className="generated-kpi-row-head">
+                          <span>{row.label}</span>
+                          <em>{row.values}</em>
+                        </div>
+                        <div className="generated-kpi-bar">
+                          <b style={{ left: `${row.start}%`, width: `${Math.max(4, row.end - row.start)}%` }} />
+                          <i style={{ left: `${row.marker}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="generated-benchmark-note">
+            <strong>Your benchmark is now ready.</strong> Fuel can use this intelligence to recommend playbooks and identify
+            the highest-leverage initiatives for your next stage.
+          </div>
+          <div className="benchmark-actions">
+            <button className="wizard-primary" onClick={onSubmitBenchmark}>Generate intelligence</button>
+            <button className="wizard-link" onClick={() => setStage("benchmark")}>Edit benchmark</button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="benchmark-wizard-shell">
+      <button className="profile-wizard-back" onClick={onBack}>← Back to Intelligence</button>
+      <WizardRail activeStep={benchmarkStep} />
+      <div className="benchmark-card">
+        <span>Step {benchmarkStep + 1} of 5 · KPI benchmark</span>
+        <h2>{currentBenchmark.title}</h2>
+        <p>{currentBenchmark.subtitle}</p>
+        <div className="benchmark-tailor-note">
+          Tailored for Patriot Pay. Confirm or add the numbers you know; untouched fields stay flagged for review.
+        </div>
+        {currentBenchmark.fields.map((field, index) => (
+          <label className="benchmark-field" key={field}>
+            <em>{field} <b>{index === 0 && benchmarkStep < 3 ? "Needs your input" : "Optional"}</b></em>
+            {currentBenchmark.textarea ? <textarea placeholder={field === "Notable customers" ? "e.g. landed Stripe and Notion in the last quarter" : "Anything that materially shapes the numbers above"} /> : <input placeholder={benchmarkStep < 2 ? "$" : "50"} />}
+          </label>
+        ))}
+        <div className="benchmark-actions">
+          {benchmarkStep > 0 ? <button className="wizard-link" onClick={() => setBenchmarkStep(step => step - 1)}>← Back</button> : null}
+          <button
+            className="wizard-primary"
+            onClick={() => benchmarkStep === benchmarkSteps.length - 1 ? setStage("review") : setBenchmarkStep(step => step + 1)}
+          >
+            {benchmarkStep === benchmarkSteps.length - 1 ? "Review →" : "Next →"}
+          </button>
+        </div>
+      </div>
+      <BenchmarkGuide verifiedCount={`${benchmarkStep * 2 + 1} of 11 fields verified`} />
+    </section>
   );
 }
 
@@ -5906,7 +5971,7 @@ function BenchmarkGuide({ verifiedCount }: { verifiedCount: string }) {
     <aside className="benchmark-guide">
       <span>Fuel guidance</span>
       <strong>{verifiedCount}</strong>
-      <p>Confirm each number Fuel can verify. Newer submissions keep peer ranges more accurate for everyone.</p>
+      <p>Confirm each number Fuel can verify. Fresh submissions sharpen the bands for everyone.</p>
       <div><b>Verified domain</b><em>Your input</em></div>
     </aside>
   );
@@ -5916,12 +5981,10 @@ function TourPromptBanner({
   onStartTour,
   onDismiss,
   building = false,
-  reloadLanding = false,
 }: {
   onStartTour: () => void;
   onDismiss: () => void;
   building?: boolean;
-  reloadLanding?: boolean;
 }) {
   return (
     <div className={`tour-prompt-banner${building ? " is-building" : ""}`} role="status">
@@ -5930,16 +5993,12 @@ function TourPromptBanner({
         <strong>
           {building
             ? "Take a quick tour while Fuel builds your workspace"
-            : reloadLanding
-              ? "Want a quick walkthrough of your workspace?"
-              : "Want a quick walkthrough of Fuel?"}
+            : "Want a quick walkthrough of Fuel?"}
         </strong>
         <p>
           {building
             ? "Overview scores, Intelligence, and Initiatives are being prepared from your onboarding. Explore the product now — you do not need to wait."
-            : reloadLanding
-              ? "See how the 5 modules, credits, and workspace dashboard work together — then start entering data to generate your report."
-              : "See how Workspace, Overview, Intelligence, Initiatives, and Data Room work together now that your profile is set up."}
+            : "See how Overview, Intelligence, Initiatives, and Data Room work together now that your profile is set up."}
         </p>
       </div>
       <div className="tour-prompt-actions">
@@ -6384,7 +6443,7 @@ const INITIATIVE_TEAM_SUGGESTIONS = [
 
 const INITIATIVE_ADVISOR_DIRECTORY: InitiativeAdvisor[] = [
   { id: "adv-matt", name: "Matt L.", title: "Operating partner" },
-  { id: "adv-priya", name: "Priya R.", title: "Go to market advisor" },
+  { id: "adv-priya", name: "Priya R.", title: "Go-to-market advisor" },
   { id: "adv-jess", name: "Jess K.", title: "Product advisor" },
   { id: "adv-ryan", name: "Ryan K.", title: "Finance advisor" },
   { id: "adv-amy", name: "Amy M.", title: "Growth advisor" },
@@ -6806,7 +6865,6 @@ function InitiativeDetailDrawer({
 
   const listStatus: InitiativeListStatus = status === "Completed" ? "Completed" : "Active";
   const canCreate = item.title.trim().length > 0;
-  const handleScrimPointerDown = useScrimPointerClose(onClose);
 
   const setListStatus = (nextStatus: InitiativeListStatus) => {
     onPatch({ status: nextStatus });
@@ -6861,10 +6919,10 @@ function InitiativeDetailDrawer({
   };
 
   return (
-    <div className="bench-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
+    <div className="bench-drawer-scrim" onClick={onClose}>
       <aside
         className={`bench-drawer initiative-drawer${isCreate ? " initiative-create-drawer" : ""}`}
-        {...drawerPanelPointerProps()}
+        onClick={event => event.stopPropagation()}
         role="dialog"
         aria-label={isCreate ? "New initiative" : (item.title || "Initiative")}
       >
@@ -7449,11 +7507,6 @@ function buildDefaultRecommendedInitiatives(): InitiativeRecord[] {
   ];
 }
 
-/** Active or completed initiatives only — excludes suggested recommendations. */
-function countWorkspaceInitiatives(items: InitiativeRecord[]): number {
-  return items.filter(item => normalizeInitiativeStatus(item.status) !== "Suggested").length;
-}
-
 function InitiativeAssigneesField({
   assignees,
   onChange,
@@ -8013,10 +8066,10 @@ function OverviewPage({
       {!visitorMode && !profileComplete ? (
         <div className="overview-finish-profile-panel">
           <div>
-            <span>Complete profile for better AI</span>
-            <h3>Intelligence, Initiatives, and Data Room are already open.</h3>
+            <span>Profile setup required</span>
+            <h3>Finish your profile to unlock Fuel recommendations</h3>
             <p>
-              Finish company details and track answers for {company.displayName} to earn more credits and help Fuel deliver sharper intelligence and initiatives.
+              The more complete your company data is, the better Fuel can identify intelligence, recommend initiatives, suggest the right playbooks, and generate useful operating context for {company.displayName}.
             </p>
           </div>
           <button
@@ -8024,7 +8077,7 @@ function OverviewPage({
             data-tour-target={activeTourTarget === "finish-profile" ? "finish-profile" : undefined}
             onClick={onEditProfile}
           >
-            Complete profile
+            Finish profile
           </button>
         </div>
       ) : null}
@@ -8543,7 +8596,6 @@ function ContextFeedPage({
     setShowSourceForm(false);
     resetSourceForm();
   };
-  const handleSourceFormScrimPointerDown = useScrimPointerClose(cancelAddSource, showSourceForm);
 
   const handleAttachDocument = (typeId: string, typeLabel: string, file: File) => {
     setAttachedDocument({ typeId, typeLabel, file });
@@ -8599,10 +8651,10 @@ function ContextFeedPage({
   return (
     <>
       {showSourceForm ? (
-        <div className="bench-drawer-scrim" onPointerDown={handleSourceFormScrimPointerDown} role="presentation">
+        <div className="bench-drawer-scrim" onClick={cancelAddSource}>
           <aside
             className="bench-drawer add-sources-drawer"
-            {...drawerPanelPointerProps()}
+            onClick={e => e.stopPropagation()}
             role="dialog"
             aria-label="Add source"
           >
@@ -8692,7 +8744,7 @@ function ContextFeedPage({
                 <span>{activeConnector?.type}</span>
                 <strong>Connect {activeConnector?.name}</strong>
               </div>
-              <button type="button" onClick={() => setConnectorsOpen(false)} aria-label="Close connector setup">×</button>
+              <button onClick={() => setConnectorsOpen(false)}>×</button>
             </div>
             <div className="context-setup-form">
               <div className="context-drawer-connector-head">
@@ -8911,88 +8963,44 @@ function SidebarYorkReachOut({
   );
 }
 
-function SidebarMenuIcon({ name }: { name: FuelIconName }) {
-  return (
-    <span className="sidebar-user-menu-icon" aria-hidden="true">
-      <FuelIcon name={name} size={16} />
-    </span>
-  );
+function applyFuelTheme(theme: "dark" | "light") {
+  document.documentElement.setAttribute("data-theme", theme);
+  try {
+    localStorage.setItem("fuel-ui-theme", theme);
+  } catch {
+    /* ignore */
+  }
 }
 
-function SidebarNavItem({
-  icon,
-  label,
-  count,
-  active = false,
-  onClick,
-  interactive = false,
-}: {
-  icon: FuelIconName;
-  label: string;
-  count?: string | number;
-  active?: boolean;
-  onClick?: () => void;
-  interactive?: boolean;
-}) {
-  const clickable = interactive || Boolean(onClick);
+function readFuelTheme(): "dark" | "light" {
+  try {
+    const stored = localStorage.getItem("fuel-ui-theme");
+    if (stored === "light" || stored === "dark") return stored;
+  } catch {
+    /* ignore */
+  }
+  return "dark";
+}
+
+function SidebarMenuIcon({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className={`nav-item${active ? " is-active" : ""}`}
-      style={clickable ? { cursor: "pointer" } : undefined}
-      onClick={onClick}
-      role={clickable ? "button" : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      aria-label={clickable ? label : `${label} (unavailable)`}
-      aria-current={active ? "page" : undefined}
-      aria-disabled={!clickable ? true : undefined}
-      onKeyDown={
-        clickable
-          ? (event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onClick?.();
-              }
-            }
-          : undefined
-      }
-    >
-      <span className="nav-item-icon">
-        <FuelIcon name={icon} size={15} />
-      </span>
-      <span>{label}</span>
-      {count != null ? <span className="nav-count">{count}</span> : null}
-    </div>
+    <span className="sidebar-user-menu-icon" aria-hidden="true">
+      {children}
+    </span>
   );
 }
 
 function SidebarProfileFooter({
   onOpenAccountSettings,
-  onLogout,
   yorkUpsellReady = false,
-  profileComplete = true,
-  userFullName = "Shreya Gokani",
-  userEmail = "shreya.g@york.ie",
-  earnedProfileCredits,
 }: {
   onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
-  onLogout?: () => void;
   yorkUpsellReady?: boolean;
-  /** Hide York help + credit balance until profile completion. */
-  profileComplete?: boolean;
-  userFullName?: string;
-  userEmail?: string;
-  earnedProfileCredits?: EarnedProfileCredits;
 }) {
   const { snapshot } = useCredits();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [theme, setTheme] = useState<FuelTheme>(() => readFuelTheme());
+  const [theme, setTheme] = useState<"dark" | "light">(() => readFuelTheme());
   const wrapRef = useRef<HTMLDivElement>(null);
-  const initials = userFullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() ?? "")
-    .join("") || "SG";
 
   useEffect(() => {
     applyFuelTheme(theme);
@@ -9020,14 +9028,14 @@ function SidebarProfileFooter({
 
   return (
     <div className="sidebar-footer">
-      {profileComplete ? <SidebarYorkReachOut ready={yorkUpsellReady} /> : null}
-      <CreditIndicator earnedProfileCredits={earnedProfileCredits} />
+      <SidebarYorkReachOut ready={yorkUpsellReady} />
+      <CreditIndicator />
       <div className="sidebar-foot-wrap" ref={wrapRef}>
         {menuOpen ? (
           <div className="sidebar-user-menu" role="menu" aria-label="User menu">
             <div className="sidebar-user-menu-head">
-              <strong>{userFullName}</strong>
-              <span>{userEmail}</span>
+              <strong>Shreya Gokani</strong>
+              <span>shreya.g@york.ie</span>
             </div>
 
             <div className="sidebar-user-menu-list">
@@ -9040,7 +9048,17 @@ function SidebarProfileFooter({
                   onOpenAccountSettings("profile");
                 }}
               >
-                <SidebarMenuIcon name="account" />
+                <SidebarMenuIcon>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="5.25" stroke="currentColor" strokeWidth="1.4" />
+                    <path
+                      d="M5.6 9.9a2.5 2.5 0 0 1 4.8 0M8 7.4a1.35 1.35 0 1 0 0-2.7 1.35 1.35 0 0 0 0 2.7Z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </SidebarMenuIcon>
                 <span className="sidebar-user-menu-label">Account settings</span>
               </button>
 
@@ -9050,7 +9068,12 @@ function SidebarProfileFooter({
                 className="sidebar-user-menu-item"
                 onClick={toggleTheme}
               >
-                <SidebarMenuIcon name={theme === "dark" ? "appearanceLight" : "appearanceDark"} />
+                <SidebarMenuIcon>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="5.25" stroke="currentColor" strokeWidth="1.4" />
+                    <path d="M8 2.75v10.5A5.25 5.25 0 0 0 8 2.75Z" fill="currentColor" />
+                  </svg>
+                </SidebarMenuIcon>
                 <span className="sidebar-user-menu-label">Appearance</span>
                 <span className="sidebar-user-menu-meta">
                   {theme === "dark" ? "Dark" : "Light"}
@@ -9065,12 +9088,25 @@ function SidebarProfileFooter({
                 type="button"
                 role="menuitem"
                 className="sidebar-user-menu-item"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onLogout?.();
-                }}
+                onClick={() => setMenuOpen(false)}
               >
-                <SidebarMenuIcon name="logout" />
+                <SidebarMenuIcon>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M7 3H4.5A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13H7"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M10.5 5.5 13 8l-2.5 2.5M6.5 8H13"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </SidebarMenuIcon>
                 <span className="sidebar-user-menu-label">Log out</span>
               </button>
             </div>
@@ -9084,15 +9120,15 @@ function SidebarProfileFooter({
           aria-haspopup="menu"
           onClick={() => setMenuOpen(open => !open)}
         >
-          <div className="sidebar-foot-avatar">{initials}</div>
+          <div className="sidebar-foot-avatar">SG</div>
           <div className="sidebar-foot-copy">
             <div className="sidebar-foot-name">
-              {userFullName}
+              Shreya Gokani
               {snapshot.plan === "free" ? <span className="credit-inline-badge">Free</span> : (
                 <span className="credit-plan-badge pro" style={{ marginLeft: 6, fontSize: 9, padding: "2px 6px" }}>Pro</span>
               )}
             </div>
-            <div className="sidebar-foot-email">{userEmail}</div>
+            <div className="sidebar-foot-email">shreya.g@york.ie</div>
           </div>
         </button>
       </div>
@@ -9105,13 +9141,11 @@ export default function PatriotPayJourney({
   initialBenchmark = null,
   initialOnboardingAnswers = null,
   persona = "founder",
-  onLogout,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
   persona?: "founder" | "investor";
-  onLogout?: () => void;
 }) {
   return (
     <CreditProvider>
@@ -9120,7 +9154,6 @@ export default function PatriotPayJourney({
         initialBenchmark={initialBenchmark}
         initialOnboardingAnswers={initialOnboardingAnswers}
         persona={persona}
-        onLogout={onLogout}
       />
       <UpgradeModal />
       <CreditToastHost />
@@ -9133,16 +9166,12 @@ function PatriotPayJourneyInner({
   initialBenchmark = null,
   initialOnboardingAnswers = null,
   persona = "founder",
-  onLogout,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
   persona?: "founder" | "investor";
-  onLogout?: () => void;
 }) {
-  const [reloadLandingActive, setReloadLandingActive] = useState(false);
-
   const isInvestorPersona = persona === "investor";
   const startsWithTour = initialPage === "guided-tour";
   const startsWithOverviewBuilding =
@@ -9154,191 +9183,29 @@ function PatriotPayJourneyInner({
     || initialPage === "investor-portfolios"
     || initialPage === "investor-pipeline"
     || initialPage === "investor-watchlists";
-  const resolveInitialActivePage = () => {
-    if (initialPage === "investor-home" || initialPage === "investor-portfolios") return "investor-portfolios";
-    if (persona !== "investor" && isProfileCompletionPromptDue("patriotpay", initialOnboardingAnswers)) {
-      return "scorecard-v2";
-    }
-    if (startsWithTour) return "overview";
-    if (startsWithScorecard || startsWithOverviewBuilding) return "scorecard-v2";
-    if (startsWithOverview) return "signals-loading";
-    return initialPage;
-  };
   const [openTracks, setOpenTracks] = useState(() => new Set());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
-  const [activePage, setActivePage] = useState(resolveInitialActivePage);
-  const [tourOpen, setTourOpen] = useState(() => startsWithTour);
+  const [activePage, setActivePage] = useState(
+    // Investor fund dashboard is hidden for now — land on Portfolios.
+    initialPage === "investor-home" || initialPage === "investor-portfolios"
+      ? "investor-portfolios"
+      : startsWithTour ? "overview"
+      : (startsWithScorecard || startsWithOverviewBuilding) ? "scorecard-v2"
+      : startsWithOverview ? "signals-loading"
+      : initialPage,
+  );
+  const [tourOpen, setTourOpen] = useState(startsWithTour);
   const [tourStep, setTourStep] = useState(0);
-  const [tourCompleteSignal, setTourCompleteSignal] = useState(0);
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
   const [marketingIntegrations, setMarketingIntegrations] = useState(true);
-  const shortOnboardingIncomplete = startsWithOverviewBuilding
-    && !hasCompletedOnboardingTracks(initialOnboardingAnswers);
   const [profileComplete, setProfileComplete] = useState(
-    () => {
-      if (initialOnboardingAnswers && (startsWithOverviewBuilding || startsWithScorecard)) {
-        const seed = mapOnboardingToDetailAnswers(initialOnboardingAnswers) as DetailAnswers;
-        return hasCompletedOnboardingTracks(initialOnboardingAnswers)
-          || hasProfileBasicsStarted(seed);
-      }
-      if (shortOnboardingIncomplete) return false;
-      return (
-        initialPage === "signals-loading"
-        || startsWithOverview
-        || startsWithInvestorShell
-        || Boolean(initialOnboardingAnswers?.profileSetupComplete)
-      );
-    },
+    initialPage === "signals-loading"
+      || startsWithOverviewBuilding
+      || startsWithOverview
+      || startsWithScorecard
+      || startsWithInvestorShell,
   );
-  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
-  const [profilePreviewTab, setProfilePreviewTab] = useState<ProfilePreviewTab>("company");
-  const profilePreviewReturnPageRef = useRef("scorecard-v2");
-  const editProfileFromPreviewRef = useRef(false);
-  const editBenchmarkFromPreviewRef = useRef(false);
-  const [benchmarkDrawerOpen, setBenchmarkDrawerOpen] = useState(false);
-  const [benchmarkDrawerElevated, setBenchmarkDrawerElevated] = useState(false);
-  const [benchmarkEditRequestKey, setBenchmarkEditRequestKey] = useState(0);
-  const [profileDrawerSection, setProfileDrawerSection] = useState<ProfileDrawerSection>("company");
-  const [profileDrawerResetKey, setProfileDrawerResetKey] = useState(0);
-  const initialFounderProfilePromptDue = persona !== "investor"
-    && isProfileCompletionPromptDue("patriotpay", initialOnboardingAnswers);
-  const [profileCompletionPromptOpen, setProfileCompletionPromptOpen] = useState(
-    () => initialFounderProfilePromptDue && isFounderProfilePromptSurface(resolveInitialActivePage()),
-  );
-  const [profileDetailsSyncKey, setProfileDetailsSyncKey] = useState(0);
-  const [earnedProfileCredits, setEarnedProfileCredits] = useState(() =>
-    loadEarnedProfileCredits(FOUNDER_COMPANY.id),
-  );
-  const [profileCreditReward, setProfileCreditReward] = useState<ProfileCreditReward | null>(null);
-  const profileDrawerInitialAnswers = useMemo(
-    () => (initialOnboardingAnswers ? mapOnboardingToDetailAnswers(initialOnboardingAnswers) : undefined),
-    [initialOnboardingAnswers],
-  );
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const showProfileCreditReward = useCallback((reward: ProfileCreditReward | null) => {
-    if (reward) setProfileCreditReward(reward);
-  }, []);
-  const openBenchmarkDrawer = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      setBenchmarkDrawerOpen(true);
-    });
-  }, []);
-  const openProfileDrawer = useCallback((section: ProfileDrawerSection = "company") => {
-    if (section === "bench") {
-      openBenchmarkDrawer();
-      return;
-    }
-    // Defer open so the opening click does not land on the scrim and close the drawer.
-    window.requestAnimationFrame(() => {
-      setProfileDrawerSection(section);
-      setProfileDrawerOpen(true);
-    });
-  }, [openBenchmarkDrawer]);
-
-  const openProfilePreview = useCallback((tab: ProfilePreviewTab = "company") => {
-    profilePreviewReturnPageRef.current = activePage;
-    setProfilePreviewTab(tab);
-    setActivePage("company-profile");
-  }, [activePage]);
-
-  const closeCompanyProfilePage = useCallback(() => {
-    const returnPage = profilePreviewReturnPageRef.current;
-    setActivePage(returnPage === "company-profile" ? "scorecard-v2" : returnPage);
-  }, []);
-
-  const reopenProfilePreviewAfterBenchmark = useCallback(() => {
-    if (!editBenchmarkFromPreviewRef.current) return;
-    editBenchmarkFromPreviewRef.current = false;
-    setProfileDetailsSyncKey(key => key + 1);
-    window.requestAnimationFrame(() => {
-      setActivePage("company-profile");
-    });
-  }, []);
-
-  const closeBenchmarkDrawer = useCallback(() => {
-    setBenchmarkDrawerOpen(false);
-    setBenchmarkDrawerElevated(false);
-    reopenProfilePreviewAfterBenchmark();
-  }, [reopenProfilePreviewAfterBenchmark]);
-
-  const handleBenchmarkEditClosedFromPreview = useCallback(() => {
-    reopenProfilePreviewAfterBenchmark();
-  }, [reopenProfilePreviewAfterBenchmark]);
-
-  const handleEditBenchmarkFromPreview = useCallback(() => {
-    editBenchmarkFromPreviewRef.current = true;
-    setProfileDrawerOpen(false);
-
-    if (activePage === "scorecard-v2") {
-      window.requestAnimationFrame(() => {
-        setBenchmarkEditRequestKey(key => key + 1);
-      });
-      return;
-    }
-
-    setBenchmarkDrawerElevated(true);
-    window.requestAnimationFrame(() => {
-      setBenchmarkDrawerOpen(true);
-    });
-  }, [activePage]);
-
-  const handleEditProfileFromPreview = useCallback((section: ProfileDrawerSection = "company") => {
-    if (section === "bench") {
-      handleEditBenchmarkFromPreview();
-      return;
-    }
-    editProfileFromPreviewRef.current = true;
-    openProfileDrawer(section);
-  }, [handleEditBenchmarkFromPreview, openProfileDrawer]);
-
-  const handleProfileSavedFromPreview = useCallback(() => {
-    setProfileDetailsSyncKey(key => key + 1);
-    if (!editProfileFromPreviewRef.current) return;
-    editProfileFromPreviewRef.current = false;
-  }, []);
-
-  const syncProfileCompleteFromStorage = useCallback((companyId: string) => {
-    const answers = loadDetailAnswers(companyId);
-    const profileSection = DETAIL_SECTIONS.find(section => section.id === "profile");
-    if (!profileSection) return;
-    const total = getVisibleQuestions(profileSection, answers).length;
-    const answered = countSectionAnswers(profileSection, answers);
-    if (total > 0 && answered >= total) {
-      setProfileComplete(true);
-    }
-  }, []);
-
-  const startOverviewBuild = useCallback((
-    fromPhase: OverviewBuildPhase = "summary",
-    mode: "full" | "single" = "single",
-  ) => {
-    overviewBuildModeRef.current = mode;
-    overviewBuildTargetPhaseRef.current = fromPhase;
-    setOverviewBuildRun(run => run + 1);
-    setOverviewBuildActive(true);
-    setOverviewBuildPhase(fromPhase);
-    setHeaderTourEnabled(false);
-    setActivePage("scorecard-v2");
-  }, []);
-
-  useEffect(() => {
-    setMobileNavOpen(false);
-  }, [activePage]);
-
-  useEffect(() => {
-    saveActivePage(activePage, persona);
-  }, [activePage, persona]);
-
-  useEffect(() => {
-    if (!mobileNavOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileNavOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileNavOpen]);
-
   const [accountTab, setAccountTab] = useState<AccountSettingsTab>("profile");
   const [documentSlots, setDocumentSlots] = useState<DataRoomDocumentSlot[]>(createInitialDocumentSlots);
   const [processingDocumentTypeId, setProcessingDocumentTypeId] = useState<string | null>(null);
@@ -9350,72 +9217,56 @@ function PatriotPayJourneyInner({
   const [manualPendingSources, setManualPendingSources] = useState<PendingSource[]>([]);
   const [investorIntelligenceByCompany, setInvestorIntelligenceByCompany] = useState<Record<string, IntelligenceItem[]>>({});
   const [investorInitiativesByCompany, setInvestorInitiativesByCompany] = useState<Record<string, InitiativeRecord[]>>({});
-  const [founderInitiatives, setFounderInitiatives] = useState<InitiativeRecord[]>(() =>
-    buildDefaultRecommendedInitiatives(),
-  );
+  const [founderInitiatives, setFounderInitiatives] = useState<InitiativeRecord[]>(() => buildDefaultRecommendedInitiatives());
   const [focusInitiativeId, setFocusInitiativeId] = useState<string | null>(null);
   const [investorBenchmarkByCompany, setInvestorBenchmarkByCompany] = useState<Record<string, BenchmarkSubmission | null>>({});
   const [investorOverviewIntroCompanyId, setInvestorOverviewIntroCompanyId] = useState<string | null>(null);
   const [investorWorkspaceStarted, setInvestorWorkspaceStarted] = useState<Record<string, boolean>>({});
   const [dataRoomAccessRequests, setDataRoomAccessRequests] = useState<Record<string, boolean>>({});
-  const [selectedCompany, setSelectedCompany] = useState(() => {
-    const companyName = initialOnboardingAnswers?.profileCompany?.trim();
-    if (!companyName || companyName === FOUNDER_COMPANY.displayName) return FOUNDER_COMPANY;
-    return {
-      ...FOUNDER_COMPANY,
-      displayName: companyName,
-      domain: companyName.toLowerCase().replace(/[^a-z0-9]+/g, "") + ".com",
-      logo: companyName[0]?.toUpperCase() ?? "C",
-    };
-  });
-  const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
-  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(() =>
-    loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission,
+  const [selectedCompany, setSelectedCompany] = useState(FOUNDER_COMPANY);
+  const [earnedProfileCredits, setEarnedProfileCredits] = useState<EarnedProfileCredits>(() =>
+    loadEarnedProfileCredits(FOUNDER_CLAIMED_COMPANY_ID),
   );
-  useEffect(() => {
-    setEarnedProfileCredits(loadEarnedProfileCredits(selectedCompany.id));
-  }, [selectedCompany.id]);
-
-  useEffect(() => {
-    syncProfileCompleteFromStorage(selectedCompany.id);
-  }, [selectedCompany.id, syncProfileCompleteFromStorage]);
-
-  const dismissProfileCompletionPrompt = useCallback(() => {
-    markProfileCompletionPromptDismissed(selectedCompany.id);
-    setProfileCompletionPromptOpen(false);
-  }, [selectedCompany.id]);
-
-  const completeProfileFromPrompt = useCallback(() => {
-    setProfileCompletionPromptOpen(false);
-    openProfileDrawer("company");
-  }, [openProfileDrawer]);
-
-  const handleProfileModuleSaved = useCallback((
-    module: ProfileModuleId,
-    _answers: DetailAnswers,
-  ) => {
-    setProfileDetailsSyncKey(key => key + 1);
-    syncProfileCompleteFromStorage(selectedCompany.id);
-    startOverviewBuild(profileModuleToBuildPhase(module), "single");
-  }, [selectedCompany.id, startOverviewBuild, syncProfileCompleteFromStorage]);
-
-  const handleProfileModuleProgress = useCallback((
-    _module: ProfileModuleId,
-    _answers: DetailAnswers,
-  ) => {
-    setProfileDetailsSyncKey(key => key + 1);
-    syncProfileCompleteFromStorage(selectedCompany.id);
-  }, [selectedCompany.id, syncProfileCompleteFromStorage]);
-
-  const handleModuleCreditReward = useCallback((reward: ProfileCreditReward) => {
-    showProfileCreditReward(reward);
-  }, [showProfileCreditReward]);
-
+  const [profileCreditReward, setProfileCreditReward] = useState<ProfileCreditReward | null>(() => (
+    initialOnboardingAnswers
+      ? onboardingModuleCreditReward(
+          completedOnboardingModules(initialOnboardingAnswers),
+          loadEarnedProfileCredits(FOUNDER_CLAIMED_COMPANY_ID),
+        )
+      : null
+  ));
+  const [profileCompletionPromptOpen, setProfileCompletionPromptOpen] = useState(() =>
+    persona !== "investor"
+    && isProfileCompletionPromptDue(
+      FOUNDER_CLAIMED_COMPANY_ID,
+      FOUNDER_COMPANY.displayName,
+      initialOnboardingAnswers,
+    ),
+  );
+  const [openProfileModuleKey, setOpenProfileModuleKey] = useState(0);
+  const [openProfileModuleSection, setOpenProfileModuleSection] = useState<DetailSectionId | "benchmark">("profile");
+  const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
+  const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(
+    () => loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission,
+  );
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [askFuelOpen, setAskFuelOpen] = useState(false);
   const openAccountSettings = useCallback((tab: AccountSettingsTab = "profile") => {
     setAccountTab(tab);
     setActivePage("account");
+  }, []);
+  const dismissProfileCompletionPrompt = useCallback(() => {
+    markProfileCompletionPromptDismissed(selectedCompany.id);
+    setProfileCompletionPromptOpen(false);
+  }, [selectedCompany.id]);
+  const openCompanyHeaderProfile = useCallback(() => {
+    setActivePage("overview");
+  }, []);
+  const completeProfileFromPrompt = useCallback(() => {
+    setProfileCompletionPromptOpen(false);
+    setOpenProfileModuleSection("profile");
+    setActivePage("scorecard-v2");
+    setOpenProfileModuleKey(key => key + 1);
   }, []);
   const openMyCompanyProfile = useCallback(() => {
     setSelectedCompany(FOUNDER_COMPANY);
@@ -9433,7 +9284,10 @@ function PatriotPayJourneyInner({
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
-  const { tryAction } = useCredits();
+  const { tryAction, syncFreeEarnedAllowance } = useCredits();
+  useLayoutEffect(() => {
+    syncFreeEarnedAllowance(computeEarnedCredits(earnedProfileCredits));
+  }, [earnedProfileCredits, syncFreeEarnedAllowance]);
   const isOnCompanyWorkspace = activePage !== "investor-home"
     && activePage !== "investor-portfolios"
     && activePage !== "investor-pipeline"
@@ -9490,9 +9344,6 @@ function PatriotPayJourneyInner({
           intelligenceIds: generatedIds,
           intelligenceCount: generatedItems.length,
         }));
-        const { earned, reward } = tryMarkIntelligenceSourcesEarned(selectedCompany.id);
-        setEarnedProfileCredits(earned);
-        showProfileCreditReward(reward);
         setProcessingDocumentTypeId(null);
       }, 1400);
     });
@@ -9512,9 +9363,6 @@ function PatriotPayJourneyInner({
       intelligenceIds,
       intelligenceCount: intelligenceIds.length,
     }));
-    const { earned, reward } = tryMarkIntelligenceSourcesEarned(selectedCompany.id);
-    setEarnedProfileCredits(earned);
-    showProfileCreditReward(reward);
   };
   const applySourceGenerationResult = useCallback(({
     title,
@@ -9765,7 +9613,7 @@ function PatriotPayJourneyInner({
     if (!generated) {
       applyResult({
         item: null,
-        emptyReason: "Source saved. Generate intelligence when you have enough credits.",
+        emptyReason: "Source saved. Generate intelligence when credits are available.",
       });
     }
   }, [applySourceGenerationResult, tryAction]);
@@ -9877,25 +9725,20 @@ function PatriotPayJourneyInner({
     } else {
       applyBenchmarkSubmission(values);
     }
-    const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
-    setEarnedProfileCredits(earned);
-    if (reward) showProfileCreditReward(reward);
-    setProfileDetailsSyncKey(key => key + 1);
-    startOverviewBuild("summary", "single");
+    if (isBenchmarkFormComplete(values)) {
+      const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
+      setEarnedProfileCredits(earned);
+      if (reward) setProfileCreditReward(reward);
+    }
+    setActivePage("signals");
   };
   const handleViewIntelligenceFromDataRoom = (record: DataRoomFileRecord) => {
     if (!record.intelligenceIds.length) return;
     setIntelligenceFocus({ ids: record.intelligenceIds, label: record.name });
     setActivePage("signals");
   };
-  const [showTourPrompt, setShowTourPrompt] = useState(() => {
-    if (!reloadLandingActive) return false;
-    return true;
-  });
-  const [headerTourEnabled, setHeaderTourEnabled] = useState(() => {
-    if (reloadLandingActive) return false;
-    return !startsWithOverviewBuilding;
-  });
+  const [showTourPrompt, setShowTourPrompt] = useState(false);
+  const [headerTourEnabled, setHeaderTourEnabled] = useState(!startsWithOverviewBuilding);
   const [showTourCoachmark, setShowTourCoachmark] = useState(false);
   const [tourTaken, setTourTaken] = useState(() => {
     try {
@@ -9905,122 +9748,13 @@ function PatriotPayJourneyInner({
       return false;
     }
   });
-
-  useEffect(() => {
-    if (isInvestorPersona) return;
-    if (!isProfileCompletionPromptDue(selectedCompany.id, initialOnboardingAnswers)) return;
-    if (activePage === "scorecard-v2") return;
-    if (activePage === "company-profile" || activePage === "signals-loading" || activePage === "overview") {
-      setActivePage("scorecard-v2");
-    }
-  }, [
-    activePage,
-    initialOnboardingAnswers,
-    isInvestorPersona,
-    selectedCompany.id,
-  ]);
-
-  useEffect(() => {
-    if (isInvestorPersona) {
-      setProfileCompletionPromptOpen(false);
-      return;
-    }
-    if (!isFounderProfilePromptSurface(activePage)) {
-      setProfileCompletionPromptOpen(false);
-      return;
-    }
-    if (!isProfileCompletionPromptDue(selectedCompany.id, initialOnboardingAnswers)) {
-      setProfileCompletionPromptOpen(false);
-      return;
-    }
-    setProfileCompletionPromptOpen(true);
-  }, [
-    activePage,
-    initialOnboardingAnswers,
-    isInvestorPersona,
-    profileDetailsSyncKey,
-    selectedCompany.id,
-  ]);
-
-  const profilePromptBlocking = shouldGateFounderProfilePrompt(
-    persona,
-    selectedCompany.id,
-    activePage,
-    initialOnboardingAnswers,
-  ) && profileCompletionPromptOpen;
-
+  const isProfileWizard = activePage === "profile-wizard" || activePage === "benchmark-form";
   const coreTourSteps = [
-    {
-      page: "scorecard-v2",
-      target: "tab-workspace",
-      title: "Module-first",
-      text: "Your home dashboard for profile completion, module progress, credits, and onboarding — start here after setup.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "workspace-profile-card",
-      title: "Complete Profile",
-      text: "Track overall profile completion, remaining steps, and credits. Use Resume Profile to continue where you left off.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "workspace-module-rd",
-      title: "R&D progress",
-      text: "Finish R&D context to sharpen product signals, benchmarks, and technical readiness scores.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "workspace-module-gtm",
-      title: "GTM progress",
-      text: "Add go to market context — motion, ICP, and pipeline — to unlock revenue benchmarks and pipeline health.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "workspace-module-ga",
-      title: "G&A progress",
-      text: "Capture runway, finance, and capital priorities to improve burn, runway, and finance readiness analysis.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "workspace-module-benchmark",
-      title: "Benchmark",
-      text: "Submit cohort metrics for peer comparisons. Benchmark credits are earned on first submission.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "workspace-connectors",
-      title: "Connectors",
-      text: "Connect HubSpot or Granola to enrich your profile and unlock deeper AI insights — same connectors as the rest of your workspace.",
-    },
-    {
-      page: "account",
-      target: "account-settings",
-      title: "Settings",
-      text: "Manage account settings, appearance, integrations, and your Fuel profile from Account settings.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "main-navigation",
-      title: "Navigation",
-      text: "Move between Overview, Intelligence, Initiatives, Data Room, and Research from the main tabs.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "workspace-credits",
-      title: "Credits",
-      text: "Earn up to 200 credits across Complete Profile, R&D, GTM, G&A, and Benchmark — each section awards 40 credits.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "category-dev",
-      title: "Scoring",
-      text: "Track scores appear in the Progress Feed on the New overview tab as profile modules and benchmarks fill in.",
-    },
     {
       page: "scorecard-v2",
       target: "tab-overview",
       title: "Overview",
-      text: "The New overview tab shows R&D, GTM, and G&A track scores, the Fuel AI advisor, and company snapshot as context is processed.",
+      text: "This is your operating home. R&D, GTM, and G&A track scores, the Fuel AI advisor, and company snapshot live here — they fill in as onboarding context finishes processing.",
     },
     {
       page: "scorecard-v2",
@@ -10032,7 +9766,7 @@ function PatriotPayJourneyInner({
       page: "scorecard-v2",
       target: "recommended-actions",
       title: "Recommended Actions",
-      text: "Start here after onboarding. Update benchmarks and fill track details — each action sharpens your scores and what Fuel recommends next.",
+      text: "Start here after onboarding. Update benchmarks, review intelligence sources, and fill track details — each action sharpens your scores and what Fuel recommends next.",
     },
     {
       page: "signals",
@@ -10091,71 +9825,13 @@ function PatriotPayJourneyInner({
           page: "overview",
           target: "finish-profile",
           title: "Finish profile",
-          text: "Complete your company profile and track details so Fuel can improve scores, intelligence, and initiative suggestions.",
+          text: "Complete your company profile and track details so Fuel can sharpen scores, intelligence, and initiative suggestions.",
         },
       ];
   const [overviewBuildActive, setOverviewBuildActive] = useState(startsWithOverviewBuilding);
   const [overviewBuildPhase, setOverviewBuildPhase] = useState<OverviewBuildPhase | null>(
     startsWithOverviewBuilding ? "summary" : null,
   );
-  const [overviewBuildRun, setOverviewBuildRun] = useState(0);
-  const overviewBuildModeRef = useRef<"full" | "single">(
-    startsWithOverviewBuilding ? "full" : "single",
-  );
-  const overviewBuildTargetPhaseRef = useRef<OverviewBuildPhase>("summary");
-  const [overviewBuiltPhases, setOverviewBuiltPhases] = useState<Set<OverviewBuildPhase>>(() => {
-    try {
-      const raw = window.localStorage.getItem(`fuel-overview-built-${selectedCompany.id}`);
-      if (!raw) return new Set();
-      return new Set(JSON.parse(raw) as OverviewBuildPhase[]);
-    } catch {
-      return new Set();
-    }
-  });
-
-  const persistOverviewBuiltPhases = useCallback((phases: Set<OverviewBuildPhase>) => {
-    try {
-      window.localStorage.setItem(
-        `fuel-overview-built-${selectedCompany.id}`,
-        JSON.stringify([...phases]),
-      );
-    } catch {
-      /* ignore storage failures */
-    }
-  }, [selectedCompany.id]);
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(`fuel-overview-built-${selectedCompany.id}`);
-      setOverviewBuiltPhases(raw ? new Set(JSON.parse(raw) as OverviewBuildPhase[]) : new Set());
-    } catch {
-      setOverviewBuiltPhases(new Set());
-    }
-  }, [selectedCompany.id]);
-  const [recActionsTipOpen, setRecActionsTipOpen] = useState(false);
-  /** True once this post-onboarding Overview build hit "ready" — tip may show even after the ready bar is dismissed. */
-  const overviewContentReadyRef = useRef(false);
-
-  useEffect(() => {
-    if (tourOpen) return;
-    if (tourTaken && !reloadLandingActive) return;
-    if (profileCompletionPromptOpen) return;
-    /** After "Maybe later", header Tour chip is shown — do not re-open the banner (module-first reload). */
-    if (headerTourEnabled) return;
-    if (!reloadLandingActive) {
-      try {
-        const snoozedUntil = Number(window.localStorage.getItem("fuelTourPromptSnoozedUntil") || 0);
-        if (Date.now() < snoozedUntil) return;
-      } catch {
-        /* ignore storage failures */
-      }
-    }
-    const building = Boolean(overviewBuildPhase && overviewBuildPhase !== "ready");
-    const ready = profileComplete && (overviewBuildPhase === "ready" || overviewBuildPhase == null);
-    if (reloadLandingActive || ready || building) {
-      setShowTourPrompt(true);
-    }
-  }, [profileComplete, overviewBuildPhase, tourTaken, tourOpen, reloadLandingActive, headerTourEnabled, profileCompletionPromptOpen]);
-
   const suggestion = useMemo(() => {
     const weakest = tracks.find((track) => track.health === "grey") || tracks.find((track) => track.health === "amber");
     return weakest ? suggestionMessages[weakest.id] : null;
@@ -10171,9 +9847,9 @@ function PatriotPayJourneyInner({
         stat: { label: "Status", val: "Connect sources" },
         team: [],
         milestones: [],
-        emptyText: "Connect marketing sources to see your Marketing snapshot",
+        emptyText: "Connect marketing sources to unlock Marketing snapshot",
         chips: [
-          { label: "GTM dashboard access", color: "var(--btn-primary-bg)" },
+          { label: "GTM dashboard access", color: "#3DD68C" },
           { label: "Google Analytics", color: "#F59E0B" },
           { label: "Ads, SEO, social", color: "#D4924A" },
         ],
@@ -10199,7 +9875,9 @@ function PatriotPayJourneyInner({
     const timer = window.setTimeout(() => {
       if (startsWithOverview) {
         setActivePage("scorecard-v2");
-        startOverviewBuild("summary", "full");
+        setOverviewBuildActive(true);
+        setOverviewBuildPhase("summary");
+        setHeaderTourEnabled(false);
         return;
       }
       setActivePage("signals");
@@ -10212,70 +9890,43 @@ function PatriotPayJourneyInner({
 
   useEffect(() => {
     if (!overviewBuildActive) return;
-    // Fresh build — tip must wait until Overview is fully ready.
-    overviewContentReadyRef.current = false;
-    setRecActionsTipOpen(false);
-    resetRecActionsTipForOnboarding(selectedCompany.displayName);
-  }, [overviewBuildActive, overviewBuildRun, selectedCompany.displayName]);
 
-  useEffect(() => {
-    if (!overviewBuildActive) return;
-
-    const mode = overviewBuildModeRef.current;
-    const targetPhase = overviewBuildTargetPhaseRef.current;
-    const timers = mode === "full"
-      ? [
-          window.setTimeout(() => setOverviewBuildPhase("dev"), 4000),
-          window.setTimeout(() => setOverviewBuildPhase("mkt"), 14000),
-          window.setTimeout(() => setOverviewBuildPhase("rev"), 26000),
-          window.setTimeout(() => setOverviewBuildPhase("suggestions"), 36000),
-          window.setTimeout(() => setOverviewBuildPhase("ready"), 44000),
-          window.setTimeout(() => {
-            const allBuilt = new Set<OverviewBuildPhase>(OVERVIEW_ALL_BUILT_PHASES);
-            setOverviewBuiltPhases(allBuilt);
-            persistOverviewBuiltPhases(allBuilt);
-            setOverviewBuildPhase(null);
-            setOverviewBuildActive(false);
-          }, 46000),
-        ]
-      : [
-          window.setTimeout(() => {
-            setOverviewBuiltPhases(prev => {
-              const next = new Set(prev);
-              next.add(targetPhase);
-              if (next.has("dev") && next.has("mkt") && next.has("rev")) {
-                next.add("suggestions");
-              }
-              persistOverviewBuiltPhases(next);
-              return next;
-            });
-            setOverviewBuildPhase(null);
-            setOverviewBuildActive(false);
-          }, 4000),
-        ];
+    const timers = [
+      window.setTimeout(() => setOverviewBuildPhase("dev"), 4000),
+      window.setTimeout(() => setOverviewBuildPhase("mkt"), 14000),
+      window.setTimeout(() => setOverviewBuildPhase("rev"), 26000),
+      window.setTimeout(() => setOverviewBuildPhase("suggestions"), 36000),
+      window.setTimeout(() => setOverviewBuildPhase("ready"), 44000),
+    ];
 
     return () => {
       timers.forEach(timer => window.clearTimeout(timer));
     };
-  }, [overviewBuildActive, overviewBuildRun, persistOverviewBuiltPhases]);
+  }, [overviewBuildActive]);
 
-  // Queue tip only when Overview content is fully ready on the New tab — not Workspace.
   useEffect(() => {
-    if (overviewBuildPhase !== "ready") return;
-    overviewContentReadyRef.current = true;
-    setOverviewBuildActive(false);
-    if (isRecActionsTipDismissed(selectedCompany.displayName)) return;
-    markRecActionsTipPending(selectedCompany.displayName);
-  }, [overviewBuildPhase, selectedCompany.displayName]);
+    if (isInvestorPersona) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    if (!isFounderProfilePromptSurface(activePage)) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    if (!isProfileCompletionPromptDue(selectedCompany.id, selectedCompany.displayName, initialOnboardingAnswers)) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    setProfileCompletionPromptOpen(true);
+  }, [activePage, initialOnboardingAnswers, isInvestorPersona, selectedCompany.displayName, selectedCompany.id]);
 
-  // Returning to Overview after ready: show tip again if not yet dismissed.
-  useEffect(() => {
-    if (activePage !== "scorecard-v2") return;
-    if (!overviewContentReadyRef.current) return;
-    if (isRecActionsTipDismissed(selectedCompany.displayName)) return;
-    if (!isRecActionsTipPending(selectedCompany.displayName)) return;
-    setRecActionsTipOpen(true);
-  }, [activePage, selectedCompany.displayName]);
+  const profilePromptBlocking = shouldGateFounderProfilePrompt(
+    persona,
+    selectedCompany.id,
+    selectedCompany.displayName,
+    activePage,
+    initialOnboardingAnswers,
+  ) && profileCompletionPromptOpen;
 
   useEffect(() => {
     function closeDropdown(event) {
@@ -10323,16 +9974,11 @@ function PatriotPayJourneyInner({
     setShowTourCoachmark(false);
     setHeaderTourEnabled(true);
     setTourOpen(true);
-    setTourStep(0);
-    setActivePage("scorecard-v2");
     setTourIndex(0);
   }
 
   function dismissTourPrompt() {
     setShowTourPrompt(false);
-    setHeaderTourEnabled(true);
-    setShowTourCoachmark(true);
-    if (reloadLandingActive) return;
     try {
       window.localStorage.setItem("fuelTourPromptSnoozedUntil", String(Date.now() + 24 * 60 * 60 * 1000));
     } catch {
@@ -10352,18 +9998,12 @@ function PatriotPayJourneyInner({
     setTourOpen(false);
     if (completed) {
       setTourTaken(true);
-      setActivePage("scorecard-v2");
-      setAskFuelOpen(false);
-      setAccountTab("profile");
-      setTourCompleteSignal(signal => signal + 1);
-      window.scrollTo(0, 0);
       try {
         window.localStorage.setItem("fuelWorkspaceTourTakenAt", String(Date.now()));
         window.localStorage.setItem("fuelWorkspaceTourTaken", "true");
       } catch {
         // Ignore storage failures in preview/demo environments.
       }
-      return;
     }
     if (startsWithTour || startsWithOverviewBuilding) {
       setActivePage("scorecard-v2");
@@ -10373,8 +10013,6 @@ function PatriotPayJourneyInner({
   function skipTour() {
     closeTour(false);
     setTourTaken(false);
-    setHeaderTourEnabled(true);
-    setShowTourCoachmark(true);
     try {
       window.localStorage.removeItem("fuelWorkspaceTourTakenAt");
       window.localStorage.removeItem("fuelWorkspaceTourTaken");
@@ -10397,7 +10035,6 @@ function PatriotPayJourneyInner({
   }
 
   const isAccountPage = activePage === "account";
-  const isCompanyProfilePage = activePage === "company-profile";
   const isInvestorShellPage = activePage === "investor-home"
     || activePage === "investor-portfolios"
     || activePage === "investor-pipeline"
@@ -10408,8 +10045,6 @@ function PatriotPayJourneyInner({
         : "portfolios"; // home dashboard hidden — portfolios is the investor landing
   const breadcrumbLabel = isAccountPage
     ? `Account · ${accountTabLabel(accountTab)}`
-    : isCompanyProfilePage
-      ? `${selectedCompany.displayName} profile`
     : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
       : activePage === "investor-pipeline" ? "Pipeline"
         : activePage === "investor-watchlists" ? "Watchlists"
@@ -10418,10 +10053,8 @@ function PatriotPayJourneyInner({
             : "Company";
 
   const founderBenchmarkForm = useMemo(
-    () => reloadLandingActive
-      ? EMPTY_BENCHMARK_FORM
-      : resolveBenchmarkFormValues(benchmarkSubmission, initialBenchmark),
-    [benchmarkSubmission, initialBenchmark, reloadLandingActive],
+    () => resolveBenchmarkFormValues(benchmarkSubmission, initialBenchmark),
+    [benchmarkSubmission, initialBenchmark],
   );
   const investorBenchmarkForm = useMemo(
     () => resolveBenchmarkFormValues(investorBenchmarkByCompany[selectedCompany.id], null),
@@ -10435,49 +10068,17 @@ function PatriotPayJourneyInner({
   const scorecardBenchmarkPeriod = usesPerCompanyWorkspace
     ? investorBenchmarkByCompany[selectedCompany.id]?.period
     : benchmarkSubmission?.period;
-
   const selectedCompanyLogo = useMemo(
     () => getCompanyLogoColors(selectedCompany.displayName || selectedCompany.logo),
     [selectedCompany.displayName, selectedCompany.logo],
   );
 
-  /** Tour chip in the top bar — same entry point across all overview designs. */
-  const effectiveTourTaken = tourTaken && !reloadLandingActive;
-
-  const workspaceInitiativesCount = useMemo(() => {
-    const items = usesPerCompanyWorkspace
-      ? investorInitiativesByCompany[selectedCompany.id] ?? []
-      : founderInitiatives;
-    return countWorkspaceInitiatives(items);
-  }, [usesPerCompanyWorkspace, investorInitiativesByCompany, selectedCompany.id, founderInitiatives]);
-
-  const mobileNavToggleButton = (
-    <button
-      type="button"
-      className="mobile-nav-toggle"
-      aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
-      aria-expanded={mobileNavOpen}
-      onClick={() => setMobileNavOpen(open => !open)}
-    >
-      <span className="mobile-nav-toggle-icon" aria-hidden="true">
-        <span />
-      </span>
-    </button>
-  );
-
   return (
     <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
-    <SkipLink />
-    <div className={`app${mobileNavOpen ? " is-mobile-nav-open" : ""}${profilePromptBlocking ? " is-profile-prompt-gated" : ""}`}>
-      <button
-        type="button"
-        className="mobile-nav-scrim"
-        aria-label="Close navigation"
-        onClick={() => setMobileNavOpen(false)}
-      />
-      <aside className="sidebar" aria-label="Workspace navigation">
+    <div className={`app${profilePromptBlocking ? " is-profile-prompt-gated" : ""}`}>
+      <aside className="sidebar">
         <div className="brand">
-          <div className="brand-logo" aria-hidden="true">Y</div>
+          <div className="brand-logo">Y</div>
           <div>
             <div className="brand-name">YORK·IE</div>
             <div className="brand-sub">FUEL 2.0</div>
@@ -10488,7 +10089,6 @@ function PatriotPayJourneyInner({
           onClick={openAccountHome}
           role="button"
           tabIndex={0}
-          aria-label="Open My Account"
           onKeyDown={e => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -10499,70 +10099,69 @@ function PatriotPayJourneyInner({
           <div className="account-avatar">M</div>
           <div className="account-name">My Account</div>
         </div>
-        <nav className="sidebar-nav" aria-label="Primary">
+        <div className="sidebar-nav">
         <div className="nav-section">
           <div className="nav-label">{isInvestorPersona ? "Fund" : "Research"}</div>
-          <SidebarNavItem
-            icon="watchlists"
-            label="Watchlists"
-            active={activePage === "investor-watchlists"}
-            interactive={isInvestorPersona}
+          <div
+            className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
+            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
             onClick={isInvestorPersona ? () => setActivePage("investor-watchlists") : undefined}
-          />
-          <SidebarNavItem
-            icon="pipeline"
-            label="Pipeline"
-            count={isInvestorPersona ? "13" : "0"}
-            active={activePage === "investor-pipeline"}
-            interactive={isInvestorPersona}
+          >
+            ⊟ Watchlists
+          </div>
+          <div
+            className={`nav-item${activePage === "investor-pipeline" ? " is-active" : ""}`}
+            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
             onClick={isInvestorPersona ? () => setActivePage("investor-pipeline") : undefined}
-          />
+          >
+            ▦ Pipeline <span className="nav-count">{isInvestorPersona ? "13" : "0"}</span>
+          </div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Portfolio</div>
-          <SidebarNavItem
-            icon="portfolios"
-            label="Portfolios"
-            count={isInvestorPersona ? "3" : undefined}
-            active={activePage === "investor-portfolios"}
-            interactive={isInvestorPersona}
+          <div
+            className={`nav-item${activePage === "investor-portfolios" ? " is-active" : ""}`}
+            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
             onClick={isInvestorPersona ? () => setActivePage("investor-portfolios") : undefined}
-          />
+          >
+            ▢ Portfolios {isInvestorPersona ? <span className="nav-count">3</span> : null}
+          </div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Value creation</div>
-          <SidebarNavItem icon="initiatives" label="Initiatives" count="0" />
-          <SidebarNavItem icon="benchmarks" label="Benchmarks" />
-          <SidebarNavItem icon="playbooks" label="Playbooks" />
+          <div className="nav-item">
+            ↗ Initiatives <span className="nav-count">0</span>
+          </div>
+          <div className="nav-item">▥ Benchmarks</div>
+          <div className="nav-item">▤ Playbooks</div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Integrations</div>
-          <SidebarNavItem
-            icon="connectors"
-            label="Connectors"
-            count="13"
-            onClick={() => setActivePage("connectors")}
-          />
+          <div className="nav-item" style={{ cursor: "pointer" }} onClick={() => setActivePage("connectors")}>
+            ⟳ Connectors <span className="nav-count">13</span>
+          </div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Network</div>
-          <SidebarNavItem icon="advisors" label="Advisors" count="32" />
-          <SidebarNavItem icon="serviceProviders" label="Service providers" count="0" />
-          <SidebarNavItem icon="investors" label="Investors" count="0" />
+          <div className="nav-item">
+            ◉ Advisors <span className="nav-count">32</span>
+          </div>
+          <div className="nav-item">
+            ⚉ Service providers <span className="nav-count">0</span>
+          </div>
+          <div className="nav-item">
+            ↗ Investors <span className="nav-count">0</span>
+          </div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Recently viewed</div>
-          {recentCompanies.map(company => {
-            const companyLogo = getCompanyLogoColors(company.displayName || company.logo);
-            return (
+          {recentCompanies.map(company => (
             <div
               key={company.id}
               className={`recent-item${selectedCompany.id === company.id && !isInvestorShellPage ? " active" : ""}`}
               style={{ cursor: "pointer" }}
               role="button"
               tabIndex={0}
-              aria-label={`Open ${company.displayName}`}
-              aria-current={selectedCompany.id === company.id && !isInvestorShellPage ? "page" : undefined}
               onClick={() => openRecentCompany(company.id)}
               onKeyDown={e => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -10571,130 +10170,51 @@ function PatriotPayJourneyInner({
                 }
               }}
             >
-              <div
-                className="recent-favicon"
-                data-letter={companyLogo.letter.toLowerCase()}
-                style={{ background: companyLogo.bg, color: companyLogo.fg }}
-              >
-                {companyLogo.letter}
+              <div className="recent-favicon" style={{ background: company.logoBg, color: "#fff" }}>
+                {company.logo}
               </div>
               {company.displayName}
             </div>
-            );
-          })}
+          ))}
         </div>
-        </nav>
+        </div>
         <SidebarProfileFooter
           onOpenAccountSettings={openAccountSettings}
-          onLogout={onLogout}
-          yorkUpsellReady={profileComplete && (overviewBuildPhase == null || overviewBuildPhase === "ready")}
-          profileComplete={profileComplete}
-          earnedProfileCredits={earnedProfileCredits}
-          userFullName={initialOnboardingAnswers?.userFullName?.trim() || "Shreya Gokani"}
-          userEmail={
-            initialOnboardingAnswers?.userFullName
-              ? `${initialOnboardingAnswers.userFullName.trim().toLowerCase().replace(/\s+/g, ".")}@york.ie`
-              : "shreya.g@york.ie"
-          }
+          yorkUpsellReady={overviewBuildPhase == null || overviewBuildPhase === "ready"}
         />
       </aside>
 
-      <main id="main" className="main" tabIndex={-1}>
+      <div className="main">
         {activePage === "connectors" ? (
-          <div
-            className={tourOpen && tourSteps[tourStep].target === "connectors-page" ? "tour-highlight" : undefined}
-            data-tour-target={tourOpen && tourSteps[tourStep].target === "connectors-page" ? "connectors-page" : undefined}
-          >
-            <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
-          </div>
-        ) : activePage === "company-profile" ? (
-          <>
-            <div className="topbar">
-              <div className="topbar-left">
-                {mobileNavToggleButton}
-                <nav className="breadcrumb" aria-label="Breadcrumb">
-                  <span>Fuel</span>
-                  <span aria-hidden="true" style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-                  <span className="current" aria-current="page">{breadcrumbLabel}</span>
-                </nav>
-                <h1 className="sr-only">{breadcrumbLabel}</h1>
-              </div>
-              <div className="topbar-right">
-                <TopbarCompanySearch />
-                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-              </div>
-            </div>
-            <div className="content content--profile-page">
-              <CompanyProfilePage
-                companyName={selectedCompany.displayName}
-                companyKey={selectedCompany.id}
-                onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
-                reloadLandingActive={reloadLandingActive}
-                userFullName={initialOnboardingAnswers?.userFullName?.trim() || "Shreya Gokani"}
-                userRole={initialOnboardingAnswers?.userRole}
-                userEmail={
-                  initialOnboardingAnswers?.userFullName
-                    ? `${initialOnboardingAnswers.userFullName.trim().toLowerCase().replace(/\s+/g, ".")}@york.ie`
-                    : "shreya.g@york.ie"
-                }
-                syncKey={profileDetailsSyncKey}
-                benchmarkValues={scorecardBenchmarkForm}
-                benchmarkEarned={Boolean(earnedProfileCredits.benchmark && earnedProfileCredits.benchmarkViaSubmit)}
-                cohortLabel={selectedCompany.meta}
-                companyMeta={selectedCompany.meta}
-                companyDomain={selectedCompany.domain}
-                initialTab={profilePreviewTab}
-                canEdit={!usesPerCompanyWorkspace}
-                onBack={closeCompanyProfilePage}
-                onEditProfile={handleEditProfileFromPreview}
-                onEditBenchmark={handleEditBenchmarkFromPreview}
-              />
-            </div>
-          </>
+          <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
         ) : activePage === "account" ? (
           <>
             <div className="topbar">
-              <div className="topbar-left">
-                {mobileNavToggleButton}
-                <nav className="breadcrumb" aria-label="Breadcrumb">
-                  <span>Fuel</span>
-                  <span aria-hidden="true" style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-                  <span className="current" aria-current="page">{breadcrumbLabel}</span>
-                </nav>
-                <h1 className="sr-only">{breadcrumbLabel}</h1>
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
               </div>
               <div className="topbar-right">
-                <TopbarCompanySearch />
+                <div className="search-box">
+                  <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
               </div>
             </div>
-            <div
-              className={`content${tourOpen && tourSteps[tourStep].target === "account-settings" ? " tour-highlight" : ""}`}
-              data-tour-target={tourOpen && tourSteps[tourStep].target === "account-settings" ? "account-settings" : undefined}
-            >
-              <AccountSettings tab={accountTab} onTabChange={setAccountTab} onLogout={onLogout} />
+            <div className="content">
+              <AccountSettings tab={accountTab} onTabChange={setAccountTab} />
             </div>
           </>
         ) : (<><div className={`topbar${showTourCoachmark ? " has-tour-coachmark" : ""}`}>
-          <div className="topbar-left">
-            {mobileNavToggleButton}
-            <nav className="breadcrumb" aria-label="Breadcrumb">
-              <span>Fuel</span>
-              <span aria-hidden="true" style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-              <span className="current" aria-current="page">{breadcrumbLabel}</span>
-            </nav>
-            <h1 className="sr-only">{breadcrumbLabel}</h1>
+          <div className="breadcrumb">
+            Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+            <span className="current">{breadcrumbLabel}</span>
           </div>
           <div className="topbar-right">
-            <TopbarCompanySearch />
-            <span
-              data-tour-target="ask-fuel-ai"
-              className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
-              style={{ display: "inline-flex" }}
-            >
-              <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-            </span>
-            {!effectiveTourTaken && headerTourEnabled ? (
+            <div className="search-box">
+              <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
+            </div>
+            {!isProfileWizard && !tourTaken && headerTourEnabled ? (
               <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
                 <button
                   type="button"
@@ -10726,18 +10246,24 @@ function PatriotPayJourneyInner({
                 ) : null}
               </div>
             ) : null}
-            <span style={{ fontSize: "12px", color: "var(--text-3)" }}>Q4 '25 · Nov 8</span>
+            <span
+              data-tour-target="ask-fuel-ai"
+              className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
+              style={{ display: "inline-flex" }}
+            >
+              <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+            </span>
           </div>
         </div>
 
-        {!isInvestorShellPage ? <div className="company-header">
+        {!isProfileWizard && !isInvestorShellPage ? <div className="company-header">
           <div className={`company-card${usesPerCompanyWorkspace ? " is-external" : ""}`}>
             <button
               type="button"
               className={`company-profile-link${tourOpen && tourSteps[tourStep].target === "company-profile" ? " tour-highlight" : ""}`}
               data-tour-target={tourOpen && tourSteps[tourStep].target === "company-profile" ? "company-profile" : undefined}
-              onClick={() => openProfilePreview("company")}
-              aria-label={`Preview ${selectedCompany.displayName} profile`}
+              onClick={openCompanyHeaderProfile}
+              aria-label={`View ${selectedCompany.displayName} profile`}
             >
               <div
                 className="company-logo"
@@ -10818,47 +10344,18 @@ function PatriotPayJourneyInner({
           </div>
         </div> : null}
 
-        {!isInvestorShellPage ? <div
-          className={`tabs${tourOpen && tourSteps[tourStep].target === "main-navigation" ? " tour-highlight" : ""}`}
-          data-tour-target={tourOpen && tourSteps[tourStep].target === "main-navigation" ? "main-navigation" : undefined}
-        >
+        {!isProfileWizard && !isInvestorShellPage ? <div className="tabs">
           <div className={`tab ${activePage === "scorecard-v2" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage("scorecard-v2")}>Overview</div>
-          <div
-            className={`tab ${activePage === "signals" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`}
-            data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined}
-            title={!profileComplete ? "Complete your profile for better intelligence and more credits" : undefined}
-            onClick={() => setActivePage("signals")}
-          >
-            Intelligence
-          </div>
-          <div
-            className={`tab ${activePage === "context-feed" ? "active" : ""}`}
-            title={!profileComplete ? "Complete your profile for better intelligence and more credits" : undefined}
-            onClick={() => setActivePage("context-feed")}
-          >
-            Context Feed
-          </div>
+          <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>Intelligence</div>
           <div
             className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
             data-tour-target={tourOpen && tourSteps[tourStep].target === "initiatives" ? "initiatives" : undefined}
-            title={!profileComplete ? "Complete your profile for better intelligence and more credits" : undefined}
             onClick={() => {
               setFocusInitiativeId(null);
               setActivePage("initiatives");
             }}
           >
-            Initiatives
-            {workspaceInitiativesCount > 0 ? (
-              <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>
-                {workspaceInitiativesCount}
-              </span>
-            ) : null}
-          </div>
-          <div
-            className={`tab ${activePage === "overview" ? "active" : ""}`}
-            onClick={() => setActivePage("overview")}
-          >
-            Research
+            Initiatives <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>2</span>
           </div>
           <div
             className={`tab ${activePage === "data-room" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "data-room" ? "tour-highlight" : ""}`}
@@ -10872,16 +10369,16 @@ function PatriotPayJourneyInner({
           </div>
         </div> : null}
 
-        {showTourPrompt ? (
+        {!isProfileWizard && showTourPrompt ? (
           <TourPromptBanner
             onStartTour={startTour}
             onDismiss={dismissTourPrompt}
-            building={Boolean(overviewBuildPhase && overviewBuildPhase !== "ready")}
-            reloadLanding={reloadLandingActive}
+            building={false}
           />
         ) : null}
 
-        {overviewBuildPhase
+        {!isProfileWizard
+          && overviewBuildPhase
           && overviewBuildPhase !== "ready"
           && activePage !== "scorecard-v2" ? (
           <div className="intel-building-banner" role="status">
@@ -10891,7 +10388,7 @@ function PatriotPayJourneyInner({
           </div>
         ) : null}
 
-        <div className="content">
+        <div className={`content ${isProfileWizard ? "profile-wizard-content" : ""}`}>
           {activePage === "development-setup" ? (
             <IntegrationSetupPage
               onBack={() => setActivePage("journey")}
@@ -10937,7 +10434,7 @@ function PatriotPayJourneyInner({
           ) : activePage === "signals" ? (
             <SignalsPage
               isProfileComplete={profileComplete}
-              onLogBenchmarkData={openBenchmarkDrawer}
+              onLogBenchmarkData={() => setActivePage("profile-wizard")}
               onLinkConnectors={() => setActivePage("connectors")}
               documentSlots={documentSlots}
               processingDocumentTypeId={processingDocumentTypeId}
@@ -10964,18 +10461,33 @@ function PatriotPayJourneyInner({
               onDismissPendingSource={handleDismissPendingSource}
               onAttemptSourceGeneration={handleAttemptSourceGeneration}
             />
+          ) : activePage === "benchmark-form" ? (
+            <LogPrivateDataPage
+              onBack={() => setActivePage("signals")}
+              onSubmit={handleBenchmarkSubmit}
+              initialValues={benchmarkSubmission?.formValues || EMPTY_BENCHMARK_FORM}
+            />
+          ) : activePage === "profile-wizard" ? (
+            <FinishProfileWizard
+              onBack={() => setActivePage("signals")}
+              onSubmitBenchmark={() => {
+                applyBenchmarkSubmission(WIZARD_DEFAULT_BENCHMARK);
+                setProfileComplete(true);
+                setActivePage("signals-loading");
+              }}
+            />
           ) : activePage === "overview" ? (
             <OverviewPage
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
               profileComplete={profileComplete}
-              onEditProfile={() => openProfileDrawer("company")}
+              onEditProfile={() => setActivePage("profile-wizard")}
               company={selectedCompany}
               visitorMode={isInvestorPersona}
             />
           ) : activePage === "context-feed" ? (
             <SignalsPage
               isProfileComplete={profileComplete}
-              onLogBenchmarkData={openBenchmarkDrawer}
+              onLogBenchmarkData={() => setActivePage("profile-wizard")}
               onLinkConnectors={() => setActivePage("connectors")}
               documentSlots={documentSlots}
               processingDocumentTypeId={processingDocumentTypeId}
@@ -11070,19 +10582,15 @@ function PatriotPayJourneyInner({
           ) : activePage === "scorecard-v2" ? (
             <ScorecardV2
               benchmark={scorecardBenchmark}
-              onBenchmarkChange={(next) => {
-                applyBenchmarkSubmission(toBenchmarkFormValues(next));
-              }}
-              onBenchmarkSaved={() => {
-                setProfileDetailsSyncKey(key => key + 1);
-                startOverviewBuild("summary", "single");
-              }}
-              onBenchmarkEarlyUnlock={() => {
-                const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
-                setEarnedProfileCredits(earned);
-                if (reward) showProfileCreditReward(reward);
-                setProfileDetailsSyncKey(key => key + 1);
-                startOverviewBuild("summary", "single");
+              onBenchmarkChange={(next, context) => {
+                applyBenchmarkSubmission({
+                  ...toBenchmarkFormValues(next),
+                  notableCustomers: context?.notableCustomers ?? scorecardBenchmarkForm.notableCustomers,
+                  notableHires: context?.notableHires ?? scorecardBenchmarkForm.notableHires,
+                  biggestChallenges: context?.biggestChallenges ?? scorecardBenchmarkForm.biggestChallenges,
+                  otherUpdates: context?.otherUpdates ?? scorecardBenchmarkForm.otherUpdates,
+                  openToIntros: context?.openToIntros ?? scorecardBenchmarkForm.openToIntros,
+                });
               }}
               cohortLabel={selectedCompany.meta}
               companyName={selectedCompany.displayName}
@@ -11179,72 +10687,23 @@ function PatriotPayJourneyInner({
                 setActivePage("initiatives");
               }}
               onUploadPitchDeck={() => setActivePage("data-room")}
-              onOpenIntelligence={() => {
-                if (!profileComplete) {
-                  setActivePage("scorecard-v2");
-                  return;
-                }
-                setActivePage("signals");
-              }}
-              onOpenInitiatives={() => {
-                if (!profileComplete) {
-                  setActivePage("scorecard-v2");
-                  return;
-                }
-                setActivePage("initiatives");
-              }}
-              onGenerateInitiative={() => {
-                if (!profileComplete) {
-                  setActivePage("scorecard-v2");
-                  return;
-                }
-                setActivePage("initiatives");
-              }}
+              onOpenIntelligence={() => setActivePage("signals")}
+              onOpenInitiatives={() => setActivePage("initiatives")}
+              onGenerateInitiative={() => setActivePage("initiatives")}
               onRunPlaybook={() => {
-                if (!profileComplete) {
-                  setActivePage("scorecard-v2");
-                  return;
-                }
                 setPlaybookFocusSignal(s => s + 1);
                 setAskFuelOpen(true);
               }}
-              onAddSources={() => {
-                if (!profileComplete) {
-                  openBenchmarkDrawer();
-                  return;
-                }
-                setActivePage("signals");
-              }}
+              onAddSources={() => setActivePage("signals")}
               onAddDetails={() => setActivePage("scorecard-v2")}
               onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
-              isProfileComplete={profileComplete}
-              userFirstName={(initialOnboardingAnswers?.userFullName || "there").trim().split(/\s+/)[0]}
-              onStartProfileCompletion={(section) => openProfileDrawer(section ?? "company")}
-              onOpenProfileDetails={(section) => {
-                if (section === "dev" || section === "mkt" || section === "rev") {
-                  const moduleMap = { dev: "dev", mkt: "gtm", rev: "rev" } as const;
-                  openProfileDrawer(moduleMap[section]);
-                  return;
-                }
-                openProfileDrawer(section === "company" ? "company" : "company");
-              }}
-              profileDetailsSyncKey={profileDetailsSyncKey}
-              profileDrawerOpen={profileDrawerOpen}
-              reloadLandingActive={reloadLandingActive}
-              tourCompleteSignal={tourCompleteSignal}
-              benchmarkEditRequestKey={benchmarkEditRequestKey}
-              onBenchmarkEditClosed={handleBenchmarkEditClosedFromPreview}
-              onOpenProfilePreview={openProfilePreview}
-              onLandingContentRestore={() => {
-                setReloadLandingActive(false);
-                setShowTourPrompt(false);
-                setHeaderTourEnabled(true);
-                startOverviewBuild("summary", "full");
-              }}
               earnedProfileCredits={earnedProfileCredits}
               companyKey={selectedCompany.id}
               onProfileCreditsChange={setEarnedProfileCredits}
-              onProfileCreditReward={showProfileCreditReward}
+              onProfileCreditReward={setProfileCreditReward}
+              creditRewardVisible={Boolean(profileCreditReward)}
+              openProfileModuleKey={openProfileModuleKey}
+              openProfileModuleSection={openProfileModuleSection}
               brief={generatedBrief}
               lastPlaybook={lastPlaybook}
               onDismissPlaybook={() => setLastPlaybook(null)}
@@ -11256,23 +10715,12 @@ function PatriotPayJourneyInner({
               onWorkspaceActivity={() => tryUnlockInvestorOverview(selectedCompany.id)}
               privateWorkspaceLabel={usesPerCompanyWorkspace ? "Your private workspace" : undefined}
               overviewBuildPhase={overviewBuildPhase}
-              overviewBuiltPhases={overviewBuiltPhases}
-              overviewBuildActive={overviewBuildActive}
-              recActionsTipOpen={recActionsTipOpen}
-              onDismissRecActionsTip={() => {
-                dismissRecActionsTip(selectedCompany.displayName);
-                setRecActionsTipOpen(false);
+              onStartOptionalTour={() => {
+                setOverviewBuildPhase(null);
+                setOverviewBuildActive(false);
+                setHeaderTourEnabled(true);
+                startTour();
               }}
-              onStartOptionalTour={
-                !effectiveTourTaken
-                  ? () => {
-                      setOverviewBuildPhase(null);
-                      setOverviewBuildActive(false);
-                      setHeaderTourEnabled(true);
-                      startTour();
-                    }
-                  : undefined
-              }
               onDismissOverviewReady={skipOverviewReadyPrompt}
             />
           ) : activePage === "journey" ? (
@@ -11322,7 +10770,7 @@ function PatriotPayJourneyInner({
           ) : null}
         </div>
         </>)}
-      </main>
+      </div>
       {tourOpen ? (
         <GuidedTourOverlay
           step={tourStep}
@@ -11352,59 +10800,18 @@ function PatriotPayJourneyInner({
         focusPlaybook={pendingPlaybook}
         focusPlaybookSignal={playbookFocusSignal}
       />
-      <CompleteBenchmarkDrawer
-        open={benchmarkDrawerOpen}
-        companyName={selectedCompany.displayName}
-        companyKey={selectedCompany.id}
-        initialValues={scorecardBenchmarkForm}
-        earnedProfileCredits={earnedProfileCredits}
-        elevatedScrim={benchmarkDrawerElevated}
-        onClose={closeBenchmarkDrawer}
-        onSaveDraft={values => {
-          if (usesPerCompanyWorkspace) applyBenchmarkSubmission(values, selectedCompany.id);
-          else applyBenchmarkSubmission(values);
-        }}
-        onSubmit={handleBenchmarkSubmit}
-      />
-      <ProfileCompletionPrompt
-        open={profileCompletionPromptOpen}
-        earnedProfileCredits={earnedProfileCredits}
-        onCompleteProfile={completeProfileFromPrompt}
-        onContinue={dismissProfileCompletionPrompt}
-      />
-      <CompleteProfileDrawer
-        open={profileDrawerOpen}
-        companyName={selectedCompany.displayName}
-        companyKey={selectedCompany.id}
-        initialSection={profileDrawerSection}
-        initialAnswers={profileDrawerInitialAnswers}
-        reloadLandingActive={reloadLandingActive}
-        drawerResetKey={profileDrawerResetKey}
-        onClose={() => {
-          setProfileDrawerOpen(false);
-          setProfileDetailsSyncKey(key => key + 1);
-          editProfileFromPreviewRef.current = false;
-        }}
-        onSaved={handleProfileSavedFromPreview}
-        onAnswersChange={() => setProfileDetailsSyncKey(key => key + 1)}
-        onModuleSaved={handleProfileModuleSaved}
-        onModuleProgress={handleProfileModuleProgress}
-        onModuleCreditReward={handleModuleCreditReward}
-        onModuleEarned={(earned) => setEarnedProfileCredits(earned)}
-        earnedProfileCredits={earnedProfileCredits}
-        onComplete={(completedModules) => {
-          setEarnedProfileCredits(markModulesEarned(completedModules, selectedCompany.id));
-          setProfileComplete(true);
-          setProfileDrawerOpen(false);
-          handleProfileSavedFromPreview();
-        }}
-      />
       {profileCreditReward ? (
         <ProfileCreditRewardToast
           reward={profileCreditReward}
           onDismiss={() => setProfileCreditReward(null)}
         />
       ) : null}
+      <ProfileCompletionPrompt
+        open={profileCompletionPromptOpen}
+        earnedProfileCredits={earnedProfileCredits}
+        onCompleteProfile={completeProfileFromPrompt}
+        onContinue={dismissProfileCompletionPrompt}
+      />
     </div>
     </AccountSettingsNavProvider>
   );

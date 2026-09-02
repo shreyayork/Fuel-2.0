@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Snowflake">
-  <rect width="64" height="64" rx="14" fill="#29B5E8"/>
-  <rect x="14" y="14" width="36" height="36" rx="10" fill="#fff" opacity="0.95"/><path d="M22 40 L32 18 L42 40 Z" fill="#8FDDF5"/>
-</svg>

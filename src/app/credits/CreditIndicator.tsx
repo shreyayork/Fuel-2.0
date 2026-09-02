@@ -1,42 +1,18 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useAccountSettingsNavOptional } from "../account/AccountSettingsNav";
-import {
-  computeCreditBalance,
-  PROFILE_TOTAL_CREDITS,
-  type EarnedProfileCredits,
-} from "../profileCredits";
+import { PLAN_LIMITS } from "./constants";
 import { useCredits } from "./CreditProvider";
 import { totalRemaining, dailyRemaining } from "./creditLogic";
 import { CreditPopover } from "./CreditPopover";
 
-function profileBarTone(ratio: number): "teal" | "amber" | "red" {
-  if (ratio <= 0.1) return "red";
-  if (ratio <= 0.3) return "amber";
-  return "teal";
-}
-
-export function CreditIndicator({
-  earnedProfileCredits,
-}: {
-  /** When set, shows intelligence unlock balance (50 starting → 250 max) instead of monthly AI credits. */
-  earnedProfileCredits?: EarnedProfileCredits;
-}) {
+export function CreditIndicator() {
   const { snapshot, barTone, barFill, popoverOpen, setPopoverOpen } = useCredits();
   const accountNav = useAccountSettingsNavOptional();
   const planLabel = snapshot.plan === "pro" ? "Pro" : "Free";
-
-  const profileBalance = useMemo(
-    () => computeCreditBalance(earnedProfileCredits ?? { modules: [], benchmark: false, intelligenceSources: false }),
-    [earnedProfileCredits],
-  );
-  const profileRatio = profileBalance / PROFILE_TOTAL_CREDITS;
-  const useProfileCredits = earnedProfileCredits != null;
-
-  const remaining = useProfileCredits ? profileBalance : totalRemaining(snapshot);
+  const remaining = totalRemaining(snapshot);
   const dailyLeft = dailyRemaining(snapshot);
-  const totalCap = useProfileCredits ? PROFILE_TOTAL_CREDITS : snapshot.monthlyLimit + snapshot.topUpBalance;
-  const displayBarTone = useProfileCredits ? profileBarTone(profileRatio) : barTone;
-  const displayBarFill = useProfileCredits ? profileRatio : barFill;
+  const totalCap = snapshot.monthlyLimit + snapshot.topUpBalance;
+  const canEarnMore = snapshot.plan === "free" && snapshot.monthlyLimit < PLAN_LIMITS.free.monthly;
 
   const openUsage = () => {
     setPopoverOpen(false);
@@ -50,14 +26,10 @@ export function CreditIndicator({
         type="button"
         className="credit-indicator-btn"
         aria-expanded={popoverOpen}
-        aria-label={
-          useProfileCredits
-            ? `${planLabel} plan · ${remaining.toLocaleString()} of ${totalCap.toLocaleString()} intelligence credits unlocked`
-            : `${planLabel} plan · ${remaining.toLocaleString()} of ${totalCap.toLocaleString()} credits available`
-        }
+        aria-label={`${planLabel} plan · ${remaining.toLocaleString()} of ${totalCap.toLocaleString()} credits available`}
         title={
-          useProfileCredits
-            ? `${remaining.toLocaleString()} / ${totalCap.toLocaleString()} intelligence credits · complete profile, benchmark, and sources to unlock more`
+          canEarnMore
+            ? `${remaining.toLocaleString()} / ${totalCap.toLocaleString()} credits · complete profile to earn more`
             : `${remaining.toLocaleString()} / ${totalCap.toLocaleString()} credits · resets ${snapshot.monthlyResetLabel} · ${dailyLeft} daily left`
         }
         onClick={openUsage}
@@ -70,8 +42,8 @@ export function CreditIndicator({
         </div>
         <div className="credit-indicator-track" aria-hidden="true">
           <div
-            className={`credit-indicator-fill ${displayBarTone}`}
-            style={{ width: `${Math.max(Math.round(displayBarFill * 100), 0)}%` }}
+            className={`credit-indicator-fill ${barTone}`}
+            style={{ width: `${Math.max(Math.round(barFill * 100), 0)}%` }}
           />
         </div>
       </button>

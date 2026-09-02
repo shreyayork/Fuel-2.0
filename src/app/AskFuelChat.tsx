@@ -1,19 +1,16 @@
 // ─── Fuel AI — Ask Fuel chat drawer (composer, playbooks, brief) ───────────────
 import React, { useEffect, useRef, useState } from "react";
-import { useDialogA11y } from "./a11y/useDialogA11y";
 import type { BenchmarkFormValues } from "./PatriotPayJourney";
 import {
   generateBrief, PLAYBOOKS, PLAYBOOK_COUNT,
   type Brief, type BriefFlag, type Playbook,
 } from "./fuelBrief";
 
-import { briefFlagToColor } from "./statusSystem";
-
 const FLAG_COLOUR: Record<BriefFlag, string> = {
-  good: briefFlagToColor("good"),
-  warn: briefFlagToColor("warn"),
-  crit: briefFlagToColor("crit"),
-  neutral: briefFlagToColor("neutral"),
+  good: "#3FD68C",
+  warn: "#E0B341",
+  crit: "#CF8A8A",
+  neutral: "#7B8997",
 };
 const FLAG_DOT: Record<BriefFlag, string> = { good: "✅", warn: "🟡", crit: "🔴", neutral: "·" };
 
@@ -175,11 +172,8 @@ export function AskFuelChatDrawer({
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const threadRef = useRef<HTMLDivElement | null>(null);
-  const dialogRef = useRef<HTMLElement>(null);
   const lastFocus = useRef(0);
   const lastPbFocus = useRef(0);
-
-  useDialogA11y(open, dialogRef, onClose);
 
   // scroll thread to bottom on new messages
   useEffect(() => {
@@ -284,22 +278,8 @@ export function AskFuelChatDrawer({
   const empty = messages.length === 0;
 
   return (
-    <>
-      <button
-        type="button"
-        className="afc-scrim a11y-scrim"
-        aria-label="Close Ask Fuel AI"
-        onClick={onClose}
-        tabIndex={-1}
-      />
-      <aside
-        ref={dialogRef}
-        className="afc"
-        onClick={e => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Ask Fuel AI about ${companyName}`}
-      >
+    <div className="afc-scrim" onClick={onClose}>
+      <aside className="afc" onClick={e => e.stopPropagation()} role="dialog" aria-label="Ask Fuel AI">
         <header className="afc-head">
           <div>
             <span className="afc-eyebrow">✦ Fuel AI</span>
@@ -308,7 +288,7 @@ export function AskFuelChatDrawer({
           <button type="button" className="afc-x" onClick={onClose} aria-label="Close">✕</button>
         </header>
 
-        <div className="afc-thread" ref={threadRef} aria-live="polite" aria-relevant="additions text">
+        <div className="afc-thread" ref={threadRef}>
           {empty ? (
             <div className="afc-empty">
               <div className="afc-empty-mark">✦</div>
@@ -400,7 +380,7 @@ export function AskFuelChatDrawer({
           </div>
         </div>
       </aside>
-    </>
+    </div>
   );
 }
 

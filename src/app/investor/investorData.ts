@@ -5,7 +5,6 @@ export type InvestorCompanyRef = {
   domain: string;
   logo: string;
   logoBg: string;
-  logoUrl?: string;
   meta: string;
   headquarters: string;
   employees: string;
@@ -142,25 +141,6 @@ export const PIPELINE_STAGES: { id: PipelineStage; label: string }[] = [
   { id: "contract", label: "Contract Sent" },
 ];
 
-export function buildClearbitLogoUrl(domain: string): string {
-  return `https://logo.clearbit.com/${domain}`;
-}
-
-/** Slug for local dummy logo assets under /public/company-logos/. */
-export function companyLogoSlug(label: string): string {
-  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
-export function buildCompanyLogoAssetUrl(label: string): string {
-  return `/company-logos/${companyLogoSlug(label)}.svg`;
-}
-
-export function resolveCompanyLogoUrl(
-  company: Pick<InvestorCompanyRef, "displayName" | "domain" | "logoUrl">,
-): string {
-  return company.logoUrl ?? buildCompanyLogoAssetUrl(company.displayName);
-}
-
 export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
   {
     id: "patriotpay",
@@ -169,7 +149,6 @@ export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
     domain: "patriotpay.com",
     logo: "P",
     logoBg: "#1E4D8C",
-    logoUrl: buildCompanyLogoAssetUrl("Patriot Pay"),
     meta: "Healthcare · Patient Billing · Seed",
     headquarters: "Boston, MA, US",
     employees: "11-50",
@@ -200,7 +179,6 @@ export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
     domain: "operator.ai",
     logo: "O",
     logoBg: "#5B3A8C",
-    logoUrl: buildCompanyLogoAssetUrl("Operator AI"),
     meta: "AI Operations · Workflow Automation · Seed",
     headquarters: "San Francisco, CA, US",
     employees: "11-50",
@@ -231,7 +209,6 @@ export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
     domain: "syncsports.io",
     logo: "S",
     logoBg: "#8C5B3A",
-    logoUrl: buildCompanyLogoAssetUrl("Sync Sports"),
     meta: "Sports Tech · Fan Engagement · Seed",
     headquarters: "Austin, TX, US",
     employees: "11-50",
@@ -599,186 +576,39 @@ export const SUGGESTED_FOUNDERS: SuggestedFounder[] = [
   },
 ].sort((left, right) => Number(right.onFuel) - Number(left.onFuel) || right.matchScore - left.matchScore);
 
-export type WatchlistScope = "Workspace" | "Private" | "Team";
+export type WatchlistScope = "Account" | "Personal";
 export type WatchlistOwnerKind = "mine" | "shared";
-
-export const WATCHLIST_VISIBILITY_OPTIONS: WatchlistScope[] = [
-  "Workspace",
-  "Private",
-  "Team",
-];
-
-export function watchlistOwnerKindForScope(scope: WatchlistScope): WatchlistOwnerKind {
-  return scope === "Private" ? "mine" : "shared";
-}
-
-export const WATCHLIST_TEAM_OPTIONS = [
-  "Alpha",
-  "Beta",
-  "Growth",
-  "Platform",
-  "Deal team",
-] as const;
-
-export type WatchlistTeam = (typeof WATCHLIST_TEAM_OPTIONS)[number];
-
-export type WatchlistEditDraft = {
-  name: string;
-  scope: WatchlistScope;
-  teams: string[];
-};
-
-export function buildWatchlistEditDraft(row: WatchlistRow): WatchlistEditDraft {
-  return {
-    name: row.name,
-    scope: row.scope,
-    teams: row.scope === "Team" ? [...(row.teams ?? [])] : [],
-  };
-}
-
-export function isWatchlistEditValid(draft: WatchlistEditDraft): boolean {
-  if (!draft.name.trim()) return false;
-  if (draft.scope === "Team" && draft.teams.length === 0) return false;
-  return true;
-}
-
-export function applyWatchlistEdit(row: WatchlistRow, draft: WatchlistEditDraft): WatchlistRow {
-  const name = draft.name.trim();
-  const ownerKind = watchlistOwnerKindForScope(draft.scope);
-  const teams = draft.scope === "Team" ? draft.teams : [];
-  return {
-    ...row,
-    name,
-    scope: draft.scope,
-    teams,
-    ownerKind,
-    updatedAt: "Just now",
-  };
-}
 
 export type WatchlistCompanyChip = {
   logo: string;
   logoBg: string;
   name: string;
-  logoUrl?: string;
-};
-
-export type WatchlistCompanyEntry = WatchlistCompanyChip & {
-  id: string;
-  addedAt: string;
-  addedBy: string;
 };
 
 export type WatchlistRow = {
   id: string;
   name: string;
-  entries: WatchlistCompanyEntry[];
+  companyCount: number;
+  companies: WatchlistCompanyChip[];
   ownerName: string;
   ownerEmail: string;
   ownerKind: WatchlistOwnerKind;
   scope: WatchlistScope;
-  /** Selected teams when scope is Team. */
-  teams: string[];
   updatedAt: string;
   digest: "Off" | "Weekly" | "Daily";
   starred: boolean;
 };
 
-export function watchlistEntryCount(row: WatchlistRow): number {
-  return row.entries?.length ?? 0;
-}
-
-export function watchlistPreviewChips(row: WatchlistRow, limit = 4): WatchlistCompanyChip[] {
-  return (row.entries ?? []).slice(0, limit).map(({ logo, logoBg, name, logoUrl }) => ({
-    logo,
-    logoBg,
-    name,
-    logoUrl,
-  }));
-}
-
-export function watchlistOwnerDisplay(row: WatchlistRow): string {
-  if (row.ownerKind === "mine") return "you";
-  return row.ownerName;
-}
-
-export function watchlistAccessInitials(row: WatchlistRow): string {
-  const label = row.teams?.[0] ?? row.ownerName;
-  const parts = label.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
-  }
-  return label.slice(0, 2).toUpperCase();
-}
-
-export function watchlistTeamLabels(row: WatchlistRow): string[] {
-  if (row.scope !== "Team") return [];
-  return row.teams ?? [];
-}
-
-export function watchlistAccessName(row: WatchlistRow): string {
-  if (row.scope === "Team" && (row.teams?.length ?? 0) > 0) {
-    return row.teams!.join(", ");
-  }
-  return row.ownerName;
-}
-
-export function watchlistVisibilityCopy(row: WatchlistRow): string {
-  const teams = row.teams ?? [];
-  if (row.scope === "Private") return "Visible to you only.";
-  if (row.scope === "Workspace") return "Visible to your workspace.";
-  if (teams.length === 0) return "Select teams to share with.";
-  if (teams.length === 1) return `Visible to ${teams[0]}.`;
-  if (teams.length === 2) return `Visible to ${teams[0]} and ${teams[1]}.`;
-  return `Visible to ${teams.slice(0, -1).join(", ")}, and ${teams.at(-1)}.`;
-}
-
-export function buildWatchlistEntry(
-  name: string,
-  opts: Partial<Pick<WatchlistCompanyEntry, "id" | "logo" | "logoBg" | "logoUrl" | "addedAt" | "addedBy">> = {},
-): WatchlistCompanyEntry {
-  return {
-    id: opts.id ?? `wl-co-${companyLogoSlug(name)}`,
-    name,
-    logo: opts.logo ?? name.trim().slice(0, 1).toUpperCase(),
-    logoBg: opts.logoBg ?? "#6b7280",
-    logoUrl: opts.logoUrl ?? buildCompanyLogoAssetUrl(name),
-    addedAt: opts.addedAt ?? "Just now",
-    addedBy: opts.addedBy ?? "you",
-  };
-}
-
 export const INVESTOR_WATCHLISTS: WatchlistRow[] = [
-  {
-    id: "wl-alpha",
-    name: "Alpha's Watchlist",
-    entries: [
-      buildWatchlistEntry("York IE", {
-        id: "york-ie",
-        logo: "Y",
-        logoBg: "#6b7280",
-        addedAt: "0m ago",
-        addedBy: "you",
-      }),
-    ],
-    ownerName: "you",
-    ownerEmail: "",
-    ownerKind: "mine",
-    scope: "Team",
-    teams: ["Alpha"],
-    updatedAt: "0m ago",
-    digest: "Off",
-    starred: false,
-  },
   {
     id: "wl-swiggy",
     name: "swiggy",
-    entries: [],
+    companyCount: 0,
+    companies: [],
     ownerName: "bhavik.s",
     ownerEmail: "bhavik.s@york.ie",
     ownerKind: "shared",
-    scope: "Workspace",
-    teams: [],
+    scope: "Account",
     updatedAt: "25d ago",
     digest: "Off",
     starred: false,
@@ -786,17 +616,17 @@ export const INVESTOR_WATCHLISTS: WatchlistRow[] = [
   {
     id: "wl-ge-partners",
     name: "GE Partners",
-    entries: [
-      buildWatchlistEntry("Patriot Pay", { logo: "P", logoBg: "#1E4D8C", addedAt: "25d ago", addedBy: "bhavik.s" }),
-      buildWatchlistEntry("Operator AI", { logo: "O", logoBg: "#5B3A8C", addedAt: "25d ago", addedBy: "bhavik.s" }),
-      buildWatchlistEntry("Ledgerly", { logo: "L", logoBg: "#2A5C8C", addedAt: "25d ago", addedBy: "bhavik.s" }),
-      buildWatchlistEntry("Nova Health", { logo: "N", logoBg: "#6B3A8C", addedAt: "25d ago", addedBy: "bhavik.s" }),
+    companyCount: 12,
+    companies: [
+      { logo: "P", logoBg: "#1E4D8C", name: "Patriot Pay" },
+      { logo: "O", logoBg: "#5B3A8C", name: "Operator AI" },
+      { logo: "L", logoBg: "#2A5C8C", name: "Ledgerly" },
+      { logo: "N", logoBg: "#6B3A8C", name: "Nova Health" },
     ],
     ownerName: "bhavik.s",
     ownerEmail: "bhavik.s@york.ie",
     ownerKind: "shared",
-    scope: "Workspace",
-    teams: [],
+    scope: "Account",
     updatedAt: "25d ago",
     digest: "Off",
     starred: false,
@@ -807,209 +637,10 @@ export type PortfolioListScope = "Account" | "Personal";
 export type PortfolioListOwnerKind = "mine" | "shared";
 export type PortfolioListDigest = "Off" | "Weekly" | "Daily";
 
-/** Startup stages for portfolio cohort selection in the create bar. */
-export const PORTFOLIO_COHORT_STAGES = [
-  "Pre-seed",
-  "Seed",
-  "Series A",
-  "Series B",
-  "Series C",
-  "Growth",
-] as const;
-
-export type PortfolioCohortStage = (typeof PORTFOLIO_COHORT_STAGES)[number];
-
-export function buildPortfolioMeta(fundLabel: string): string {
-  return fundLabel.trim();
-}
-
-/** Optional fund-label tags beside the name — never show "portfolio" or cohort stages. */
-export function portfolioMetaDisplayTags(meta: string): string[] {
-  const hiddenLabels = new Set([
-    "portfolio",
-    ...PORTFOLIO_COHORT_STAGES.map(stage => stage.toLowerCase()),
-  ]);
-  return meta
-    .split("·")
-    .map(part => part.trim())
-    .filter(Boolean)
-    .filter(part => !hiddenLabels.has(part.toLowerCase()));
-}
-
-export function portfolioCompanyToChip(
-  company: Pick<PortfolioCompany, "displayName" | "logo" | "logoBg" | "domain">,
-): WatchlistCompanyChip {
-  return {
-    logo: company.logo,
-    logoBg: company.logoBg,
-    name: company.displayName,
-    logoUrl: resolveCompanyLogoUrl(company),
-  };
-}
-
-/** Display chips for Seed Fund — 30 companies with local dummy logo assets. */
-function seedFundChip(
-  logo: string,
-  logoBg: string,
-  name: string,
-): WatchlistCompanyChip {
-  return {
-    logo,
-    logoBg,
-    name,
-    logoUrl: buildCompanyLogoAssetUrl(name),
-  };
-}
-
-export const SEED_FUND_PORTFOLIO_CHIPS: WatchlistCompanyChip[] = [
-  seedFundChip("P", "#1E4D8C", "Patriot Pay"),
-  seedFundChip("O", "#5B3A8C", "Operator AI"),
-  seedFundChip("S", "#8C5B3A", "Sync Sports"),
-  seedFundChip("St", "#635BFF", "Stripe"),
-  seedFundChip("N", "#111111", "Notion"),
-  seedFundChip("F", "#A259FF", "Figma"),
-  seedFundChip("A", "#FCBF49", "Airtable"),
-  seedFundChip("L", "#5E6AD2", "Linear"),
-  seedFundChip("V", "#111111", "Vercel"),
-  seedFundChip("R", "#354CCB", "Retool"),
-  seedFundChip("Ra", "#E4F222", "Ramp"),
-  seedFundChip("B", "#FF5A00", "Brex"),
-  seedFundChip("D", "#1DB954", "Deel"),
-  seedFundChip("Ri", "#FFD748", "Rippling"),
-  seedFundChip("G", "#F45D48", "Gusto"),
-  seedFundChip("Pl", "#111111", "Plaid"),
-  seedFundChip("C", "#0B5FFF", "Checkout.com"),
-  seedFundChip("M", "#14233C", "Monzo"),
-  seedFundChip("K", "#FFB3C7", "Klarna"),
-  seedFundChip("Di", "#5865F2", "Discord"),
-  seedFundChip("Sl", "#4A154B", "Slack"),
-  seedFundChip("Dr", "#0061FF", "Dropbox"),
-  seedFundChip("Ca", "#00C4CC", "Canva"),
-  seedFundChip("Mo", "#00ED64", "MongoDB"),
-  seedFundChip("Da", "#632CA6", "Datadog"),
-  seedFundChip("Sn", "#29B5E8", "Snowflake"),
-  seedFundChip("Db", "#FF3621", "Databricks"),
-  seedFundChip("Op", "#10A37F", "OpenAI"),
-  seedFundChip("An", "#CC785C", "Anthropic"),
-  seedFundChip("Sc", "#1F6FEB", "Scale AI"),
-];
-
-export const PORTFOLIO_LIST_LOGO_VISIBLE = 3;
-
-function seedFundDomainFromChip(chip: WatchlistCompanyChip): string {
-  return `${companyLogoSlug(chip.name).replace(/-/g, "")}.com`;
-}
-
-function buildSeedFundPortfolioCompany(chip: WatchlistCompanyChip, index: number): PortfolioCompany {
-  const coreIds = ["patriotpay", "operator-ai", "sync-sports"] as const;
-  const coreId = coreIds[index];
-  if (coreId) {
-    const existing = INVESTOR_PORTFOLIO.find(company => company.id === coreId);
-    if (existing) return existing;
-  }
-
-  const slug = chip.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const domain = seedFundDomainFromChip(chip);
-  const investedAmount = 300_000 + (index % 9) * 50_000;
-  const moic = 0.75 + (index % 6) * 0.22;
-  const estimatedValue = Math.round(investedAmount * moic);
-  const arrMillions = 0.45 + (index % 8) * 0.12;
-  const healthCycle: PortfolioCompany["health"][] = ["strong", "watch", "struggling"];
-  const health = healthCycle[index % healthCycle.length]!;
-  const headquarters = ["San Francisco, CA, US", "New York, NY, US", "Boston, MA, US", "Austin, TX, US"];
-
-  return {
-    id: `seed-fund-${slug}`,
-    name: slug,
-    displayName: chip.name,
-    domain,
-    logo: chip.logo,
-    logoBg: chip.logoBg,
-    logoUrl: chip.logoUrl ?? buildCompanyLogoAssetUrl(chip.name),
-    meta: `B2B SaaS · ${chip.name} · Seed`,
-    headquarters: headquarters[index % headquarters.length]!,
-    employees: index % 3 === 0 ? "1-10" : "11-50",
-    linkedin: `linkedin.com/company/${slug}`,
-    onFuel: index % 4 !== 0,
-    ownership: `${(4 + (index % 6)).toFixed(1)}%`,
-    invested: `$${Math.round(investedAmount / 1000)}K`,
-    investedAmount,
-    estimatedValue,
-    arr: `$${arrMillions.toFixed(1)}M`,
-    arrGrowthQoQ: index % 5 === 0 ? -14 : 6 + (index % 6) * 5,
-    nrr: 86 + (index % 12) * 2,
-    runwayMonths: 6 + (index % 14),
-    runway: `${6 + (index % 14)} mo`,
-    stage: "Seed",
-    sector: "B2B SaaS",
-    investedAt: ["Jan 2024", "Mar 2024", "May 2024", "Aug 2024", "Nov 2024"][index % 5]!,
-    daysSinceBenchmark: 8 + (index % 40),
-    health,
-    strugglingAreas: health === "struggling"
-      ? ["Runway under 9 months"]
-      : health === "watch"
-        ? ["NRR below cohort median"]
-        : [],
-    lastUpdate: `${1 + (index % 12)} days ago`,
-    founderEmail: `founders@${domain}`,
-  };
-}
-
-/** Full Seed Fund holdings — 30 companies for list + detail views. */
-export const SEED_FUND_EXTENDED_PORTFOLIO: PortfolioCompany[] = SEED_FUND_PORTFOLIO_CHIPS.map(
-  (chip, index) => buildSeedFundPortfolioCompany(chip, index),
-);
-
-const SEED_FUND_COMPANY_IDS = SEED_FUND_EXTENDED_PORTFOLIO.map(company => company.id);
-
-export function buildSeedFundPortfolioRow(): PortfolioListRow {
-  return {
-    id: "pf-seed-fund",
-    name: "Seed Fund",
-    meta: "",
-    cohort: "Pre-seed",
-    companyCount: SEED_FUND_PORTFOLIO_CHIPS.length,
-    companies: SEED_FUND_PORTFOLIO_CHIPS.slice(0, PORTFOLIO_LIST_LOGO_VISIBLE),
-    companyIds: SEED_FUND_COMPANY_IDS,
-    ownerName: "mike",
-    ownerEmail: "mike@york.ie",
-    ownerKind: "shared",
-    scope: "Account",
-    updatedAt: "1mo ago",
-    digest: "Off",
-    starred: false,
-  };
-}
-
-export function buildInitialPortfolioLists(): PortfolioListRow[] {
-  return [
-    {
-      id: "pf-personal",
-      name: "Shreya Gokani",
-      meta: "",
-      cohort: "Seed",
-      companyCount: 1,
-      companies: [
-        portfolioCompanyToChip(INVESTOR_PORTFOLIO[0]!),
-      ],
-      companyIds: ["patriotpay"],
-      ownerName: "shreya.g",
-      ownerEmail: "shreya.g@york.ie",
-      ownerKind: "mine",
-      scope: "Account",
-      updatedAt: "1mo ago",
-      digest: "Off",
-      starred: false,
-    },
-    buildSeedFundPortfolioRow(),
-  ];
-}
-
 export type PortfolioListRow = {
   id: string;
   name: string;
   meta: string;
-  cohort: PortfolioCohortStage;
   companyCount: number;
   companies: WatchlistCompanyChip[];
   companyIds: string[];
@@ -1023,28 +654,53 @@ export type PortfolioListRow = {
 };
 
 /** Fund / category portfolios — create the bucket first, then add companies. */
-export const INVESTOR_PORTFOLIO_LISTS: PortfolioListRow[] = buildInitialPortfolioLists();
+export const INVESTOR_PORTFOLIO_LISTS: PortfolioListRow[] = [
+  {
+    id: "pf-personal",
+    name: "Shreya Gokani",
+    meta: "portfolio",
+    companyCount: 1,
+    companies: [
+      { logo: "PI", logoBg: "#1E4D8C", name: "Pirimid Fintech" },
+    ],
+    companyIds: ["patriotpay"],
+    ownerName: "You",
+    ownerEmail: "",
+    ownerKind: "mine",
+    scope: "Account",
+    updatedAt: "28d ago",
+    digest: "Off",
+    starred: false,
+  },
+  {
+    id: "pf-seed-fund",
+    name: "Seed Fund",
+    meta: "portfolio · Seed Fund",
+    companyCount: 3,
+    companies: [
+      { logo: "P", logoBg: "#1E4D8C", name: "Patriot Pay" },
+      { logo: "O", logoBg: "#5B3A8C", name: "Operator AI" },
+      { logo: "S", logoBg: "#8C5B3A", name: "Sync Sports" },
+    ],
+    companyIds: ["patriotpay", "operator-ai", "sync-sports"],
+    ownerName: "mike",
+    ownerEmail: "mike@york.ie",
+    ownerKind: "shared",
+    scope: "Account",
+    updatedAt: "1mo ago",
+    digest: "Off",
+    starred: false,
+  },
+];
 
 export function companiesForPortfolioList(
   list: PortfolioListRow,
   portfolio: PortfolioCompany[] = INVESTOR_PORTFOLIO,
 ): PortfolioCompany[] {
-  if (list.id === "pf-seed-fund") {
-    return SEED_FUND_EXTENDED_PORTFOLIO;
-  }
-
   const byId = new Map(portfolio.map(company => [company.id, company]));
-  const ids = list.companyIds.length > 0 ? list.companyIds : portfolio.map(company => company.id);
-  return ids
+  return list.companyIds
     .map(id => byId.get(id))
     .filter((company): company is PortfolioCompany => Boolean(company));
-}
-
-export function normalizePortfolioListRow(row: PortfolioListRow): PortfolioListRow {
-  if (row.id === "pf-seed-fund") {
-    return buildSeedFundPortfolioRow();
-  }
-  return row;
 }
 
 export type PortfolioBenchmarkDot = {
@@ -1064,9 +720,6 @@ export type PortfolioBenchmarkMetric = {
   sampleSize: number;
   cohortP50Label: string;
   portfolioLabel: string;
-  /** Approximate cohort min / max shown on the performance axis */
-  axisMinLabel: string;
-  axisMaxLabel: string;
   /** Portfolio median marker 0–100 */
   portfolioPosition: number;
   /** Green cohort band on the track (P25–P90 style) */
@@ -1090,44 +743,19 @@ export type PortfolioBenchmarkSummary = {
   metrics: PortfolioBenchmarkMetric[];
 };
 
-/** Green when above / over; watch when mid; bad when low. Three colors only. */
+/** Green when above / over; yellow → orange → red when below. */
 export function colorForBenchmarkScore(score: number): string {
-  if (score >= 55) return "var(--status-good, #12b886)";
-  if (score >= 35) return "var(--status-watch, #f5a623)";
-  return "var(--status-bad, #e05c5c)";
+  if (score >= 65) return "#00B48A";
+  if (score >= 50) return "#2BB8A0";
+  if (score >= 40) return "#D4A86A";
+  if (score >= 25) return "#E8923A";
+  return "#CF6B6B";
 }
 
 function seededUnit(seed: string): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   return (hash % 1000) / 1000;
-}
-
-function makeBenchmarkDot(
-  id: string,
-  name: string,
-  seed: string,
-  lowerIsBetter: boolean,
-  bandStart: number,
-  bandEnd: number,
-): PortfolioBenchmarkDot {
-  const roll = seededUnit(seed);
-  const position = Math.round(
-    roll < 0.12
-      ? 4 + seededUnit(`${seed}-lo`) * Math.max(8, bandStart - 4)
-      : roll > 0.88
-        ? bandEnd + seededUnit(`${seed}-hi`) * Math.max(6, 96 - bandEnd)
-        : bandStart + seededUnit(`${seed}-mid`) * Math.max(8, bandEnd - bandStart),
-  );
-  const clamped = Math.min(96, Math.max(4, position));
-  const score = lowerIsBetter ? 100 - clamped : clamped;
-  return {
-    id,
-    name,
-    position: clamped,
-    score,
-    color: colorForBenchmarkScore(score),
-  };
 }
 
 function buildDotsForMetric(
@@ -1137,44 +765,28 @@ function buildDotsForMetric(
   bandStart: number,
   bandEnd: number,
 ): PortfolioBenchmarkDot[] {
-  return companies.map(company => makeBenchmarkDot(
-    company.id,
-    company.displayName,
-    `${metricId}-${company.id}`,
-    lowerIsBetter,
-    bandStart,
-    bandEnd,
-  ));
-}
+  const makeDot = (id: string, name: string, seed: string): PortfolioBenchmarkDot => {
+    // Bias dots into / near the cohort band, with some outliers.
+    const roll = seededUnit(seed);
+    const position = Math.round(
+      roll < 0.12
+        ? 4 + seededUnit(`${seed}-lo`) * Math.max(8, bandStart - 4)
+        : roll > 0.88
+          ? bandEnd + seededUnit(`${seed}-hi`) * Math.max(6, 96 - bandEnd)
+          : bandStart + seededUnit(`${seed}-mid`) * Math.max(8, bandEnd - bandStart),
+    );
+    const clamped = Math.min(96, Math.max(4, position));
+    const score = lowerIsBetter ? 100 - clamped : clamped;
+    return {
+      id,
+      name,
+      position: clamped,
+      score,
+      color: colorForBenchmarkScore(score),
+    };
+  };
 
-/** Portfolio-company dots for a single metric (used in the company list drawer). */
-export function buildBenchmarkDotsForCompanies(
-  metricId: string,
-  companies: PortfolioCompany[],
-  lowerIsBetter: boolean,
-  bandStart: number,
-  bandEnd: number,
-): PortfolioBenchmarkDot[] {
-  return buildDotsForMetric(metricId, companies, lowerIsBetter, bandStart, bandEnd);
-}
-
-/** Synthetic cohort for large-n preview (1k–10k) — same distribution shape, no per-logo render. */
-export function buildSyntheticBenchmarkDots(
-  metricId: string,
-  count: number,
-  lowerIsBetter: boolean,
-  bandStart: number,
-  bandEnd: number,
-): PortfolioBenchmarkDot[] {
-  const safeCount = Math.max(1, Math.min(100_000, Math.round(count)));
-  return Array.from({ length: safeCount }, (_, index) => makeBenchmarkDot(
-    `cohort-${metricId}-${index}`,
-    `Cohort co. ${index + 1}`,
-    `${metricId}-synthetic-${index}`,
-    lowerIsBetter,
-    bandStart,
-    bandEnd,
-  ));
+  return companies.map(company => makeDot(company.id, company.displayName, `${metricId}-${company.id}`));
 }
 
 const PORTFOLIO_BENCHMARK_DEFS: Array<{
@@ -1183,8 +795,6 @@ const PORTFOLIO_BENCHMARK_DEFS: Array<{
   hint: string | null;
   cohortP50Label: string;
   portfolioLabel: string;
-  axisMinLabel: string;
-  axisMaxLabel: string;
   portfolioPosition: number;
   bandStart: number;
   bandEnd: number;
@@ -1192,69 +802,40 @@ const PORTFOLIO_BENCHMARK_DEFS: Array<{
   trend: "up" | "down" | "flat";
   isLeader: boolean;
 }> = [
-  { id: "burn", label: "Burn multiple", hint: "lower is better", cohortP50Label: "2.1x", portfolioLabel: "1.6x", axisMinLabel: "0.8x", axisMaxLabel: "5.0x", portfolioPosition: 28, bandStart: 18, bandEnd: 58, lowerIsBetter: true, trend: "down", isLeader: true },
-  { id: "cac", label: "CAC payback", hint: "lower is better", cohortP50Label: "16 mo", portfolioLabel: "11 mo", axisMinLabel: "6 mo", axisMaxLabel: "36 mo", portfolioPosition: 32, bandStart: 20, bandEnd: 62, lowerIsBetter: true, trend: "down", isLeader: true },
-  { id: "gm", label: "Gross margin", hint: null, cohortP50Label: "72%", portfolioLabel: "78%", axisMinLabel: "45%", axisMaxLabel: "92%", portfolioPosition: 68, bandStart: 48, bandEnd: 88, lowerIsBetter: false, trend: "up", isLeader: true },
-  { id: "r40", label: "Rule of 40", hint: null, cohortP50Label: "28", portfolioLabel: "41", axisMinLabel: "5", axisMaxLabel: "65", portfolioPosition: 72, bandStart: 30, bandEnd: 78, lowerIsBetter: false, trend: "up", isLeader: true },
-  { id: "cash", label: "Cash on hand", hint: null, cohortP50Label: "$1.5M", portfolioLabel: "$2.1M", axisMinLabel: "$200K", axisMaxLabel: "$8M", portfolioPosition: 58, bandStart: 22, bandEnd: 55, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "burnUsd", label: "Monthly burn", hint: "lower is better", cohortP50Label: "$80K", portfolioLabel: "$64K", axisMinLabel: "$25K", axisMaxLabel: "$250K", portfolioPosition: 36, bandStart: 16, bandEnd: 56, lowerIsBetter: true, trend: "flat", isLeader: false },
-  { id: "arr", label: "ARR", hint: null, cohortP50Label: "$500K", portfolioLabel: "$890K", axisMinLabel: "$50K", axisMaxLabel: "$5M", portfolioPosition: 62, bandStart: 10, bandEnd: 52, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "arrGrowth", label: "ARR growth YoY", hint: null, cohortP50Label: "180%", portfolioLabel: "210%", axisMinLabel: "20%", axisMaxLabel: "400%", portfolioPosition: 56, bandStart: 22, bandEnd: 62, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "customers", label: "Paid customers", hint: null, cohortP50Label: "40", portfolioLabel: "62", axisMinLabel: "5", axisMaxLabel: "250", portfolioPosition: 48, bandStart: 8, bandEnd: 42, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "logo", label: "Logo retention", hint: null, cohortP50Label: "88%", portfolioLabel: "91%", axisMinLabel: "60%", axisMaxLabel: "99%", portfolioPosition: 70, bandStart: 58, bandEnd: 92, lowerIsBetter: false, trend: "flat", isLeader: false },
-  { id: "nrr", label: "Net revenue retention", hint: null, cohortP50Label: "108%", portfolioLabel: "114%", axisMinLabel: "75%", axisMaxLabel: "140%", portfolioPosition: 64, bandStart: 50, bandEnd: 84, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "fte", label: "Headcount (FTE)", hint: null, cohortP50Label: "12", portfolioLabel: "18", axisMinLabel: "3", axisMaxLabel: "80", portfolioPosition: 52, bandStart: 18, bandEnd: 58, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "burn", label: "Burn multiple", hint: "lower is better", cohortP50Label: "2.1x", portfolioLabel: "1.6x", portfolioPosition: 28, bandStart: 18, bandEnd: 58, lowerIsBetter: true, trend: "down", isLeader: true },
+  { id: "cac", label: "CAC payback", hint: "lower is better", cohortP50Label: "16 mo", portfolioLabel: "11 mo", portfolioPosition: 32, bandStart: 20, bandEnd: 62, lowerIsBetter: true, trend: "down", isLeader: true },
+  { id: "gm", label: "Gross margin", hint: null, cohortP50Label: "72%", portfolioLabel: "78%", portfolioPosition: 68, bandStart: 48, bandEnd: 88, lowerIsBetter: false, trend: "up", isLeader: true },
+  { id: "r40", label: "Rule of 40", hint: null, cohortP50Label: "28", portfolioLabel: "41", portfolioPosition: 72, bandStart: 30, bandEnd: 78, lowerIsBetter: false, trend: "up", isLeader: true },
+  { id: "cash", label: "Cash on hand", hint: null, cohortP50Label: "$1.5M", portfolioLabel: "$2.1M", portfolioPosition: 58, bandStart: 22, bandEnd: 55, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "burnUsd", label: "Monthly burn", hint: "lower is better", cohortP50Label: "$80K", portfolioLabel: "$64K", portfolioPosition: 36, bandStart: 16, bandEnd: 56, lowerIsBetter: true, trend: "flat", isLeader: false },
+  { id: "arr", label: "ARR", hint: null, cohortP50Label: "$500K", portfolioLabel: "$890K", portfolioPosition: 62, bandStart: 10, bandEnd: 52, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "arrGrowth", label: "ARR growth YoY", hint: null, cohortP50Label: "180%", portfolioLabel: "210%", portfolioPosition: 56, bandStart: 22, bandEnd: 62, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "customers", label: "Paid customers", hint: null, cohortP50Label: "40", portfolioLabel: "62", portfolioPosition: 48, bandStart: 8, bandEnd: 42, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "logo", label: "Logo retention", hint: null, cohortP50Label: "88%", portfolioLabel: "91%", portfolioPosition: 70, bandStart: 58, bandEnd: 92, lowerIsBetter: false, trend: "flat", isLeader: false },
+  { id: "nrr", label: "Net revenue retention", hint: null, cohortP50Label: "108%", portfolioLabel: "114%", portfolioPosition: 64, bandStart: 50, bandEnd: 84, lowerIsBetter: false, trend: "up", isLeader: false },
+  { id: "fte", label: "Headcount (FTE)", hint: null, cohortP50Label: "12", portfolioLabel: "18", portfolioPosition: 52, bandStart: 18, bandEnd: 58, lowerIsBetter: false, trend: "up", isLeader: false },
 ];
-
-export type BenchmarkCohortScale = "portfolio" | "full" | "xlarge" | "percentile";
-
-/** Synthetic cohort sizes for benchmark view dropdown (portfolio uses actual company count). */
-export const BENCHMARK_COHORT_SAMPLE_SIZES: Record<"full" | "xlarge", number> = {
-  full: 10_000,
-  xlarge: 100_000,
-};
-
-/** Cohort size used when the percentile table view is selected. */
-export const BENCHMARK_PERCENTILE_VIEW_SAMPLE_SIZE = 100;
-
-function benchmarkCohortSampleSize(scale: BenchmarkCohortScale, portfolioCount: number): number {
-  if (scale === "portfolio") return portfolioCount;
-  if (scale === "percentile") return BENCHMARK_PERCENTILE_VIEW_SAMPLE_SIZE;
-  return BENCHMARK_COHORT_SAMPLE_SIZES[scale];
-}
 
 export function buildPortfolioBenchmarkSummary(
   list: PortfolioListRow,
   portfolio: PortfolioCompany[] = INVESTOR_PORTFOLIO,
-  options?: { cohortScale?: BenchmarkCohortScale },
 ): PortfolioBenchmarkSummary {
   const companies = companiesForPortfolioList(list, portfolio);
-  const portfolioCount = Math.max(1, companies.length);
-  const cohortScale = options?.cohortScale ?? "portfolio";
-  const sampleSize = benchmarkCohortSampleSize(cohortScale, portfolioCount);
+  const sampleSize = Math.max(1, companies.length);
   const metrics: PortfolioBenchmarkMetric[] = PORTFOLIO_BENCHMARK_DEFS.map(def => ({
     ...def,
     sampleSize,
-    dots: cohortScale !== "portfolio"
-      ? buildSyntheticBenchmarkDots(
-        def.id,
-        sampleSize,
-        def.lowerIsBetter,
-        def.bandStart,
-        def.bandEnd,
-      )
-      : buildDotsForMetric(
-        def.id,
-        companies,
-        def.lowerIsBetter,
-        def.bandStart,
-        def.bandEnd,
-      ),
+    dots: buildDotsForMetric(
+      def.id,
+      companies,
+      def.lowerIsBetter,
+      def.bandStart,
+      def.bandEnd,
+    ),
   }));
   const leadersCount = metrics.filter(metric => metric.isLeader).length;
-  const filterSample = cohortScale === "portfolio" ? Math.max(portfolioCount, 3) : sampleSize;
   return {
-    filterLabel: `B2B SaaS · Seed · US · n=${filterSample}`,
+    filterLabel: `B2B SaaS · Seed · US · n=${Math.max(sampleSize, 3)}`,
     leadersCount,
     leadersDenom: metrics.length,
     topPerformer: companies[1]?.displayName ?? companies[0]?.displayName ?? "—",

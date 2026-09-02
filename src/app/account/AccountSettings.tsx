@@ -7,7 +7,6 @@ import {
   ACCOUNT_SETTINGS_TABS,
   type AccountSettingsTab,
 } from "./AccountSettingsNav";
-import { AccountIntegrationsList } from "./AccountIntegrationsList";
 import "./accountSettings.css";
 
 type UsageUserRow = {
@@ -405,7 +404,7 @@ function AccountSettingsPlaceholder({ tab }: { tab: AccountSettingsTab }) {
   return (
     <div className="acct-settings-placeholder">
       <h2 className="acct-settings-placeholder-title">{label}</h2>
-      <p className="acct-settings-placeholder-copy">This section is not available yet. Check back soon.</p>
+      <p className="acct-settings-placeholder-copy">This section is coming soon.</p>
     </div>
   );
 }
@@ -423,10 +422,8 @@ const PROFILE_USER = {
 
 function AccountProfileTab({
   onOpenUsage,
-  onLogout,
 }: {
   onOpenUsage: () => void;
-  onLogout?: () => void;
 }) {
   const tokensUsed = 91700;
   const agentRuns = 56;
@@ -446,7 +443,7 @@ function AccountProfileTab({
             <p className="acct-profile-email">{PROFILE_USER.email}</p>
           </div>
         </div>
-        <button type="button" className="acct-profile-signout" onClick={onLogout}>
+        <button type="button" className="acct-profile-signout">
           Sign out
         </button>
       </section>
@@ -485,8 +482,8 @@ function AccountProfileTab({
               <span className="acct-profile-soon">Soon</span>
             </div>
             <p className="acct-profile-card-copy">
-              Digest settings for each portfolio and watchlist live on those lists today. Account-wide preferences
-              (default cadence, delivery day, and summary depth) will appear here next.
+              Per-list cadence lives on each portfolio/watchlist today. Global digest preferences
+              (default cadence, delivery day, summary depth) will land here next.
             </p>
           </section>
 
@@ -563,32 +560,25 @@ function AccountProfileTab({
 export function AccountSettings({
   tab,
   onTabChange,
-  onLogout,
 }: {
   tab: AccountSettingsTab;
   onTabChange: (tab: AccountSettingsTab) => void;
-  onLogout?: () => void;
 }) {
   const { snapshot } = useCredits();
   const isProfile = tab === "profile";
-  const isIntegrations = tab === "integrations";
 
   return (
     <div className="account-settings">
       <header className="account-settings-hero">
         <div className="account-settings-hero-main">
-          <h1 className="account-settings-title">
-            {isProfile ? "Profile" : isIntegrations ? "Connectors" : "My Account"}
-          </h1>
+          <h1 className="account-settings-title">{isProfile ? "Profile" : "My Account"}</h1>
           <p className="account-settings-sub">
             {isProfile
-              ? "Manage your account details, preferences, and the lists you own."
-              : isIntegrations
-                ? "Connect HubSpot or Granola so Fuel can use CRM and meeting context in your workspace."
-                : "Manage members, teams, plan, and billing."}
+              ? "Your account, preferences, and the lists you own."
+              : "Account settings · members, teams, plan, and billing"}
           </p>
         </div>
-        {!isProfile && !isIntegrations ? (
+        {!isProfile ? (
           <div className="account-settings-badges">
             {snapshot.plan === "free" ? <span className="account-settings-badge trial">Trial</span> : null}
             <span className="account-settings-badge">fuel-teams</span>
@@ -613,14 +603,9 @@ export function AccountSettings({
 
       <div className="account-settings-body">
         {tab === "profile" ? (
-          <AccountProfileTab onOpenUsage={() => onTabChange("usage")} onLogout={onLogout} />
+          <AccountProfileTab onOpenUsage={() => onTabChange("usage")} />
         ) : tab === "usage" ? (
           <AccountUsageTab snapshot={snapshot} />
-        ) : tab === "integrations" ? (
-          <AccountIntegrationsList
-            heading="Connectors"
-            intro="Connect HubSpot or Granola now, or leave these for later. Fuel still works with what you enter manually."
-          />
         ) : (
           <AccountSettingsPlaceholder tab={tab} />
         )}

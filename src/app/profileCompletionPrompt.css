@@ -191,26 +191,6 @@
   outline-offset: 2px;
 }
 
-.profile-completion-prompt-loading {
-  align-items: center;
-  background: color-mix(in srgb, var(--bg, #0b1720) 12%, rgba(0, 0, 0, 0.35));
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 100009;
-}
-
-.profile-completion-prompt-loading-card {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 14px 18px;
-}
-
 @keyframes profileCompletionPromptFadeIn {
   from {
     opacity: 0;

@@ -1,33 +1,30 @@
 /**
- * Intelligence unlock credits — separate from monthly AI action credits in `credits/`.
+ * Profile completion grants the same credits founders spend on chat, uploads, and playbooks.
  *
- * New users start with 50 after onboarding. Up to 200 more are earned by completing
- * profile modules and submitting benchmarks (250 total).
- *
- * Weighting reflects impact on Fuel's recommendations and cohort comparisons.
+ * New users start at 0. Company 50, R&D 50, GTM 50, G&A 50, Benchmark 50 (250 total on Free).
+ * Company unlocks on the three mandatory fields. Track modules unlock when that track’s
+ * onboarding questions are fully answered. Benchmark +50 only when every cohort metric is filled.
  */
 export type ProfileModuleId = "company" | "dev" | "gtm" | "rev";
 
 export type ProfileCreditMilestone = ProfileModuleId | "benchmark" | "intelligenceSources";
 
-export const PROFILE_STARTING_CREDITS = 50;
-export const PROFILE_EARNABLE_CREDITS = 200;
-export const PROFILE_TOTAL_CREDITS = PROFILE_STARTING_CREDITS + PROFILE_EARNABLE_CREDITS;
+export const PROFILE_STARTING_CREDITS = 0;
 
-/** Profile wizard modules — 160 credits total (80% of earnable). */
+/** Profile wizard modules — 200 credits total. */
 export const PROFILE_MODULE_REWARDS: Record<ProfileModuleId, number> = {
-  /** Company identity — unlocks peer cohort matching and ICP alignment. */
-  company: 40,
+  /** Mandatory company identity — company, what they do, industry. */
+  company: 50,
   /** R&D track — product stage, delivery constraints. */
-  dev: 40,
+  dev: 50,
   /** GTM track — revenue motion and pipeline context. */
-  gtm: 40,
+  gtm: 50,
   /** G&A track — runway, finance, and capital priorities. */
-  rev: 40,
+  rev: 50,
 };
 
-/** First benchmark submission — 40 credits (20% of earnable). */
-export const BENCHMARK_REWARD_CREDITS = 40;
+/** All cohort metrics submitted. */
+export const BENCHMARK_REWARD_CREDITS = 50;
 
 /** Intelligence sources no longer award profile credits. */
 export const INTELLIGENCE_SOURCES_REWARD_CREDITS = 0;
@@ -37,6 +34,9 @@ export const PROFILE_MODULE_EARNABLE_TOTAL = Object.values(PROFILE_MODULE_REWARD
   0,
 );
 
+export const PROFILE_EARNABLE_CREDITS = PROFILE_MODULE_EARNABLE_TOTAL + BENCHMARK_REWARD_CREDITS;
+export const PROFILE_TOTAL_CREDITS = PROFILE_STARTING_CREDITS + PROFILE_EARNABLE_CREDITS;
+
 export const PROFILE_TRACK_MODULE_REWARDS_TOTAL =
   PROFILE_MODULE_REWARDS.dev + PROFILE_MODULE_REWARDS.gtm + PROFILE_MODULE_REWARDS.rev;
 
@@ -45,7 +45,7 @@ export const PROFILE_CREDIT_BREAKDOWN = [
     id: "profile",
     label: "Complete Profile",
     credits: PROFILE_MODULE_REWARDS.company,
-    detail: "Company identity, industry, and founder context",
+    detail: "Company, what they do, and industry",
   },
   {
     id: "dev",
@@ -69,7 +69,7 @@ export const PROFILE_CREDIT_BREAKDOWN = [
     id: "benchmark",
     label: "Benchmark",
     credits: BENCHMARK_REWARD_CREDITS,
-    detail: "Submit cohort metrics for peer comparisons",
+    detail: "All cohort metrics for peer comparisons",
   },
 ] as const;
 
@@ -317,4 +317,67 @@ export function tryMarkIntelligenceSourcesEarned(companyKey = "default"): {
 
 export function formatCreditBalance(earned: EarnedProfileCredits): string {
   return `${computeCreditBalance(earned)} / ${PROFILE_TOTAL_CREDITS}`;
+}
+
+/** Replace stored credits with what this onboarding session actually earned. */
+export function resetAndAwardOnboardingCredits(
+  modules: ProfileModuleId[],
+  benchmarkSubmitted: boolean,
+  companyKey = "default",
+): EarnedProfileCredits {
+  const next: EarnedProfileCredits = {
+    modules: [...new Set(modules)],
+    benchmark: benchmarkSubmitted,
+    intelligenceSources: false,
+    benchmarkViaSubmit: benchmarkSubmitted,
+  };
+  saveEarnedProfileCredits(next, companyKey);
+  return loadEarnedProfileCredits(companyKey);
+}
+
+/** Toast for the last module this onboarding session actually completed. */
+export function onboardingModuleCreditReward(
+  modules: readonly ProfileModuleId[],
+  earned: EarnedProfileCredits,
+): ProfileCreditReward | null {
+  const module = modules[modules.length - 1];
+  if (!module) return null;
+  return {
+    kind: "module",
+    module,
+    amount: PROFILE_MODULE_REWARDS[module],
+    balance: computeCreditBalance(earned),
+    headline: moduleCreditsHeadline(module),
+    message: moduleCreditsMessage(module),
+  };
+}
+
+export function moduleCreditsHeadline(module: ProfileModuleId): string {
+  switch (module) {
+    case "company":
+      return "Profile credits unlocked";
+    case "dev":
+      return "R&D credits unlocked";
+    case "gtm":
+      return "GTM credits unlocked";
+    case "rev":
+      return "G&A credits unlocked";
+    default:
+      return "Credits unlocked";
+  }
+}
+
+export function moduleCreditsMessage(module: ProfileModuleId): string {
+  switch (module) {
+    case "company":
+      return "Give more company answers below for a sharper Overview. Those don't add credits.";
+    case "dev":
+      return "Give more R&D answers below for a sharper product score. Those don't add credits.";
+    case "gtm":
+      return "Give more go-to-market answers below for a sharper score. Those don't add credits.";
+    case "rev":
+      return "Give more finance answers below for a sharper score. Those don't add credits.";
+    default:
+      return "Keep going below for a sharper score. Extra answers don't add credits.";
+  }
 }

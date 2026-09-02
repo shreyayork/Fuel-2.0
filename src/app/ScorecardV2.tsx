@@ -1,11 +1,4 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { fuel } from "./fuelTokens";
-import { statusLineCss, signalUrgencyToStatus } from "./statusSystem";
-import {
-  clearReloadLandingActive,
-  landingDisplayPercent,
-  landingDisplayScore,
-} from "./workspaceSession";
 import { createPortal } from "react-dom";
 import {
   BenchmarkPeerComparisonPanel,
@@ -21,25 +14,50 @@ import {
   type MetricPlaybookOption,
 } from "./FuelOnboardingChat";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney";
-import { mapOnboardingToDetailAnswers, OnboardingBenchmarkFieldList, type OnboardingFlowAnswers } from "./OnboardingFlow.tsx";
+import {
+  isOnboardingBenchmarkComplete,
+  mapOnboardingToDetailAnswers,
+  OnboardingBenchmarkFieldList,
+  type OnboardingFlowAnswers,
+} from "./OnboardingFlow.tsx";
 import {
   DETAIL_SECTIONS,
   DETAIL_QUESTION_LABEL,
   DETAIL_QUESTION_BY_ID,
   TRACK_DETAIL_SECTIONS,
+  completedOnboardingModules,
+  hasMandatoryProfileAnswers,
   countApplicableQuestions,
   countDetailAnswers as countTrackDetailAnswers,
   countSectionAnswers,
-  computeProfileAnswerProgress,
   getVisibleQuestions,
-  hasProfileBasicsStarted,
-  hasMandatoryProfileAnswers,
+  uniqueQuestions,
   isMultiSelectSelected,
   parseMultiSelectAnswer,
+  parseProfileFundingRounds,
+  partitionCreditQuestions,
+  PROFILE_FUNDING_ROUND_TYPES,
+  serializeProfileFundingRounds,
   toggleMultiSelectAnswer,
   type DetailAnswers,
+  type DetailQuestion,
   type DetailSectionId,
+  type DetailTextInputType,
+  type ProfileFundingRound,
 } from "./trackQuestions.ts";
+import {
+  BENCHMARK_REWARD_CREDITS,
+  EMPTY_EARNED_PROFILE_CREDITS,
+  PROFILE_MODULE_REWARDS,
+  moduleCreditsHeadline,
+  moduleCreditsMessage,
+  remainingEarnableCredits,
+  tryMarkBenchmarkEarned,
+  tryMarkModuleEarned,
+  type EarnedProfileCredits,
+  type ProfileCreditReward,
+  type ProfileModuleId,
+} from "./profileCredits.ts";
 import {
   resolveYorkOfferForPillar,
   YORK_COMMON_OFFER,
@@ -47,42 +65,7 @@ import {
 } from "./yorkIeUpsell";
 import { isYorkOfferDismissed } from "./yorkDismiss";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
-import { AccountIntegrationsList } from "./account/AccountIntegrationsList.tsx";
-import { useSaveExitConfirm } from "./SaveExitConfirmDialog";
-import { useDialogA11y } from "./a11y/useDialogA11y";
-import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
-import { FuelIcon, type FuelIconName } from "./icons";
-import { loadDetailAnswers } from "./profileDetailsStorage";
-import {
-  BENCHMARK_REWARD_CREDITS,
-  computeCreditBalance,
-  PROFILE_CREDIT_BREAKDOWN,
-  PROFILE_EARNABLE_CREDITS,
-  PROFILE_MODULE_EARNABLE_TOTAL,
-  PROFILE_MODULE_REWARDS,
-  PROFILE_STARTING_CREDITS,
-  PROFILE_TOTAL_CREDITS,
-  remainingBenchmarkRewardCredits,
-  remainingIntelligenceRewardCredits,
-  remainingProfileModuleCredits,
-  tryMarkBenchmarkEarned,
-  tryMarkIntelligenceSourcesEarned,
-  type EarnedProfileCredits,
-  type ProfileCreditReward,
-  type ProfileModuleId,
-} from "./profileCredits";
-import {
-  buildProgressReminderMessage,
-  buildWorkspaceProgressSummary,
-  getModuleWorkspaceStatus,
-  MIN_BENCHMARK_METRICS_FOR_UNLOCK,
-  workspaceStatusLabel,
-  type ReportReadiness,
-  type WorkspaceModuleStatus,
-} from "./profileProgress";
-import type { ProfilePreviewTab } from "./CompanyProfilePreview";
 import "./PatriotPayJourney.css";
-import "./overview-ref.css";
 
 // Single source of truth for field definitions (P-values, band positions, units)
 const WIZARD_FIELD_BY_KEY = Object.fromEntries(
@@ -90,10 +73,10 @@ const WIZARD_FIELD_BY_KEY = Object.fromEntries(
 ) as Record<string, BenchmarkWizardField>;
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
-/** Shared status ink — good / watch / bad (design-system tokens). */
-const STATUS_GOOD = fuel.statusGood;
-const STATUS_WATCH = fuel.statusWatch;
-const STATUS_BAD = fuel.statusBad;
+/** Shared status ink — green / amber / red only (both themes). */
+const STATUS_GOOD = "#12b886";
+const STATUS_WATCH = "#F5A623";
+const STATUS_BAD = "#E05C5C";
 
 function toneColour(kind: "strong" | "above" | "around" | "below" | "weak"): string {
   if (kind === "strong" || kind === "above") return STATUS_GOOD;
@@ -273,11 +256,7 @@ export type ScorecardActiveInitiative = {
 
 export type ScorecardV2Props = {
   benchmark: OnboardingBenchmarkInput;
-  onBenchmarkChange?: (benchmark: OnboardingBenchmarkInput) => void;
-  /** Fires after benchmark metrics are saved from the edit drawer. */
-  onBenchmarkSaved?: () => void;
-  /** Fires when enough benchmark metrics are entered for early unlock. */
-  onBenchmarkEarlyUnlock?: () => void;
+  onBenchmarkChange?: (benchmark: OnboardingBenchmarkInput, context?: ScorecardBenchmarkContext) => void;
   cohortLabel?: string;
   companyName?: string;
   journeyStage?: string;
@@ -310,45 +289,15 @@ export type ScorecardV2Props = {
   privateWorkspaceLabel?: string;
   /** Post-onboarding Overview generation — skeletons + checklist until ready. */
   overviewBuildPhase?: OverviewBuildPhase | null;
-  /** Tracks that finished a build (single-module saves or full onboarding build). */
-  overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>;
-  /** True while an Overview report build is actively running. */
-  overviewBuildActive?: boolean;
   onStartOptionalTour?: () => void;
   onDismissOverviewReady?: () => void;
-  /** Controlled tip next to Recommended Actions after Overview finishes building. */
-  recActionsTipOpen?: boolean;
-  onDismissRecActionsTip?: () => void;
-  /** When false, analytics stay locked behind the profile-completion gate. */
-  isProfileComplete?: boolean;
-  userFirstName?: string;
-  onStartProfileCompletion?: (section?: ProfileModuleId | "bench") => void;
-  /** Opens the unified complete-profile drawer (same module as Continue Profile). */
-  onOpenProfileDetails?: (section?: ProfileModuleId | ScorecardCategory) => void;
-  /** Bumps when the unified profile drawer saves — re-hydrates detailAnswers. */
-  profileDetailsSyncKey?: number;
-  /** While true, skip re-hydrating detailAnswers so drawer edits are not overwritten. */
-  profileDrawerOpen?: boolean;
-  /** Earned intelligence-unlock credits (50 starting + up to 200 earned). */
   earnedProfileCredits?: EarnedProfileCredits;
-  /** Storage key for persisting earned credits (company id). */
   companyKey?: string;
-  /** Called when benchmark or intelligence-source credits are earned from Overview actions. */
   onProfileCreditsChange?: (earned: EarnedProfileCredits) => void;
-  /** Fires with motivational copy when a milestone credit reward is newly earned. */
   onProfileCreditReward?: (reward: ProfileCreditReward) => void;
-  /** After a reload landing, user edited profile/benchmark — regenerate summary + tracks. */
-  onLandingContentRestore?: () => void;
-  /** True while the post-reload clean landing state is active. */
-  reloadLandingActive?: boolean;
-  /** Bumped when the workspace tour finishes — resets Overview to module-first landing. */
-  tourCompleteSignal?: number;
-  /** Parent requests opening the benchmark edit drawer (e.g. from profile preview). */
-  benchmarkEditRequestKey?: number;
-  /** Fires when the benchmark edit drawer closes. */
-  onBenchmarkEditClosed?: () => void;
-  /** Opens read-only profile preview (optionally on a specific tab). */
-  onOpenProfilePreview?: (tab?: ProfilePreviewTab) => void;
+  creditRewardVisible?: boolean;
+  openProfileModuleKey?: number;
+  openProfileModuleSection?: DetailSectionId | "benchmark";
 };
 
 export type OverviewBuildPhase =
@@ -383,102 +332,24 @@ function overviewBuildPhaseIndex(phase: OverviewBuildPhase): number {
   return OVERVIEW_BUILD_PHASE_ORDER.indexOf(phase);
 }
 
-/** Phases populated after a full post-onboarding build completes. */
-export const OVERVIEW_ALL_BUILT_PHASES: OverviewBuildPhase[] = [
-  "summary",
-  "dev",
-  "mkt",
-  "rev",
-  "suggestions",
-];
-
-/** Hide Overview connectors once the user has started their first report build. */
-export function hasOverviewReportGenerationStarted(
-  overviewBuildPhase: OverviewBuildPhase | null | undefined,
-  overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>,
-  overviewBuildActive = false,
-): boolean {
-  if (overviewBuildActive) return true;
-  if (overviewBuildPhase != null) return true;
-  return Boolean(overviewBuiltPhases && overviewBuiltPhases.size > 0);
-}
-
 /** Initiative + playbook suggestion counts stay hidden until build finishes. */
-function overviewSuggestionsReady(
-  phase: OverviewBuildPhase | null | undefined,
-  builtPhases?: ReadonlySet<OverviewBuildPhase>,
-): boolean {
-  if (builtPhases?.has("suggestions")) return true;
+function overviewSuggestionsReady(phase: OverviewBuildPhase | null | undefined): boolean {
   return phase == null || phase === "ready";
 }
 
 /** Advisor summary unlocks after the quick summary step. */
-function overviewAdvisorReady(
-  phase: OverviewBuildPhase | null | undefined,
-  builtPhases?: ReadonlySet<OverviewBuildPhase>,
-): boolean {
-  if (builtPhases?.has("summary")) return true;
+function overviewAdvisorReady(phase: OverviewBuildPhase | null | undefined): boolean {
   return phase == null || overviewBuildPhaseIndex(phase) > overviewBuildPhaseIndex("summary");
 }
 
-/** A track row is ready once its category step has completed or was built earlier. */
+/** A track row is ready once its category step has completed. */
 function overviewTrackReady(
   categoryId: ScorecardCategory,
   phase: OverviewBuildPhase | null | undefined,
-  builtPhases?: ReadonlySet<OverviewBuildPhase>,
 ): boolean {
-  if (builtPhases?.has(categoryId)) return true;
-  if (phase === "ready" || phase === "suggestions") return true;
-  if (phase == null) return false;
+  if (phase == null || phase === "ready" || phase === "suggestions") return true;
   if (phase === "summary") return false;
   return overviewBuildPhaseIndex(phase) > overviewBuildPhaseIndex(categoryId);
-}
-
-/** True while the named track pillar is actively building (not summary/advisor). */
-function overviewTrackBuilding(
-  categoryId: ScorecardCategory,
-  phase: OverviewBuildPhase | null | undefined,
-): boolean {
-  return phase === categoryId;
-}
-
-/**
- * Workspace progress feed — show live category scores unless that pillar is actively
- * animating in the sequential build. Avoids leaving R&D on skeleton when only GTM/G&A
- * phases were persisted from per-module saves.
- */
-function workspaceProgressTrackReady(
-  categoryId: ScorecardCategory,
-  phase: OverviewBuildPhase | null | undefined,
-  builtPhases: ReadonlySet<OverviewBuildPhase> | undefined,
-  hasWorkspaceContent: boolean,
-  displayScoresZero = false,
-): boolean {
-  if (displayScoresZero) return overviewTrackBuilding(categoryId, phase);
-  if (overviewTrackBuilding(categoryId, phase)) return false;
-  if (overviewTrackReady(categoryId, phase, builtPhases)) return true;
-  if (hasWorkspaceContent && phase !== "summary") return true;
-  return false;
-}
-
-/** Maps a saved profile module to the overview build phase that should run. */
-export function profileModuleToBuildPhase(module: ProfileModuleId): OverviewBuildPhase {
-  switch (module) {
-    case "company":
-      return "summary";
-    case "dev":
-      return "dev";
-    case "gtm":
-      return "mkt";
-    case "rev":
-      return "rev";
-    default:
-      return "summary";
-  }
-}
-
-export function overviewBuildPhaseLabel(phase: OverviewBuildPhase): string {
-  return OVERVIEW_BUILD_STEPS.find(step => step.id === phase)?.label ?? "Generating report";
 }
 
 // ─── Cohort data ──────────────────────────────────────────────────────────────
@@ -511,9 +382,9 @@ const CATEGORY_METRIC_KEYS: Record<ScorecardCategory, MetricKey[]> = {
 const CATEGORY_META: Record<ScorecardCategory, {
   label: string; fullLabel: string; description: string; icon: string; colour: string; colourDim: string; colourBorder: string; drillTitle: string; urgentLabel: string;
 }> = {
-  dev: { label: "R&D", fullLabel: "Research and Development", description: "Headcount, gross margin, R&D velocity and technical execution.", icon: "⚙", colour: "var(--fuel-accent)", colourDim: "rgba(18, 184, 134, 0.1)",   colourBorder: "rgba(18, 184, 134, 0.28)",   drillTitle: "Engineering & product",  urgentLabel: "R&D velocity"  },
-  mkt: { label: "GTM", fullLabel: "Go to Market",          description: "Revenue, growth, retention, customers and GTM execution.",       icon: "↗", colour: "var(--fuel-accent)", colourDim: "rgba(18, 184, 134, 0.1)", colourBorder: "rgba(18, 184, 134, 0.28)", drillTitle: "GTM & acquisition",      urgentLabel: "GTM motion"    },
-  rev: { label: "G&A", fullLabel: "General and Administrative",  description: "Cash, burn, runway and operational performance.",                icon: "◎", colour: "#F5A623", colourDim: "rgba(245,166,35,0.1)", colourBorder: "rgba(245,166,35,0.28)", drillTitle: "Revenue operations",     urgentLabel: "Cash runway"   },
+  dev: { label: "R&D", fullLabel: "Research and Development", description: "Headcount, gross margin, R&D velocity and technical execution.", icon: "⚙", colour: "#12b886", colourDim: "rgba(18,184,134,0.1)",   colourBorder: "rgba(18,184,134,0.28)",   drillTitle: "Engineering & product",  urgentLabel: "R&D velocity"  },
+  mkt: { label: "GTM", fullLabel: "Go-to-Market",          description: "Revenue, growth, retention, customers and GTM execution.",       icon: "↗", colour: "#12b886", colourDim: "rgba(18,184,134,0.1)", colourBorder: "rgba(18,184,134,0.28)", drillTitle: "GTM & acquisition",      urgentLabel: "GTM motion"    },
+  rev: { label: "G&A", fullLabel: "General and Administrative",  description: "Cash, burn, runway and operational performance.",                icon: "◎", colour: "#F5A623", colourDim: "rgba(245,166,35,0.1)", colourBorder: "rgba(245,166,35,0.28)", drillTitle: "G&A operations",          urgentLabel: "Cash runway"   },
 };
 
 // Status labels — richer than raw quartile
@@ -631,7 +502,16 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Launched — early users or customers": 78,
     "Launched — scaling usage or revenue": 90,
   },
-  dev_product_type: { "SaaS / web app": 78, "API or developer platform": 82, Marketplace: 70, Other: 62 },
+  dev_product_type: {
+    "SaaS Platform": 78,
+    "AI Application": 82,
+    "AI Infrastructure": 84,
+    Marketplace: 70,
+    "Developer Platform / API": 82,
+    "Mobile App": 72,
+    "Hardware / IoT": 68,
+    Other: 62,
+  },
   dev_delivery_constraint: {
     "Planning and prioritization": 50,
     "Capacity and hiring": 46,
@@ -670,7 +550,13 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Ad hoc — no regular cadence": 38,
     "Not shipping yet": 30,
   },
-  dev_ai_role: { "Core to the product": 86, "Important feature": 72, Exploring: 58, "Not applicable": 54 },
+  dev_ai_role: {
+    "AI is our core product": 86,
+    "AI powers major features": 80,
+    "AI improves internal operations": 70,
+    Experimenting: 58,
+    "No AI today": 50,
+  },
   dev_compliance: { "Already certified": 92, "In progress": 78, "On roadmap (e.g. SOC 2, ISO)": 62, "Not yet": 48 },
   dev_prioritization: {
     "Data/Usage Analytics": 86,
@@ -691,17 +577,29 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Hiring and capacity": 46,
     "Technical debt / architecture": 44,
   },
-  mkt_sales_motion: { "Product-led": 86, "Sales-led": 78, "Founder-led": 52, "Not yet": 36 },
-  mkt_funnel_gap: { Awareness: 58, Conversion: 50, Retention: 44 },
+  dev_six_month_impact: {
+    "Ship product faster": 68,
+    "Improve product quality": 68,
+    "Reduce engineering costs": 64,
+    "Hire engineering talent": 64,
+    "Implement AI": 64,
+    "Improve product strategy": 68,
+    "Modernize architecture": 64,
+    "Prepare for enterprise customers": 68,
+  },
+  mkt_sales_motion: { "Product-led": 86, "Sales-led": 80, "Founder-led": 56, "Not yet defined": 34, "Other (Please specify)": 54 },
+  mkt_funnel_gap: {
+    "Not enough awareness": 52,
+    "Not enough qualified pipeline": 48,
+    "Too few opportunities convert": 44,
+    "Customers aren't expanding or renewing": 40,
+    Unsure: 34,
+  },
   mkt_icp_clarity: {
-    "Documented and shared": 92,
-    "Written ICP the team uses for targeting and qualification": 90,
-    "Clear in founder's head": 62,
-    "We know who fits, but it's not written or enforced yet": 56,
-    "Still a hypothesis": 48,
-    "Early signal from customers, but not validated": 52,
-    "Not defined yet": 38,
-    "Selling broadly or still figuring out who fits": 34,
+    "Documented and shared - Written ICP the team uses for targeting and qualification": 92,
+    "Clear in founder's head - We know who fits, but it's not written or enforced yet": 66,
+    "Still a hypothesis - Early signal from customers, but not validated": 50,
+    "Not defined yet - Selling broadly or still figuring out who fits": 32,
   },
   mkt_revenue_tracking: {
     "CRM with a defined sales process": 88,
@@ -710,7 +608,7 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "No systematic pipeline yet": 30,
   },
   mkt_deal_size: { "Over $100K": 86, "$25K–$100K": 78, "$5K–$25K": 68, "Under $5K": 58, "Not sure yet": 44 },
-  mkt_pricing_model: { "Flat subscription": 78, "Usage-based": 82, "Tiered / per seat": 76, Hybrid: 80, "Still figuring out": 40 },
+  mkt_pricing_model: { "Flat subscription": 72, "Usage-based": 76, "Tiered / per seat": 78, "Hybrid (Recurring + One-time)": 72, "One-time purchase / license": 58, "Still figuring out": 36 },
   mkt_demand_source: { "Inbound / content": 78, "Product-led / self-serve": 82, "Outbound sales": 72, "Partners / channel": 76, "Paid acquisition": 64, "Mix of channels": 70, "Still figuring out": 40 },
   mkt_sales_team: {
     "Larger sales org (6+)": 90,
@@ -726,24 +624,29 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "No dedicated marketing — founders or sales cover it": 48,
     "Not applicable yet": 40,
   },
-  mkt_cac_payback: { "Yes — tracked regularly": 88, "Rough estimate only": 58, "Not yet": 34 },
+  mkt_marketing_measurement: { "CAC / Payback / LTV": 90, "Pipeline created": 82, "Qualified leads": 70, "Website traffic": 52, "We don't have consistent metrics": 30 },
   mkt_competitive_pressure: {
     "Low — category is early or we lead": 82,
     "Moderate — several credible alternatives": 62,
     "High — crowded market, price or feature pressure": 44,
     "Not sure yet": 48,
   },
+  mkt_momentum_constraint: { "Lead generation and pipeline": 48, "Sales capacity and hiring": 52, "Pricing and positioning": 46, "Sales and marketing alignment": 44, "Everything is well optimized": 90, "Other (please specify)": 58 },
+  mkt_twelve_month_priority: { "Generate more pipeline": 68, "Improve conversion rates": 68, "Increase deal size": 68, "Expand into enterprise": 68, "Improve customer retention": 68, "Build a repeatable GTM engine": 72 },
   mkt_pipeline_definitions: {
     "Yes, documented and shared — We have written criteria that the team uses.": 90,
     "Informal / Shared understanding — We have a general idea of what these terms mean, but it's not documented or strictly enforced.": 58,
     "Not defined yet — We don't use these definitions or are still figuring out our pipeline stages.": 36,
   },
+  mkt_mql_sql_visibility: { "Yes, we track this regularly": 90, "Rough estimate only": 56, "Not tracking this currently": 28 },
+  mkt_pricing_governance: { "Yes, structured process/tool in place": 90, "Informal / Manual process": 58, "No specific process yet": 30 },
+  mkt_cross_functional_slas: { "Yes, defined and tracked": 90, "Informal / Verbal agreements": 56, "No, we don't have these agreements": 30 },
   rev_runway: { "Over 18 months": 90, "12–18 months": 78, "6–12 months": 58, "Under 6 months": 34 },
   rev_finance_management: {
-    "Accounting software with regular close": 90,
-    "Spreadsheet + accountant or bookkeeper": 68,
-    "Founder-managed / informal": 46,
-    "Not set up yet": 30,
+    "Dedicated finance leader": 92,
+    "Outsourced finance/accounting": 78,
+    "Founder manages finances": 50,
+    "Minimal financial processes": 28,
   },
   rev_capital_priority: {
     "Actively fundraising": 74,
@@ -758,6 +661,7 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Explore strategic options (M&A, partnerships)": 68,
     "Not sure yet": 44,
   },
+  rev_operational_challenge: { "Finance & reporting": 48, "Hiring & people": 54, "Legal & compliance": 50, "Internal operations": 50, "Strategic planning": 52, Unsure: 36 },
   rev_unit_economics: {
     "Real-time / Automated": 92,
     "Monthly / Spreadsheet-based": 68,
@@ -769,12 +673,13 @@ const DETAIL_ANSWER_SCORES: Record<string, Record<string, number>> = {
     "Yes, static annual budget": 72,
     "No, we track historicals only": 40,
   },
+  rev_diligence_readiness: { "Ready today": 92, "Mostly prepared": 76, "Some work needed": 54, "Significant work needed": 30 },
   rev_operating_mode: {
     "Balanced growth and efficiency": 82,
     "Growth-first": 74,
     "Efficiency / path to profitability": 76,
   },
-  rev_team_size: { "50+": 88, "16–50": 78, "6–15": 66, "1–5": 52 },
+  rev_diligence_readiness_followup: { "Ready today": 92, "Mostly prepared": 76, "Some work needed": 54, "Significant work needed": 30 },
   rev_hiring_plans: {
     "Selective hires only": 78,
     "Hiring aggressively": 72,
@@ -818,18 +723,27 @@ const DETAIL_ANSWER_IMPACT: Record<string, Record<string, string>> = {
     "Contract dev / agency": "Heavy agency reliance slows iteration when GTM needs product moves.",
     "Not building yet — manual or services first": "Manual delivery becomes the bottleneck once demand shows up.",
   },
-  mkt_sales_motion: { "Founder-led": "Founder-led sales caps growth — you become the bottleneck.", "Not yet": "No motion yet — investors will ask how revenue actually happens." },
+  mkt_sales_motion: { "Founder-led": "Founder-led sales caps growth — you become the bottleneck.", "Not yet defined": "No motion yet — investors will ask how revenue actually happens." },
   mkt_marketing_capacity: { "No dedicated marketing — founders or sales cover it": "Founder-owned marketing steals time from product and fundraising." },
   mkt_icp_clarity: {
-    "Not defined yet": "Fuzzy ICP wastes outbound and lengthens sales cycles.",
-    "Selling broadly or still figuring out who fits": "Broad selling spreads founder attention across too many bets.",
+    "Not defined yet - Selling broadly or still figuring out who fits": "Fuzzy ICP wastes outbound and lengthens sales cycles.",
+    "Still a hypothesis - Early signal from customers, but not validated": "An unvalidated ICP spreads founder attention across too many bets.",
   },
-  mkt_funnel_gap: { Retention: "Retention gaps show up late — founders feel it in NRR conversations first.", Conversion: "Conversion leaks burn cash before you can prove GTM fit." },
+  mkt_funnel_gap: {
+    "Customers aren't expanding or renewing": "Retention gaps show up late — founders feel it in NRR conversations first.",
+    "Too few opportunities convert": "Conversion leaks burn cash before you can prove GTM fit.",
+  },
   mkt_revenue_tracking: { "No systematic pipeline yet": "No pipeline system — founders manually track deals and miss follow-ups.", "Spreadsheet or lightweight tracking": "Spreadsheet RevOps breaks the moment you add a second seller." },
+  mkt_marketing_measurement: { "We don't have consistent metrics": "Without consistent marketing measures, the team cannot tell which channels create revenue." },
+  mkt_mql_sql_visibility: { "Not tracking this currently": "No conversion visibility means the team cannot find where qualified demand is leaking." },
   rev_forecast: { "No, we track historicals only": "Historical-only finance leaves founders surprised at month-end." },
   rev_runway: { "Under 6 months": "Tight runway is the fastest path to a founder crisis." },
   rev_unit_economics: { "Not yet": "Untracked unit economics weaken every fundraising conversation." },
-  rev_finance_management: { "Founder-managed / informal": "Founder-managed books steal 5–10 hrs/mo and delay close." },
+  rev_finance_management: {
+    "Founder manages finances": "Founder-managed finance steals operating time and can delay reporting.",
+    "Minimal financial processes": "Minimal finance processes weaken forecasting, reporting, and fundraising readiness.",
+  },
+  rev_diligence_readiness: { "Significant work needed": "Major diligence gaps can slow or derail a capital raise." },
 };
 
 function makeContributor(
@@ -1341,9 +1255,7 @@ function GlanceScoreRing({
   onRequestOpen: () => void;
   onRequestClose: () => void;
   className?: string;
-  /** Ring diameter in px — use ~72 on horizontal track cards (score-first). */
   size?: number;
-  /** Optional formatted score text (e.g. "00" on reload landing). */
   scoreLabel?: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -1570,96 +1482,24 @@ function areTrackInsightsLocked(
 /** Premium insight labels shown as locked placeholders per track */
 const PREMIUM_INSIGHTS: Record<string, string[]> = {
   "R&D": ["Competitive benchmark", "Build vs buy analysis", "Peer R&D comparison", "Investor readiness"],
-  GTM: ["ICP clarity score", "Revenue benchmark", "Market position", "Growth opportunities"],
+  GTM: ["Ideal customer clarity", "Revenue benchmark", "Market position", "Growth opportunities"],
   "G&A": ["Burn multiple benchmark", "Runway comparison", "Finance maturity", "Capital efficiency"],
 };
 
-/**
- * Glance card insight stack — strengths first, then locked premium teaser.
- * Assumption: show a fixed 2-item strength preview only — no "View more" expand
- * (extra rows cluttered the equal-height track cards).
- */
-function GlanceInsightsWrap({
-  strengths,
-  weaknesses,
-  previewLimit = 2,
-  trackLabel,
-  showImprovements = false,
-  onViewMore,
-}: {
-  strengths: TrackInsightItem[];
-  weaknesses: TrackInsightItem[];
-  previewLimit?: number;
-  trackLabel?: string;
-  showImprovements?: boolean;
-  onViewMore?: () => void;
-}) {
-  const visibleStrengths = strengths.slice(0, previewLimit);
-  const visibleWeaknesses = weaknesses.slice(0, previewLimit);
-  const premiumItems = ((trackLabel && PREMIUM_INSIGHTS[trackLabel]) || PREMIUM_INSIGHTS["R&D"]!).slice(0, 3);
-
-  return (
-    <div className="sc-glance-insights-wrap">
-      <div className="sc-glance-strength-col">
-        <TrackInsightPanel
-          tone="strong"
-          title="Primary Strengths"
-          items={visibleStrengths}
-          empty="Complete more track details to surface strengths."
-          compact
-        />
-        {onViewMore ? (
-          <button type="button" className="sc-glance-view-more" onClick={onViewMore}>
-            View more →
-          </button>
-        ) : null}
-      </div>
-      <div className="sc-glance-premium-col">
-        {showImprovements && visibleWeaknesses.length > 0 ? (
-          <TrackInsightPanel
-            tone="weak"
-            title="Needs improvement"
-            items={visibleWeaknesses}
-            empty="Complete track details to surface improvements."
-            compact
-          />
-        ) : (
-          <>
-            <div className="sc-glance-premium-head">
-              <span className="sc-glance-premium-title">Needs improvement</span>
-            </div>
-            <ul className="sc-glance-premium-list">
-              {premiumItems.map(item => (
-                <li key={item} className="sc-glance-premium-item">
-                  <svg width="10" height="12" viewBox="0 0 10 12" fill="none" aria-hidden="true">
-                    <rect x="0.75" y="5" width="8.5" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-                    <path d="M2.5 5V3.5a2.5 2.5 0 0 1 5 0V5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                  </svg>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function buildTopImprovementRows(trackLabel: string, items: TrackInsightItem[]): TrackInsightItem[] {
+function buildTopImprovementRows(trackLabel: string, items: TrackInsightItem[], limit = 2): TrackInsightItem[] {
   const premium = (PREMIUM_INSIGHTS[trackLabel] || PREMIUM_INSIGHTS["R&D"]!) ?? [];
   const rows = items.length > 0
-    ? items.slice(0, 3)
-    : premium.slice(0, 3).map((label, i) => ({
+    ? items.slice(0, limit)
+    : premium.slice(0, limit).map((label, i) => ({
         id: `premium-${i}`,
         label,
         detail: "Unlocks with profile",
       }));
 
-  if (rows.length >= 3) return rows;
+  if (rows.length >= limit) return rows;
 
   const filled = [...rows];
-  for (let i = rows.length; i < 3; i += 1) {
+  for (let i = rows.length; i < limit; i += 1) {
     filled.push({
       id: `premium-fill-${i}`,
       label: premium[i] ?? "Additional recommendation",
@@ -1674,13 +1514,17 @@ function TopImprovementsPreview({
   items,
   insightsLocked,
   onCompleteProfile,
+  limit = 2,
+  moreCount = 0,
 }: {
   trackLabel: string;
   items: TrackInsightItem[];
   insightsLocked: boolean;
   onCompleteProfile?: () => void;
+  limit?: number;
+  moreCount?: number;
 }) {
-  const rows = buildTopImprovementRows(trackLabel, items);
+  const rows = buildTopImprovementRows(trackLabel, items, limit);
 
   return (
     <div className="sc-glance-insight-block is-compact">
@@ -1701,6 +1545,9 @@ function TopImprovementsPreview({
       ) : (
         <p className="sc-cat-sw-empty">Complete track details to surface improvements.</p>
       )}
+      {moreCount > 0 ? (
+        <p className="sc-glance-insight-more-count">+{moreCount} more</p>
+      ) : null}
       {insightsLocked ? (
         <button
           type="button"
@@ -1780,1126 +1627,10 @@ function CategoryGlanceHeaderBar({
             className="sc-glance-details-link"
             onClick={e => { e.stopPropagation(); onUpdateDetails(); }}
           >
-            View details →
+            {answersCta.label} →
           </button>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function computeProfileProgress(categories: CategoryData[]): number {
-  const totalQuestions = categories.reduce((sum, cat) => sum + cat.detailQuestionCount, 0);
-  const answered = categories.reduce((sum, cat) => sum + cat.detailAnsweredCount, 0);
-  if (totalQuestions === 0) return 32;
-  const trackPct = Math.round((answered / totalQuestions) * 68);
-  return Math.min(99, 32 + trackPct);
-}
-
-function ProfileCompletionBanner({
-  progressPct,
-  creditBalance,
-  earnedProfileCredits,
-  onContinue,
-}: {
-  progressPct: number;
-  creditBalance: number;
-  earnedProfileCredits?: EarnedProfileCredits;
-  onContinue?: () => void;
-}) {
-  const profileCreditsToEarn = remainingProfileModuleCredits(earnedProfileCredits);
-  const benefits = [
-    "Unlock Benchmarking",
-    "Improve Recommendations",
-    "Increase Intelligence Accuracy",
-  ];
-  const ringRadius = 30;
-  const ringSize = 72;
-  const circumference = 2 * Math.PI * ringRadius;
-
-  return (
-    <div className="sc-profile-complete-banner" role="region" aria-label="Complete your company profile">
-      <div className="sc-profile-complete-ring" aria-hidden="true">
-        <svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
-          <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke="var(--panel-border)" strokeWidth="5" />
-          <circle
-            cx={ringSize / 2}
-            cy={ringSize / 2}
-            r={ringRadius}
-            fill="none"
-            stroke="var(--fuel-accent, var(--fuel-accent))"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={circumference * (1 - progressPct / 100)}
-            transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
-          />
-        </svg>
-        <span className="sc-profile-complete-ring-label">
-          <strong>{progressPct}%</strong>
-        </span>
-      </div>
-      <div className="sc-profile-complete-copy">
-        <h2>Complete your company profile</h2>
-        <p>
-          You have <strong>{creditBalance}</strong> of {PROFILE_TOTAL_CREDITS} credits.
-          Earn up to {PROFILE_EARNABLE_CREDITS} more by finishing Profile, R&amp;D, GTM, G&amp;A, and benchmarks.
-        </p>
-        <ul className="sc-profile-complete-benefits">
-          {benefits.map(item => (
-            <li key={item}>
-              <span className="sc-profile-complete-check" aria-hidden="true">✓</span>
-              {item}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="sc-profile-complete-actions">
-        <button type="button" className="sc-profile-complete-cta" onClick={onContinue}>
-          Continue Profile →
-          {profileCreditsToEarn > 0 ? (
-            <span className="sc-profile-complete-credits-pill">+{profileCreditsToEarn} credits</span>
-          ) : null}
-        </button>
-        <span className="sc-profile-complete-time">Takes &lt;5 min</span>
-      </div>
-    </div>
-  );
-}
-
-const PROFILE_UNLOCK_SECTIONS: {
-  id: ProfileModuleId;
-  title: string;
-  description: string;
-  footer: string;
-  credits: number;
-  icon: FuelIconName;
-  /** Insight signals already visible (partial) */
-  available: string[];
-  /** Insight signals unlocked after completing this section */
-  unlocks: string[];
-}[] = [
-  {
-    id: "company",
-    title: "Complete Profile",
-    description: "Company details, location, headcount, funding, and founder context.",
-    footer: "Company · Industry · Location · Headcount · Context",
-    credits: PROFILE_MODULE_REWARDS.company,
-    icon: "company",
-    available: ["Company snapshot"],
-    unlocks: ["Industry peer comparison", "Cohort matching", "ICP alignment"],
-  },
-  {
-    id: "dev",
-    title: "R&D",
-    description: "Product stage, build model, and what's slowing delivery.",
-    footer: "Stage · Type · Constraint",
-    credits: PROFILE_MODULE_REWARDS.dev,
-    icon: "development",
-    available: ["Product stage signal"],
-    unlocks: ["R&D scorecard", "Build readiness", "Technical benchmark"],
-  },
-  {
-    id: "gtm",
-    title: "GTM",
-    description: "Sales motion, ICP clarity, and how pipeline is tracked.",
-    footer: "Motion · ICP · Pipeline",
-    credits: PROFILE_MODULE_REWARDS.gtm,
-    icon: "gtm",
-    available: ["GTM motion summary"],
-    unlocks: ["GTM scorecard", "ICP analysis", "Pipeline health"],
-  },
-  {
-    id: "rev",
-    title: "G&A",
-    description: "Runway, finance ops, and capital priorities.",
-    footer: "Runway · Finance · Capital",
-    credits: PROFILE_MODULE_REWARDS.rev,
-    icon: "finance",
-    available: ["Capital stage signal"],
-    unlocks: ["Finance scorecard", "Runway analysis", "Burn benchmark"],
-  },
-];
-
-type ProfileUnlockSectionId = (typeof PROFILE_UNLOCK_SECTIONS)[number]["id"];
-
-function categoryToProfileUnlockSection(categoryId: ScorecardCategory): ProfileUnlockSectionId {
-  if (categoryId === "mkt") return "gtm";
-  return categoryId;
-}
-
-function moduleDetailSectionId(moduleId: ProfileModuleId): DetailSectionId {
-  if (moduleId === "company") return "profile";
-  if (moduleId === "gtm") return "mkt";
-  return moduleId;
-}
-
-function getModuleAnswerProgress(moduleId: ProfileModuleId, answers: DetailAnswers) {
-  const section = DETAIL_SECTIONS.find(item => item.id === moduleDetailSectionId(moduleId));
-  if (!section) return { answered: 0, total: 0, percent: 0 };
-  const total = getVisibleQuestions(section, answers).length;
-  const answered = countSectionAnswers(section, answers);
-  const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
-  return { answered, total, percent };
-}
-
-/** Workspace module cards reflect drawer saves only — not onboarding merge or credits. */
-function getWorkspaceProfileModuleState(
-  moduleId: ProfileModuleId,
-  storedAnswers: DetailAnswers,
-) {
-  const userProgress = getModuleAnswerProgress(moduleId, storedAnswers);
-  const workspaceStatus = getModuleWorkspaceStatus(moduleId, storedAnswers);
-  const userStarted = workspaceStatus !== "not_started";
-  const complete = workspaceStatus === "complete";
-  const insightReady = workspaceStatus === "insight_ready";
-  return {
-    progress: userStarted
-      ? userProgress
-      : { answered: 0, total: userProgress.total, percent: 0 },
-    complete,
-    insightReady,
-    workspaceStatus,
-    userStarted,
-    inProgress: workspaceStatus === "in_progress" || insightReady,
-    cta: workspaceModuleCtaLabel(complete, userStarted && !complete),
-  };
-}
-
-function WorkspaceProgressReminder({
-  summary,
-  onContinue,
-}: {
-  summary: ReturnType<typeof buildWorkspaceProgressSummary>;
-  onContinue?: () => void;
-}) {
-  if (summary.reportReadiness === "none" && summary.modulesPartial === 0 && summary.modulesCompleted === 0) {
-    return null;
-  }
-
-  const message = buildProgressReminderMessage(summary);
-
-  return (
-    <section className="sc-workspace-progress-reminder" aria-label="Workspace progress">
-      <div className="sc-workspace-progress-reminder-main">
-        <div className="sc-workspace-progress-reminder-head">
-          <span className="sc-workspace-progress-reminder-eyebrow">
-            {summary.reportReadiness === "complete"
-              ? "Report complete"
-              : summary.reportReadiness === "early"
-                ? "Early report ready"
-                : "Progress"}
-          </span>
-          <strong className="sc-workspace-progress-reminder-percent">{summary.overallPercent}%</strong>
-        </div>
-        <p className="sc-workspace-progress-reminder-copy">{message}</p>
-        <div className="sc-workspace-progress-reminder-stats" aria-label="Completion summary">
-          <span>{summary.modulesCompleted} complete</span>
-          <span>{summary.modulesPartial} in progress</span>
-          <span>{summary.modulesNotStarted} not started</span>
-          <span>{summary.creditsRemaining} credits left</span>
-        </div>
-        <div className="sc-workspace-progress-reminder-bar" aria-hidden="true">
-          <div
-            className="sc-workspace-progress-reminder-bar-fill"
-            style={{ width: `${Math.max(summary.overallPercent, 4)}%` }}
-          />
-        </div>
-        <ul className="sc-workspace-progress-reminder-modules">
-          {summary.modules.map(row => (
-            <li
-              key={row.id}
-              className={`is-${row.status}${row.creditsEarned ? " is-credited" : ""}`}
-            >
-              <span className="sc-workspace-progress-reminder-module-label">{row.label}</span>
-              <span className="sc-workspace-progress-reminder-module-status">
-                {workspaceStatusLabel(row.status)}
-                {row.creditsEarned ? " · credited" : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      {summary.reportReadiness !== "complete" && onContinue ? (
-        <button type="button" className="sc-workspace-progress-reminder-cta" onClick={onContinue}>
-          Continue modules
-        </button>
-      ) : null}
-    </section>
-  );
-}
-
-function ProfileCreditRoadmap({
-  detailAnswers,
-  creditBalance,
-  earnedProfileCredits,
-  onStart,
-  onOpenSources,
-}: {
-  detailAnswers: DetailAnswers;
-  creditBalance: number;
-  earnedProfileCredits?: EarnedProfileCredits;
-  onStart?: (section?: ProfileUnlockSectionId | "bench") => void;
-  onOpenSources?: () => void;
-}) {
-  const earnedModules = earnedProfileCredits?.modules ?? [];
-  const benchmarkEarned = Boolean(
-    earnedProfileCredits?.benchmark && earnedProfileCredits?.benchmarkViaSubmit,
-  );
-
-  const moduleRows = PROFILE_UNLOCK_SECTIONS.map(section => {
-    const progress = getModuleAnswerProgress(section.id, detailAnswers);
-    const earned = earnedModules.includes(section.id);
-    const complete = earned || (progress.total > 0 && progress.answered >= progress.total);
-    return {
-      id: section.id,
-      label: section.title,
-      icon: section.icon,
-      credits: section.credits,
-      complete,
-      inProgress: !complete && progress.answered > 0,
-      progressLabel: progress.total > 0 ? `${progress.answered}/${progress.total} answered` : "Not started",
-      progressPercent: complete ? 100 : progress.percent,
-    };
-  });
-
-  const extraRows = [
-    {
-      id: "benchmark" as const,
-      label: "Benchmark",
-      icon: "benchmarks" as FuelIconName,
-      credits: BENCHMARK_REWARD_CREDITS,
-      complete: benchmarkEarned,
-      inProgress: false,
-      progressLabel: benchmarkEarned ? "Submitted" : "Submit cohort metrics",
-      progressPercent: benchmarkEarned ? 100 : 0,
-    },
-  ];
-
-  const allRows = [...moduleRows, ...extraRows];
-  const completedCount = allRows.filter(row => row.complete).length;
-  const creditProgressPct = Math.round((creditBalance / PROFILE_TOTAL_CREDITS) * 100);
-
-  return (
-    <div className="sc-gate-credit-roadmap" role="region" aria-label="Credit roadmap">
-      <div className="sc-gate-section-label">
-        Credit roadmap
-        <span className="sc-gate-section-chip">
-          {completedCount} of {allRows.length} complete
-        </span>
-      </div>
-
-      <div className="sc-gate-credit-roadmap-shell">
-        <aside className="sc-gate-credit-roadmap-balance">
-          <span className="sc-gate-credit-roadmap-label">Credit balance</span>
-          <div className="sc-gate-credit-roadmap-value">
-            <strong>{creditBalance}</strong>
-            <span>/ {PROFILE_TOTAL_CREDITS}</span>
-          </div>
-          <div className="sc-gate-credit-roadmap-meter" aria-hidden="true">
-            <div
-              className="sc-gate-credit-roadmap-meter-fill"
-              style={{ width: `${Math.max(creditProgressPct, 4)}%` }}
-            />
-          </div>
-          <p className="sc-gate-credit-roadmap-copy">
-            Complete Profile, R&amp;D, GTM, G&amp;A, and benchmarks to earn up to{" "}
-            <strong>{PROFILE_EARNABLE_CREDITS} more credits</strong>.
-          </p>
-          <div className="sc-gate-credit-roadmap-stats">
-            <span>
-              <strong>{Math.max(0, PROFILE_EARNABLE_CREDITS - (creditBalance - PROFILE_STARTING_CREDITS))}</strong>
-              <em>still to earn</em>
-            </span>
-            <span>
-              <strong>{completedCount}</strong>
-              <em>steps done</em>
-            </span>
-          </div>
-        </aside>
-
-        <div className="sc-gate-credit-roadmap-list" role="list">
-          {allRows.map(row => (
-            <button
-              key={row.id}
-              type="button"
-              role="listitem"
-              className={`sc-gate-credit-roadmap-row${row.complete ? " is-complete" : row.inProgress ? " is-progress" : ""}`}
-              onClick={() => {
-                if (row.id === "benchmark") onStart?.("bench");
-                else onStart?.(row.id);
-              }}
-            >
-              <span className={`sc-gate-credit-roadmap-icon${row.complete ? " is-complete" : ""}`} aria-hidden="true">
-                <FuelIcon name={row.icon} size={16} />
-              </span>
-              <span className="sc-gate-credit-roadmap-row-main">
-                <span className="sc-gate-credit-roadmap-row-top">
-                  <strong>{row.label}</strong>
-                  {row.complete ? (
-                    <span className="sc-gate-credit-roadmap-badge is-done">Done</span>
-                  ) : row.inProgress ? (
-                    <span className="sc-gate-credit-roadmap-badge is-active">In progress</span>
-                  ) : null}
-                </span>
-                <span className="sc-gate-credit-roadmap-row-sub">{row.progressLabel}</span>
-                {row.id !== "benchmark" ? (
-                  <span className="sc-gate-credit-roadmap-row-bar" aria-hidden="true">
-                    <span
-                      className="sc-gate-credit-roadmap-row-bar-fill"
-                      style={{ width: `${row.progressPercent}%` }}
-                    />
-                  </span>
-                ) : null}
-              </span>
-              <span className="sc-gate-credit-roadmap-row-meta">
-                {row.complete ? (
-                  <span className="sc-gate-credit-roadmap-done" aria-hidden="true">✓</span>
-                ) : (
-                  <span className="sc-gate-credit-roadmap-credits">+{row.credits}</span>
-                )}
-                <span className="sc-gate-credit-roadmap-chevron" aria-hidden="true">→</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function workspaceModuleCtaLabel(complete: boolean, inProgress: boolean): string {
-  if (complete) return "Review";
-  if (inProgress) return "Continue";
-  return "Start";
-}
-
-function moduleCreditsOfferVisible(
-  creditsEarned: boolean,
-  insightReady: boolean,
-  complete: boolean,
-): boolean {
-  return !creditsEarned && !insightReady && !complete;
-}
-
-type WorkspaceSectionId = ProfileModuleId | "benchmark";
-
-function WorkspaceModuleProgressRing({
-  percent,
-  answered,
-  total,
-  complete,
-  insightReady,
-  displayPercentLabel,
-}: {
-  percent: number;
-  answered: number;
-  total: number;
-  complete: boolean;
-  insightReady: boolean;
-  displayPercentLabel?: string;
-}) {
-  const size = 44;
-  const stroke = 4;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const clampedPercent = Math.max(0, Math.min(100, percent));
-  const offset = circumference - (clampedPercent / 100) * circumference;
-  const toneClass = complete ? "is-complete" : insightReady ? "is-insight" : "is-progress";
-
-  return (
-    <div
-      className={`sc-workspace-module-ring ${toneClass}`}
-      role="img"
-      aria-label={`${answered} of ${total} profile questions answered, ${clampedPercent} percent`}
-    >
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle
-          className="sc-workspace-module-ring-track"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="var(--panel-border)"
-          strokeWidth={stroke}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </svg>
-      <div className="sc-workspace-module-ring-label">
-        <strong>{displayPercentLabel ?? `${clampedPercent}%`}</strong>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceModuleCardGrid({
-  modules,
-  onSelect,
-  activeTourTarget,
-  active,
-  creditBalance,
-  creditsTotal = PROFILE_TOTAL_CREDITS,
-  displayScoresZero = false,
-}: {
-  modules: Array<{
-    id: WorkspaceSectionId;
-    title: string;
-    description: string;
-    footer: string;
-    credits: number;
-    icon: FuelIconName;
-    complete: boolean;
-    insightReady?: boolean;
-    creditsOfferVisible?: boolean;
-    workspaceStatus?: WorkspaceModuleStatus;
-    userStarted: boolean;
-    progress: { answered: number; total: number; percent: number };
-    cta: string;
-    tourTarget?: string;
-  }>;
-  onSelect: (id: WorkspaceSectionId) => void;
-  activeTourTarget?: string;
-  active: boolean;
-  creditBalance?: number;
-  creditsTotal?: number;
-  displayScoresZero?: boolean;
-}) {
-  return (
-    <section className="sc-workspace-modules-panel" aria-label="5 modules to complete">
-      <div className="sc-workspace-modules-panel-head">
-        <div className="sc-workspace-modules-panel-head-main">
-          <h3>Your 5 modules</h3>
-          <p>
-            {active
-              ? "Tap a module to continue. Complete the 3 required profile questions to unlock credits — they add to your credit balance."
-              : "All five modules start as Not started. Open any module to begin."}
-          </p>
-        </div>
-        {creditBalance != null ? (
-          <div
-            className={`sc-workspace-modules-credit-tally${activeTourTarget === "workspace-credits" ? " tour-highlight" : ""}`}
-            aria-label="Intelligence credits balance"
-            data-tour-target={activeTourTarget === "workspace-credits" ? "workspace-credits" : undefined}
-          >
-            <span className="sc-workspace-modules-credit-tally-label">Credits</span>
-            <strong>{creditBalance.toLocaleString()}</strong>
-            <span className="sc-workspace-modules-credit-tally-total">/ {creditsTotal.toLocaleString()}</span>
-          </div>
-        ) : null}
-      </div>
-      <div className="sc-workspace-module-grid">
-        {modules.map((module) => {
-          const displayTitle = module.id === "company" ? "Complete Profile" : module.title;
-          const cardStatus = module.complete
-            ? "complete"
-            : module.insightReady
-              ? "insight"
-              : module.userStarted
-                ? "building"
-                : "idle";
-          const tourHighlight = module.tourTarget && activeTourTarget === module.tourTarget;
-          const statusLabel = module.workspaceStatus
-            ? workspaceStatusLabel(module.workspaceStatus)
-            : module.complete
-              ? "Complete"
-              : module.userStarted
-                ? "In progress"
-                : "Not started";
-          const isProfileCard = module.id === "company";
-
-          return (
-            <button
-              key={module.id}
-              type="button"
-              className={`sc-workspace-module-card is-${cardStatus}${tourHighlight ? " tour-highlight" : ""}`}
-              data-tour-target={tourHighlight ? module.tourTarget : undefined}
-              onClick={() => onSelect(module.id)}
-            >
-              <div className="sc-workspace-module-card-head">
-                <div className="sc-workspace-module-card-meta">
-                  <span className="sc-workspace-module-card-icon" aria-hidden="true">
-                    <FuelIcon name={module.icon} size={16} />
-                  </span>
-                </div>
-                {isProfileCard && module.progress.total > 0 ? (
-                  <WorkspaceModuleProgressRing
-                    percent={landingDisplayPercent(module.progress.percent, displayScoresZero)}
-                    answered={module.progress.answered}
-                    total={module.progress.total}
-                    complete={module.complete}
-                    insightReady={Boolean(module.insightReady)}
-                    displayPercentLabel={displayScoresZero ? "00" : undefined}
-                  />
-                ) : !isProfileCard && module.id === "benchmark" && displayScoresZero ? (
-                  <span className="sc-workspace-module-card-pct" aria-label="Benchmark score 0 out of 100">
-                    <strong>00</strong>
-                    <em>score</em>
-                  </span>
-                ) : !isProfileCard && module.progress.total > 0 ? (
-                  <span
-                    className="sc-workspace-module-card-pct"
-                    aria-label={`${module.progress.answered} of ${module.progress.total} questions answered`}
-                  >
-                    <strong>{module.progress.answered}/{module.progress.total}</strong>
-                    <em>answered</em>
-                  </span>
-                ) : null}
-              </div>
-              <h4 className="sc-workspace-module-card-title">{displayTitle}</h4>
-              <p className="sc-workspace-module-card-desc">{module.footer}</p>
-              <div className="sc-workspace-module-card-foot">
-                <span className={`sc-workspace-module-card-status is-${cardStatus}`}>{statusLabel}</span>
-                <div className="sc-workspace-module-card-actions">
-                  {module.creditsOfferVisible ? (
-                    <span className="sc-workspace-module-card-credits sc-workspace-module-card-credits--offer">
-                      Get +{module.credits} credits
-                    </span>
-                  ) : null}
-                  <span className="sc-workspace-module-card-cta">{module.cta} →</span>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-const WORKSPACE_BENCHMARK_SECTION = {
-  id: "benchmark" as const,
-  title: "Benchmark",
-  description: "Submit cohort metrics for peer comparisons and sharper track scores.",
-  footer: "Metrics · Cohort · Peer scores",
-  credits: BENCHMARK_REWARD_CREDITS,
-  icon: "benchmarks" as FuelIconName,
-  unlocks: ["Peer comparisons", "Cohort percentile scores", "Track benchmark alignment"],
-};
-
-function tourCategoryFromTarget(activeTourTarget?: string): ScorecardCategory | null {
-  if (!activeTourTarget?.startsWith("category-")) return null;
-  const id = activeTourTarget.slice("category-".length);
-  if (id === "dev" || id === "gtm" || id === "rev") return id;
-  return null;
-}
-
-function shouldShowCategoryGlanceForTour(
-  categoryId: ScorecardCategory,
-  activeTourTarget?: string,
-  phase?: OverviewBuildPhase | null,
-  builtPhases?: ReadonlySet<OverviewBuildPhase>,
-): boolean {
-  if (tourCategoryFromTarget(activeTourTarget) === categoryId) return true;
-  return overviewTrackReady(categoryId, phase, builtPhases);
-}
-
-function shouldShowWorkspaceCategoryGlanceForTour(
-  categoryId: ScorecardCategory,
-  activeTourTarget?: string,
-  phase?: OverviewBuildPhase | null,
-  builtPhases?: ReadonlySet<OverviewBuildPhase>,
-  hasWorkspaceContent = false,
-  displayScoresZero = false,
-): boolean {
-  if (tourCategoryFromTarget(activeTourTarget) === categoryId) return true;
-  return workspaceProgressTrackReady(
-    categoryId,
-    phase,
-    builtPhases,
-    hasWorkspaceContent,
-    displayScoresZero,
-  );
-}
-
-function workspaceTourTarget(sectionId: WorkspaceSectionId): string | undefined {
-  if (sectionId === "company") return "workspace-profile-card";
-  if (sectionId === "dev") return "workspace-module-rd";
-  if (sectionId === "gtm") return "workspace-module-gtm";
-  if (sectionId === "rev") return "workspace-module-ga";
-  if (sectionId === "benchmark") return "workspace-module-benchmark";
-  return undefined;
-}
-
-function workspaceSectionStartId(sectionId: WorkspaceSectionId): ProfileUnlockSectionId | "bench" {
-  return sectionId === "benchmark" ? "bench" : sectionId;
-}
-
-function OverviewWorkspaceDashboard({
-  userFirstName = "there",
-  companyName,
-  detailAnswers,
-  storedDetailAnswers: _storedDetailAnswers,
-  benchmark,
-  earnedProfileCredits,
-  categories,
-  runway,
-  buildContext,
-  benchmarkSaved = false,
-  documentSlots,
-  wikiSummary,
-  overviewBuildPhase = null,
-  overviewBuiltPhases,
-  overviewBuildActive = false,
-  suggestionsReady = true,
-  showWorkspaceSetup = false,
-  advisorActions = [],
-  privateWorkspace = false,
-  isProfileComplete = false,
-  onStart,
-  onOpenCategory,
-  onOpenIntelligence,
-  onOpenInitiatives,
-  onRunPlaybook,
-  onOpenWikiSummary,
-  onEditBenchmark,
-  onAddSources,
-  activeTourTarget,
-  showShareTip = false,
-  onDismissShareTip,
-  displayScoresZero = false,
-  onOpenProfilePreview,
-}: {
-  userFirstName?: string;
-  companyName: string;
-  detailAnswers: DetailAnswers;
-  /** User-saved drawer answers only — gates report cards (ignores onboarding prefill). */
-  storedDetailAnswers: DetailAnswers;
-  benchmark: OnboardingBenchmarkInput;
-  earnedProfileCredits?: EarnedProfileCredits;
-  categories: CategoryData[];
-  runway: number | null;
-  buildContext: CategoryBuildContext;
-  benchmarkSaved?: boolean;
-  documentSlots?: ScorecardDocumentSlot[];
-  wikiSummary: WikiSummaryContent;
-  overviewBuildPhase?: OverviewBuildPhase | null;
-  overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>;
-  overviewBuildActive?: boolean;
-  suggestionsReady?: boolean;
-  showWorkspaceSetup?: boolean;
-  advisorActions?: AdvisorRecAction[];
-  privateWorkspace?: boolean;
-  isProfileComplete?: boolean;
-  onStart?: (section?: ProfileUnlockSectionId | "bench") => void;
-  onOpenCategory?: (categoryId: ScorecardCategory) => void;
-  onOpenIntelligence?: () => void;
-  onOpenInitiatives?: () => void;
-  onRunPlaybook?: (id: string) => void;
-  onOpenWikiSummary?: (highlightRefId?: number) => void;
-  onEditBenchmark?: () => void;
-  onAddSources?: () => void;
-  activeTourTarget?: string;
-  showShareTip?: boolean;
-  onDismissShareTip?: () => void;
-  displayScoresZero?: boolean;
-  onOpenProfilePreview?: (tab?: ProfilePreviewTab) => void;
-}) {
-  const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
-  const benchmarkEarned = Boolean(
-    earnedProfileCredits?.benchmark && earnedProfileCredits?.benchmarkViaSubmit,
-  );
-  const benchFilled = METRIC_COHORTS.filter(c => parseMetricValue(benchmark[c.key] ?? "")).length;
-  const benchTotal = METRIC_COHORTS.length;
-  /** Merged onboarding + saved drawer answers — drives visible workspace state after onboarding. */
-  const displayAnswers = detailAnswers;
-  const hasMinimumProfileAnswers = useMemo(
-    () => hasMandatoryProfileAnswers(displayAnswers),
-    [displayAnswers],
-  );
-
-  const profileSections = PROFILE_UNLOCK_SECTIONS.map(section => {
-    const moduleState = getWorkspaceProfileModuleState(section.id, displayAnswers);
-    const creditsEarned = earnedProfileCredits?.modules.includes(section.id) ?? false;
-    return {
-      ...section,
-      ...moduleState,
-      creditsOfferVisible: moduleCreditsOfferVisible(creditsEarned, moduleState.insightReady, moduleState.complete),
-      tourTarget: workspaceTourTarget(section.id),
-    };
-  });
-
-  const benchmarkUserStarted = benchmarkSaved || benchmarkEarned || benchFilled > 0;
-  const benchmarkComplete = benchmarkEarned || (benchmarkSaved && benchFilled >= benchTotal);
-  const benchmarkInsightReady = !benchmarkComplete && benchFilled >= MIN_BENCHMARK_METRICS_FOR_UNLOCK;
-  const benchmarkModule = {
-    ...WORKSPACE_BENCHMARK_SECTION,
-    progress: benchmarkUserStarted
-      ? { answered: benchFilled, total: benchTotal, percent: benchTotal > 0 ? Math.round((benchFilled / benchTotal) * 100) : 0 }
-      : { answered: 0, total: benchTotal, percent: 0 },
-    complete: benchmarkComplete,
-    insightReady: benchmarkInsightReady,
-    workspaceStatus: benchmarkComplete
-      ? "complete" as const
-      : benchmarkInsightReady
-        ? "insight_ready" as const
-        : benchmarkUserStarted
-          ? "in_progress" as const
-          : "not_started" as const,
-    userStarted: benchmarkUserStarted,
-    inProgress: benchmarkUserStarted && !benchmarkComplete,
-    cta: workspaceModuleCtaLabel(benchmarkComplete, benchmarkUserStarted && !benchmarkComplete),
-    creditsOfferVisible: moduleCreditsOfferVisible(benchmarkEarned, benchmarkInsightReady, benchmarkComplete),
-    tourTarget: workspaceTourTarget("benchmark"),
-  };
-
-  const modules = [...profileSections, benchmarkModule];
-  const allModulesComplete = modules.every(module => module.complete);
-  const progressSummary = buildWorkspaceProgressSummary(
-    displayAnswers,
-    earnedProfileCredits,
-    benchFilled,
-    benchTotal,
-  );
-  const hasWorkspaceContent = hasProfileBasicsStarted(displayAnswers) || benchFilled > 0;
-  const startedCount = modules.filter(section => section.userStarted).length;
-  const allEmpty = !hasWorkspaceContent && startedCount === 0;
-  const contentLandingHidden = displayScoresZero;
-  const isBuildingAdvisor = overviewBuildPhase === "summary";
-  const isBuildingTrack = categories.some(cat => overviewTrackBuilding(cat.id, overviewBuildPhase));
-  const isBuildingReport = isBuildingAdvisor || isBuildingTrack;
-  const showProgressFeed = isBuildingReport
-    || (!contentLandingHidden && (hasWorkspaceContent || Boolean(overviewBuildPhase)));
-  const showAdvisorSection = isBuildingAdvisor
-    || isBuildingReport
-    || (!contentLandingHidden && (
-      hasWorkspaceContent
-      || progressSummary.reportReadiness !== "none"
-      || Boolean(overviewBuildPhase)
-    ));
-  const reportReadiness = progressSummary.reportReadiness === "none" && hasWorkspaceContent
-    ? "early" as const
-    : progressSummary.reportReadiness;
-  const showWorkspaceSummaryTop = showAdvisorSection && !showWorkspaceSetup;
-  const showConnectorsSection = !hasOverviewReportGenerationStarted(
-    overviewBuildPhase,
-    overviewBuiltPhases,
-    overviewBuildActive,
-  );
-
-  const handleSectionStart = (sectionId: WorkspaceSectionId) => {
-    const module = modules.find(item => item.id === sectionId);
-    if (module?.complete) {
-      onOpenProfilePreview?.(sectionId);
-      return;
-    }
-    if (sectionId === "benchmark") {
-      onEditBenchmark?.();
-      return;
-    }
-    onStart?.(workspaceSectionStartId(sectionId));
-  };
-
-  return (
-    <div className="sc-workspace-dash" role="region" aria-label="Workspace dashboard">
-      {!allModulesComplete ? (
-        <WorkspaceModuleCardGrid
-          modules={modules}
-          onSelect={handleSectionStart}
-          activeTourTarget={activeTourTarget}
-          active={!allEmpty}
-          creditBalance={progressSummary.creditBalance}
-          displayScoresZero={displayScoresZero}
-        />
-      ) : null}
-
-      {allModulesComplete && onOpenProfilePreview ? (
-        <section className="sc-workspace-preview-bar" aria-label="Profile preview">
-          <div className="sc-workspace-preview-bar-main">
-            <strong>All modules complete</strong>
-            <p>Review your full profile, benchmark snapshot, and track answers.</p>
-          </div>
-          <button
-            type="button"
-            className="sc-workspace-preview-bar-btn"
-            onClick={() => onOpenProfilePreview("company")}
-          >
-            Preview profile
-          </button>
-        </section>
-      ) : null}
-
-      {showWorkspaceSummaryTop || overviewBuildPhase === "ready" || isBuildingAdvisor ? (
-        <section className="sc-workspace-summary-section" aria-label="Workspace summary">
-          <div className="sc-adv-featured-wrap sc-workspace-summary-wrap">
-            <div className="sc-adv-featured-border" aria-hidden="true" />
-            {overviewBuildPhase === "ready" ? (
-              <div className="sc-workspace-ready-bar sc-workspace-ready-bar--top" role="status">
-                <strong>Your workspace report is ready</strong>
-                <span>Review your early summary below — complete modules anytime for deeper insights.</span>
-              </div>
-            ) : null}
-            {isBuildingAdvisor ? (
-              <div className="sc-workspace-summary-card">
-                <OverviewAdvisorSkeleton />
-              </div>
-            ) : showWorkspaceSummaryTop ? (
-              <div className="sc-workspace-summary-card sc-adv-featured sc-adv-featured-split is-rec-hidden">
-                <AdvisorSummaryBriefColumn
-                  categories={categories}
-                  runway={runway}
-                  companyName={companyName}
-                  wikiSummary={wikiSummary}
-                  onOpenWikiSummary={onOpenWikiSummary ?? (() => {})}
-                  onOpenIntelligence={onOpenIntelligence}
-                  suggestionsReady={suggestionsReady}
-                  overviewBuildPhase={overviewBuildPhase}
-                  overviewBuiltPhases={overviewBuiltPhases}
-                  reportReadiness={reportReadiness}
-                  layout="workspace"
-                />
-              </div>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      {overviewBuildPhase && overviewBuildPhase !== "ready" ? (
-        <OverviewBuildPanel phase={overviewBuildPhase} />
-      ) : null}
-
-      {showProgressFeed ? (
-        <section className="sc-progress-feed-section sc-workspace-progress-feed" aria-labelledby="sc-workspace-progress-feed-heading">
-          <div className="sc-progress-feed-head">
-            <h2 id="sc-workspace-progress-feed-heading" className="sc-progress-feed-title">Progress Feed</h2>
-          </div>
-          <div
-            className={`sc-overview-tracks sc-overview-tracks-glance${isBuildingReport ? " sc-overview-tracks-glance--building" : ""}`}
-            aria-busy={isBuildingReport}
-          >
-            {categories.map(cat => (
-              shouldShowWorkspaceCategoryGlanceForTour(
-                cat.id,
-                activeTourTarget,
-                overviewBuildPhase,
-                overviewBuiltPhases,
-                hasWorkspaceContent,
-                displayScoresZero,
-              ) ? (
-                <CategoryGlanceRow
-                  key={cat.id}
-                  cat={cat}
-                  runway={runway}
-                  displayScoresZero={displayScoresZero}
-                  onOpen={() => onOpenCategory?.(cat.id)}
-                  onUpdateDetails={() => onOpenCategory?.(cat.id)}
-                  onOpenIntelligence={onOpenIntelligence}
-                  onOpenInitiatives={onOpenInitiatives}
-                  onRunPlaybook={onRunPlaybook}
-                  glancePopoverOpen={openGlancePopover === cat.id}
-                  onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
-                  onGlancePopoverClose={() => setOpenGlancePopover(null)}
-                  tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
-                  suggestionsReady={suggestionsReady}
-                  hasMinimumProfileAnswers={hasMinimumProfileAnswers}
-                  onCompleteProfile={() => onStart?.(categoryToProfileUnlockSection(cat.id))}
-                />
-              ) : (
-                <CategoryGlanceRowSkeleton key={cat.id} label={cat.label} />
-              )
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {showWorkspaceSetup ? (
-        <div
-          className={`sc-adv-featured-wrap sc-workspace-advisor-wrap${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
-          data-tour-target={activeTourTarget === "ai-advisor" ? "ai-advisor" : undefined}
-        >
-          <div className="sc-adv-featured-border" aria-hidden="true" />
-          <OverviewWorkspaceSetupPanel
-            companyName={companyName}
-            actions={advisorActions}
-            onEditBenchmark={onEditBenchmark}
-            onAddSources={onAddSources}
-            onViewDetails={() => onOpenWikiSummary?.()}
-            showShareTip={showShareTip}
-            onDismissShareTip={onDismissShareTip}
-            tourHighlightRecommended={activeTourTarget === "recommended-actions"}
-          />
-        </div>
-      ) : null}
-
-      {showConnectorsSection ? (
-        <WorkspaceConnectorsSection activeTourTarget={activeTourTarget} />
-      ) : null}
-    </div>
-  );
-}
-
-function ProfileCompletionRing({
-  percent,
-  display,
-  size = 72,
-}: {
-  percent: number;
-  display: string;
-  size?: number;
-}) {
-  const ringRadius = 30;
-  const circumference = 2 * Math.PI * ringRadius;
-  return (
-    <div className="sc-profile-complete-ring" aria-hidden="true">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={size / 2} cy={size / 2} r={ringRadius} fill="none" stroke="var(--panel-border)" strokeWidth="5" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={ringRadius}
-          fill="none"
-          stroke="var(--fuel-accent, var(--fuel-accent))"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - percent / 100)}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </svg>
-      <span className="sc-profile-complete-ring-label">
-        <strong>{display}</strong>
-      </span>
-    </div>
-  );
-}
-
-function ProfileGateConnectors() {
-  return (
-    <AccountIntegrationsList
-      gateLayout
-      intro="Connect HubSpot or Granola to enrich your profile and unlock deeper AI insights."
-    />
-  );
-}
-
-/** Module-first workspace — same HubSpot + Granola block as advisor-first / gate-first. */
-function WorkspaceConnectorsSection({ activeTourTarget }: { activeTourTarget?: string }) {
-  const tourActive = activeTourTarget === "workspace-connectors";
-  return (
-    <section
-      className={`sc-workspace-connectors${tourActive ? " tour-highlight" : ""}`}
-      aria-label="Connectors"
-      data-tour-target={tourActive ? "workspace-connectors" : undefined}
-    >
-      <ProfileGateConnectors />
-    </section>
-  );
-}
-
-/** Zero-data / legacy overview — motivates profile completion before analytics exist. */
-function ProfileIncompleteGate({
-  firstName = "there",
-  companyName,
-  detailAnswers,
-  creditBalance,
-  earnedProfileCredits,
-  isProfileComplete = false,
-  onStart,
-  onOpenSources,
-}: {
-  firstName?: string;
-  companyName: string;
-  detailAnswers: DetailAnswers;
-  creditBalance: number;
-  earnedProfileCredits?: EarnedProfileCredits;
-  isProfileComplete?: boolean;
-  onStart?: (section?: ProfileUnlockSectionId | "bench") => void;
-  onOpenSources?: () => void;
-}) {
-  const profileProgress = computeProfileAnswerProgress(detailAnswers);
-  const isFullyEmpty = profileProgress.answered === 0;
-  const profileStarted = hasProfileBasicsStarted(detailAnswers);
-  const profileCreditsToEarn = remainingProfileModuleCredits(earnedProfileCredits);
-  const introBenefits = [
-    "Unlock Benchmarking",
-    "Improve Recommendations",
-    "Increase Intelligence Accuracy",
-  ];
-  const completionDisplay = isFullyEmpty
-    ? "00"
-    : `${profileProgress.percent.toString().padStart(2, "0")}%`;
-
-  if (isFullyEmpty) {
-    return (
-      <div className="sc-profile-gate sc-profile-gate--old sc-profile-gate--zero" role="region" aria-label="Profile completion">
-        <div className="sc-profile-old-zero-card">
-          <ProfileCompletionRing percent={0} display="00" />
-          <div className="sc-profile-old-zero-copy">
-            <span className="sc-profile-old-zero-label">Profile completion</span>
-            <strong className="sc-profile-old-zero-rate" aria-live="polite">{completionDisplay}%</strong>
-            <p>Complete your company profile to unlock R&amp;D, GTM, and G&amp;A intelligence scores.</p>
-            <button type="button" className="sc-profile-complete-cta" onClick={() => onStart?.("company")}>
-              Start Complete Profile →
-              {profileCreditsToEarn > 0 ? (
-                <span className="sc-profile-complete-credits-pill">+{profileCreditsToEarn} credits</span>
-              ) : null}
-            </button>
-          </div>
-        </div>
-        {!isProfileComplete ? <ProfileGateConnectors /> : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="sc-profile-gate sc-profile-gate--old" role="region" aria-label="Your intelligence dashboard">
-
-      <div
-        className="sc-profile-complete-banner sc-gate-intro-banner"
-        role="region"
-        aria-label="Complete your company profile"
-      >
-        <ProfileCompletionRing percent={profileProgress.percent} display={profileProgress.percent.toString().padStart(2, "0")} />
-        <div className="sc-profile-complete-copy">
-          <h2>
-            {profileStarted
-              ? `Welcome back, ${firstName}.`
-              : `Build ${companyName}'s intelligence`}
-          </h2>
-          <p>
-            {profileStarted
-              ? "Pick up where you left off — each section you finish unlocks live track scores below."
-              : `Answer the remaining questions about ${companyName} to turn locked scores into live intelligence.`}
-          </p>
-          <ul className="sc-profile-complete-benefits">
-            {introBenefits.map(item => (
-              <li key={item}>
-                <span className="sc-profile-complete-check" aria-hidden="true">✓</span>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="sc-profile-complete-actions">
-          <button type="button" className="sc-profile-complete-cta" onClick={() => onStart?.("company")}>
-            Continue Profile →
-            {profileCreditsToEarn > 0 ? (
-              <span className="sc-profile-complete-credits-pill">+{profileCreditsToEarn} credits</span>
-            ) : null}
-          </button>
-          <span className="sc-profile-complete-time">Takes &lt;5 min</span>
-        </div>
-      </div>
-
-      <ProfileCreditRoadmap
-        detailAnswers={detailAnswers}
-        creditBalance={creditBalance}
-        earnedProfileCredits={earnedProfileCredits}
-        onStart={onStart}
-        onOpenSources={onOpenSources}
-      />
-
-      {!isProfileComplete ? <ProfileGateConnectors /> : null}
     </div>
   );
 }
@@ -2908,6 +1639,7 @@ function OverviewBuildPanel({
   phase,
 }: {
   phase: OverviewBuildPhase;
+  onStartOptionalTour?: () => void;
 }) {
   const idx = overviewBuildPhaseIndex(phase);
   const progress = Math.min(100, Math.round((idx / (OVERVIEW_BUILD_PHASE_ORDER.length - 1)) * 100));
@@ -2918,9 +1650,9 @@ function OverviewBuildPanel({
       <div className="sc-overview-build-top">
         <div>
           <span className="sc-overview-build-eyebrow">Building your Overview</span>
-          <h2 className="sc-overview-build-title">Fuel is using your onboarding answers</h2>
+          <h2 className="sc-overview-build-title">Fuel is working from your onboarding</h2>
           <p className="sc-overview-build-copy">
-            Summary appears first. R&amp;D, GTM, and G&amp;A follow next — other tabs stay available while this builds.
+            Summary lands first. R&amp;D, GTM, and G&amp;A follow — other tabs stay open.
           </p>
         </div>
       </div>
@@ -2954,26 +1686,24 @@ function OverviewAdvisorSkeleton() {
 
 function CategoryGlanceRowSkeleton({ label }: { label: string }) {
   return (
-    <article className="sc-glance-row sc-glance-row--track sc-glance-row-skeleton" aria-hidden="true">
-      <div className="sc-glance-track-lead">
-        <div className="sc-skel-ring" />
-        <div className="sc-glance-track-identity">
-          <h3 className="sc-glance-track-title">
-            <span className="sc-glance-track-short">{label}</span>
-          </h3>
-          <span className="sc-skel-chip" />
+    <article className="sc-glance-row sc-glance-row--track sc-glance-row--ref sc-glance-row-skeleton" aria-hidden="true">
+      <div className="sc-glance-track-body">
+        <div className="sc-glance-track-lead">
+          <div className="sc-skel-ring" />
+          <div className="sc-glance-track-lead-copy">
+            <h3 className="sc-glance-track-title-link">{label}</h3>
+            <div className="sc-skel-line" />
+            <div className="sc-skel-line sc-skel-line-mid" />
+          </div>
         </div>
-      </div>
-      <div className="sc-glance-track-mid">
-        <div className="sc-skel-line" />
-        <div className="sc-skel-line sc-skel-line-mid" />
-        <div className="sc-skel-insights">
+        <div className="sc-glance-track-mid">
           <div className="sc-skel-line" />
           <div className="sc-skel-line sc-skel-line-mid" />
         </div>
-      </div>
-      <div className="sc-glance-track-foot">
-        <div className="sc-skel-line sc-skel-line-mid" />
+        <div className="sc-glance-track-improve sc-glance-track-improve-panel">
+          <div className="sc-skel-line sc-skel-line-mid" />
+          <div className="sc-skel-line" />
+        </div>
       </div>
     </article>
   );
@@ -2994,7 +1724,6 @@ function CategoryGlanceRow({
   suggestionsReady = true,
   hasMinimumProfileAnswers = false,
   onCompleteProfile,
-  displayScoresZero = false,
 }: {
   cat: CategoryData;
   runway: number | null;
@@ -3010,14 +1739,14 @@ function CategoryGlanceRow({
   suggestionsReady?: boolean;
   hasMinimumProfileAnswers?: boolean;
   onCompleteProfile?: () => void;
-  displayScoresZero?: boolean;
 }) {
-  const score = landingDisplayScore(Math.max(0, Math.min(100, cat.score)), displayScoresZero);
+  const score = Math.max(0, Math.min(100, cat.score));
   const focusLine = cat.glanceFocus;
   const answersCta = buildGlanceAnswersCta(cat.label, cat.detailAnsweredCount, cat.detailQuestionCount);
-  const improvementItems = cat.glanceWeaknessItems.length > 0
-    ? cat.glanceWeaknessItems.slice(0, 3)
-    : cat.glanceStrengthItems.slice(0, 0);
+  const strengthItems = cat.glanceStrengthItems.slice(0, 2);
+  const improvementItems = cat.glanceWeaknessItems.slice(0, 2);
+  const strengthMoreCount = Math.max(0, cat.glanceStrengthItems.length - 2);
+  const improvementMoreCount = Math.max(0, cat.glanceWeaknessItems.length - 2);
   const insightsLocked = areTrackInsightsLocked(cat, hasMinimumProfileAnswers);
   const openProfileForTrack = () => (onCompleteProfile ?? onUpdateDetails)?.();
 
@@ -3029,7 +1758,7 @@ function CategoryGlanceRow({
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       role="button"
       tabIndex={0}
-      aria-label={`${cat.fullLabel}, ${displayScoresZero ? "00" : score} out of 100, ${cat.statusLabel}. Open track details.`}
+      aria-label={`${cat.fullLabel}, ${score} out of 100, ${cat.statusLabel}. Open track details.`}
     >
       <CategoryGlanceHeaderBar
         cat={cat}
@@ -3046,7 +1775,6 @@ function CategoryGlanceRow({
           <GlanceScoreRing
             cat={cat}
             score={score}
-            scoreLabel={displayScoresZero ? "00" : undefined}
             isOpen={glancePopoverOpen}
             onRequestOpen={onGlancePopoverOpen}
             onRequestClose={onGlancePopoverClose}
@@ -3064,19 +1792,21 @@ function CategoryGlanceRow({
         <div className="sc-glance-track-mid">
           <TrackInsightPanel
             tone="strong"
-            title="Primary Strengths"
-            items={cat.glanceStrengthItems.slice(0, 2)}
+            title="Primary strengths"
+            items={strengthItems}
             empty="Complete more track details to surface strengths."
             compact
+            moreCount={strengthMoreCount}
           />
         </div>
 
-        <div className="sc-glance-track-improve sc-glance-track-improve-panel" onClick={e => e.stopPropagation()}>
+        <div className="sc-glance-track-improve sc-glance-track-improve-panel">
           <TopImprovementsPreview
             trackLabel={cat.label}
             items={improvementItems}
             insightsLocked={insightsLocked}
             onCompleteProfile={openProfileForTrack}
+            moreCount={improvementMoreCount}
           />
         </div>
       </div>
@@ -3195,6 +1925,16 @@ function CategoryCard({ cat, onClick, onViewDetails, onViewBenchmark, expanded, 
 }
 
 // ─── Detail-enrichment form schema (see trackQuestions.ts) ───────────────────
+
+function loadDetailAnswers(companyName: string): DetailAnswers {
+  try {
+    const raw = window.localStorage.getItem(`fuel-details-${companyName}`);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+function saveDetailAnswers(companyName: string, answers: DetailAnswers) {
+  try { window.localStorage.setItem(`fuel-details-${companyName}`, JSON.stringify(answers)); } catch { /* ignore */ }
+}
 
 const INTEL_TYPE_TO_CATEGORY: Record<string, ScorecardCategory> = {
   product: "dev",
@@ -3372,7 +2112,7 @@ function humanizeWeakContributor(c: ScoreContributor): string | null {
         if (val === "Contract dev / agency" || val === "Not building yet — manual or services first") return `Product is ${val.toLowerCase()}.`;
         return null;
       case "mkt_sales_motion":
-        if (val === "Founder-led" || val === "Not yet") return `GTM is still ${val.toLowerCase()}.`;
+        if (val === "Founder-led" || val === "Not yet defined") return `GTM is still ${val.toLowerCase()}.`;
         return null;
       case "mkt_funnel_gap":
         return `The funnel breaks down most at ${val.toLowerCase()}.`;
@@ -3482,7 +2222,7 @@ function insightChipDetailFromIntel(item: ScorecardIntelligenceItem): string {
 
 function trackFocusName(category: ScorecardCategory): string {
   if (category === "dev") return "Product & engineering";
-  if (category === "mkt") return "Go to market";
+  if (category === "mkt") return "Go-to-market";
   return "Ops & finance";
 }
 
@@ -3498,7 +2238,7 @@ function founderPlainCopy(text: string): string {
     .replace(/\bYoY\b/g, "year over year")
     .replace(/\bFTE\b/g, "full-time employee")
     .replace(/\bG&A\b/g, "finance and operations")
-    .replace(/\bGTM\b/g, "go to market")
+    .replace(/\bGTM\b/g, "go-to-market")
     .replace(/\bRevOps\b/g, "revenue operations")
     .replace(/\bFinOps\b/g, "finance operations")
     .replace(/\btop-of-funnel\b/gi, "top of the funnel");
@@ -3521,7 +2261,7 @@ function humanizeFounderFocus(c: ScoreContributor): string | null {
       }
       return null;
     case "mkt_sales_motion":
-      if (val === "Founder-led" || val === "Not yet") {
+      if (val === "Founder-led" || val === "Not yet defined") {
         return "Sales is still founder-led — document what works before you hire reps.";
       }
       return null;
@@ -3810,26 +2550,22 @@ function TrackInsightPanel({
   items,
   empty,
   compact = false,
-  insightsLocked = false,
+  moreCount = 0,
 }: {
   tone: "strong" | "weak";
   title: string;
   items: TrackInsightItem[];
   empty: string;
   compact?: boolean;
-  insightsLocked?: boolean;
+  moreCount?: number;
 }) {
   return (
     <div className={`sc-glance-insight-block${compact ? " is-compact" : ""}`}>
       <span className={`sc-glance-insight-label sc-cat-tone-${tone}`}>{title}</span>
       {items.length > 0 ? (
         <ul className="sc-cat-sw-list">
-          {items.map((item, index) => (
-            <li
-              key={item.id}
-              className={insightsLocked && index >= 1 ? "is-locked-blur" : undefined}
-              aria-hidden={insightsLocked && index >= 1 ? true : undefined}
-            >
+          {items.map(item => (
+            <li key={item.id}>
               <strong>{shortInsightChipLabel(item.label)}</strong>
               <em>{item.detail}</em>
             </li>
@@ -3838,6 +2574,9 @@ function TrackInsightPanel({
       ) : (
         <p className="sc-cat-sw-empty">{empty}</p>
       )}
+      {moreCount > 0 ? (
+        <p className="sc-glance-insight-more-count">+{moreCount} more</p>
+      ) : null}
     </div>
   );
 }
@@ -4006,7 +2745,7 @@ function buildAdvisorSummary(
   } else if (watchCount > 0) {
     statusLine = `Mostly on pace — ${watchCount} area${watchCount > 1 ? "s" : ""} to watch.`;
   } else {
-    statusLine = "Tracking with your cohort across product, go to market, and finance.";
+    statusLine = "Tracking with your cohort across product, go-to-market, and finance.";
   }
 
   const intelLine = totalIntel > 0
@@ -4055,7 +2794,7 @@ function buildAdvisorGenericSummary(
   } else if (watchCount > 0) {
     statusLine = `Mostly on pace — ${watchCount} area${watchCount > 1 ? "s" : ""} to watch.`;
   } else {
-    statusLine = "Tracking with your cohort across product, go to market, and finance.";
+    statusLine = "Tracking with your cohort across product, go-to-market, and finance.";
   }
 
   const tail = [profileLine, intelLine, initiativeLine, statusLine].filter(Boolean).join(" ");
@@ -4348,8 +3087,8 @@ function synthesizeTrackOperatingAnalysis(category: ScorecardCategory, answers: 
   const opening = category === "dev"
     ? "On product and engineering,"
     : category === "mkt"
-      ? "On go to market,"
-      : "On finance and operations,";
+      ? "On go-to-market,"
+      : "On G&A operations,";
 
   if (insights.length === 1) return `${opening} ${insights[0]}`;
   return `${opening} ${insights[0]} ${insights[1]}`;
@@ -4695,18 +3434,14 @@ function OverviewFullSummaryPage({
   const productDescription = buildContext.detailAnswers.profile_product_description?.trim()
     || buildContext.onboardingAnswers?.profileProductDescription?.trim()
     || "";
-  const additionalContext = buildContext.detailAnswers.profile_additional_context?.trim()
-    || buildContext.onboardingAnswers?.profileAdditionalContext?.trim()
-    || "";
   const topPriorities = buildContext.detailAnswers.profile_top_priorities?.trim() || "";
   const publicDataCorrections = buildContext.detailAnswers.profile_public_data_wrong?.trim() || "";
   const biggestRisk = buildContext.detailAnswers.profile_biggest_risk?.trim() || "";
-  const headcount = buildContext.detailAnswers.profile_headcount?.trim() || "";
   const hasCompanyFacts = Boolean(
-    profileMeta?.sector || profileMeta?.headquarters || profileMeta?.employees || profileMeta?.domain || headcount,
+    profileMeta?.sector || profileMeta?.headquarters || profileMeta?.employees || profileMeta?.domain,
   );
   const hasAboutSection = Boolean(
-    productDescription || additionalContext || topPriorities || publicDataCorrections || biggestRisk || hasCompanyFacts,
+    productDescription || topPriorities || publicDataCorrections || biggestRisk || hasCompanyFacts,
   );
   const reportDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const now = new Date();
@@ -4781,12 +3516,6 @@ function OverviewFullSummaryPage({
           {productDescription ? (
             <p className="sc-investor-brief-body">{productDescription}</p>
           ) : null}
-          {additionalContext ? (
-            <div className="sc-investor-brief-profile-field">
-              <p className="sc-investor-brief-analysis-label">Additional context</p>
-              <p className="sc-investor-brief-body">{additionalContext}</p>
-            </div>
-          ) : null}
           {topPriorities ? (
             <div className="sc-investor-brief-profile-field">
               <p className="sc-investor-brief-analysis-label">Top priorities</p>
@@ -4817,12 +3546,6 @@ function OverviewFullSummaryPage({
               <>
                 <dt>Headquarters</dt>
                 <dd>{profileMeta.headquarters}</dd>
-              </>
-            ) : null}
-            {headcount ? (
-              <>
-                <dt>Headcount (FTE)</dt>
-                <dd>{headcount}</dd>
               </>
             ) : null}
             {profileMeta?.employees ? (
@@ -5129,102 +3852,11 @@ function isQuarterStale(stored: string | null): boolean {
   return !!stored && stored !== getCurrentQuarterLabel();
 }
 
-function recActionsTipStorageKey(companyName: string): string {
-  return `fuel-rec-actions-tip-${companyName}`;
-}
-
-function recActionsTipPendingKey(companyName: string): string {
-  return `fuel-rec-actions-tip-pending-${companyName}`;
-}
-
-/** Call when Overview finishes post-onboarding build — survives navigating away from Overview. */
-export function markRecActionsTipPending(companyName: string) {
-  try {
-    window.sessionStorage.setItem(recActionsTipPendingKey(companyName), "1");
-  } catch { /* ignore */ }
-}
-
-/** Clear dismiss + pending so a new post-onboarding Overview build can queue the tip on ready. */
-export function resetRecActionsTipForOnboarding(companyName: string) {
-  try {
-    window.localStorage.removeItem(recActionsTipStorageKey(companyName));
-    window.sessionStorage.removeItem(recActionsTipPendingKey(companyName));
-  } catch { /* ignore */ }
-}
-
-export function isRecActionsTipPending(companyName: string): boolean {
-  try {
-    return window.sessionStorage.getItem(recActionsTipPendingKey(companyName)) === "1";
-  } catch {
-    return false;
-  }
-}
-
-export function isRecActionsTipDismissed(companyName: string): boolean {
-  try {
-    return window.localStorage.getItem(recActionsTipStorageKey(companyName)) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function clearRecActionsTipPending(companyName: string) {
-  try {
-    window.sessionStorage.removeItem(recActionsTipPendingKey(companyName));
-  } catch { /* ignore */ }
-}
-
-export function dismissRecActionsTip(companyName: string) {
-  try {
-    window.localStorage.setItem(recActionsTipStorageKey(companyName), "1");
-    clearRecActionsTipPending(companyName);
-  } catch { /* ignore */ }
-}
-
-function RecommendedActionsShareTip({
-  companyName,
-  onDismiss,
-}: {
-  companyName: string;
-  onDismiss: () => void;
-}) {
-  const dismissRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    dismissRef.current?.focus();
-  }, []);
-
-  return (
-    <div className="sc-adv-rec-tip" role="dialog" aria-modal="true" aria-label="Why complete recommended actions">
-      <span className="sc-adv-rec-tip-eyebrow">Start here</span>
-      <strong className="sc-adv-rec-tip-title">This is how {companyName} gets an edge</strong>
-      <p>
-        Every metric, source, and track detail you add turns Fuel into a sharper operator for
-        your company — clearer peer gaps, tighter priorities, and the moves that actually move
-        growth. Incomplete inputs = generic advice. Finish these and you get a plan built on
-        your numbers.
-      </p>
-      <p className="sc-adv-rec-tip-privacy">Your data is only visible to you.</p>
-      <button
-        ref={dismissRef}
-        type="button"
-        className="sc-adv-rec-tip-dismiss"
-        onClick={onDismiss}
-      >
-        Got it
-      </button>
-    </div>
-  );
-}
-
 type AdvisorRecAction = {
   title: string;
   sub: string;
   cta: string;
   done: boolean;
-  credits: number;
-  /** Set when this action's credit reward was already claimed. */
-  creditsEarned?: number;
 };
 
 function buildAdvisorRecommendedActions(
@@ -5234,7 +3866,6 @@ function buildAdvisorRecommendedActions(
   benchmarkSaved: boolean,
   companyName: string,
   privateWorkspace = false,
-  earnedProfileCredits?: EarnedProfileCredits,
 ): AdvisorRecAction[] {
   const benchFilled = METRIC_COHORTS.filter(c => parseMetricValue(buildContext.benchmark[c.key] ?? "")).length;
   const benchTotal = METRIC_COHORTS.length;
@@ -5272,7 +3903,6 @@ function buildAdvisorRecommendedActions(
       sub: `Your take on ${companyName}'s cohort metrics — ARR, burn, retention, and more.`,
       cta: "Log Benchmark",
       done: false,
-      credits: 0,
     };
   } else if (privateWorkspace && benchPartial) {
     benchmarkAction = {
@@ -5376,28 +4006,28 @@ function buildAdvisorRecommendedActions(
   } else if (privateWorkspace && detailAnswered === 0) {
     detailsAction = {
       title: "Add track context",
-      sub: `R&D, GTM, and Finance — capture what you know about ${companyName} from diligence and conversations.`,
+      sub: `R&D, GTM, and G&A — capture what you know about ${companyName} from diligence and conversations.`,
       cta: "Add Context",
       done: false,
     };
   } else if (privateWorkspace) {
     detailsAction = {
       title: "Add track context",
-      sub: `${detailAnswered} of ${detailTotal} fields · ${detailRemaining} left across R&D, GTM, and Finance.`,
+      sub: `${detailAnswered} of ${detailTotal} fields · ${detailRemaining} left across R&D, GTM, and G&A.`,
       cta: "Add Context",
       done: false,
     };
   } else if (detailsQuarterStale && detailComplete) {
     detailsAction = {
       title: "Update Company Details",
-      sub: `New quarter — refresh product, go to market, and finance context.`,
+      sub: `New quarter — refresh product, go-to-market, and finance context.`,
       cta: "Update Details",
       done: false,
     };
   } else if (detailComplete) {
     detailsAction = {
       title: "Review Company Details",
-      sub: "All 21 answered — keep details current each quarter.",
+      sub: `All ${detailTotal} answered — keep details current each quarter.`,
       cta: "Review Details",
       done: true,
     };
@@ -5426,90 +4056,7 @@ function buildAdvisorRecommendedActions(
     };
   }
 
-  const benchmarkCredits = remainingBenchmarkRewardCredits(earnedProfileCredits);
-  const benchmarkCreditsEarned = earnedProfileCredits?.benchmark && earnedProfileCredits?.benchmarkViaSubmit
-    ? BENCHMARK_REWARD_CREDITS
-    : 0;
-  const profileCredits = detailComplete ? 0 : PROFILE_MODULE_EARNABLE_TOTAL;
-
-  return [benchmarkAction, sourcesAction, detailsAction].map((action, index) => ({
-    ...action,
-    credits: index === 0
-      ? benchmarkCredits
-      : index === 2
-        ? profileCredits
-        : 0,
-    creditsEarned: index === 0
-      ? benchmarkCreditsEarned || undefined
-      : undefined,
-  }));
-}
-
-function RecommendedActionsColumn({
-  title,
-  actions,
-  handlers,
-  showShareTip = false,
-  onDismissShareTip,
-  companyName,
-  tourHighlightRecommended = false,
-}: {
-  title: string;
-  actions: AdvisorRecAction[];
-  handlers: Array<(() => void) | undefined>;
-  showShareTip?: boolean;
-  onDismissShareTip?: () => void;
-  companyName?: string;
-  tourHighlightRecommended?: boolean;
-}) {
-  return (
-    <div className="sc-adv-featured-rec-col">
-      <div
-        className={`sc-adv-rec-spotlight sc-adv-rec-spotlight--cards${showShareTip ? " is-active" : ""}${tourHighlightRecommended ? " tour-highlight" : ""}`}
-        data-tour-target="recommended-actions"
-      >
-        <div className="sc-adv-rec-title-wrap">
-          <div className="sc-adv-rec-title">{title}</div>
-          {showShareTip && onDismissShareTip && companyName ? (
-            <RecommendedActionsShareTip companyName={companyName} onDismiss={onDismissShareTip} />
-          ) : null}
-        </div>
-        <ol className="sc-adv-rec-list sc-adv-rec-list--cards">
-          {actions.map((action, i) => (
-            <li key={`${action.title}-${i}`} className="sc-adv-rec-card">
-              <div className="sc-adv-rec-card-top">
-                <div className="sc-adv-rec-card-head">
-                  <span className={`sc-adv-rec-num${action.done || action.creditsEarned ? " is-done" : ""}`}>{i + 1}</span>
-                  <div className="sc-adv-rec-title-line">
-                    <strong className="sc-adv-rec-name">{action.title}</strong>
-                    {action.credits > 0 ? (
-                      <span className="sc-adv-rec-credits">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                          <circle cx="4.2" cy="6" r="2.6" stroke="currentColor" strokeWidth="1.1" />
-                          <circle cx="7.8" cy="6" r="2.6" stroke="currentColor" strokeWidth="1.1" />
-                        </svg>
-                        +{action.credits} credits
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-              <p className="sc-adv-rec-sub">{action.sub}</p>
-              {action.creditsEarned ? (
-                <p className="sc-adv-rec-earned" role="status">
-                  <span className="sc-adv-rec-earned-icon" aria-hidden="true">✓</span>
-                  +{action.creditsEarned} credits earned
-                </p>
-              ) : null}
-              <button type="button" className="sc-adv-rec-cta" onClick={handlers[i]}>
-                {action.cta} <span aria-hidden="true">→</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </div>
-  );
+  return [benchmarkAction, sourcesAction, detailsAction];
 }
 
 /** Private workspaces (other companies) only generate overview content after inputs exist. */
@@ -5528,6 +4075,633 @@ function isPrivateWorkspaceOverviewReady(
 
   return TRACK_DETAIL_SECTIONS.every(section =>
     countSectionAnswers(section, mergedDetailAnswers) > 0
+  );
+}
+
+// ─── UI: Detail-enrichment drawer ─────────────────────────────────────────────
+function resolveTextInputType(question: DetailQuestion): DetailTextInputType {
+  if (question.inputType) return question.inputType;
+  return "textarea";
+}
+
+function fundingRoundId(): string {
+  return `fr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function ProfileFundingRoundsInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const rounds = parseProfileFundingRounds(value);
+
+  const updateRounds = (next: ProfileFundingRound[]) => {
+    onChange(next.length > 0 ? serializeProfileFundingRounds(next) : "");
+  };
+
+  return (
+    <div className="sc-drawer-funding">
+      <div className="sc-drawer-funding-head">
+        <button
+          type="button"
+          className="sc-drawer-funding-add"
+          onClick={() => updateRounds([
+            ...rounds,
+            { id: fundingRoundId(), type: "Seed", amount: "", date: "", investors: "" },
+          ])}
+        >
+          + Add round
+        </button>
+      </div>
+      {rounds.length > 0 ? (
+        <div className="sc-drawer-funding-list">
+          {rounds.map(round => (
+            <div key={round.id} className="sc-drawer-funding-row">
+              <select
+                className="sc-drawer-input sc-drawer-funding-type"
+                value={round.type}
+                aria-label="Round type"
+                onChange={event => updateRounds(rounds.map(item => (
+                  item.id === round.id ? { ...item, type: event.target.value } : item
+                )))}
+              >
+                {PROFILE_FUNDING_ROUND_TYPES.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <input
+                className="sc-drawer-input sc-drawer-funding-amount"
+                value={round.amount}
+                placeholder="$1.2M"
+                aria-label="Round amount"
+                onChange={event => updateRounds(rounds.map(item => (
+                  item.id === round.id ? { ...item, amount: event.target.value } : item
+                )))}
+              />
+              <input
+                type="date"
+                className="sc-drawer-input sc-drawer-funding-date"
+                value={round.date}
+                aria-label="Round date"
+                onChange={event => updateRounds(rounds.map(item => (
+                  item.id === round.id ? { ...item, date: event.target.value } : item
+                )))}
+              />
+              <input
+                className="sc-drawer-input sc-drawer-funding-investors"
+                value={round.investors}
+                placeholder="Investors"
+                aria-label="Round investors"
+                onChange={event => updateRounds(rounds.map(item => (
+                  item.id === round.id ? { ...item, investors: event.target.value } : item
+                )))}
+              />
+              <button
+                type="button"
+                className="sc-drawer-funding-remove"
+                aria-label="Remove funding round"
+                onClick={() => updateRounds(rounds.filter(item => item.id !== round.id))}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type DrawerStepId = DetailSectionId | "benchmark";
+
+type DrawerStepDef = {
+  id: DrawerStepId;
+  title: string;
+  subtitle: string;
+  icon: string;
+};
+
+const DRAWER_STEPS: DrawerStepDef[] = [
+  ...DETAIL_SECTIONS.map(section => ({
+    id: section.id,
+    title: section.title,
+    subtitle: section.subtitle,
+    icon: section.icon,
+  })),
+  {
+    id: "benchmark",
+    title: "Benchmark",
+    subtitle: "Optional — compare metrics",
+    icon: "▦",
+  },
+];
+
+function emptyBenchmarkContext(source?: ScorecardBenchmarkContext): ScorecardBenchmarkContext {
+  return {
+    notableCustomers: source?.notableCustomers ?? "",
+    notableHires: source?.notableHires ?? "",
+    biggestChallenges: source?.biggestChallenges ?? "",
+    otherUpdates: source?.otherUpdates ?? "",
+    openToIntros: Boolean(source?.openToIntros),
+  };
+}
+
+function countFilledBenchmarkMetrics(values: OnboardingBenchmarkInput): number {
+  return METRIC_COHORTS.filter(metric => parseMetricValue(values[metric.key] ?? "") != null).length;
+}
+
+function DrawerBenchmarkForm({
+  companyName,
+  values,
+  onChangeValue,
+}: {
+  companyName: string;
+  values: OnboardingBenchmarkInput;
+  onChangeValue: (key: keyof OnboardingBenchmarkInput, value: string) => void;
+}) {
+  return (
+    <div className="sc-drawer-benchmark">
+      <div className="bench-drawer-intro">
+        <strong>✦ The more you share, the sharper your intelligence</strong>
+        <p>
+          Every number narrows your cohort. Once metrics are entered, Fuel rebuilds {companyName}&rsquo;s intelligence, suggested initiatives, and playbooks. This step is optional.
+        </p>
+      </div>
+      <OnboardingBenchmarkFieldList
+        values={values}
+        onChange={onChangeValue}
+        inputClassName="bench-field-input"
+      />
+      <p className="bench-drawer-foot">Numbers stay in your workspace and are never shared externally.</p>
+    </div>
+  );
+}
+
+function ProfileQuestionInput({
+  question,
+  value,
+  onChange,
+}: {
+  question: DetailQuestion;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const inputType = resolveTextInputType(question);
+  if (inputType === "funding_rounds") {
+    return <ProfileFundingRoundsInput value={value} onChange={onChange} />;
+  }
+  if (inputType === "year") {
+    return (
+      <input
+        id={question.id}
+        type="text"
+        inputMode="numeric"
+        className="sc-drawer-input sc-drawer-input--year"
+        value={value}
+        placeholder={question.placeholder}
+        maxLength={4}
+        autoComplete="off"
+        aria-label={question.prompt}
+        onChange={event => onChange(event.target.value.replace(/[^\d]/g, "").slice(0, 4))}
+      />
+    );
+  }
+  if (inputType === "url") {
+    return (
+      <input
+        id={question.id}
+        type="url"
+        className="sc-drawer-input sc-drawer-input--url"
+        value={value}
+        placeholder={question.placeholder}
+        autoComplete="url"
+        spellCheck={false}
+        onChange={event => onChange(event.target.value)}
+      />
+    );
+  }
+  if (inputType === "short") {
+    return (
+      <input
+        id={question.id}
+        type="text"
+        className="sc-drawer-input sc-drawer-input--short"
+        value={value}
+        placeholder={question.placeholder}
+        autoComplete="off"
+        onChange={event => onChange(event.target.value)}
+      />
+    );
+  }
+  const rows = question.rows ?? 3;
+  return (
+    <textarea
+      id={question.id}
+      className={`sc-drawer-text${rows <= 2 ? " sc-drawer-text--compact" : ""}`}
+      rows={rows}
+      value={value}
+      placeholder={question.placeholder}
+      onChange={event => onChange(event.target.value)}
+    />
+  );
+}
+
+type DrawerQuestionBlock = { header?: string; questions: DetailQuestion[] };
+
+function buildDrawerQuestionBlocks(questions: DetailQuestion[]): DrawerQuestionBlock[] {
+  const blocks: DrawerQuestionBlock[] = [];
+  let index = 0;
+  while (index < questions.length) {
+    const question = questions[index];
+    const pairable = question.kind === "text"
+      && Boolean(question.group)
+      && (question.inputType === "short" || question.inputType === "year");
+    if (pairable) {
+      const grouped = [question];
+      while (index + grouped.length < questions.length) {
+        const next = questions[index + grouped.length];
+        if (next.group !== question.group || next.kind !== "text") break;
+        if (next.inputType !== "short" && next.inputType !== "year") break;
+        grouped.push(next);
+      }
+      blocks.push({ header: question.group, questions: grouped });
+      index += grouped.length;
+      continue;
+    }
+    blocks.push({ questions: [question] });
+    index += 1;
+  }
+  return blocks;
+}
+
+function DrawerQuestionList({
+  blocks,
+  answers,
+  onSelect,
+}: {
+  blocks: DrawerQuestionBlock[];
+  answers: DetailAnswers;
+  onSelect: (qid: string, value: string) => void;
+}) {
+  return (
+    <>
+      {blocks.map(block => {
+        if (block.questions.length > 1) {
+          return (
+            <React.Fragment key={block.questions.map(item => item.id).join("-")}>
+              {block.header ? <div className="sc-drawer-group-label">{block.header}</div> : null}
+              <div className="sc-drawer-field-grid">
+                {block.questions.map(question => (
+                  <div key={question.id} className="sc-drawer-q sc-drawer-q--inline">
+                    <div className="sc-drawer-q-prompt">{question.prompt}</div>
+                    {question.subtitle ? <div className="sc-drawer-q-sub">{question.subtitle}</div> : null}
+                    {question.sourceHint ? <div className="sc-drawer-source-hint">• {question.sourceHint}</div> : null}
+                    <ProfileQuestionInput
+                      question={question}
+                      value={answers[question.id] ?? ""}
+                      onChange={value => onSelect(question.id, value)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </React.Fragment>
+          );
+        }
+
+        const q = block.questions[0];
+        const options = q.options ?? [];
+        const otherOption = options.find(opt => opt.toLowerCase().startsWith("other (please specify)"));
+        const otherSelected = Boolean(
+          otherOption
+          && (answers[q.id] === otherOption || answers[q.id]?.startsWith(`${otherOption}:`)),
+        );
+        const otherText = otherSelected && otherOption
+          ? (answers[q.id] ?? "").slice(otherOption.length + 1).trimStart()
+          : "";
+        const isFunding = resolveTextInputType(q) === "funding_rounds";
+        return (
+          <React.Fragment key={q.id}>
+            <div className={`sc-drawer-q${isFunding ? " sc-drawer-q--funding" : ""}`}>
+              <div className="sc-drawer-q-prompt">{q.prompt}</div>
+              {q.subtitle ? <div className="sc-drawer-q-sub">{q.subtitle}</div> : null}
+              {q.sourceHint ? <div className="sc-drawer-source-hint">• {q.sourceHint}</div> : null}
+              {q.kind === "text" ? (
+                <ProfileQuestionInput
+                  question={q}
+                  value={answers[q.id] ?? ""}
+                  onChange={value => onSelect(q.id, value)}
+                />
+              ) : (
+                <>
+                  <div className="sc-drawer-opts">
+                    {options.map((opt, index) => {
+                      const selected = q.multi
+                        ? isMultiSelectSelected(answers[q.id], opt)
+                        : answers[q.id] === opt || answers[q.id]?.startsWith(`${opt}:`);
+                      const isOddLastOption = options.length % 2 === 1 && index === options.length - 1;
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          className={`sc-drawer-opt${selected ? " is-selected" : ""}${isOddLastOption ? " is-full-width" : ""}`}
+                          onClick={() => {
+                            if (q.multi) {
+                              onSelect(q.id, toggleMultiSelectAnswer(answers[q.id], opt));
+                              return;
+                            }
+                            onSelect(q.id, selected ? "" : opt);
+                          }}
+                        >
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {otherSelected && otherOption ? (
+                    <input
+                      className="sc-drawer-text sc-drawer-other-text"
+                      type="text"
+                      value={otherText}
+                      onChange={event => onSelect(q.id, `${otherOption}: ${event.target.value}`)}
+                      placeholder="Please specify"
+                      aria-label={`${q.prompt} — please specify`}
+                      autoFocus
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+function drawerSectionCreditReward(sectionId: DetailSectionId): number {
+  if (sectionId === "profile") return PROFILE_MODULE_REWARDS.company;
+  if (sectionId === "dev") return PROFILE_MODULE_REWARDS.dev;
+  if (sectionId === "mkt") return PROFILE_MODULE_REWARDS.gtm;
+  if (sectionId === "rev") return PROFILE_MODULE_REWARDS.rev;
+  return 0;
+}
+
+function scrollDrawerNodeIntoView(node: HTMLElement | null) {
+  if (!node) return;
+  const scroller = node.closest(".sc-drawer-body");
+  if (!(scroller instanceof HTMLElement)) {
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  const nextTop =
+    node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 12;
+  scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+}
+
+function DetailsDrawer({
+  companyName, answers, onSelect, onSaveClose, onClose, initialStep = 0,
+  benchmark, benchmarkContext, onBenchmarkChange, creditRewardVisible = false,
+}: {
+  companyName: string;
+  answers: DetailAnswers;
+  onSelect: (qid: string, value: string) => void;
+  onSaveClose: () => void;
+  onClose: () => void;
+  initialStep?: number;
+  benchmark: OnboardingBenchmarkInput;
+  benchmarkContext?: ScorecardBenchmarkContext;
+  onBenchmarkChange: (next: OnboardingBenchmarkInput, context: ScorecardBenchmarkContext, commit?: boolean) => void;
+  creditRewardVisible?: boolean;
+}) {
+  const [step, setStep] = useState(initialStep);
+  const [benchDraft, setBenchDraft] = useState<OnboardingBenchmarkInput>(benchmark);
+  const contextDraft = emptyBenchmarkContext(benchmarkContext);
+
+  useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
+
+  const stepDef = DRAWER_STEPS[step] ?? DRAWER_STEPS[0];
+  const isBenchmark = stepDef.id === "benchmark";
+  const section = isBenchmark ? undefined : DETAIL_SECTIONS.find(item => item.id === stepDef.id);
+  const visibleQuestions = section ? getVisibleQuestions(section, answers) : [];
+  const benchFilled = countFilledBenchmarkMetrics(benchDraft);
+  const isLast = step === DRAWER_STEPS.length - 1;
+  const isFirst = step === 0;
+
+  const flushBenchmark = (commit = false) => {
+    onBenchmarkChange(benchDraft, contextDraft, commit);
+  };
+
+  const goToStep = (next: number) => {
+    if (isBenchmark) flushBenchmark();
+    setStep(next);
+  };
+
+  const handleSaveClose = () => {
+    flushBenchmark(true);
+    onSaveClose();
+  };
+
+  const handleClose = () => {
+    flushBenchmark();
+    onClose();
+  };
+  const { creditQuestions, extraQuestions, creditReward } = useMemo(() => {
+    if (!section) {
+      return { creditQuestions: [] as DetailQuestion[], extraQuestions: [] as DetailQuestion[], creditReward: 0 };
+    }
+    const split = partitionCreditQuestions(section.id, visibleQuestions);
+    return {
+      creditQuestions: split.credit,
+      extraQuestions: split.extra,
+      creditReward: drawerSectionCreditReward(section.id),
+    };
+  }, [section, visibleQuestions]);
+  const extraQuestionsRef = useRef<HTMLDivElement>(null);
+  const sawIncompleteCreditsRef = useRef(false);
+  const pendingExtraRevealRef = useRef(false);
+  const creditRewardWasVisibleRef = useRef(creditRewardVisible);
+  const highlightTimerRef = useRef(0);
+  const [highlightExtraQuestions, setHighlightExtraQuestions] = useState(false);
+  const creditBlocks = useMemo(() => buildDrawerQuestionBlocks(creditQuestions), [creditQuestions]);
+  const extraBlocks = useMemo(() => buildDrawerQuestionBlocks(extraQuestions), [extraQuestions]);
+  const creditQuestionsComplete = creditQuestions.length > 0
+    && creditQuestions.every(question => Boolean(answers[question.id]?.trim()));
+  const showExtraQuestions = creditQuestionsComplete && extraBlocks.length > 0;
+
+  const revealExtraQuestions = useCallback(() => {
+    setHighlightExtraQuestions(true);
+    const run = () => scrollDrawerNodeIntoView(extraQuestionsRef.current);
+    run();
+    window.requestAnimationFrame(() => window.requestAnimationFrame(run));
+    window.setTimeout(run, 80);
+    window.clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = window.setTimeout(() => setHighlightExtraQuestions(false), 5600);
+  }, []);
+
+  useLayoutEffect(() => {
+    sawIncompleteCreditsRef.current = false;
+    pendingExtraRevealRef.current = false;
+    setHighlightExtraQuestions(false);
+    window.clearTimeout(highlightTimerRef.current);
+  }, [step]);
+
+  useLayoutEffect(() => {
+    const toastJustDismissed = creditRewardWasVisibleRef.current && !creditRewardVisible;
+    creditRewardWasVisibleRef.current = creditRewardVisible;
+
+    if (!creditQuestions.length) return;
+    if (!creditQuestionsComplete) {
+      sawIncompleteCreditsRef.current = true;
+      pendingExtraRevealRef.current = false;
+      return;
+    }
+    if (sawIncompleteCreditsRef.current && showExtraQuestions) {
+      pendingExtraRevealRef.current = true;
+    }
+    if (!pendingExtraRevealRef.current || !showExtraQuestions) return;
+
+    if (creditRewardVisible && !toastJustDismissed) return;
+
+    if (!toastJustDismissed) {
+      const waitForToast = window.setTimeout(() => {
+        if (!pendingExtraRevealRef.current) return;
+        pendingExtraRevealRef.current = false;
+        sawIncompleteCreditsRef.current = false;
+        revealExtraQuestions();
+      }, 80);
+      return () => window.clearTimeout(waitForToast);
+    }
+
+    pendingExtraRevealRef.current = false;
+    sawIncompleteCreditsRef.current = false;
+    revealExtraQuestions();
+  }, [creditQuestions.length, creditQuestionsComplete, creditRewardVisible, revealExtraQuestions, showExtraQuestions, step]);
+
+  useEffect(() => () => window.clearTimeout(highlightTimerRef.current), []);
+
+  return (
+    <div className="sc-drawer-scrim" onClick={handleClose}>
+      <aside className="sc-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Add company details">
+        <header className="sc-drawer-head">
+          <div>
+            <span className="sc-drawer-eyebrow">✦ Fuel AI · Add details</span>
+            <strong className="sc-drawer-co">{companyName}</strong>
+          </div>
+          <button type="button" className="sc-drawer-x" onClick={handleClose} aria-label="Close">✕</button>
+        </header>
+
+        <div className="profile-wizard-progress pwp-compact sc-drawer-pwp">
+          <ol
+            className="pwp-steps pwp-steps-segmented"
+            aria-label="Profile sections"
+            style={{ gridTemplateColumns: `repeat(${DRAWER_STEPS.length}, minmax(0, 1fr))` }}
+          >
+            {DRAWER_STEPS.map((s, i) => {
+              const detailSection = DETAIL_SECTIONS.find(item => item.id === s.id);
+              const done = s.id === "benchmark"
+                ? benchFilled
+                : (detailSection ? countSectionAnswers(detailSection, answers) : 0);
+              const total = s.id === "benchmark"
+                ? METRIC_COHORTS.length
+                : (detailSection ? getVisibleQuestions(detailSection, answers).length : 0);
+              const complete = total > 0 && done >= total;
+              const current = i === step;
+            return (
+                <li
+                key={s.id}
+                  className={`pwp-step${complete ? " is-done" : ""}${current ? " is-current" : ""}`}
+                >
+                  <button
+                type="button"
+                    className="pwp-step-btn"
+                    aria-current={current ? "step" : undefined}
+                    aria-label={`${s.title}${current ? ", current section" : complete ? ", complete" : ""}`}
+                    disabled={current}
+                    onClick={() => goToStep(i)}
+                  >
+                    <span className="pwp-step-inner">
+                      {complete ? (
+                        <svg className="pwp-step-check" width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+                          <path d="M1 4l2.5 2.5L9 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : null}
+                      <span className="pwp-step-label">{s.title}</span>
+                    </span>
+              </button>
+                </li>
+            );
+          })}
+          </ol>
+        </div>
+
+        <div className="sc-drawer-body">
+          <div className="sc-drawer-section-head">
+            <span className="sc-drawer-section-icon" aria-hidden>{stepDef.icon}</span>
+            <div>
+              <div className="sc-drawer-section-title">{stepDef.title}</div>
+              <div className="sc-drawer-section-sub">{stepDef.subtitle}</div>
+            </div>
+          </div>
+
+          {isBenchmark ? (
+            <DrawerBenchmarkForm
+              companyName={companyName}
+              values={benchDraft}
+              onChangeValue={(key, value) => setBenchDraft(prev => ({ ...prev, [key]: value }))}
+            />
+          ) : (
+            <>
+              {creditBlocks.length > 0 ? (
+                <p className="sc-drawer-credit-mark">+{creditReward} credits</p>
+              ) : null}
+              <DrawerQuestionList
+                blocks={creditBlocks.length > 0 ? creditBlocks : extraBlocks}
+                answers={answers}
+                onSelect={onSelect}
+              />
+              {showExtraQuestions ? (
+                <div
+                  ref={extraQuestionsRef}
+                  className={`sc-drawer-extra-questions${highlightExtraQuestions ? " is-revealed" : ""}`}
+                >
+                  <DrawerQuestionList
+                    blocks={extraBlocks}
+                    answers={answers}
+                    onSelect={onSelect}
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+
+        <footer className="sc-drawer-foot">
+          <button type="button" className="sc-drawer-btn ghost" onClick={handleSaveClose}>
+            Save &amp; close
+          </button>
+          <div className="sc-drawer-foot-nav">
+            {!isFirst && (
+              <button type="button" className="sc-drawer-btn secondary" onClick={() => goToStep(step - 1)}>
+                Back
+              </button>
+            )}
+            {!isLast ? (
+              <button type="button" className="sc-drawer-btn primary" onClick={() => goToStep(step + 1)}>
+                Next →
+              </button>
+            ) : (
+              <button type="button" className="sc-drawer-btn primary" onClick={handleSaveClose}>
+                Save details
+              </button>
+            )}
+          </div>
+        </footer>
+      </aside>
+    </div>
   );
 }
 
@@ -5574,7 +4748,7 @@ function buildFocusIntelTags(
       add("gtm", "GTM", urgency);
     }
     if (cat.id === "rev") {
-      add("finance", "Finance", urgency);
+      add("finance", "G&A", urgency);
       if (runway != null && runway < 12) add("fundraising", "Fundraising", urgency);
     }
   });
@@ -5611,7 +4785,15 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
   borderColour?: string;
 } {
   const urgency = categoryUrgency(cat, runway);
-  const status = signalUrgencyToStatus(urgency);
+  if (urgency === "ok") {
+    return {
+      suffix: "Stable",
+      suffixColour: COLOUR_STRONG(),
+      dotColour: COLOUR_STRONG(),
+      urgent: false,
+      borderColour: "rgba(18, 184, 134, 0.28)",
+    };
+  }
   if (urgency === "urgent") {
     const n = Math.max(1, cat.openInitiatives.length || cat.intelligenceCount || 1);
     return {
@@ -5619,16 +4801,7 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
       suffixColour: COLOUR_WEAK(),
       dotColour: COLOUR_WEAK(),
       urgent: true,
-      borderColour: statusLineCss(status),
-    };
-  }
-  if (urgency === "ok") {
-    return {
-      suffix: "Stable",
-      suffixColour: COLOUR_STRONG(),
-      dotColour: COLOUR_STRONG(),
-      urgent: false,
-      borderColour: statusLineCss(status),
+      borderColour: "rgba(224, 92, 92, 0.28)",
     };
   }
   return {
@@ -5636,144 +4809,8 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
     suffixColour: COLOUR_AROUND(),
     dotColour: COLOUR_AROUND(),
     urgent: false,
-    borderColour: statusLineCss(status),
+    borderColour: "rgba(245, 166, 35, 0.28)",
   };
-}
-
-function AdvisorSummaryBriefColumn({
-  categories,
-  runway,
-  companyName,
-  wikiSummary,
-  onOpenWikiSummary,
-  onOpenIntelligence,
-  suggestionsReady = true,
-  overviewBuildPhase = null,
-  overviewBuiltPhases,
-  reportReadiness = "none",
-  layout = "default",
-}: {
-  categories: CategoryData[];
-  runway: number | null;
-  companyName: string;
-  wikiSummary: WikiSummaryContent;
-  onOpenWikiSummary: (highlightRefId?: number) => void;
-  onOpenIntelligence?: () => void;
-  suggestionsReady?: boolean;
-  overviewBuildPhase?: OverviewBuildPhase | null;
-  overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>;
-  reportReadiness?: ReportReadiness;
-  layout?: "default" | "workspace";
-}) {
-  const signalTags = (
-    <>
-      <div className="sc-adv-tags-label">Recent signals</div>
-      <div className="sc-adv-tags">
-        {categories.map(cat => {
-          const signalReady = overviewTrackReady(cat.id, overviewBuildPhase, overviewBuiltPhases);
-          const tag = signalReady ? trackSignalTag(cat, runway) : null;
-          const totalCount = signalReady
-            ? cat.intelDisplayCount
-              + (suggestionsReady ? cat.openInitiatives.length : 0)
-              + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
-            : null;
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
-              style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
-              onClick={() => onOpenIntelligence?.()}
-              aria-label={
-                tag && totalCount != null
-                  ? `${cat.label} ${tag.suffix} — ${totalCount} total`
-                  : `${cat.label} — loading`
-              }
-            >
-              <span
-                className="sc-adv-tag-dot"
-                style={tag ? { background: tag.dotColour } : undefined}
-              />
-              {cat.label}
-              {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
-              {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
-            </button>
-          );
-        })}
-      </div>
-    </>
-  );
-
-  return (
-    <div className={`sc-adv-featured-brief-col${layout === "workspace" ? " sc-adv-brief-col--workspace" : ""}`}>
-      <div className="sc-adv">
-        <div className="sc-adv-head">
-          <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
-          <span className="sc-adv-company">{companyName}</span>
-        </div>
-        <div className="sc-adv-rec-title-row">
-          <div className="sc-adv-rec-title">Summary</div>
-          {reportReadiness === "early" ? (
-            <span className="sc-adv-early-report-badge">Early report</span>
-          ) : null}
-          <span className="sc-wiki-source-count">
-            {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
-          </span>
-          <button
-            type="button"
-            className="ask-ai-btn sc-wiki-expand-btn"
-            onClick={() => onOpenWikiSummary()}
-            aria-label="Open company brief"
-          >
-            ✦ Open brief
-          </button>
-        </div>
-        {layout === "workspace" ? (
-          <div className="sc-adv-brief-workspace-body">
-            <div className="sc-adv-brief-workspace-copy">
-              <p className="sc-adv-summary sc-wiki-summary-compact">
-                {wikiParagraphPlainText(wikiSummary.compact)}
-              </p>
-              {reportReadiness === "early" ? (
-                <p className="sc-adv-early-report-note">
-                  Based on what you&apos;ve shared so far. Complete remaining modules for deeper insights and sharper recommendations.
-                </p>
-              ) : null}
-              <button
-                type="button"
-                className="sc-wiki-view-more sc-wiki-view-more--workspace-cta"
-                onClick={() => onOpenWikiSummary()}
-              >
-                View brief with references →
-              </button>
-            </div>
-            <div className="sc-adv-brief-workspace-signals">
-              {signalTags}
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="sc-adv-summary sc-wiki-summary-compact">
-              {wikiParagraphPlainText(wikiSummary.compact)}
-            </p>
-            {reportReadiness === "early" ? (
-              <p className="sc-adv-early-report-note">
-                Based on what you&apos;ve shared so far. Complete remaining modules for deeper insights and sharper recommendations.
-              </p>
-            ) : null}
-            <button
-              type="button"
-              className="sc-wiki-view-more"
-              onClick={() => onOpenWikiSummary()}
-            >
-              View brief with references
-            </button>
-            {signalTags}
-          </>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function OverviewWorkspaceSetupPanel({
@@ -5782,8 +4819,6 @@ function OverviewWorkspaceSetupPanel({
   onEditBenchmark,
   onAddSources,
   onViewDetails,
-  showShareTip = false,
-  onDismissShareTip,
   tourHighlightRecommended = false,
 }: {
   companyName: string;
@@ -5791,8 +4826,6 @@ function OverviewWorkspaceSetupPanel({
   onEditBenchmark?: () => void;
   onAddSources?: () => void;
   onViewDetails?: () => void;
-  showShareTip?: boolean;
-  onDismissShareTip?: () => void;
   tourHighlightRecommended?: boolean;
 }) {
   const handlers = [onEditBenchmark, onAddSources, onViewDetails];
@@ -5808,20 +4841,33 @@ function OverviewWorkspaceSetupPanel({
           <div className="sc-adv-rec-title">Getting started</div>
           <p className="sc-adv-summary">
             Build your private view of {companyName}. Add benchmark metrics, intelligence sources,
-            and at least one answer in each of R&amp;D, GTM, and Finance to generate your overview.
+            and at least one answer in each of R&amp;D, GTM, and G&amp;A to generate your overview.
             Whatever you add here is your personal setup.
           </p>
         </div>
       </div>
-      <RecommendedActionsColumn
-        title="Next steps"
-        actions={actions}
-        handlers={handlers}
-        showShareTip={showShareTip}
-        onDismissShareTip={onDismissShareTip}
-        companyName={companyName}
-        tourHighlightRecommended={tourHighlightRecommended}
-      />
+      <div className="sc-adv-featured-rec-col">
+        <div
+          className={`sc-adv-rec-spotlight${tourHighlightRecommended ? " tour-highlight" : ""}`}
+          data-tour-target="recommended-actions"
+        >
+          <div className="sc-adv-rec-title">Next steps</div>
+          <ol className="sc-adv-rec-list">
+            {actions.map((action, i) => (
+              <li key={action.title} className="sc-adv-rec-item">
+                <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
+                <div className="sc-adv-rec-body">
+                  <strong className="sc-adv-rec-name">{action.title}</strong>
+                  <p className="sc-adv-rec-sub">{action.sub}</p>
+                </div>
+                <button type="button" className="sc-adv-rec-cta" onClick={handlers[i]}>
+                  {action.cta} <span aria-hidden="true">→</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
     </div>
   );
 }
@@ -5837,20 +4883,13 @@ function OverviewAdvisorPanel({
   onOpenIntelligence,
   onEditBenchmark,
   onAddSources,
-  onViewDetails: _onViewDetails,
+  onViewDetails,
   documentSlots,
   wikiSummary,
   onOpenWikiSummary,
   suggestionsReady = true,
   overviewBuildPhase = null,
-  overviewBuiltPhases,
-  reportReadiness = "none",
-  showShareTip = false,
-  onDismissShareTip,
   tourHighlightRecommended = false,
-  earnedProfileCredits,
-  showBriefSummary = true,
-  showRecommendedActions = true,
 }: {
   categories: CategoryData[];
   runway: number | null;
@@ -5867,17 +4906,8 @@ function OverviewAdvisorPanel({
   onOpenWikiSummary: (highlightRefId?: number) => void;
   suggestionsReady?: boolean;
   overviewBuildPhase?: OverviewBuildPhase | null;
-  overviewBuiltPhases?: ReadonlySet<OverviewBuildPhase>;
-  reportReadiness?: ReportReadiness;
-  showShareTip?: boolean;
-  onDismissShareTip?: () => void;
   tourHighlightRecommended?: boolean;
-  earnedProfileCredits?: EarnedProfileCredits;
-  /** Summary + recent signals — workspace hides until Complete Profile is done. */
-  showBriefSummary?: boolean;
-  showRecommendedActions?: boolean;
 }) {
-  // Track/company details live in the 5-step profile unlock form — keep advisor to benchmark + sources only.
   const actions = buildAdvisorRecommendedActions(
     buildContext,
     buildContext.detailAnswers,
@@ -5885,37 +4915,99 @@ function OverviewAdvisorPanel({
     benchmarkSaved,
     companyName,
     privateWorkspace,
-    earnedProfileCredits,
-  ).slice(0, 2);
-  const actionHandlers = [onEditBenchmark, onAddSources];
+  );
+  const actionHandlers = [onEditBenchmark, onAddSources, onViewDetails];
 
   return (
-    <div className={`sc-adv-featured sc-adv-featured-split${showBriefSummary ? "" : " is-brief-hidden"}${showRecommendedActions ? "" : " is-rec-hidden"}`}>
-      {showBriefSummary ? (
-        <AdvisorSummaryBriefColumn
-          categories={categories}
-          runway={runway}
-          companyName={companyName}
-          wikiSummary={wikiSummary}
-          onOpenWikiSummary={onOpenWikiSummary}
-          onOpenIntelligence={onOpenIntelligence}
-          suggestionsReady={suggestionsReady}
-          overviewBuildPhase={overviewBuildPhase}
-          overviewBuiltPhases={overviewBuiltPhases}
-          reportReadiness={reportReadiness}
-        />
-      ) : null}
-      {showRecommendedActions ? (
-      <RecommendedActionsColumn
-        title={privateWorkspace ? "Next steps" : "Recommended Actions"}
-        actions={actions}
-        handlers={actionHandlers}
-        showShareTip={showShareTip}
-        onDismissShareTip={onDismissShareTip}
-        companyName={companyName}
-        tourHighlightRecommended={tourHighlightRecommended}
-      />
-      ) : null}
+    <div className="sc-adv-featured sc-adv-featured-split">
+      <div className="sc-adv-featured-brief-col">
+        <div className="sc-adv">
+          <div className="sc-adv-head">
+            <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
+            <span className="sc-adv-company">{companyName}</span>
+          </div>
+          <div className="sc-adv-rec-title-row">
+          <div className="sc-adv-rec-title">Summary</div>
+            <span className="sc-wiki-source-count">
+              {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              className="ask-ai-btn sc-wiki-expand-btn"
+              onClick={() => onOpenWikiSummary()}
+              aria-label="Open company brief"
+            >
+              ✦ Open brief
+            </button>
+                  </div>
+          <p className="sc-adv-summary sc-wiki-summary-compact">
+            {wikiParagraphPlainText(wikiSummary.compact)}
+          </p>
+          <button
+            type="button"
+            className="sc-wiki-view-more"
+            onClick={() => onOpenWikiSummary()}
+          >
+            View brief with references
+          </button>
+          <div className="sc-adv-tags-label">Recent signals</div>
+          <div className="sc-adv-tags">
+            {categories.map(cat => {
+              const signalReady = overviewTrackReady(cat.id, overviewBuildPhase);
+              const tag = signalReady ? trackSignalTag(cat, runway) : null;
+              const totalCount = signalReady
+                ? cat.intelDisplayCount
+                  + (suggestionsReady ? cat.openInitiatives.length : 0)
+                  + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
+                : null;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
+                  style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
+                  onClick={() => onOpenIntelligence?.()}
+                  aria-label={
+                    tag && totalCount != null
+                      ? `${cat.label} ${tag.suffix} — ${totalCount} total`
+                      : `${cat.label} — loading`
+                  }
+                >
+                  <span
+                    className="sc-adv-tag-dot"
+                    style={tag ? { background: tag.dotColour } : undefined}
+                  />
+                  {cat.label}
+                  {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
+                  {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="sc-adv-featured-rec-col">
+        <div
+          className={`sc-adv-rec-spotlight${tourHighlightRecommended ? " tour-highlight" : ""}`}
+          data-tour-target="recommended-actions"
+        >
+          <div className="sc-adv-rec-title">{privateWorkspace ? "Next steps" : "Recommended Actions"}</div>
+        <ol className="sc-adv-rec-list">
+          {actions.map((action, i) => (
+            <li key={action.title} className="sc-adv-rec-item">
+              <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
+              <div className="sc-adv-rec-body">
+                <strong className="sc-adv-rec-name">{action.title}</strong>
+                <p className="sc-adv-rec-sub">{action.sub}</p>
+              </div>
+              <button type="button" className="sc-adv-rec-cta" onClick={actionHandlers[i]}>
+                {action.cta} <span aria-hidden="true">→</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        </div>
+      </div>
     </div>
   );
 }
@@ -6105,7 +5197,7 @@ function DetailInsightChipStrip({
                 <span className="sc-detail-insight-tip" role="tooltip">
                   <strong>{tone === "strong" ? "Why it's working" : "Why it needs work"}</strong>
                   <em>{why}</em>
-                </span>
+              </span>
               </span>
             );
           })}
@@ -6320,9 +5412,9 @@ function CategoryDetailInitiativesWidget({
     const scored = suggested
       .filter(init => !activeTitles.has(init.title.trim().toLowerCase()))
       .map(init => ({
-        init,
-        gap: initiativeMatchesWeakness(init, weaknesses),
-      }));
+      init,
+      gap: initiativeMatchesWeakness(init, weaknesses),
+    }));
     return scored.sort((a, b) => Number(Boolean(b.gap)) - Number(Boolean(a.gap)));
   }, [suggested, weaknesses, activeTitles]);
 
@@ -6367,25 +5459,25 @@ function CategoryDetailInitiativesWidget({
       {sortedSuggested.map(({ init, gap }) => {
         const isAdding = addingId === init.id;
         return (
-          <div
-            key={init.id}
+        <div
+          key={init.id}
             className={`scorecard-drill-init-row${isAdding ? " is-adding" : ""}`}
-            style={{ "--init-col": init.colour } as React.CSSProperties}
-          >
-            <div className="scorecard-drill-init-body">
-              <div className="scorecard-drill-init-title">{init.title}</div>
-              <div className="scorecard-drill-init-desc">
-                {gap ? (
-                  <>
-                    <span className="sc-detail-init-reason-label">Why: </span>
-                    {truncateAdvisorLine(formatInitiativeReason(gap), 140)}
-                  </>
-                ) : (
-                  init.description
-                )}
-              </div>
+          style={{ "--init-col": init.colour } as React.CSSProperties}
+        >
+          <div className="scorecard-drill-init-body">
+            <div className="scorecard-drill-init-title">{init.title}</div>
+            <div className="scorecard-drill-init-desc">
+              {gap ? (
+                <>
+                  <span className="sc-detail-init-reason-label">Why: </span>
+                  {truncateAdvisorLine(formatInitiativeReason(gap), 140)}
+                </>
+              ) : (
+                init.description
+              )}
             </div>
-            <div className="scorecard-drill-init-action">
+          </div>
+          <div className="scorecard-drill-init-action">
               <button
                 type="button"
                 className={`scorecard-drill-init-btn${isAdding ? " is-loading" : ""}`}
@@ -6401,9 +5493,9 @@ function CategoryDetailInitiativesWidget({
                 ) : (
                   <>Add <span aria-hidden="true">→</span></>
                 )}
-              </button>
-            </div>
+            </button>
           </div>
+        </div>
         );
       })}
     </div>
@@ -6465,10 +5557,10 @@ function CategoryDetailInitiativesWidget({
           <div className="scorecard-drill-init-list sc-detail-init-list">
             {activeForTrack.map(init => (
               <div key={init.id} className="scorecard-drill-init-row" style={{ "--init-col": categoryColour } as React.CSSProperties}>
-                <div className="scorecard-drill-init-body">
-                  <div className="scorecard-drill-init-title">{init.title}</div>
-                  <div className="scorecard-drill-init-desc">{init.description}</div>
-                </div>
+              <div className="scorecard-drill-init-body">
+                <div className="scorecard-drill-init-title">{init.title}</div>
+                <div className="scorecard-drill-init-desc">{init.description}</div>
+              </div>
                 <div className="scorecard-drill-init-action">
                   <button
                     type="button"
@@ -6482,8 +5574,8 @@ function CategoryDetailInitiativesWidget({
                     View
                   </button>
                 </div>
-              </div>
-            ))}
+            </div>
+          ))}
           </div>
         </div>
       ) : (
@@ -6510,10 +5602,10 @@ function DevTeamCluster({ team, catColour }: { team: typeof DEV_TEAM; catColour:
   const avatars = team.map((t, i) => {
     const initials = t.lead.split(/\s+/).map(p => p[0]).join("").slice(0, 2).toUpperCase();
     const palette: [string, string][] = [
-      ["var(--fuel-accent)", "#0fa678"],
+      ["#12b886", "#0a7a5a"],
       ["#F5A623", "#B07A1F"],
       ["#E05C5C", "#9A3A3A"],
-      ["var(--fuel-accent)", "#0fa678"],
+      ["#12b886", "#0a7a5a"],
       ["#F5A623", "#B07A1F"],
     ];
     const [a, b] = palette[i % palette.length];
@@ -6686,16 +5778,16 @@ function CategoryDetailView({
           ) : null}
         >
           {suggestionsReady ? (
-            <CategoryDetailInitiativesWidget
+          <CategoryDetailInitiativesWidget
               suggested={suggestedInitiatives}
               active={activeInitiatives}
               categoryId={cat.id}
               categoryColour={cat.colour}
-              weaknesses={cat.glanceWeaknessItems}
+            weaknesses={cat.glanceWeaknessItems}
               onAddInitiative={onAddInitiative}
-              onOpenInitiatives={onOpenInitiatives}
+            onOpenInitiatives={onOpenInitiatives}
               onViewInitiative={onViewInitiative}
-            />
+          />
           ) : (
             <p className="sc-cat-sw-empty">Initiative suggestions are still preparing.</p>
           )}
@@ -6961,39 +6053,23 @@ function BenchmarkDrilldownView({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function BenchmarkEditDrawer({
-  open, onClose, benchmark, companyName, onSave, elevatedScrim = false,
+  open, onClose, benchmark, companyName, onSave,
 }: {
   open: boolean;
   onClose: () => void;
   benchmark: OnboardingBenchmarkInput;
   companyName: string;
   onSave: (next: OnboardingBenchmarkInput) => void;
-  elevatedScrim?: boolean;
 }) {
-  const { requestSaveExit, dialog: saveExitConfirmDialog } = useSaveExitConfirm();
   const [draft, setDraft] = useState<OnboardingBenchmarkInput>(benchmark);
-  const dialogRef = useRef<HTMLElement>(null);
-  const benchmarkSnapshotRef = useRef(benchmark);
-  const handleScrimPointerDown = useScrimPointerClose(onClose, open);
-
-  useDialogA11y(open, dialogRef, onClose);
-
-  benchmarkSnapshotRef.current = benchmark;
-
-  // Seed draft only when the drawer opens — never while the user is typing.
-  useEffect(() => {
-    if (!open) return;
-    setDraft({ ...benchmarkSnapshotRef.current });
-  }, [open]);
+  const lastOpen = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
+    if (open && !lastOpen.current) {
+      setDraft({ ...benchmark });
+    }
+    lastOpen.current = open;
+  }, [open, benchmark]);
 
   if (!open) return null;
 
@@ -7001,25 +6077,10 @@ export function BenchmarkEditDrawer({
     setDraft(prev => ({ ...prev, [key]: val }));
   };
   const save = () => { onSave(draft); onClose(); };
-  const saveAndExit = () => {
-    requestSaveExit(save);
-  };
 
-  return createPortal(
-    <>
-    <div
-      className={`bench-drawer-scrim bench-drawer-scrim--portal${elevatedScrim ? " bench-drawer-scrim--elevated" : ""}`}
-      onPointerDown={handleScrimPointerDown}
-      role="presentation"
-    >
-      <aside
-        ref={dialogRef}
-        className="bench-drawer"
-        {...drawerPanelPointerProps()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Edit benchmark"
-      >
+  return (
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside className="bench-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Edit benchmark">
         <header className="bench-drawer-head">
           <div>
             <h2 className="bench-drawer-title">How do you stack up?</h2>
@@ -7044,14 +6105,11 @@ export function BenchmarkEditDrawer({
         </div>
 
         <footer className="bench-drawer-actions">
-          <button type="button" className="bench-drawer-cancel" onClick={saveAndExit}>Save and exit</button>
-          <button type="button" className="bench-drawer-save" onClick={save}>Save and next →</button>
+          <button type="button" className="bench-drawer-cancel" onClick={onClose}>Cancel</button>
+          <button type="button" className="bench-drawer-save" onClick={save}>Save benchmark</button>
         </footer>
       </aside>
     </div>
-    {saveExitConfirmDialog}
-    </>,
-    document.body,
   );
 }
 
@@ -7067,7 +6125,6 @@ function AddSourcesDrawer({
   const [typeOpen, setTypeOpen] = useState(false);
   const [description, setDescription] = useState("");
   const lastOpenRef = useRef(false);
-  const handleScrimPointerDown = useScrimPointerClose(onClose, open);
 
   const SOURCE_TYPES = [
     "Pitch deck",
@@ -7098,8 +6155,8 @@ function AddSourcesDrawer({
   };
 
   return (
-    <div className="bench-drawer-scrim" onPointerDown={handleScrimPointerDown} role="presentation">
-      <aside className="bench-drawer add-sources-drawer" {...drawerPanelPointerProps()} role="dialog" aria-label="Add source">
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside className="bench-drawer add-sources-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Add source">
         <header className="bench-drawer-head">
           <div>
             <div className="add-sources-eyebrow">Sources</div>
@@ -7163,11 +6220,72 @@ function AddSourcesDrawer({
   );
 }
 
+type OverviewModuleTile = {
+  id: "profile" | "dev" | "mkt" | "rev" | "benchmark";
+  title: string;
+  footer: string;
+  icon: string;
+  answered: number;
+  total: number;
+  credits: number;
+  creditsEarned: boolean;
+  onSelect: () => void;
+};
+
+function OverviewModuleTileGrid({ modules }: { modules: OverviewModuleTile[] }) {
+  return (
+    <section className="sc-workspace-modules-panel" aria-label="5 modules to complete">
+      <div className="sc-workspace-modules-panel-head">
+        <div className="sc-workspace-modules-panel-head-main">
+          <h3>Your 5 modules</h3>
+          <p>Open any module to add or update the context Fuel uses across your Overview.</p>
+        </div>
+      </div>
+      <div className="sc-workspace-module-grid">
+        {modules.map(module => {
+          const complete = module.total > 0 && module.answered >= module.total;
+          const started = module.answered > 0;
+          const cardStatus = complete ? "complete" : started ? "building" : "idle";
+          const statusLabel = complete ? "Complete" : started ? "In progress" : "Not started";
+          const cta = complete ? "Review" : started ? "Continue" : "Start";
+
+          return (
+            <button
+              key={module.id}
+              type="button"
+              className={`sc-workspace-module-card is-${cardStatus}`}
+              onClick={module.onSelect}
+            >
+              <div className="sc-workspace-module-card-head">
+                <span className="sc-workspace-module-card-icon" aria-hidden="true">{module.icon}</span>
+                <span
+                  className="sc-workspace-module-card-pct"
+                  aria-label={`${module.answered} of ${module.total} questions answered`}
+                >
+                  <strong>{module.answered}/{module.total}</strong>
+                  <em>answered</em>
+                </span>
+              </div>
+              <h4 className="sc-workspace-module-card-title">{module.title}</h4>
+              <p className="sc-workspace-module-card-desc">{module.footer}</p>
+              <div className="sc-workspace-module-card-foot">
+                <span className={`sc-workspace-module-card-status is-${cardStatus}`}>{statusLabel}</span>
+                <span className={`sc-workspace-module-card-credits${module.creditsEarned ? " is-earned" : ""}`}>
+                  {module.creditsEarned ? `+${module.credits} unlocked` : `Get +${module.credits}`}
+                </span>
+                <span className="sc-workspace-module-card-cta">{cta} →</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function ScorecardV2({
   benchmark,
   onBenchmarkChange,
-  onBenchmarkSaved,
-  onBenchmarkEarlyUnlock,
   cohortLabel = "B2B SaaS · Seed · US",
   companyName = "Patriot Pay",
   journeyStage = "Early Revenue",
@@ -7197,106 +6315,66 @@ export default function ScorecardV2({
   onAddInitiative,
   onViewInitiative,
   overviewBuildPhase = null,
-  overviewBuiltPhases,
-  overviewBuildActive = false,
   onStartOptionalTour,
   onDismissOverviewReady,
-  recActionsTipOpen = false,
-  onDismissRecActionsTip,
-  isProfileComplete = true,
-  userFirstName = "there",
-  onStartProfileCompletion,
-  profileDetailsSyncKey = 0,
-  profileDrawerOpen = false,
-  onOpenProfileDetails,
   earnedProfileCredits,
-  companyKey,
+  companyKey = "patriotpay",
   onProfileCreditsChange,
   onProfileCreditReward,
-  onLandingContentRestore,
-  reloadLandingActive = false,
-  tourCompleteSignal = 0,
-  benchmarkEditRequestKey = 0,
-  onBenchmarkEditClosed,
-  onOpenProfilePreview,
+  creditRewardVisible = false,
+  openProfileModuleKey = 0,
+  openProfileModuleSection = "profile",
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
-  const [displayScoresZero, setDisplayScoresZero] = useState(false);
-  const landingBaselineRef = useRef<string | null>(null);
-  const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
-  const [benchmarkEditElevated, setBenchmarkEditElevated] = useState(false);
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
   const [benchmarkValues, setBenchmarkValues] = useState<OnboardingBenchmarkInput>(benchmark);
   const benchmarkSyncKey = useMemo(() => JSON.stringify(benchmark), [benchmark]);
   const [addSourcesOpen, setAddSourcesOpen] = useState(false);
   const cName = companyName ?? "This company";
-  const companyStorageKey = companyKey ?? cName;
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerStep, setDrawerStep] = useState(0);
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
+  const [advisorOpen, setAdvisorOpen] = useState(true);
   const [wikiSummaryOpen, setWikiSummaryOpen] = useState(false);
   const [wikiHighlightRefId, setWikiHighlightRefId] = useState<number | null>(null);
-  const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() =>
-    loadDetailAnswers(companyStorageKey),
+  const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(cName));
+
+  const mergedDetailAnswers = useMemo(
+    () => mergeDetailAnswers(detailAnswers, onboardingAnswers),
+    [detailAnswers, onboardingAnswers],
   );
 
-  const mergedDetailAnswers = useMemo(() => {
-    if (reloadLandingActive || displayScoresZero) return detailAnswers;
-    return mergeDetailAnswers(detailAnswers, onboardingAnswers);
-  }, [detailAnswers, onboardingAnswers, reloadLandingActive, displayScoresZero]);
+  const syncModuleCredits = useCallback((answers: DetailAnswers) => {
+    const ready = completedOnboardingModules({
+      ...answers,
+      profileCompany: answers.profile_company || onboardingAnswers?.profileCompany,
+      profileProductDescription: answers.profile_product_description || onboardingAnswers?.profileProductDescription,
+      profileIndustry: answers.profile_industry || onboardingAnswers?.profileIndustry,
+    });
+    ready.forEach(module => {
+      const { earned, reward } = tryMarkModuleEarned(
+        module,
+        companyKey,
+        moduleCreditsHeadline(module),
+        moduleCreditsMessage(module),
+      );
+      if (!reward) return;
+      onProfileCreditsChange?.(earned);
+      onProfileCreditReward?.(reward);
+    });
+  }, [companyKey, onboardingAnswers, onProfileCreditReward, onProfileCreditsChange]);
 
-  // Re-hydrate saved answers once the company name resolves (prop may arrive after mount).
+  // Expand advisor when the guided tour points at it or Recommended Actions.
   useEffect(() => {
-    if (profileDrawerOpen) return;
-    setDetailAnswers(loadDetailAnswers(companyStorageKey));
-  }, [companyStorageKey, profileDetailsSyncKey, profileDrawerOpen]);
-
-  useEffect(() => {
-    if (!tourCompleteSignal) return;
-    setActiveView("overview");
-    setEditBenchmarkOpen(false);
-    setAddSourcesOpen(false);
+    if (activeTourTarget !== "ai-advisor" && activeTourTarget !== "recommended-actions") return;
+    if (activeView !== "overview") return;
+    setAdvisorOpen(true);
     setWikiSummaryOpen(false);
-    setOpenGlancePopover(null);
-    window.scrollTo(0, 0);
-  }, [tourCompleteSignal]);
+  }, [activeTourTarget, activeView]);
 
   useEffect(() => {
-    if (!displayScoresZero) return;
-    landingBaselineRef.current = null;
-  }, [companyStorageKey]);
-
-  useEffect(() => {
-    if (!displayScoresZero || landingBaselineRef.current) return;
-    landingBaselineRef.current = JSON.stringify({
-      company: companyStorageKey,
-      sync: profileDetailsSyncKey,
-      details: detailAnswers,
-      benchmark: benchmarkValues,
-    });
-  }, [displayScoresZero, companyStorageKey, profileDetailsSyncKey, detailAnswers, benchmarkValues]);
-
-  useEffect(() => {
-    if (!displayScoresZero || !landingBaselineRef.current) return;
-    const current = JSON.stringify({
-      company: companyStorageKey,
-      sync: profileDetailsSyncKey,
-      details: detailAnswers,
-      benchmark: benchmarkValues,
-    });
-    if (current !== landingBaselineRef.current) {
-      setDisplayScoresZero(false);
-      clearReloadLandingActive();
-      onLandingContentRestore?.();
-    }
-  }, [displayScoresZero, companyStorageKey, profileDetailsSyncKey, detailAnswers, benchmarkValues, onLandingContentRestore]);
-
-  useEffect(() => {
-    if (editBenchmarkOpen) return;
-    if (reloadLandingActive && displayScoresZero) {
-      setBenchmarkValues(benchmark);
-      return;
-    }
     setBenchmarkValues(benchmark);
-  }, [benchmarkSyncKey, benchmark, editBenchmarkOpen, reloadLandingActive, displayScoresZero]);
+  }, [benchmarkSyncKey, benchmark]);
 
   useEffect(() => {
     const filled = METRIC_COHORTS.filter(c => parseMetricValue(benchmarkValues[c.key] ?? "")).length;
@@ -7311,18 +6389,132 @@ export default function ScorecardV2({
     }
   }, [cName, onboardingAnswers]);
 
-  const openDetailsDrawer = (category?: ScorecardCategory) => {
-    if (!onOpenProfileDetails) return;
-    if (category === "dev" || category === "mkt" || category === "rev") {
-      onOpenProfileDetails(category);
-      return;
-    }
-    onOpenProfileDetails("company");
+  // Re-hydrate saved answers once the company name resolves (prop may arrive after mount).
+  useEffect(() => {
+    setDetailAnswers(loadDetailAnswers(cName));
+  }, [cName]);
+
+  const selectDetail = (qid: string, value: string) => {
+    setDetailAnswers(prev => {
+      const next = { ...prev };
+      if (value) next[qid] = value; else delete next[qid];
+      saveDetailAnswers(cName, next);
+      if (value) onWorkspaceActivity?.();
+      syncModuleCredits(mergeDetailAnswers(next, onboardingAnswers));
+      return next;
+    });
   };
+
+  const persistDrawerBenchmark = (
+    next: OnboardingBenchmarkInput,
+    context: ScorecardBenchmarkContext,
+    commit = false,
+  ) => {
+    setBenchmarkValues(next);
+    onBenchmarkChange?.(next, context);
+    if (!commit || countFilledBenchmarkMetrics(next) === 0) return;
+    setBenchmarkSaved(true);
+    saveStoredQuarter(`fuel-benchmark-q-${cName}`);
+    if (!isOnboardingBenchmarkComplete(next)) return;
+    const { earned, reward } = tryMarkBenchmarkEarned(companyKey);
+    onProfileCreditsChange?.(earned);
+    if (reward) onProfileCreditReward?.(reward);
+  };
+
+  const openDrawerStep = (stepId: DrawerStepId) => {
+    const idx = DRAWER_STEPS.findIndex(item => item.id === stepId);
+    setDrawerStep(idx >= 0 ? idx : 0);
+    setDrawerOpen(true);
+  };
+
+  const openDetailsDrawer = (category?: ScorecardCategory) => {
+    openDrawerStep(category ?? "profile");
+  };
+
+  const openModuleDetails = (sectionId: "profile" | ScorecardCategory) => {
+    openDrawerStep(sectionId);
+  };
+
+  useEffect(() => {
+    if (!openProfileModuleKey) return;
+    setActiveView("overview");
+    openDrawerStep(openProfileModuleSection);
+  }, [openProfileModuleKey]);
 
   const metrics   = useMemo(() => evaluateMetrics(benchmarkValues), [benchmarkValues]);
   const metricMap = useMemo(() => getMetricMap(metrics), [metrics]);
   const runway    = useMemo(() => estimateRunwayMonths(metricMap.cashOnHand, metricMap.monthlyBurn), [metricMap]);
+
+  const profileCreditsUnlocked = Boolean(
+    earnedProfileCredits?.modules.includes("company")
+    || hasMandatoryProfileAnswers(mergedDetailAnswers),
+  );
+  const allProfileCreditsEarned = remainingEarnableCredits(
+    earnedProfileCredits ?? EMPTY_EARNED_PROFILE_CREDITS,
+  ) === 0;
+
+  const overviewModules = useMemo<OverviewModuleTile[]>(() => {
+    const creditMeta = (id: OverviewModuleTile["id"]) => {
+      if (id === "benchmark") {
+        return {
+          credits: BENCHMARK_REWARD_CREDITS,
+          creditsEarned: Boolean(earnedProfileCredits?.benchmark && earnedProfileCredits?.benchmarkViaSubmit),
+        };
+      }
+      const moduleId: ProfileModuleId = id === "profile" ? "company" : id === "mkt" ? "gtm" : id;
+      return {
+        credits: PROFILE_MODULE_REWARDS[moduleId],
+        creditsEarned: earnedProfileCredits?.modules.includes(moduleId) ?? false,
+      };
+    };
+    const sectionTile = (
+      id: "profile" | ScorecardCategory,
+      title: string,
+      footer: string,
+      fallbackIcon: string,
+    ): OverviewModuleTile => {
+      const section = DETAIL_SECTIONS.find(item => item.id === id);
+      const contextSection = id === "profile"
+        ? DETAIL_SECTIONS.find(item => item.id === "context")
+        : undefined;
+      const profileQuestions = uniqueQuestions([
+        ...(section ? getVisibleQuestions(section, mergedDetailAnswers) : []),
+        ...(contextSection ? getVisibleQuestions(contextSection, mergedDetailAnswers) : []),
+      ]);
+      const answered = profileQuestions.filter(question => mergedDetailAnswers[question.id]?.trim()).length;
+      const total = profileQuestions.length;
+      return {
+        id,
+        title,
+        footer,
+        icon: section?.icon ?? fallbackIcon,
+        answered,
+        total,
+        ...creditMeta(id),
+        onSelect: () => openModuleDetails(id),
+      };
+    };
+    const benchmarkAnswered = METRIC_COHORTS.filter(
+      metric => parseMetricValue(benchmarkValues[metric.key] ?? "") != null,
+    ).length;
+
+    return [
+      sectionTile("profile", "Complete Profile", "Company · Industry · Location · Headcount · Context", "◆"),
+      sectionTile("dev", "R&D", "Stage · Type · Constraint", "◈"),
+      sectionTile("mkt", "GTM", "Motion · ICP · Pipeline", "↗"),
+      sectionTile("rev", "G&A", "Runway · Finance · Capital", "▣"),
+      {
+        id: "benchmark",
+        title: "Benchmark",
+        footer: "Metrics · Cohort · Peer scores",
+        icon: "▦",
+        answered: benchmarkAnswered,
+        total: METRIC_COHORTS.length,
+        ...creditMeta("benchmark"),
+        onSelect: () => openDrawerStep("benchmark"),
+      },
+    ];
+  }, [benchmarkValues, earnedProfileCredits, mergedDetailAnswers]);
 
   const categoryIds: ScorecardCategory[] = ["dev", "mkt", "rev"];
   const buildContext = useMemo<CategoryBuildContext>(() => ({
@@ -7350,6 +6542,12 @@ export default function ScorecardV2({
     );
   }, [benchmarkValues, documentSlots, intelligenceItems, mergedDetailAnswers, privateWorkspaceLabel]);
 
+  useEffect(() => {
+    if (showWorkspaceSetup && (activeView === "dev" || activeView === "mkt" || activeView === "rev")) {
+      setActiveView("overview");
+    }
+  }, [activeView, showWorkspaceSetup]);
+
   const advisorActions = useMemo(
     () => buildAdvisorRecommendedActions(
       buildContext,
@@ -7358,60 +6556,9 @@ export default function ScorecardV2({
       benchmarkSaved,
       cName,
       Boolean(privateWorkspaceLabel),
-      earnedProfileCredits,
     ),
-    [benchmarkSaved, buildContext, cName, documentSlots, earnedProfileCredits, mergedDetailAnswers, privateWorkspaceLabel],
+    [benchmarkSaved, buildContext, cName, documentSlots, mergedDetailAnswers, privateWorkspaceLabel],
   );
-
-  const awardBenchmarkCredits = useCallback((nextValues?: OnboardingBenchmarkInput) => {
-    if (!companyKey || remainingBenchmarkRewardCredits(earnedProfileCredits) <= 0) return;
-    const values = nextValues ?? benchmarkValues;
-    const filled = METRIC_COHORTS.filter(c => parseMetricValue(values[c.key] ?? "")).length;
-    if (filled <= 0 && !benchmarkSaved) return;
-    const { earned, reward } = tryMarkBenchmarkEarned(companyKey);
-    onProfileCreditsChange?.(earned);
-    if (reward) onProfileCreditReward?.(reward);
-  }, [
-    benchmarkSaved,
-    benchmarkValues,
-    companyKey,
-    earnedProfileCredits,
-    onProfileCreditReward,
-    onProfileCreditsChange,
-  ]);
-
-  const awardSourcesCredits = useCallback(() => {
-    if (!companyKey || remainingIntelligenceRewardCredits(earnedProfileCredits) <= 0) return;
-    const { earned, reward } = tryMarkIntelligenceSourcesEarned(companyKey);
-    onProfileCreditsChange?.(earned);
-    if (reward) onProfileCreditReward?.(reward);
-  }, [companyKey, earnedProfileCredits, onProfileCreditReward, onProfileCreditsChange]);
-
-  const openRecommendedBenchmark = useCallback(() => {
-    setBenchmarkEditElevated(false);
-    setEditBenchmarkOpen(true);
-  }, []);
-
-  const closeBenchmarkEditDrawer = useCallback(() => {
-    setEditBenchmarkOpen(false);
-    setBenchmarkEditElevated(false);
-    onBenchmarkEditClosed?.();
-  }, [onBenchmarkEditClosed]);
-
-  useEffect(() => {
-    if (!benchmarkEditRequestKey) return;
-    setBenchmarkEditElevated(true);
-    setEditBenchmarkOpen(true);
-  }, [benchmarkEditRequestKey]);
-
-  const openRecommendedSources = useCallback(() => {
-    const hasSources = (documentSlots?.filter(s => s.current).length ?? 0) > 0
-      || intelligenceItems.some(item => !item.id.startsWith("intel-bench-"));
-    if (hasSources) {
-      awardSourcesCredits();
-    }
-    setAddSourcesOpen(true);
-  }, [awardSourcesCredits, documentSlots, intelligenceItems]);
 
   const wikiSummary = useMemo(
     () => buildOverviewWikiSummary(cName, categoryData, runway, buildContext, documentSlots, cohortLabel),
@@ -7432,8 +6579,20 @@ export default function ScorecardV2({
 
   const isCategoryDetail = activeView === "dev" || activeView === "mkt" || activeView === "rev";
   const activeCategory = isCategoryDetail ? categoryData.find(c => c.id === activeView) : undefined;
-  const suggestionsReady = overviewSuggestionsReady(overviewBuildPhase, overviewBuiltPhases);
-  const showOverviewWorkspace = !isCategoryDetail && activeView === "overview";
+  const suggestionsReady = overviewSuggestionsReady(overviewBuildPhase);
+  const yorkOverviewOffer = useMemo(() => {
+    // Overview stays company-wide — common partner card, not a single-track offer/gap.
+    const weakTrackLabels = categoryData
+      .filter(cat => cat.glanceWeaknessItems.length > 0 || Boolean(cat.glanceNeedsWork?.trim()))
+      .map(cat => cat.label);
+    return { offer: YORK_COMMON_OFFER, weakTrackLabels };
+  }, [categoryData]);
+  const [yorkOverviewHidden, setYorkOverviewHidden] = useState(
+    () => isYorkOfferDismissed(YORK_COMMON_OFFER.id),
+  );
+  useEffect(() => {
+    setYorkOverviewHidden(isYorkOfferDismissed(YORK_COMMON_OFFER.id));
+  }, []);
 
   if (activeView === "benchmark") {
     return (
@@ -7462,7 +6621,7 @@ export default function ScorecardV2({
           <button type="button" onClick={onDismissWorkspaceIntro}>Got it</button>
         </div>
       ) : null}
-      {privateWorkspaceLabel && isProfileComplete ? (
+      {privateWorkspaceLabel ? (
         <div className="sc-private-workspace-label">{privateWorkspaceLabel}</div>
       ) : null}
       {wikiSummaryOpen && activeView === "overview" ? (
@@ -7486,42 +6645,91 @@ export default function ScorecardV2({
         />
       ) : (
         <>
-      {showOverviewWorkspace ? (
-        <OverviewWorkspaceDashboard
-          userFirstName={userFirstName}
-          companyName={cName}
-          detailAnswers={mergedDetailAnswers}
-          storedDetailAnswers={detailAnswers}
-          benchmark={benchmarkValues}
-          earnedProfileCredits={earnedProfileCredits}
-          categories={categoryData}
-          runway={runway}
-          buildContext={buildContext}
-          benchmarkSaved={benchmarkSaved}
-          documentSlots={documentSlots}
-          wikiSummary={wikiSummary}
-          overviewBuildPhase={overviewBuildPhase}
-          overviewBuiltPhases={overviewBuiltPhases}
-          overviewBuildActive={overviewBuildActive}
-          suggestionsReady={suggestionsReady}
-          showWorkspaceSetup={showWorkspaceSetup}
-          advisorActions={advisorActions}
-          privateWorkspace={Boolean(privateWorkspaceLabel)}
-          isProfileComplete={isProfileComplete}
-          onStart={onStartProfileCompletion}
-          onOpenCategory={(categoryId) => setActiveView(categoryId)}
-          onOpenIntelligence={onOpenIntelligence}
-          onOpenInitiatives={onOpenInitiatives}
-          onRunPlaybook={onRunPlaybook}
-          onOpenWikiSummary={openWikiSummary}
-          onEditBenchmark={openRecommendedBenchmark}
-          onAddSources={openRecommendedSources}
-          activeTourTarget={activeTourTarget}
-          showShareTip={false}
-          onDismissShareTip={onDismissRecActionsTip}
-          displayScoresZero={displayScoresZero}
-          onOpenProfilePreview={onOpenProfilePreview}
+      {!isCategoryDetail && !allProfileCreditsEarned ? (
+        <OverviewModuleTileGrid modules={overviewModules} />
+      ) : null}
+      {!isCategoryDetail && overviewBuildPhase && overviewBuildPhase !== "ready" ? (
+        <OverviewBuildPanel
+          phase={overviewBuildPhase}
         />
+      ) : null}
+      {!isCategoryDetail && overviewBuildPhase === "ready" ? (
+        <div className="sc-overview-ready-bar" role="status">
+          <div>
+            <strong>Your Overview is ready</strong>
+            <span>Scores, advisor, and first suggestions are live.</span>
+          </div>
+          <div className="sc-overview-ready-actions">
+            {onStartOptionalTour ? (
+              <button type="button" onClick={onStartOptionalTour}>Take a quick tour</button>
+            ) : null}
+            <button type="button" className="secondary" onClick={onDismissOverviewReady}>Skip</button>
+          </div>
+        </div>
+      ) : null}
+      {!isCategoryDetail ? (
+      <div
+        className={`sc-adv-featured-wrap sc-overview-advisor-wrap${advisorOpen ? "" : " is-collapsed"}${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
+        data-tour-target="ai-advisor"
+      >
+        <div className="sc-adv-featured-border" aria-hidden="true" />
+        <div
+          className="sc-adv-featured-toggle"
+          onClick={() => {
+            setAdvisorOpen(o => !o);
+          }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setAdvisorOpen(o => !o);
+            }
+          }}
+          aria-expanded={advisorOpen}
+        >
+          <span className="sc-adv-featured-toggle-label">✦ Fuel AI · Advisor</span>
+          <span className="sc-adv-featured-toggle-meta">
+            {overviewBuildPhase && !overviewAdvisorReady(overviewBuildPhase)
+              ? "Building…"
+              : cName}
+          </span>
+          <span className="sc-adv-featured-chev" aria-hidden="true">▾</span>
+        </div>
+        {advisorOpen ? (
+          overviewBuildPhase && !overviewAdvisorReady(overviewBuildPhase) ? (
+            <OverviewAdvisorSkeleton />
+          ) : showWorkspaceSetup ? (
+            <OverviewWorkspaceSetupPanel
+              companyName={cName}
+              actions={advisorActions}
+              onEditBenchmark={() => openDrawerStep("benchmark")}
+              onAddSources={() => setAddSourcesOpen(true)}
+              onViewDetails={() => openDetailsDrawer()}
+              tourHighlightRecommended={activeTourTarget === "recommended-actions"}
+            />
+            ) : (
+              <OverviewAdvisorPanel
+                categories={categoryData}
+                runway={runway}
+                companyName={cName}
+                buildContext={buildContext}
+                benchmarkSaved={benchmarkSaved}
+            privateWorkspace={Boolean(privateWorkspaceLabel)}
+                onOpenIntelligence={onOpenIntelligence}
+            onEditBenchmark={() => openDrawerStep("benchmark")}
+                onAddSources={() => setAddSourcesOpen(true)}
+                onViewDetails={() => openDetailsDrawer()}
+                documentSlots={documentSlots}
+            wikiSummary={wikiSummary}
+            onOpenWikiSummary={openWikiSummary}
+            suggestionsReady={suggestionsReady}
+            overviewBuildPhase={overviewBuildPhase}
+            tourHighlightRecommended={activeTourTarget === "recommended-actions"}
+              />
+          )
+        ) : null}
+      </div>
       ) : null}
 
       {isCategoryDetail && activeCategory ? (
@@ -7534,7 +6742,7 @@ export default function ScorecardV2({
           activeInitiatives={activeInitiatives}
           onBack={() => setActiveView("overview")}
           onUpdateDetails={() => openDetailsDrawer(activeCategory.id)}
-          onEditBenchmark={() => setEditBenchmarkOpen(true)}
+          onEditBenchmark={() => openDrawerStep("benchmark")}
           onOpenIntelligence={onOpenIntelligence}
           onOpenInitiatives={onOpenInitiatives}
           onAddInitiative={onAddInitiative}
@@ -7542,37 +6750,82 @@ export default function ScorecardV2({
           onRunPlaybook={onRunPlaybook}
           suggestionsReady={suggestionsReady}
         />
-      ) : null}
+      ) : showWorkspaceSetup ? (
+        <div className="sc-workspace-setup-hint">
+          <p>Complete benchmark, sources, and R&amp;D · GTM · Finance details above to generate your track scores.</p>
+        </div>
+      ) : overviewBuildPhase && overviewBuildPhase === "summary" ? (
+        <div className="sc-overview-tracks sc-overview-tracks-glance" aria-busy="true">
+          <CategoryGlanceRowSkeleton label="R&D" />
+          <CategoryGlanceRowSkeleton label="GTM" />
+          <CategoryGlanceRowSkeleton label="G&A" />
+        </div>
+      ) : (
+        <div className="sc-overview-tracks sc-overview-tracks-glance">
+          {categoryData.map(cat => (
+            overviewTrackReady(cat.id, overviewBuildPhase) ? (
+            <CategoryGlanceRow
+              key={cat.id}
+              cat={cat}
+              runway={runway}
+              onOpen={() => setActiveView(cat.id)}
+              onUpdateDetails={() => openDetailsDrawer(cat.id)}
+              onOpenIntelligence={onOpenIntelligence}
+              onOpenInitiatives={onOpenInitiatives}
+              onRunPlaybook={onRunPlaybook}
+              glancePopoverOpen={openGlancePopover === cat.id}
+              onGlancePopoverOpen={() => setOpenGlancePopover(cat.id)}
+              onGlancePopoverClose={() => setOpenGlancePopover(null)}
+              tourTarget={activeTourTarget === `category-${cat.id}` ? `category-${cat.id}` : undefined}
+                suggestionsReady={suggestionsReady}
+                hasMinimumProfileAnswers={profileCreditsUnlocked}
+                onCompleteProfile={() => openModuleDetails("profile")}
+              />
+            ) : (
+              <CategoryGlanceRowSkeleton key={cat.id} label={cat.label} />
+            )
+          ))}
+          {suggestionsReady && !yorkOverviewHidden ? (
+            <div className="york-overview-suggest" aria-label="Suggested for you">
+              <YorkPartnerNudge
+                offer={yorkOverviewOffer.offer}
+                variant="overview"
+                firstName="Shreya"
+                weakTrackLabels={yorkOverviewOffer.weakTrackLabels}
+                cta="Talk to York IE"
+                onDismissed={() => setYorkOverviewHidden(true)}
+              />
+            </div>
+          ) : null}
+        </div>
+      )}
         </>
       )}
 
-      <BenchmarkEditDrawer
-        open={editBenchmarkOpen}
-        onClose={closeBenchmarkEditDrawer}
-        elevatedScrim={benchmarkEditElevated}
-        benchmark={benchmarkValues}
-        companyName={cName}
-        onSave={next => {
-          setBenchmarkValues(next);
-          onBenchmarkChange?.(next);
-          setBenchmarkSaved(true);
-          saveStoredQuarter(`fuel-benchmark-q-${cName}`);
-          awardBenchmarkCredits(next);
-          onBenchmarkSaved?.();
-          const filled = METRIC_COHORTS.filter(c => parseMetricValue(next[c.key] ?? "")).length;
-          if (filled >= MIN_BENCHMARK_METRICS_FOR_UNLOCK) {
-            onBenchmarkEarlyUnlock?.();
-          }
-        }}
-      />
+      {drawerOpen && (
+        <DetailsDrawer
+          companyName={cName}
+          answers={mergedDetailAnswers}
+          initialStep={drawerStep}
+          benchmark={benchmarkValues}
+          benchmarkContext={benchmarkContext}
+          onBenchmarkChange={persistDrawerBenchmark}
+          creditRewardVisible={creditRewardVisible}
+          onSelect={selectDetail}
+          onSaveClose={() => {
+            setDrawerOpen(false);
+            saveStoredQuarter(`fuel-details-q-${cName}`);
+            onWorkspaceActivity?.();
+            syncModuleCredits(mergedDetailAnswers);
+          }}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
 
       <AddSourcesDrawer
         open={addSourcesOpen}
         onClose={() => setAddSourcesOpen(false)}
-        onGenerate={() => {
-          awardSourcesCredits();
-          onAddSources?.();
-        }}
+        onGenerate={() => {}}
       />
     </div>
   );

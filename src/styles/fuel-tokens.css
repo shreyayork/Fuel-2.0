@@ -9,23 +9,9 @@ html[data-theme="dark"] {
   --fuel-surface-raised: #172632;
   --fuel-border: rgba(255, 255, 255, 0.09);
   --fuel-border-accent: rgba(18, 184, 134, 0.28);
-  /* Status — good (success) · watch (attention) · bad (critical) */
   --status-good: #12b886;
-  --status-watch: #f5a623;
-  --status-bad: #e05c5c;
-  /* Semantic aliases — always resolve to the three tokens above */
-  --status-success: var(--status-good);
-  --status-warning: var(--status-watch);
-  --status-error: var(--status-bad);
-  --status-good-dim: color-mix(in srgb, var(--status-good) 14%, transparent);
-  --status-watch-dim: color-mix(in srgb, var(--status-watch) 14%, transparent);
-  --status-bad-dim: color-mix(in srgb, var(--status-bad) 14%, transparent);
-  --status-good-line: color-mix(in srgb, var(--status-good) 32%, transparent);
-  --status-watch-line: color-mix(in srgb, var(--status-watch) 32%, transparent);
-  --status-bad-line: color-mix(in srgb, var(--status-bad) 32%, transparent);
-  /* Right-side drawer shell — 40% viewport (see styles/drawer-layout.css) */
-  --fuel-side-panel-width: 40vw;
-  --fuel-side-panel-max-width: 92vw;
+  --status-watch: #F5A623;
+  --status-bad: #E05C5C;
 }
 
 html[data-theme="light"] {
@@ -38,14 +24,6 @@ html[data-theme="light"] {
   --fuel-border: #e8eaed;
   --fuel-border-accent: rgba(18, 184, 134, 0.28);
   --status-good: #12b886;
-  --status-watch: #f5a623;
-  --status-bad: #e05c5c;
-  --status-good-dim: color-mix(in srgb, var(--status-good) 10%, transparent);
-  --status-watch-dim: color-mix(in srgb, var(--status-watch) 10%, transparent);
-  --status-bad-dim: color-mix(in srgb, var(--status-bad) 10%, transparent);
-  --status-good-line: color-mix(in srgb, var(--status-good) 28%, transparent);
-  --status-watch-line: color-mix(in srgb, var(--status-watch) 28%, transparent);
-  --status-bad-line: color-mix(in srgb, var(--status-bad) 28%, transparent);
-  --fuel-side-panel-width: 40vw;
-  --fuel-side-panel-max-width: 92vw;
+  --status-watch: #F5A623;
+  --status-bad: #E05C5C;
 }
