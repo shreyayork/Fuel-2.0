@@ -1,7 +1,7 @@
 // ─── Fuel AI — Ask Fuel chat drawer (composer, playbooks, brief) ───────────────
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDialogA11y } from "./a11y/useDialogA11y";
-import type { BenchmarkFormValues } from "./PatriotPayJourney";
+import type { BenchmarkFormValues } from "./UnifiedBenchmarkDrawer";
 import {
   generateBrief, PLAYBOOKS, PLAYBOOK_COUNT,
   type Brief, type BriefFlag, type Playbook,
@@ -15,7 +15,16 @@ const FLAG_COLOUR: Record<BriefFlag, string> = {
   crit: briefFlagToColor("crit"),
   neutral: briefFlagToColor("neutral"),
 };
-const FLAG_DOT: Record<BriefFlag, string> = { good: "✅", warn: "🟡", crit: "🔴", neutral: "·" };
+
+const PITCH_DECK_ACCEPT = ".pdf,.ppt,.pptx,.key,.PDF,.PPT,.PPTX";
+
+export type AskFuelPitchDeckInfo = {
+  id: string;
+  name: string;
+  format: string;
+  uploadedAt: string;
+  downloadUrl?: string;
+} | null;
 
 // ─── Full brief document (used in chat + "view in details") ────────────────────
 export function BriefDoc({ brief, companyName }: { brief: Brief; companyName: string }) {
@@ -150,22 +159,329 @@ type ChatMsg =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "ai"; kind: "text"; text: string }
   | { id: string; role: "ai"; kind: "thinking"; label: string }
-  | { id: string; role: "ai"; kind: "brief"; brief: Brief };
+  | { id: string; role: "ai"; kind: "brief"; brief: Brief }
+  | { id: string; role: "ai"; kind: "benchmark-flow" }
+  | { id: string; role: "ai"; kind: "pitch-deck-flow" }
+  | { id: string; role: "ai"; kind: "pitch-deck-eval"; deckName: string; evaluation: PitchDeckEvaluation };
 
 let _mid = 0;
 const mid = () => `m${++_mid}`;
 
+const BENCHMARK_PREVIEW_KEYS: { key: keyof BenchmarkFormValues; label: string }[] = [
+  { key: "arr", label: "ARR" },
+  { key: "arrGrowth", label: "ARR growth" },
+  { key: "nrr", label: "NRR" },
+  { key: "logoRetention", label: "Logo retention" },
+  { key: "grossMargin", label: "Gross margin" },
+  { key: "burnMultiple", label: "Burn multiple" },
+];
+
+function hasBenchmarkMetrics(form: BenchmarkFormValues): boolean {
+  return BENCHMARK_PREVIEW_KEYS.some(({ key }) => String(form[key] ?? "").trim().length > 0);
+}
+
+function BenchmarkFlowCard({
+  companyName,
+  benchmark,
+  hasBenchmark,
+  onOpenBenchmark,
+}: {
+  companyName: string;
+  benchmark: BenchmarkFormValues;
+  hasBenchmark: boolean;
+  onOpenBenchmark?: () => void;
+}) {
+  const preview = useMemo(
+    () => BENCHMARK_PREVIEW_KEYS
+      .map(({ key, label }) => ({ label, value: String(benchmark[key] ?? "").trim() }))
+      .filter(row => row.value),
+    [benchmark],
+  );
+
+  if (!hasBenchmark) {
+    return (
+      <div className="afc-flow-card">
+        <div className="afc-flow-eyebrow">KPI Benchmark</div>
+        <strong className="afc-flow-title">No benchmark generated yet</strong>
+        <p className="afc-flow-copy">
+          Fuel needs your core metrics before it can compare {companyName} to the cohort.
+          {" "}
+          <button type="button" className="afc-flow-link" onClick={() => onOpenBenchmark?.()}>
+            Complete your benchmark profile to get started
+          </button>
+          .
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="afc-flow-card is-ready">
+      <div className="afc-flow-eyebrow">KPI Benchmark</div>
+      <strong className="afc-flow-title">{companyName} benchmark is live</strong>
+      <p className="afc-flow-copy">
+        Headline metrics are confirmed against the seed/early-growth cohort. Re-launch anytime to update inputs and regenerate the comparison.
+      </p>
+      {preview.length ? (
+        <div className="afc-flow-metrics">
+          {preview.slice(0, 6).map(row => (
+            <div key={row.label} className="afc-flow-metric">
+              <span>{row.label}</span>
+              <strong>{row.value}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="afc-flow-actions">
+        <button type="button" className="afc-brief-btn primary" onClick={() => onOpenBenchmark?.()}>
+          Run the KPI benchmark playbook
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type PitchDeckRubricFlag = "good" | "warn" | "crit";
+
+type PitchDeckRubricRow = {
+  label: string;
+  score: number;
+  note: string;
+  flag: PitchDeckRubricFlag;
+};
+
+type PitchDeckEvaluation = {
+  overall: number;
+  summary: string;
+  rows: PitchDeckRubricRow[];
+  investorQuestions: string[];
+};
+
+function buildPitchDeckEvaluation(companyName: string, deckName: string): PitchDeckEvaluation {
+  return {
+    overall: 74,
+    summary: `Extracted text from ${deckName} and scored ${companyName} against the Fuel pitch rubric. Traction and narrative are the strongest slides; market sizing and the ask still draw the most investor pushback.`,
+    rows: [
+      { label: "Problem", score: 82, note: "Clear pain + buyer urgency", flag: "good" },
+      { label: "Market", score: 61, note: "TAM needs sharper bottom-up proof", flag: "warn" },
+      { label: "Traction", score: 78, note: "Pipeline + logos land well", flag: "good" },
+      { label: "Team", score: 80, note: "Relevant operator depth", flag: "good" },
+      { label: "Ask", score: 58, note: "Use of funds / milestones thin", flag: "warn" },
+      { label: "Narrative", score: 76, note: "Story arcs cleanly; tighten ending", flag: "good" },
+    ],
+    investorQuestions: [
+      "Slide 4 · What is the bottom-up market math behind the TAM?",
+      "Slide 9 · How durable is retention after the first 2 renewal cycles?",
+      "Slide 14 · What milestones does this raise specifically fund?",
+    ],
+  };
+}
+
+function PitchDeckEvalCard({
+  companyName,
+  deckName,
+  evaluation,
+  onOpenDataRoom,
+}: {
+  companyName: string;
+  deckName: string;
+  evaluation: PitchDeckEvaluation;
+  onOpenDataRoom?: () => void;
+}) {
+  return (
+    <div className="afc-flow-card is-ready is-eval">
+      <div className="afc-flow-eyebrow">Pitch Deck Evaluation</div>
+      <strong className="afc-flow-title">{companyName} · rubric score {evaluation.overall}/100</strong>
+      <p className="afc-flow-copy">{evaluation.summary}</p>
+      <div className="afc-deck-file">
+        <div className="afc-deck-file-icon" aria-hidden="true">📄</div>
+        <div className="afc-deck-file-copy">
+          <strong>{deckName}</strong>
+          <span>Parsed · scored against problem · market · traction · team · ask · narrative</span>
+        </div>
+      </div>
+      <div className="afc-flow-metrics afc-eval-rubric">
+        {evaluation.rows.map(row => (
+          <div key={row.label} className={`afc-flow-metric is-${row.flag}`}>
+            <span>{row.label}</span>
+            <strong>{row.score}</strong>
+            <em>{row.note}</em>
+          </div>
+        ))}
+      </div>
+      <div className="afc-eval-questions">
+        <span className="afc-eval-questions-label">Slides likely to draw investor questions</span>
+        <ul>
+          {evaluation.investorQuestions.map(item => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+      <div className="afc-flow-actions">
+        {onOpenDataRoom ? (
+          <button type="button" className="afc-brief-btn primary" onClick={onOpenDataRoom}>
+            Open Data Room →
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PitchDeckFlowCard({
+  companyName,
+  pitchDeck,
+  uploading,
+  onUploadPitchDeck,
+  onDiscardPitchDeck,
+  onSubmitPitchDeck,
+}: {
+  companyName: string;
+  pitchDeck: AskFuelPitchDeckInfo;
+  uploading: boolean;
+  onUploadPitchDeck?: (file: File) => void;
+  onDiscardPitchDeck?: () => void;
+  onSubmitPitchDeck?: (deck: NonNullable<AskFuelPitchDeckInfo>) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    setSubmitted(false);
+  }, [pitchDeck?.id]);
+
+  const takeFile = (file: File | undefined | null) => {
+    if (!file || uploading) return;
+    onUploadPitchDeck?.(file);
+  };
+
+  if (pitchDeck) {
+    return (
+      <div className={`afc-flow-card is-ready${submitted ? " is-submitted" : ""}`}>
+        <div className="afc-flow-eyebrow">Pitch Deck Evaluation</div>
+        <strong className="afc-flow-title">
+          {submitted ? "Generating intelligence from pitch deck" : "Pitch deck ready"}
+        </strong>
+        <p className="afc-flow-copy">
+          {submitted
+            ? `Fuel is extracting text from ${pitchDeck.name} and generating intelligence for ${companyName} — scoring problem, market, traction, team, ask, and narrative.`
+            : `Fuel linked ${pitchDeck.name} to the Data Room for ${companyName}. Generate intelligence to score narrative, traction, and ask quality — the same path as Data Room.`}
+        </p>
+        <div className="afc-deck-file">
+          <div className="afc-deck-file-icon" aria-hidden="true">📄</div>
+          <div className="afc-deck-file-copy">
+            <strong>{pitchDeck.name}</strong>
+            <span>{pitchDeck.format} · uploaded {pitchDeck.uploadedAt}</span>
+          </div>
+          <button
+            type="button"
+            className="afc-deck-remove"
+            aria-label="Remove pitch deck"
+            title="Remove pitch deck"
+            disabled={submitted}
+            onClick={() => onDiscardPitchDeck?.()}
+          >
+            ×
+          </button>
+        </div>
+        <div className="afc-flow-actions">
+          <button
+            type="button"
+            className="afc-brief-btn primary"
+            disabled={submitted}
+            onClick={() => {
+              if (submitted) return;
+              setSubmitted(true);
+              onSubmitPitchDeck?.(pitchDeck);
+            }}
+          >
+            {submitted ? "Generating…" : "Generate intelligence"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="afc-flow-card">
+      <div className="afc-flow-eyebrow">Pitch Deck Evaluation</div>
+      <strong className="afc-flow-title">No pitch deck listed</strong>
+      <p className="afc-flow-copy">
+        Upload the latest investor deck for {companyName}. Fuel will store it in the Data Room and score narrative, traction, and ask quality.
+      </p>
+      <div
+        className={`afc-deck-drop${dragging ? " is-dragging" : ""}${uploading ? " is-busy" : ""}`}
+        onDragEnter={e => { e.preventDefault(); setDragging(true); }}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={e => { e.preventDefault(); setDragging(false); }}
+        onDrop={e => {
+          e.preventDefault();
+          setDragging(false);
+          takeFile(e.dataTransfer.files?.[0]);
+        }}
+      >
+        <strong>{uploading ? "Uploading to Data Room…" : "Drag and drop your pitch deck"}</strong>
+        <span>PDF or PowerPoint · synced automatically with Data Room</span>
+        <button
+          type="button"
+          className="afc-brief-btn primary"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? "Uploading…" : "Upload Pitch Deck"}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={PITCH_DECK_ACCEPT}
+          hidden
+          onChange={e => {
+            takeFile(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── Chat drawer ───────────────────────────────────────────────────────────────
 export function AskFuelChatDrawer({
-  open, onClose, companyName, benchmark, onBriefGenerated, onViewInitiatives, focusBriefSignal, focusPlaybook, focusPlaybookSignal,
+  open,
+  onClose,
+  companyName,
+  benchmark,
+  hasBenchmark = false,
+  onOpenBenchmark,
+  pitchDeck = null,
+  pitchDeckUploading = false,
+  onUploadPitchDeck,
+  onDiscardPitchDeck,
+  onOpenDataRoom,
+  onGeneratePitchDeckIntelligence,
+  onBriefGenerated,
+  onViewInitiatives,
+  focusBriefSignal,
+  focusPlaybook,
+  focusPlaybookSignal,
 }: {
   open: boolean;
   onClose: () => void;
   companyName: string;
   benchmark: BenchmarkFormValues;
+  hasBenchmark?: boolean;
+  onOpenBenchmark?: () => void;
+  pitchDeck?: AskFuelPitchDeckInfo;
+  pitchDeckUploading?: boolean;
+  onUploadPitchDeck?: (file: File) => void;
+  onDiscardPitchDeck?: () => void;
+  onOpenDataRoom?: () => void;
+  /** Same Data Room / sources path — extract intelligence from the linked pitch deck. */
+  onGeneratePitchDeckIntelligence?: () => void;
   onBriefGenerated: (brief: Brief) => void;
   onViewInitiatives: () => void;
-  focusBriefSignal: number; // bump to force-show a fresh brief when opened from "View in details"
+  focusBriefSignal: number;
   focusPlaybook?: Playbook | null;
   focusPlaybookSignal?: number;
 }) {
@@ -178,16 +494,15 @@ export function AskFuelChatDrawer({
   const dialogRef = useRef<HTMLElement>(null);
   const lastFocus = useRef(0);
   const lastPbFocus = useRef(0);
+  const benchmarkReady = hasBenchmark || hasBenchmarkMetrics(benchmark);
 
   useDialogA11y(open, dialogRef, onClose);
 
-  // scroll thread to bottom on new messages
   useEffect(() => {
     const el = threadRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, pitchDeck, pitchDeckUploading, benchmarkReady]);
 
-  // when opened via "View in details", drop a fresh brief into the thread
   useEffect(() => {
     if (open && focusBriefSignal && focusBriefSignal !== lastFocus.current) {
       lastFocus.current = focusBriefSignal;
@@ -200,7 +515,6 @@ export function AskFuelChatDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, focusBriefSignal]);
 
-  // when opened via a playbook menu click, drop the playbook output into the thread
   useEffect(() => {
     if (open && focusPlaybookSignal && focusPlaybook && focusPlaybookSignal !== lastPbFocus.current) {
       lastPbFocus.current = focusPlaybookSignal;
@@ -218,7 +532,7 @@ export function AskFuelChatDrawer({
         setMessages([userMsg, { id: thinkId, role: "ai", kind: "thinking", label: `Running ${pb.name}\u2026` }]);
         window.setTimeout(() => {
           setMessages(prev => prev.map(m => m.id === thinkId
-            ? { id: thinkId, role: "ai", kind: "text", text: playbookResponse(pb, companyName) }
+            ? resolvePlaybookMessage(thinkId, pb)
             : m));
         }, 1400);
       }
@@ -227,6 +541,27 @@ export function AskFuelChatDrawer({
   }, [open, focusPlaybookSignal]);
 
   if (!open) return null;
+
+  const runPitchDeckEvaluation = (deck: NonNullable<AskFuelPitchDeckInfo>) => {
+    if (busy) return;
+    setBusy(true);
+    onGeneratePitchDeckIntelligence?.();
+    const thinkId = mid();
+    setMessages(prev => [
+      ...prev,
+      { id: mid(), role: "user", text: `Generate intelligence from “${deck.name}”` },
+      { id: thinkId, role: "ai", kind: "thinking", label: "Generating intelligence from pitch deck…" },
+    ]);
+    window.setTimeout(() => {
+      const evaluation = buildPitchDeckEvaluation(companyName, deck.name);
+      setMessages(prev => prev.map(m => (
+        m.id === thinkId
+          ? { id: thinkId, role: "ai", kind: "pitch-deck-eval", deckName: deck.name, evaluation }
+          : m
+      )));
+      setBusy(false);
+    }, 1600);
+  };
 
   const runBrief = () => {
     if (busy) return;
@@ -254,7 +589,7 @@ export function AskFuelChatDrawer({
     setMessages(prev => [...prev, userMsg, { id: thinkId, role: "ai", kind: "thinking", label: `Running ${pb.name}…` }]);
     window.setTimeout(() => {
       setMessages(prev => prev.map(m => m.id === thinkId
-        ? { id: thinkId, role: "ai", kind: "text", text: playbookResponse(pb, companyName) }
+        ? resolvePlaybookMessage(thinkId, pb)
         : m));
       setBusy(false);
     }, 1400);
@@ -335,6 +670,38 @@ export function AskFuelChatDrawer({
                 </div>
               </div>
             );
+            if (m.kind === "benchmark-flow") return (
+              <div key={m.id} className="afc-msg ai brief-wrap">
+                <BenchmarkFlowCard
+                  companyName={companyName}
+                  benchmark={benchmark}
+                  hasBenchmark={benchmarkReady}
+                  onOpenBenchmark={onOpenBenchmark}
+                />
+              </div>
+            );
+            if (m.kind === "pitch-deck-flow") return (
+              <div key={m.id} className="afc-msg ai brief-wrap">
+                <PitchDeckFlowCard
+                  companyName={companyName}
+                  pitchDeck={pitchDeck}
+                  uploading={pitchDeckUploading}
+                  onUploadPitchDeck={onUploadPitchDeck}
+                  onDiscardPitchDeck={onDiscardPitchDeck}
+                  onSubmitPitchDeck={runPitchDeckEvaluation}
+                />
+              </div>
+            );
+            if (m.kind === "pitch-deck-eval") return (
+              <div key={m.id} className="afc-msg ai brief-wrap">
+                <PitchDeckEvalCard
+                  companyName={companyName}
+                  deckName={m.deckName}
+                  evaluation={m.evaluation}
+                  onOpenDataRoom={onOpenDataRoom}
+                />
+              </div>
+            );
             return <div key={m.id} className="afc-msg ai">{m.text}</div>;
           })}
         </div>
@@ -404,19 +771,23 @@ export function AskFuelChatDrawer({
   );
 }
 
-function playbookResponse(pb: Playbook, company: string): string {
+function resolvePlaybookMessage(id: string, pb: Playbook): ChatMsg {
+  if (pb.id === "kpi-benchmark") return { id, role: "ai", kind: "benchmark-flow" };
+  if (pb.id === "pitch-deck-eval") return { id, role: "ai", kind: "pitch-deck-flow" };
+  return { id, role: "ai", kind: "text", text: playbookResponse(pb) };
+}
+
+function playbookResponse(pb: Playbook): string {
   const map: Record<string, string> = {
-    "kpi-benchmark": `KPI Benchmark for ${company}: headline metrics confirmed against the seed/early-growth cohort. The two areas most off-pace are ARR growth (bottom decile vs p25 of 22%) and retention (logo + NRR well below the 90%/100% healthy floor). Run Generate brief for the full breakdown and suggested initiatives.`,
-    "pitch-deck-eval": `Pitch Deck Evaluation for ${company}: no deck is attached yet. Upload a deck in the Data Room and I'll score it against the rubric — problem, market, traction, team, ask, and narrative quality — and flag the slides that will draw investor questions.`,
-    "finance-assessment": `Finance Assessment for ${company}: capital efficiency is the headline risk — burn multiple and CAC payback are both far outside healthy ranges, and several finance inputs look like they're missing $K/$M scale. Priority initiatives: metrics audit, then a GTM economics reset. See Generate brief for the full finance section.`,
-    "marketing-assessment": `Marketing Assessment for ${company}: with growth in the bottom decile, top-of-funnel and lifecycle are the levers. Channel mix and retention need the most attention. I'd propose a lower-CAC acquisition redesign and an expansion-revenue motion across the existing base.`,
-    "product-eng-assessment": `Product & Engineering Assessment for ${company}: add the Development details (ship cadence, team shape, architecture maturity) in the overview to sharpen this read. On current signals, roadmap discipline and throughput are the areas to instrument first.`,
-    "revops-assessment": `RevOps Assessment for ${company}: forecast confidence and pipeline hygiene are the gaps. Stand up CAC/LTV/NRR reporting and a clean billing motion before the next board cycle.`,
-    "retention-deep-dive": `Retention Deep Dive for ${company}: logo and net revenue retention are both critically low — this points to near-total churn or a PMF gap. Recommend an emergency cohort analysis and a structured save/renewal playbook.`,
-    "gtm-economics": `GTM Economics Review for ${company}: CAC payback is multiples beyond a healthy window. Audit channel spend, ICP fit, and sales-cycle length to redesign a lower-CAC path.`,
-    "fundraise-readiness": `Fundraising Readiness for ${company}: stress-test cash and burn first — runway looks tight at face value. Model bridge scenarios and decide whether to open investor intros now while leverage remains.`,
-    "competitor-scan": `Competitive Landscape Scan for ${company}: a niche category with real defensibility. Sharpen positioning against the nearest substitutes and use the differentiation angle to open enterprise channels.`,
-    "board-update": `Board Update Draft for ${company}: leading with the data-quality flag and runway risk, followed by the two retention/growth risks and the metrics-audit initiative, would give the board an honest, action-led read.`,
+    "finance-assessment": `Finance Assessment: capital efficiency is the headline risk — burn multiple and CAC payback are both far outside healthy ranges, and several finance inputs look like they're missing $K/$M scale. Priority initiatives: metrics audit, then a GTM economics reset. See Generate brief for the full finance section.`,
+    "marketing-assessment": `Marketing Assessment: with growth in the bottom decile, top-of-funnel and lifecycle are the levers. Channel mix and retention need the most attention. I'd propose a lower-CAC acquisition redesign and an expansion-revenue motion across the existing base.`,
+    "product-eng-assessment": `Product & Engineering Assessment: add the Development details (ship cadence, team shape, architecture maturity) in the overview to sharpen this read. On current signals, roadmap discipline and throughput are the areas to instrument first.`,
+    "revops-assessment": `RevOps Assessment: forecast confidence and pipeline hygiene are the gaps. Stand up CAC/LTV/NRR reporting and a clean billing motion before the next board cycle.`,
+    "retention-deep-dive": `Retention Deep Dive: logo and net revenue retention are both critically low — this points to near-total churn or a PMF gap. Recommend an emergency cohort analysis and a structured save/renewal playbook.`,
+    "gtm-economics": `GTM Economics Review: CAC payback is multiples beyond a healthy window. Audit channel spend, ICP fit, and sales-cycle length to redesign a lower-CAC path.`,
+    "fundraise-readiness": `Fundraising Readiness: stress-test cash and burn first — runway looks tight at face value. Model bridge scenarios and decide whether to open investor intros now while leverage remains.`,
+    "competitor-scan": `Competitive Landscape Scan: a niche category with real defensibility. Sharpen positioning against the nearest substitutes and use the differentiation angle to open enterprise channels.`,
+    "board-update": `Board Update Draft: leading with the data-quality flag and runway risk, followed by the two retention/growth risks and the metrics-audit initiative, would give the board an honest, action-led read.`,
   };
-  return map[pb.id] || `${pb.name} for ${company}: queued. Run Generate brief for the full structured read.`;
+  return map[pb.id] || `${pb.name}: queued. Run Generate brief for the full structured read.`;
 }

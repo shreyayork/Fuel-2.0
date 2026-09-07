@@ -90,9 +90,31 @@ export const EMPTY_EARNED_PROFILE_CREDITS: EarnedProfileCredits = {
 };
 
 const STORAGE_PREFIX = "fuel-profile-credits-earned:";
+const CREDIT_TOAST_SEEN_PREFIX = "fuel-profile-credit-toast-seen:";
 
 function storageKey(companyKey: string) {
   return `${STORAGE_PREFIX}${companyKey.trim().toLowerCase() || "default"}`;
+}
+
+function creditToastSeenKey(companyKey: string) {
+  return `${CREDIT_TOAST_SEEN_PREFIX}${companyKey.trim().toLowerCase() || "default"}`;
+}
+
+/** Credit celebration modal — once per company after the first unlock. */
+export function hasSeenProfileCreditRewardToast(companyKey = "default"): boolean {
+  try {
+    return window.localStorage.getItem(creditToastSeenKey(companyKey)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markProfileCreditRewardToastSeen(companyKey = "default") {
+  try {
+    window.localStorage.setItem(creditToastSeenKey(companyKey), "1");
+  } catch {
+    /* ignore quota errors in preview */
+  }
 }
 
 export function getModuleReward(module: ProfileModuleId): number {
@@ -289,8 +311,12 @@ export function tryMarkBenchmarkEarned(companyKey = "default"): {
   reward: ProfileCreditReward | null;
 } {
   const current = loadEarnedProfileCredits(companyKey);
-  if (current.benchmark && current.benchmarkViaSubmit) {
-    return { earned: current, reward: null };
+  if (current.benchmarkViaSubmit || current.benchmark) {
+    // Already earned (or legacy-marked) — keep flags consistent, never re-toast.
+    const earned = current.benchmark && current.benchmarkViaSubmit
+      ? current
+      : markBenchmarkEarned(companyKey);
+    return { earned, reward: null };
   }
   const earned = markBenchmarkEarned(companyKey);
   return {

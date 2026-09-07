@@ -31,6 +31,8 @@ import {
   sumModuleRewards,
   tryMarkBenchmarkEarned,
   tryMarkIntelligenceSourcesEarned,
+  hasSeenProfileCreditRewardToast,
+  markProfileCreditRewardToastSeen,
   type EarnedProfileCredits,
   type ProfileCreditReward,
   type ProfileModuleId,
@@ -3284,6 +3286,20 @@ function upsertDocumentSlot(
   }
 
   return [...slots, { typeId: params.typeId, typeLabel: params.typeLabel, current: record, history: [] }];
+}
+
+function clearDocumentSlotCurrent(slots: DataRoomDocumentSlot[], typeId: string): DataRoomDocumentSlot[] {
+  return slots
+    .map(slot => {
+      if (slot.typeId !== typeId) return slot;
+      if (slot.current?.downloadUrl) URL.revokeObjectURL(slot.current.downloadUrl);
+      return {
+        ...slot,
+        current: null,
+        history: slot.current ? [slot.current, ...slot.history] : slot.history,
+      };
+    })
+    .filter(slot => slot.current != null || slot.history.length > 0);
 }
 
 function getFileFormat(fileName: string) {
@@ -9753,6 +9769,7 @@ function PatriotPayJourneyInner({
   const [benchmarkDrawerOpen, setBenchmarkDrawerOpen] = useState(false);
   const [benchmarkDrawerElevated, setBenchmarkDrawerElevated] = useState(false);
   const [benchmarkEditRequestKey, setBenchmarkEditRequestKey] = useState(0);
+  const [benchmarkEditSide, setBenchmarkEditSide] = useState<"left" | "right">("right");
   const [profileDrawerSection, setProfileDrawerSection] = useState<ProfileDrawerSection>("company");
   const [profileDrawerResetKey, setProfileDrawerResetKey] = useState(0);
   const initialFounderProfilePromptDue = persona !== "investor"
@@ -9770,8 +9787,20 @@ function PatriotPayJourneyInner({
     [initialOnboardingAnswers],
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const creditToastCompanyKeyRef = useRef(FOUNDER_COMPANY.id);
   const showProfileCreditReward = useCallback((reward: ProfileCreditReward | null) => {
-    if (reward) setProfileCreditReward(reward);
+    if (!reward || reward.amount <= 0) return;
+    const companyKey = creditToastCompanyKeyRef.current;
+    if (hasSeenProfileCreditRewardToast(companyKey)) return;
+    // After the first unlock celebration, later milestones stay silent.
+    const earnedNow = loadEarnedProfileCredits(companyKey);
+    const earnedTotal = computeCreditBalance(earnedNow) - PROFILE_STARTING_CREDITS;
+    if (earnedTotal > reward.amount) {
+      markProfileCreditRewardToastSeen(companyKey);
+      return;
+    }
+    markProfileCreditRewardToastSeen(companyKey);
+    setProfileCreditReward(reward);
   }, []);
   const openBenchmarkDrawer = useCallback(() => {
     // Company profile metrics are editable for own company; third-party allows private investor benchmark only.
@@ -9840,12 +9869,14 @@ function PatriotPayJourneyInner({
   }, [reopenProfilePreviewAfterBenchmark]);
 
   const handleBenchmarkEditClosedFromPreview = useCallback(() => {
+    setBenchmarkEditSide("right");
     reopenProfilePreviewAfterBenchmark();
   }, [reopenProfilePreviewAfterBenchmark]);
 
   const handleEditBenchmarkFromPreview = useCallback(() => {
     editBenchmarkFromPreviewRef.current = true;
     setProfileDrawerOpen(false);
+    setBenchmarkEditSide("right");
 
     if (activePage === "scorecard-v2") {
       window.requestAnimationFrame(() => {
@@ -9949,6 +9980,13 @@ function PatriotPayJourneyInner({
       logoUrl: resolveCompanyLogoUrl(next),
     };
   });
+  creditToastCompanyKeyRef.current = selectedCompany.id;
+  useEffect(() => {
+    const earned = loadEarnedProfileCredits(selectedCompany.id);
+    if (computeCreditBalance(earned) > PROFILE_STARTING_CREDITS) {
+      markProfileCreditRewardToastSeen(selectedCompany.id);
+    }
+  }, [selectedCompany.id]);
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
   const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(() =>
     loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission,
@@ -11955,6 +11993,7 @@ function PatriotPayJourneyInner({
               reloadLandingActive={reloadLandingActive}
               tourCompleteSignal={tourCompleteSignal}
               benchmarkEditRequestKey={benchmarkEditRequestKey}
+              benchmarkEditSide={benchmarkEditSide}
               onBenchmarkEditClosed={handleBenchmarkEditClosedFromPreview}
               onOpenProfilePreview={openProfilePreview}
               onLandingContentRestore={() => {
@@ -12069,6 +12108,50 @@ function PatriotPayJourneyInner({
         onClose={() => setAskFuelOpen(false)}
         companyName={selectedCompany.displayName}
         benchmark={scorecardBenchmarkForm}
+        hasBenchmark={hasFilledBenchmarkMetric(scorecardBenchmarkForm)}
+        onOpenBenchmark={() => {
+          setAskFuelOpen(false);
+          setActivePage("scorecard-v2");
+          setBenchmarkEditSide("right");
+          setBenchmarkEditRequestKey(key => key + 1);
+        }}
+        pitchDeck={(() => {
+          const current = documentSlots.find(slot => slot.typeId === "pitch_deck")?.current;
+          if (!current) return null;
+          return {
+            id: current.id,
+            name: current.name,
+            format: current.format,
+            uploadedAt: current.uploadedAt,
+            downloadUrl: current.downloadUrl,
+          };
+        })()}
+        pitchDeckUploading={processingDocumentTypeId === "pitch_deck"}
+        onUploadPitchDeck={(file) => {
+          // Store in Data Room without auto-extracting or credit toast — Generate intelligence runs on submit.
+          setProcessingDocumentTypeId("pitch_deck");
+          window.setTimeout(() => {
+            setDocumentSlots(previous => upsertDocumentSlot(previous, {
+              typeId: "pitch_deck",
+              typeLabel: "Pitch deck",
+              file,
+              source: "Ask Fuel AI · Pitch deck upload",
+              intelligenceIds: [],
+              intelligenceCount: 0,
+            }));
+            setProcessingDocumentTypeId(null);
+          }, 900);
+        }}
+        onDiscardPitchDeck={() => {
+          setDocumentSlots(previous => clearDocumentSlotCurrent(previous, "pitch_deck"));
+        }}
+        onGeneratePitchDeckIntelligence={() => {
+          handleGenerateFromPending("pending-doc-pitch_deck");
+        }}
+        onOpenDataRoom={() => {
+          setAskFuelOpen(false);
+          setActivePage("data-room");
+        }}
         onBriefGenerated={setGeneratedBrief}
         onViewInitiatives={() => { setAskFuelOpen(false); setActivePage("initiatives"); }}
         focusBriefSignal={briefFocusSignal}

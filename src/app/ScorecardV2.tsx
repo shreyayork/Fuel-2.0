@@ -345,6 +345,8 @@ export type ScorecardV2Props = {
   tourCompleteSignal?: number;
   /** Parent requests opening the benchmark edit drawer (e.g. from profile preview). */
   benchmarkEditRequestKey?: number;
+  /** Dock the benchmark edit drawer left (e.g. beside Ask Fuel AI) or right. */
+  benchmarkEditSide?: "left" | "right";
   /** Fires when the benchmark edit drawer closes. */
   onBenchmarkEditClosed?: () => void;
   /** Opens read-only profile preview (optionally on a specific tab). */
@@ -6961,7 +6963,7 @@ function BenchmarkDrilldownView({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function BenchmarkEditDrawer({
-  open, onClose, benchmark, companyName, onSave, elevatedScrim = false,
+  open, onClose, benchmark, companyName, onSave, elevatedScrim = false, side = "right",
 }: {
   open: boolean;
   onClose: () => void;
@@ -6969,6 +6971,7 @@ export function BenchmarkEditDrawer({
   companyName: string;
   onSave: (next: OnboardingBenchmarkInput) => void;
   elevatedScrim?: boolean;
+  side?: "left" | "right";
 }) {
   const { requestSaveExit, dialog: saveExitConfirmDialog } = useSaveExitConfirm();
   const [draft, setDraft] = useState<OnboardingBenchmarkInput>(benchmark);
@@ -7005,16 +7008,19 @@ export function BenchmarkEditDrawer({
     requestSaveExit(save);
   };
 
+  const sideClass = side === "left" ? " bench-drawer-scrim--left" : "";
+  const drawerSideClass = side === "left" ? " bench-drawer--left" : "";
+
   return createPortal(
     <>
     <div
-      className={`bench-drawer-scrim bench-drawer-scrim--portal${elevatedScrim ? " bench-drawer-scrim--elevated" : ""}`}
+      className={`bench-drawer-scrim bench-drawer-scrim--portal${elevatedScrim ? " bench-drawer-scrim--elevated" : ""}${sideClass}`}
       onPointerDown={handleScrimPointerDown}
       role="presentation"
     >
       <aside
         ref={dialogRef}
-        className="bench-drawer"
+        className={`bench-drawer${drawerSideClass}`}
         {...drawerPanelPointerProps()}
         role="dialog"
         aria-modal="true"
@@ -7217,6 +7223,7 @@ export default function ScorecardV2({
   reloadLandingActive = false,
   tourCompleteSignal = 0,
   benchmarkEditRequestKey = 0,
+  benchmarkEditSide = "right",
   onBenchmarkEditClosed,
   onOpenProfilePreview,
 }: ScorecardV2Props) {
@@ -7400,8 +7407,11 @@ export default function ScorecardV2({
 
   useEffect(() => {
     if (!benchmarkEditRequestKey) return;
-    setBenchmarkEditElevated(true);
+    setActiveView("overview");
+    setBenchmarkEditElevated(benchmarkEditSide !== "left");
     setEditBenchmarkOpen(true);
+    // Open only when the parent bumps the request key; side is read from the latest render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [benchmarkEditRequestKey]);
 
   const openRecommendedSources = useCallback(() => {
@@ -7550,6 +7560,7 @@ export default function ScorecardV2({
         open={editBenchmarkOpen}
         onClose={closeBenchmarkEditDrawer}
         elevatedScrim={benchmarkEditElevated}
+        side={benchmarkEditSide}
         benchmark={benchmarkValues}
         companyName={cName}
         onSave={next => {
