@@ -124,8 +124,21 @@ export type DemographicAllocationSlice = {
   color: string;
 };
 
-const SECTOR_COLORS = ["#00B48A", "#4A90B8", "#C9A227", "#8FA99A", "#C98A8A"];
-const DEMOGRAPHIC_COLORS = ["#00B48A", "#4A90B8", "#C9A227", "#8FA99A", "#C98A8A"];
+/** Theme-aware via --inv-chart-* on .investor-dashboard (see investor.css). */
+const SECTOR_COLORS = [
+  "var(--inv-chart-1)",
+  "var(--inv-chart-2)",
+  "var(--inv-chart-3)",
+  "var(--inv-chart-4)",
+  "var(--inv-chart-5)",
+];
+const DEMOGRAPHIC_COLORS = [
+  "var(--inv-chart-1)",
+  "var(--inv-chart-2)",
+  "var(--inv-chart-3)",
+  "var(--inv-chart-4)",
+  "var(--inv-chart-5)",
+];
 
 export const PIPELINE_BOARDS: PipelineBoard[] = [
   { id: "growth_fund", label: "Growth Fund" },

@@ -762,12 +762,13 @@ function DemographicAmountLabel(props: {
   if (value == null || value <= 0) return null;
   return (
     <text
+      className="investor-demo-amount-label"
       x={x + 10}
       y={y + height / 2}
-      fill="var(--panel-strong)"
       fontSize={11}
       fontWeight={800}
       dominantBaseline="middle"
+      paintOrder="stroke"
     >
       {formatUsdCompact(value)}
     </text>
@@ -872,14 +873,14 @@ function DemographicAllocationChart({ slices }: { slices: DemographicAllocationS
               tick={{ fill: "var(--panel-strong)", fontSize: 13, fontWeight: 700 }}
             />
             <Tooltip
-              cursor={{ fill: "rgba(255, 255, 255, 0.03)" }}
+              cursor={{ fill: "var(--inv-chart-cursor)" }}
               content={<DemographicTooltip />}
             />
-            <Bar dataKey="amount" radius={[0, 8, 8, 0]} maxBarSize={28} background={{ fill: "var(--panel-inset)", radius: [0, 8, 8, 0] }}>
-              {data.map((slice, index) => (
+            <Bar dataKey="amount" radius={[0, 8, 8, 0]} maxBarSize={28} background={{ fill: "var(--inv-chart-track)", radius: [0, 8, 8, 0] }}>
+              {data.map((slice) => (
                 <Cell
                   key={slice.region}
-                  fill={index === 0 ? "var(--status-good)" : slice.color}
+                  fill={slice.color}
                 />
               ))}
               <LabelList dataKey="amount" content={<DemographicAmountLabel />} />
@@ -1613,9 +1614,9 @@ function BenchmarkRangeChart({
         >
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="var(--status-bad, #e05c5c)" stopOpacity="0.38" />
-              <stop offset="48%" stopColor="var(--status-watch, #f5a623)" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="var(--status-good, #12b886)" stopOpacity="0.42" />
+              <stop className="investor-bench-range-stop-bad" offset="0%" />
+              <stop className="investor-bench-range-stop-watch" offset="48%" />
+              <stop className="investor-bench-range-stop-good" offset="100%" />
             </linearGradient>
           </defs>
 
