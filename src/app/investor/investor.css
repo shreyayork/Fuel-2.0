@@ -18,6 +18,14 @@
   --inv-h1: 24px;
   --inv-btn: 11px;
   --inv-kpi: 22px;
+  /* Allocation / demographics series — light defaults */
+  --inv-chart-1: #00b48a;
+  --inv-chart-2: #3d8ab8;
+  --inv-chart-3: #c9a227;
+  --inv-chart-4: #7c72e8;
+  --inv-chart-5: #d47878;
+  --inv-chart-track: color-mix(in srgb, var(--panel-border) 55%, var(--panel));
+  --inv-chart-cursor: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .investor-dashboard {
@@ -589,6 +597,27 @@
   color: var(--panel-muted);
   font-size: 12px;
   font-style: normal;
+}
+
+.investor-demo-amount-label {
+  fill: #ffffff;
+  stroke: rgba(7, 25, 20, 0.42);
+  stroke-width: 2.75px;
+}
+
+.investor-bench-range-stop-bad {
+  stop-color: var(--status-bad, #e05c5c);
+  stop-opacity: 0.4;
+}
+
+.investor-bench-range-stop-watch {
+  stop-color: var(--status-watch, #f5a623);
+  stop-opacity: 0.32;
+}
+
+.investor-bench-range-stop-good {
+  stop-color: var(--status-good, #12b886);
+  stop-opacity: 0.44;
 }
 
 .investor-home-suggestion-reason {
@@ -4064,14 +4093,14 @@
 
 .investor-bench-range-chart-line {
   fill: none;
-  stroke: rgba(15, 23, 42, 0.22);
+  stroke: color-mix(in srgb, var(--panel-strong) 22%, transparent);
   stroke-width: 0.35;
   vector-effect: non-scaling-stroke;
 }
 
 .investor-bench-range-chart-band {
-  fill: rgba(255, 255, 255, 0.28);
-  stroke: rgba(255, 255, 255, 0.5);
+  fill: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.22));
+  stroke: color-mix(in srgb, var(--accent) 35%, rgba(255, 255, 255, 0.45));
   stroke-width: 0.2;
 }
 
@@ -4112,13 +4141,13 @@
 }
 
 .investor-bench-range-chart-portfolio-line {
-  stroke: var(--panel-strong, #1a1a2e);
+  stroke: var(--panel-strong);
   stroke-width: 0.45;
   vector-effect: non-scaling-stroke;
 }
 
 .investor-bench-range-chart-hover-line {
-  stroke: rgba(15, 23, 42, 0.35);
+  stroke: color-mix(in srgb, var(--panel-strong) 40%, transparent);
   stroke-dasharray: 1.2 1.2;
   stroke-width: 0.35;
   vector-effect: non-scaling-stroke;
@@ -4234,7 +4263,7 @@
 
 .investor-bench-range-tier-chip {
   align-items: center;
-  background: var(--panel-surface, #fff);
+  background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   color: var(--panel-muted);
@@ -4245,11 +4274,13 @@
   gap: 5px;
   line-height: 1;
   padding: 4px 9px 4px 7px;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 .investor-bench-range-tier-chip:hover {
-  background: var(--panel-inset, #f6f7f9);
+  background: var(--panel-inset);
+  border-color: var(--border-strong, var(--panel-border));
+  color: var(--panel-body, var(--panel-muted));
 }
 
 .investor-bench-range-tier-chip:focus-visible {
@@ -4284,15 +4315,81 @@
 }
 
 .investor-bench-range-tier-chip.is-strong {
-  border-color: rgba(18, 184, 134, 0.28);
+  background: var(--status-good-dim);
+  border-color: var(--status-good-line);
 }
 
 .investor-bench-range-tier-chip.is-watch {
-  border-color: rgba(245, 166, 35, 0.32);
+  background: var(--status-watch-dim);
+  border-color: var(--status-watch-line);
 }
 
 .investor-bench-range-tier-chip.is-concern {
-  border-color: rgba(224, 92, 92, 0.3);
+  background: var(--status-bad-dim);
+  border-color: var(--status-bad-line);
+}
+
+.investor-bench-range-tier-chip.is-strong:hover {
+  background: color-mix(in srgb, var(--status-good) 18%, var(--panel));
+}
+
+.investor-bench-range-tier-chip.is-watch:hover {
+  background: color-mix(in srgb, var(--status-watch) 18%, var(--panel));
+}
+
+.investor-bench-range-tier-chip.is-concern:hover {
+  background: color-mix(in srgb, var(--status-bad) 18%, var(--panel));
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip {
+  box-shadow: none;
+  color: color-mix(in srgb, var(--panel-strong) 78%, var(--panel-muted));
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip strong {
+  color: #f5f7f6;
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-strong {
+  background: color-mix(in srgb, #3dffc0 28%, var(--panel));
+  border-color: color-mix(in srgb, #3dffc0 48%, var(--panel-border));
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-watch {
+  background: color-mix(in srgb, #ffc14d 28%, var(--panel));
+  border-color: color-mix(in srgb, #ffc14d 48%, var(--panel-border));
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-concern {
+  background: color-mix(in srgb, #ff7a7a 28%, var(--panel));
+  border-color: color-mix(in srgb, #ff7a7a 48%, var(--panel-border));
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-strong:hover {
+  background: color-mix(in srgb, #3dffc0 38%, var(--panel));
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-watch:hover {
+  background: color-mix(in srgb, #ffc14d 38%, var(--panel));
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-concern:hover {
+  background: color-mix(in srgb, #ff7a7a 38%, var(--panel));
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-strong .investor-bench-range-tier-chip-dot {
+  background: #3dffc0;
+  box-shadow: 0 0 6px rgba(61, 255, 192, 0.45);
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-watch .investor-bench-range-tier-chip-dot {
+  background: #ffc14d;
+  box-shadow: 0 0 6px rgba(255, 193, 77, 0.4);
+}
+
+html[data-theme="dark"] .investor-bench-range-tier-chip.is-concern .investor-bench-range-tier-chip-dot {
+  background: #ff7a7a;
+  box-shadow: 0 0 6px rgba(255, 122, 122, 0.4);
 }
 
 /* Legacy bubble range mode (unused — kept for reference) */
@@ -5884,6 +5981,69 @@ html[data-theme="dark"] .investor-portfolios-header-btn.is-cancel {
   background: var(--panel);
   border-color: var(--panel-border);
   box-shadow: none;
+}
+
+/* Investment allocation + benchmark density graphs — dark mode contrast */
+html[data-theme="dark"] .investor-dashboard {
+  --inv-chart-1: #3dffc0;
+  --inv-chart-2: #6bc8ff;
+  --inv-chart-3: #ffd45c;
+  --inv-chart-4: #b8a8ff;
+  --inv-chart-5: #ff8f8f;
+  --inv-chart-track: color-mix(in srgb, var(--panel-border) 55%, #0b1720);
+  --inv-chart-cursor: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+html[data-theme="dark"] .investor-demo-amount-label {
+  stroke: rgba(4, 14, 18, 0.55);
+}
+
+html[data-theme="dark"] .investor-sector-arc {
+  filter: saturate(1.2) brightness(1.12);
+}
+
+html[data-theme="dark"] .investor-bench-range-stop-bad {
+  stop-color: #ff6b6b;
+  stop-opacity: 0.92;
+}
+
+html[data-theme="dark"] .investor-bench-range-stop-watch {
+  stop-color: #ffc14d;
+  stop-opacity: 0.88;
+}
+
+html[data-theme="dark"] .investor-bench-range-stop-good {
+  stop-color: #3dffc0;
+  stop-opacity: 0.95;
+}
+
+html[data-theme="dark"] .investor-bench-range-chart-area {
+  filter: saturate(1.25) brightness(1.15);
+  opacity: 1;
+}
+
+html[data-theme="dark"] .investor-bench-range-chart-band {
+  fill: color-mix(in srgb, #3dffc0 22%, transparent);
+  stroke: color-mix(in srgb, #3dffc0 65%, transparent);
+}
+
+html[data-theme="dark"] .investor-bench-range-chart-limitations-band {
+  background: color-mix(in srgb, #3dffc0 48%, transparent);
+  border-color: color-mix(in srgb, #3dffc0 70%, var(--panel-border));
+  box-shadow: none;
+}
+
+html[data-theme="dark"] .investor-bench-range-chart-line {
+  stroke: color-mix(in srgb, #f2f5f2 55%, transparent);
+}
+
+html[data-theme="dark"] .investor-bench-range-chart-hover-line {
+  stroke: color-mix(in srgb, #f2f5f2 65%, transparent);
+}
+
+html[data-theme="dark"] .investor-bench-range-chart-portfolio-line {
+  stroke: #3dffc0;
+  stroke-width: 0.55;
 }
 
 html[data-theme="dark"] .investor-portfolios-header-btn.is-cancel:hover {
