@@ -178,8 +178,28 @@ const BENCHMARK_PREVIEW_KEYS: { key: keyof BenchmarkFormValues; label: string }[
   { key: "burnMultiple", label: "Burn multiple" },
 ];
 
+/** Core numeric metrics used to judge whether the cohort read is complete or limited. */
+const BENCHMARK_CORE_KEYS: (keyof BenchmarkFormValues)[] = [
+  "headcount",
+  "paidCustomers",
+  "arr",
+  "arrGrowth",
+  "nrr",
+  "logoRetention",
+  "grossMargin",
+  "cacPayback",
+  "burnMultiple",
+  "ruleOf40",
+  "cashOnHand",
+  "monthlyBurn",
+];
+
 function hasBenchmarkMetrics(form: BenchmarkFormValues): boolean {
   return BENCHMARK_PREVIEW_KEYS.some(({ key }) => String(form[key] ?? "").trim().length > 0);
+}
+
+function countFilledBenchmarkCoreMetrics(form: BenchmarkFormValues): number {
+  return BENCHMARK_CORE_KEYS.filter(key => String(form[key] ?? "").trim().length > 0).length;
 }
 
 function BenchmarkFlowCard({
@@ -201,6 +221,9 @@ function BenchmarkFlowCard({
       .filter(row => row.value),
     [benchmark],
   );
+  const filledCore = useMemo(() => countFilledBenchmarkCoreMetrics(benchmark), [benchmark]);
+  const coreTotal = BENCHMARK_CORE_KEYS.length;
+  const hasLimitedBenchmarkData = filledCore > 0 && filledCore < coreTotal;
 
   if (!hasBenchmark) {
     return (
@@ -222,10 +245,22 @@ function BenchmarkFlowCard({
   return (
     <div className="afc-flow-card is-ready">
       <div className="afc-flow-eyebrow">KPI Benchmark</div>
-      <strong className="afc-flow-title">{companyName} benchmark is live</strong>
+      <strong className="afc-flow-title">
+        {hasLimitedBenchmarkData
+          ? `${companyName} benchmark is partial`
+          : `${companyName} benchmark is live`}
+      </strong>
       <p className="afc-flow-copy">
-        Headline metrics are confirmed against the seed/early-growth cohort. Re-launch anytime to update inputs and regenerate the comparison.
+        {hasLimitedBenchmarkData
+          ? `Fuel can still run a directional cohort read from the metrics on file. Add the remaining fields for a sharper peer comparison.`
+          : `Headline metrics are confirmed against the seed/early-growth cohort. Re-launch anytime to update inputs and regenerate the comparison.`}
       </p>
+      {hasLimitedBenchmarkData ? (
+        <p className="afc-flow-notice" role="status">
+          Limited benchmark data — {filledCore} of {coreTotal} core metrics on file. Comparisons may miss
+          retention, efficiency, or capital context until the rest are filled.
+        </p>
+      ) : null}
       {preview.length ? (
         <div className="afc-flow-metrics">
           {preview.slice(0, 6).map(row => (
@@ -238,10 +273,10 @@ function BenchmarkFlowCard({
       ) : null}
       <div className="afc-flow-actions">
         <button type="button" className="afc-brief-btn primary" onClick={() => onRunBenchmark?.()}>
-          Generate cohort comparison
+          Run the playbook
         </button>
         <button type="button" className="afc-brief-btn" onClick={() => onOpenBenchmark?.()}>
-          Edit metrics
+          Add information and run the playbook
         </button>
       </div>
     </div>

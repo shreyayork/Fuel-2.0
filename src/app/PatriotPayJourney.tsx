@@ -10062,6 +10062,8 @@ function PatriotPayJourneyInner({
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
   const [askFuelBenchmarkSubmitSignal, setAskFuelBenchmarkSubmitSignal] = useState(0);
+  /** Set when Ask Fuel opens the benchmark form so submit can reopen chat + generate the AI reply. */
+  const askFuelAwaitingBenchmarkRef = useRef(false);
   const { tryAction } = useCredits();
   const isOnCompanyWorkspace = activePage !== "investor-home"
     && activePage !== "investor-portfolios"
@@ -10592,6 +10594,13 @@ function PatriotPayJourneyInner({
     setBenchmarkBlinkIds(submission.intelligenceIds);
     window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
   };
+  const reciprocateAskFuelBenchmarkSubmit = useCallback(() => {
+    if (!askFuelAwaitingBenchmarkRef.current) return;
+    askFuelAwaitingBenchmarkRef.current = false;
+    setAskFuelOpen(true);
+    setAskFuelBenchmarkSubmitSignal(signal => signal + 1);
+  }, []);
+
   const handleBenchmarkSubmit = (values: BenchmarkFormValues) => {
     if (usesPerCompanyWorkspace) {
       applyBenchmarkSubmission(values, selectedCompany.id);
@@ -10602,9 +10611,7 @@ function PatriotPayJourneyInner({
     setEarnedProfileCredits(earned);
     setProfileDetailsSyncKey(key => key + 1);
     startOverviewBuild("summary", "single");
-    if (askFuelOpen) {
-      setAskFuelBenchmarkSubmitSignal(signal => signal + 1);
-    }
+    reciprocateAskFuelBenchmarkSubmit();
   };
   const handleViewIntelligenceFromDataRoom = (record: DataRoomFileRecord) => {
     if (!record.intelligenceIds.length) return;
@@ -11896,6 +11903,7 @@ function PatriotPayJourneyInner({
               onBenchmarkSaved={() => {
                 setProfileDetailsSyncKey(key => key + 1);
                 startOverviewBuild("summary", "single");
+                reciprocateAskFuelBenchmarkSubmit();
               }}
               onBenchmarkEarlyUnlock={() => {
                 const { earned } = tryMarkBenchmarkEarned(selectedCompany.id);
@@ -12173,7 +12181,8 @@ function PatriotPayJourneyInner({
         benchmark={scorecardBenchmarkForm}
         hasBenchmark={hasFilledBenchmarkMetric(scorecardBenchmarkForm)}
         onOpenBenchmark={() => {
-          // Open Complete Benchmark over Ask Fuel; defer so the CTA click cannot hit the new scrim.
+          // Existing Complete Benchmark drawer (Save and exit + Submit) over Ask Fuel.
+          askFuelAwaitingBenchmarkRef.current = true;
           setBenchmarkDrawerElevated(true);
           window.setTimeout(() => {
             setBenchmarkDrawerOpen(true);

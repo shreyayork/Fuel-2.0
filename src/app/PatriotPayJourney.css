@@ -25859,6 +25859,17 @@ html[data-theme="dark"] .sc-glance-score-popover.is-fixed.is-above::before {
   margin-top: 4px;
 }
 
+.afc-flow-notice {
+  background: color-mix(in srgb, var(--status-watch, #c4853a) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--status-watch, #c4853a) 28%, var(--panel-border));
+  border-radius: 8px;
+  color: var(--panel-body);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0 0 4px;
+  padding: 10px 12px;
+}
+
 .afc-flow-metrics {
   display: grid;
   gap: 8px;
