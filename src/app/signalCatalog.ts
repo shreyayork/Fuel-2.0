@@ -1,7 +1,9 @@
+import type { FuelIconName } from "./icons";
+
 export type SignalCategory = {
   key: string;
   label: string;
-  icon: string;
+  icon: FuelIconName;
   signals: SignalDef[];
 };
 
@@ -14,7 +16,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "growth",
     label: "Growth",
-    icon: "↑",
+    icon: "growth",
     signals: [
       { name: "ARR", unit: "usd" },
       { name: "ARR growth (QoQ)", unit: "pct" },
@@ -34,7 +36,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "retention",
     label: "Retention",
-    icon: "◈",
+    icon: "retention",
     signals: [
       { name: "ARR downsell rate", unit: "pct" },
       { name: "Churn rate", unit: "pct" },
@@ -49,7 +51,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "efficiency",
     label: "Efficiency",
-    icon: "⊘",
+    icon: "efficiency",
     signals: [
       { name: "Blended CAC ratio", unit: "ratio" },
       { name: "Burn multiple", unit: "ratio" },
@@ -70,7 +72,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "finance",
     label: "Finance",
-    icon: "$",
+    icon: "finance",
     signals: [
       { name: "ARR : capital raised", unit: "ratio" },
       { name: "Cash on hand", unit: "usd" },
@@ -89,7 +91,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "fundraising",
     label: "Fundraising",
-    icon: "◇",
+    icon: "fundraising",
     signals: [
       { name: "Actively fundraising" },
       { name: "Committed so far", unit: "usd" },
@@ -114,7 +116,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "gtm",
     label: "Go to market",
-    icon: "→",
+    icon: "gtm",
     signals: [
       { name: "ACV", unit: "usd" },
       { name: "AE productivity (new ARR / AE)", unit: "usd" },
@@ -135,7 +137,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "product",
     label: "Product",
-    icon: "⚙",
+    icon: "product",
     signals: [
       { name: "AI classification" },
       { name: "AI monetization status" },
@@ -151,7 +153,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "team",
     label: "Team",
-    icon: "○",
+    icon: "team",
     signals: [
       { name: "AE headcount", unit: "count" },
       { name: "ARR per FTE", unit: "usd" },
@@ -170,7 +172,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "strategic",
     label: "Strategic",
-    icon: "◉",
+    icon: "strategic",
     signals: [
       { name: "Competitive moat" },
       { name: "Financing source" },
@@ -183,7 +185,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "customer_success",
     label: "Customer Success",
-    icon: "◎",
+    icon: "customerSuccess",
     signals: [
       { name: "ARR by customer segment" },
       { name: "ARR by geography" },
@@ -193,7 +195,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "board_reporting",
     label: "Board Reporting",
-    icon: "▣",
+    icon: "boardReporting",
     signals: [
       { name: "Challenges (period)" },
       { name: "EBITDA-breakeven reached" },
@@ -205,7 +207,7 @@ export const SIGNAL_CATALOG: SignalCategory[] = [
   {
     key: "vendor_stack",
     label: "Vendor Stack",
-    icon: "⊞",
+    icon: "vendorStack",
     signals: [
       { name: "Banking partner" },
       { name: "Cap table platform" },

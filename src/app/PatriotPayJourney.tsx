@@ -111,7 +111,7 @@ import {
   dismissCrunchbaseProfileNotice,
   isCrunchbaseProfileNoticeDismissed,
 } from "./crunchbaseProfileNoticeStorage";
-import { FuelIcon, type FuelIconName } from "./icons";
+import { ConnectorIcon, FuelIcon, type FuelIconName } from "./icons";
 import { applyFuelTheme, readFuelTheme, type FuelTheme } from "./fuelTheme";
 import {
   buildYearOptions,
@@ -138,7 +138,7 @@ const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const tracks = [
   {
     id: "rd",
-    icon: "⚙",
+    icon: "development" as FuelIconName,
     iconBg: "rgba(18, 184, 134, 0.12)",
     iconColor: "var(--btn-primary-bg)",
     name: "Development",
@@ -172,7 +172,7 @@ const tracks = [
   },
   {
     id: "gtm",
-    icon: "↗",
+    icon: "gtm" as FuelIconName,
     iconBg: "rgba(229,181,68,0.12)",
     iconColor: "#D4924A",
     name: "Marketing",
@@ -201,7 +201,7 @@ const tracks = [
   },
   {
     id: "revops",
-    icon: "◎",
+    icon: "revops" as FuelIconName,
     iconBg: "rgba(167,139,250,0.12)",
     iconColor: "#8B76D4",
     name: "Revenue Operations",
@@ -227,7 +227,7 @@ const tracks = [
   },
   {
     id: "ga",
-    icon: "◈",
+    icon: "finops" as FuelIconName,
     iconBg: "rgba(107,117,112,0.1)",
     iconColor: "#6B7570",
     name: "Financial Advisory",
@@ -613,11 +613,11 @@ const gtmDashboardAccessOption = {
 };
 
 const yorkJourneyPaths = [
-  { label: "Development", detail: "Turn roadmap, design, QA, and release activity into signals and playbooks.", icon: "⚙" },
-  { label: "Marketing", detail: "Summarize traffic, paid media, SEO, and social into growth actions.", icon: "↗" },
-  { label: "RevOps", detail: "Connect CRM, pipeline, attribution, and CAC signals into operating rhythm.", icon: "◎" },
-  { label: "FinOps", detail: "Build forecast, runway, board reporting, and decision-ready finance foundations.", icon: "◈" },
-  { label: "Success", detail: "Compare your operating cadence with durable startup benchmarks.", icon: "◆" },
+  { label: "Development", detail: "Turn roadmap, design, QA, and release activity into signals and playbooks.", icon: "development" as FuelIconName },
+  { label: "Marketing", detail: "Summarize traffic, paid media, SEO, and social into growth actions.", icon: "gtm" as FuelIconName },
+  { label: "RevOps", detail: "Connect CRM, pipeline, attribution, and CAC signals into operating rhythm.", icon: "revops" as FuelIconName },
+  { label: "FinOps", detail: "Build forecast, runway, board reporting, and decision-ready finance foundations.", icon: "finops" as FuelIconName },
+  { label: "Success", detail: "Compare your operating cadence with durable startup benchmarks.", icon: "success" as FuelIconName },
 ];
 
 const yorkServiceBundles = [
@@ -1157,7 +1157,7 @@ function IntegrationSetupPage({
       >
         <div className="marketplace-card-art">
           <div className="integration-logo" style={{ background: `${integration.color}22`, color: integration.color }}>
-            {integration.icon}
+            <ConnectorIcon name={integration.id} size={22} />
           </div>
           <div className={`integration-check ${selected ? "selected" : ""}`}>{selected ? "✓" : "+"}</div>
         </div>
@@ -1222,7 +1222,7 @@ function IntegrationSetupPage({
           <div className="marketplace-hero-preview">
             {previewOptions.map((integration) => (
               <div key={`preview-${integration.id}`} style={{ color: integration.color }}>
-                {integration.icon}
+                <ConnectorIcon name={integration.id} size={18} />
               </div>
             ))}
           </div>
@@ -2553,7 +2553,9 @@ function JourneyEmptyState({ onConnectIntegrations }) {
 
     return (
       <button className={`journey-mini-integration ${selected ? "selected" : ""}`} key={option.id} onClick={() => toggleIntegration(option.id)}>
-        <div className="journey-mini-icon" style={{ color: option.color }}>{option.icon}</div>
+        <div className="journey-mini-icon" style={{ color: option.color }}>
+          <ConnectorIcon name={option.id} size={16} />
+        </div>
         <div>
           <span>{option.productType || option.group}</span>
           <strong>{option.name}</strong>
@@ -2594,7 +2596,7 @@ function JourneyEmptyState({ onConnectIntegrations }) {
               </div>
               {yorkJourneyPaths.map((path, index) => (
                 <div className={`journey-orbit-node node-${index + 1}`} key={path.label}>
-                  <em>{path.icon}</em>
+                  <em><FuelIcon name={path.icon} size={14} /></em>
                   <strong>{path.label}</strong>
                 </div>
               ))}
@@ -2622,7 +2624,7 @@ function JourneyEmptyState({ onConnectIntegrations }) {
               {yorkJourneyPaths.map((path, index) => (
                 <div className={`journey-roadmap-stop stop-${index + 1}`} key={path.label} style={{ animationDelay: `${index * 0.08}s` }}>
                   <div className="journey-roadmap-marker">
-                    <span>{path.icon}</span>
+                    <span><FuelIcon name={path.icon} size={14} /></span>
                   </div>
                   <div className="journey-roadmap-card">
                     <strong>{path.label}</strong>
@@ -2772,7 +2774,7 @@ function TrackRow({ track, index, isOpen, onToggle, onOpenDetail, barsAnimated, 
       >
         <div className="track-left">
           <div className="track-icon" style={{ background: track.iconBg, color: track.iconColor }}>
-            {track.icon}
+            <FuelIcon name={track.icon} size={16} />
           </div>
           <div>
             <div className="track-name">
@@ -4378,7 +4380,7 @@ function DocumentUploadDropdown({
       >
         <button
           type="button"
-          className={`${inline ? "document-upload-trigger-inline" : isCustomOnly ? "data-room-add-custom-btn" : "initiatives-primary-btn"} document-upload-trigger${isProcessing ? " processing" : ""}${open ? " is-open" : ""}${creditBlocked ? " credit-action-disabled" : ""}`}
+          className={`${inline ? "document-upload-trigger-inline" : isCustomOnly ? "data-room-add-custom-btn" : "initiatives-secondary-btn"} document-upload-trigger${isProcessing ? " processing" : ""}${open ? " is-open" : ""}${creditBlocked ? " credit-action-disabled" : ""}`}
           disabled={isProcessing}
           aria-expanded={open}
           aria-haspopup="listbox"
@@ -7544,6 +7546,15 @@ function countWorkspaceInitiatives(items: InitiativeRecord[]): number {
   return items.filter(item => normalizeInitiativeStatus(item.status) !== "Suggested").length;
 }
 
+function TabCount({ count, label }: { count: number; label: string }) {
+  if (count <= 0) return null;
+  return (
+    <span className="tab-count" aria-label={`${count} ${label}`}>
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function InitiativeAssigneesField({
   assignees,
   onChange,
@@ -9265,7 +9276,7 @@ function ContextFeedPage({
             <div className="context-setup-form">
               <div className="context-drawer-connector-head">
                 <div style={{ background: activeConnector?.color + "22", color: activeConnector?.color }}>
-                  {activeConnector?.icon}
+                  <ConnectorIcon name={activeConnector?.id ?? "connectors"} size={18} />
                 </div>
                 <p>{activeConnector?.description}</p>
               </div>
@@ -11158,6 +11169,35 @@ function PatriotPayJourneyInner({
     return countWorkspaceInitiatives(items);
   }, [usesPerCompanyWorkspace, investorInitiativesByCompany, selectedCompany.id, founderInitiatives]);
 
+  const dataRoomCount = useMemo(
+    () => (usesPerCompanyWorkspace ? 0 : countActiveDocuments(documentSlots)),
+    [usesPerCompanyWorkspace, documentSlots],
+  );
+
+  const intelligenceTabCount = useMemo(
+    () => investorScopedIntelligence.length,
+    [investorScopedIntelligence],
+  );
+
+  const contextFeedTabCount = useMemo(() => {
+    if (showPublicCompanyProfile) {
+      return getThirdPartyContextFeed(selectedCompany.id, selectedCompany.displayName).length;
+    }
+    return getPendingSources(manualPendingSources, documentSlots).length;
+  }, [
+    showPublicCompanyProfile,
+    selectedCompany.id,
+    selectedCompany.displayName,
+    manualPendingSources,
+    documentSlots,
+  ]);
+
+  const researchTabCount = useMemo(() => {
+    if (showPublicCompanyProfile) return 0;
+    // Research surfaces funding + company facts once the profile has content.
+    return profileComplete ? 2 : 0;
+  }, [showPublicCompanyProfile, profileComplete]);
+
   const mobileNavToggleButton = (
     <button
       type="button"
@@ -11546,6 +11586,7 @@ function PatriotPayJourneyInner({
             onClick={() => setActivePage("signals")}
           >
             Intelligence
+            <TabCount count={intelligenceTabCount} label="intelligence items" />
           </div>
           <div
             className={`tab ${activePage === "context-feed" ? "active" : ""}`}
@@ -11553,6 +11594,7 @@ function PatriotPayJourneyInner({
             onClick={() => setActivePage("context-feed")}
           >
             Context Feed
+            <TabCount count={contextFeedTabCount} label="context sources" />
           </div>
           <div
             className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
@@ -11564,17 +11606,14 @@ function PatriotPayJourneyInner({
             }}
           >
             Initiatives
-            {workspaceInitiativesCount > 0 ? (
-              <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>
-                {workspaceInitiativesCount}
-              </span>
-            ) : null}
+            <TabCount count={workspaceInitiativesCount} label="initiatives" />
           </div>
           <div
             className={`tab ${activePage === "overview" ? "active" : ""}`}
             onClick={() => setActivePage("overview")}
           >
             Research
+            <TabCount count={researchTabCount} label="research records" />
           </div>
           <div
             className={`tab ${activePage === "data-room" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "data-room" ? "tour-highlight" : ""}`}
@@ -11582,9 +11621,7 @@ function PatriotPayJourneyInner({
             onClick={() => setActivePage("data-room")}
           >
             Data Room
-            {countActiveDocuments(documentSlots) > 0 ? (
-              <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>{countActiveDocuments(documentSlots)}</span>
-            ) : null}
+            <TabCount count={dataRoomCount} label="documents" />
           </div>
         </div> : null}
 

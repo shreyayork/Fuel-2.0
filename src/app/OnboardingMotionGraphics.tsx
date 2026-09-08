@@ -361,7 +361,7 @@ function FuelProductCard({
           fontSize: M.sm, fontWeight: 800, color: "#fff",
         }}>{title[0]?.toUpperCase() || "F"}</div>
       </div>
-      <div style={{ padding: "24px 22px 26px", minHeight: 240, position: "relative", background: "#FAFCFB" }}>
+      <div style={{ padding: "24px 22px 26px", minHeight: 240, position: "relative", background: "#FAFCFB", boxSizing: "border-box", overflow: clipContent ? "hidden" : "visible" }}>
         {children}
       </div>
     </motion.div>
@@ -391,15 +391,24 @@ function InsightCursor({ label, color = "#F24E1E", path }: { label: string; colo
       </svg>
       <motion.div
         key={label}
-        initial={{ opacity: 0, x: -6, scale: 0.9 }}
-        animate={{ opacity: 1, x: 0, scale: 1 }}
+        initial={{ opacity: 0, y: 4, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.35, ease: EASE_OUT }}
         style={{
-          position: "absolute", left: 16, top: 14,
-          background: color, color: "#fff",
-          fontSize: M.md, fontWeight: 700, padding: "4px 10px",
-          borderRadius: 4, whiteSpace: "nowrap",
+          position: "absolute",
+          left: 14,
+          top: -2,
+          background: color,
+          color: "#fff",
+          fontSize: M.md,
+          fontWeight: 700,
+          padding: "4px 10px",
+          borderRadius: 6,
+          whiteSpace: "nowrap",
           boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+          maxWidth: 160,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
       >
         {label}
@@ -472,8 +481,12 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
   const company = form.company || companyQuery || "your company";
   const displayName = company;
 
-  const cursorPath = useMemo(() => [
-    { x: 60, y: 90 }, { x: 180, y: 70 }, { x: 140, y: 150 }, { x: 90, y: 120 }, { x: 200, y: 130 },
+  const idleCursorPath = useMemo(() => [
+    { x: 168, y: 198 }, { x: 236, y: 208 }, { x: 196, y: 190 }, { x: 252, y: 200 }, { x: 180, y: 212 },
+  ], []);
+
+  const reviewCursorPath = useMemo(() => [
+    { x: 210, y: 48 }, { x: 250, y: 88 }, { x: 190, y: 120 }, { x: 240, y: 70 }, { x: 200, y: 100 },
   ], []);
 
   const scanItems = ["Homepage", "Crunchbase", "LinkedIn", "Funding signals"];
@@ -483,16 +496,38 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
       <AnimatePresence mode="wait">
         {searchState === "idle" && (
           <motion.div key="idle" exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.35 }}>
-            <FuelProductCard title={`${displayName}'s workspace`} subtitle="Select a company to begin">
-              <div style={{ textAlign: "center", paddingTop: 12 }}>
+            <FuelProductCard title={`${displayName}'s workspace`} subtitle="Select a company to begin" clipContent={false}>
+              <div
+                style={{
+                  alignItems: "center",
+                  boxSizing: "border-box",
+                  display: "flex",
+                  flexDirection: "column",
+                  paddingTop: 8,
+                  textAlign: "center",
+                  width: "100%",
+                }}
+              >
                 <PulseRing />
                 <div style={{ fontSize: M.xl, fontWeight: 700, color: "#1A2B26", marginBottom: 6 }}>{displayName}</div>
-                <div style={{ fontSize: M.base, color: "#8A9E96", lineHeight: 1.6, maxWidth: 260, margin: "0 auto" }}>
+                <div style={{ fontSize: M.base, color: "#8A9E96", lineHeight: 1.6, maxWidth: 280, margin: "0 auto" }}>
                   {isInvestor
                     ? "Fuel will build your fund profile — portfolio benchmarks, deal suggestions, and pipeline intelligence."
                     : "Fuel will build your operating profile from funding, industry, and cohort signals."}
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 22 }}>
+                <div
+                  style={{
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    justifyContent: "center",
+                    marginTop: 22,
+                    maxWidth: "100%",
+                    padding: "0 2px",
+                    width: "100%",
+                  }}
+                >
                   {(isInvestor ? ["Portfolio", "Deal flow", "Sectors", "Fuel AI"] : ["Company data", "Funding", "Industry", "Cohort"]).map((label, i) => (
                     <motion.span
                       key={label}
@@ -510,7 +545,7 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                   ))}
                 </div>
               </div>
-              <InsightCursor label={displayName} color="var(--fuel-accent)" path={cursorPath} />
+              <InsightCursor label={displayName} color="var(--fuel-accent)" path={idleCursorPath} />
             </FuelProductCard>
           </motion.div>
         )}
@@ -562,7 +597,7 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
         {searchState === "review" && (
           <motion.div key="review" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
             <FuelProductCard title={`${company}'s profile`} subtitle={isInvestor ? "Fund matched · portfolio intelligence" : "Cohort matched"}>
-              <InsightCursor label={company} color="#F24E1E" path={cursorPath} />
+              <InsightCursor label={company} color="#F24E1E" path={reviewCursorPath} />
               {(isInvestor ? [
                 { k: "Focus", v: form.industry || "Venture · Value Creation" },
                 { k: "Model", v: form.businessModel?.split("+")[0]?.trim() || "Investment" },

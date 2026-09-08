@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ConnectorIcon } from "./icons";
 
 type ConnectionMethod = "oauth" | "apikey" | "york";
 type Status = "pending" | "connecting" | "connected" | "skipped";
@@ -15,7 +16,6 @@ interface Integration {
   id: string;
   name: string;
   category: string;
-  abbr: string;
   color: string;
   method: ConnectionMethod;
   description: string;
@@ -28,7 +28,7 @@ interface Integration {
 
 const INTEGRATIONS: Integration[] = [
   {
-    id: "jira", name: "Jira", category: "Development", abbr: "JR", color: "#2684FF",
+    id: "jira", name: "Jira", category: "Development", color: "#2684FF",
     method: "apikey", premium: true, addOnPrice: 29,
     description: "Pull your roadmap items, issue counts, active work, and release status directly into your Development track.",
     dataProvided: ["Roadmap items & epics", "Active / closed / future work", "Release notes & status", "Issue counts by type"],
@@ -39,37 +39,37 @@ const INTEGRATIONS: Integration[] = [
     ],
   },
   {
-    id: "linear", name: "Linear", category: "Development", abbr: "LN", color: "#5E6AD2",
+    id: "linear", name: "Linear", category: "Development", color: "#5E6AD2",
     method: "oauth", premium: false, addOnPrice: 0, oauthLabel: "Connect with Linear",
     description: "Sync your Linear workspace to track project delivery health, active cycles, and issue velocity.",
     dataProvided: ["Active cycles & projects", "Issue velocity & throughput", "Team workload", "Roadmap milestones"],
   },
   {
-    id: "launchpad", name: "Launchpad", category: "Development", abbr: "LP", color: "var(--btn-primary-bg)",
+    id: "launchpad", name: "Launchpad", category: "Development", color: "#12B886",
     method: "york",
     description: "York IE's design platform — design previews, approval status, and handoff state flow directly into Fuel.",
     dataProvided: ["Design previews & URLs", "Design status & approval state", "Handoff readiness"],
   },
   {
-    id: "pulse", name: "Pulse", category: "Development", abbr: "PL", color: "var(--btn-primary-bg)",
+    id: "pulse", name: "Pulse", category: "Development", color: "#0FA678",
     method: "york",
     description: "York IE's code quality platform — stability, speed, risk scores, and weekly health summaries.",
     dataProvided: ["Code quality score", "Stability & speed metrics", "Risk flags", "Weekly quality trends"],
   },
   {
-    id: "ga4", name: "Google Analytics", category: "Marketing", abbr: "GA", color: "#F9AB00",
+    id: "ga4", name: "Google Analytics", category: "Marketing", color: "#F9AB00",
     method: "oauth", premium: false, addOnPrice: 0, oauthLabel: "Connect with Google",
     description: "Bring sessions, users, engagement rates, and funnel data into your Marketing track.",
     dataProvided: ["Sessions & users", "Engagement & bounce rates", "Conversion funnel", "Traffic sources"],
   },
   {
-    id: "gads", name: "Google Ads", category: "Marketing", abbr: "Gd", color: "#4285F4",
+    id: "gads", name: "Google Ads", category: "Marketing", color: "#4285F4",
     method: "oauth", premium: true, addOnPrice: 59, oauthLabel: "Connect with Google",
     description: "Pull spend, conversions, CPA, and campaign performance into your demand signals.",
     dataProvided: ["Campaign spend & ROAS", "Conversions & CPA", "Keyword performance", "Ad group health"],
   },
   {
-    id: "semrush", name: "Semrush", category: "Marketing", abbr: "SR", color: "#FF642D",
+    id: "semrush", name: "Semrush", category: "Marketing", color: "#FF642D",
     method: "apikey", premium: true, addOnPrice: 79,
     description: "Track keyword movement, backlinks, domain authority, and SEO opportunities.",
     dataProvided: ["Keyword rankings", "Backlink profile", "Domain authority score", "SEO opportunities"],
@@ -78,37 +78,37 @@ const INTEGRATIONS: Integration[] = [
     ],
   },
   {
-    id: "linkedin", name: "LinkedIn", category: "Marketing", abbr: "in", color: "#0A66C2",
+    id: "linkedin", name: "LinkedIn", category: "Marketing", color: "#0A66C2",
     method: "oauth", premium: true, addOnPrice: 39, oauthLabel: "Connect with LinkedIn",
     description: "Connect organic and paid LinkedIn performance to your GTM demand signals.",
     dataProvided: ["Organic post engagement", "Follower growth", "Paid campaign metrics", "Lead gen form performance"],
   },
   {
-    id: "meta", name: "Meta Ads", category: "Marketing", abbr: "Fb", color: "#1877F2",
+    id: "meta", name: "Meta Ads", category: "Marketing", color: "#1877F2",
     method: "oauth", premium: true, addOnPrice: 39, oauthLabel: "Connect with Meta",
     description: "Bring Facebook and Instagram paid performance into your demand and acquisition view.",
     dataProvided: ["Ad spend & ROAS", "Reach & impressions", "Conversion events", "Audience performance"],
   },
   {
-    id: "hubspot", name: "HubSpot", category: "RevOps", abbr: "HS", color: "#FF7A59",
+    id: "hubspot", name: "HubSpot", category: "RevOps", color: "#FF7A59",
     method: "oauth", premium: false, addOnPrice: 0, oauthLabel: "Connect with HubSpot",
     description: "Sync contacts, companies, deals, pipeline stages, and activities for your RevOps track.",
     dataProvided: ["Pipeline stages & deal health", "Contact & company data", "Activity & task tracking", "Lead-to-opportunity conversion"],
   },
   {
-    id: "salesforce", name: "Salesforce", category: "RevOps", abbr: "SF", color: "#00A1E0",
+    id: "salesforce", name: "Salesforce", category: "RevOps", color: "#00A1E0",
     method: "oauth", premium: true, addOnPrice: 99, oauthLabel: "Connect with Salesforce",
     description: "Pull your CRM data, opportunity pipeline, and forecast signals into Fuel's RevOps view.",
     dataProvided: ["Opportunity pipeline", "Forecast signals", "CRM hygiene score", "Rep activity & stage movement"],
   },
   {
-    id: "quickbooks", name: "QuickBooks", category: "FinOps", abbr: "QB", color: "#2CA01C",
+    id: "quickbooks", name: "QuickBooks", category: "FinOps", color: "#2CA01C",
     method: "oauth", premium: true, addOnPrice: 49, oauthLabel: "Connect with QuickBooks",
     description: "Bring financial data into your FinOps track — burn rate, cash position, and P&L actuals.",
     dataProvided: ["Cash position & burn rate", "P&L actuals vs. budget", "Monthly close status", "Vendor & payroll data"],
   },
   {
-    id: "stripe", name: "Stripe", category: "FinOps", abbr: "St", color: "#635BFF",
+    id: "stripe", name: "Stripe", category: "FinOps", color: "#635BFF",
     method: "apikey", premium: false, addOnPrice: 0,
     description: "Pull revenue, MRR, churn, and payment health directly from your Stripe account.",
     dataProvided: ["MRR & ARR", "Churn & expansion revenue", "Payment health", "Customer billing status"],
@@ -122,6 +122,13 @@ const CATEGORIES = ["Development", "Marketing", "RevOps", "FinOps"];
 
 // York integrations are always included
 const YORK_IDS = INTEGRATIONS.filter(i => i.method === "york").map(i => i.id);
+
+function logoSurface(color: string): React.CSSProperties {
+  const wash = color.startsWith("var(")
+    ? `color-mix(in srgb, ${color} 16%, transparent)`
+    : `${color}1f`;
+  return { background: wash, color, ["--isp-logo-accent" as string]: color };
+}
 
 function StatusPill({ status }: { status: Status }) {
   const map: Record<Status, { label: string; color: string; bg: string }> = {
@@ -270,91 +277,68 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
         {view === "select" && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          <div style={{ flex: 1, overflowY: "auto", padding: "40px 48px 24px" }}>
-            <div style={{ maxWidth: 850, margin: "0 auto" }}>
-              <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-1)", margin: "0 0 8px" }}>
-                  Choose your integrations
-                </h1>
-                <p style={{ fontSize: 14, color: "var(--text-2)", margin: 0, lineHeight: 1.6 }}>
+          <div className="isp-select-main">
+            <div className="isp-select-inner">
+              <header className="isp-select-intro">
+                <h1>Choose your integrations</h1>
+                <p>
                   Select the tools you use. Premium connectors are summarized in the sidebar before setup.
                   York IE integrations are included automatically.
                 </p>
-              </div>
+              </header>
 
               {CATEGORIES.map(cat => {
                 const items = INTEGRATIONS.filter(i => i.category === cat);
-                const catColor = items.find(i => i.method !== "york")?.color ?? "var(--btn-primary-bg)";
                 return (
-                  <div key={cat} style={{ marginBottom: 28 }}>
-                    <div style={{
-                      fontSize: 12, fontWeight: 700, color: catColor,
-                      textTransform: "uppercase", letterSpacing: "0.6px",
-                      marginBottom: 10,
-                    }}>{cat}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                  <section key={cat} className="isp-cat">
+                    <h2 className="isp-cat-label">{cat}</h2>
+                    <div className="isp-card-grid">
                       {items.map(item => {
                         const isYork = item.method === "york";
                         const isSel = selectedIds.includes(item.id);
-                        const isPremium = item.premium;
+                        const isPremium = Boolean(item.premium);
+                        const highlights = item.dataProvided.slice(0, 2);
                         return (
                           <button
                             key={item.id}
+                            type="button"
+                            className={`isp-card${isSel ? " is-selected" : ""}${isYork ? " is-locked" : ""}`}
                             onClick={() => toggleSelect(item.id)}
-                            style={{
-                              display: "flex", alignItems: "flex-start", gap: 10,
-                              padding: "14px 13px",
-                              background: isSel ? "rgba(61,214,140,0.06)" : "var(--panel)",
-                              border: isSel ? "1px solid rgba(61,214,140,0.25)" : "1px solid rgba(255,255,255,0.06)",
-                              borderRadius: 11, cursor: isYork ? "default" : "pointer",
-                              textAlign: "left", transition: "all 0.15s",
-                              minHeight: 142,
-                            }}
+                            aria-pressed={isSel}
                           >
-                            <div style={{
-                              width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                              background: item.color + "22",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 12, fontWeight: 800, color: item.color,
-                            }}>{item.abbr}</div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 15, fontWeight: 800, color: isSel ? "var(--text-1)" : "var(--text-2)", marginBottom: 6 }}>
-                                {item.name}
-                              </div>
-                              <div style={{ fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.45, marginBottom: 10 }}>
-                                {item.description}
-                              </div>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                {isYork && (
-                                  <span style={{ fontSize: 11.5, color: "var(--btn-primary-bg)", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>York IE · Included</span>
-                                )}
-                                {isPremium ? (
-                                  <span style={{ fontSize: 11.5, color: "#D4924A", background: "rgba(212,146,74,0.1)", border: "1px solid rgba(212,146,74,0.22)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
-                                    Premium · ${item.addOnPrice}/mo
-                                  </span>
-                                ) : !isYork && (
-                                  <span style={{ fontSize: 11.5, color: "var(--btn-primary-bg)", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
-                                    Free
-                                  </span>
-                                )}
-                              </div>
+                            <div className="isp-card-top">
+                              <span className="isp-card-logo" style={logoSurface(item.color)} aria-hidden="true">
+                                <ConnectorIcon name={item.id} size={18} />
+                              </span>
+                              <span className={`isp-card-check${isSel ? " is-on" : ""}`} aria-hidden="true">
+                                {isSel ? "✓" : ""}
+                              </span>
                             </div>
-                            <div style={{
-                              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                              background: isSel ? "rgba(61,214,140,0.15)" : "transparent",
-                              border: isSel ? "1px solid rgba(61,214,140,0.5)" : "1px solid rgba(255,255,255,0.12)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                            }}>
-                              {isSel && <span style={{ fontSize: 12, color: "var(--btn-primary-bg)" }}>✓</span>}
+                            <strong className="isp-card-name">{item.name}</strong>
+                            <p className="isp-card-desc">{item.description}</p>
+                            {highlights.length > 0 ? (
+                              <ul className="isp-card-highlights">
+                                {highlights.map(line => (
+                                  <li key={`${item.id}-${line}`}>{line}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            <div className="isp-card-footer">
+                              {isYork ? (
+                                <span className="isp-badge isp-badge-included">York IE · Included</span>
+                              ) : isPremium ? (
+                                <span className="isp-badge isp-badge-premium">Premium · ${item.addOnPrice}/mo</span>
+                              ) : (
+                                <span className="isp-badge isp-badge-free">Free</span>
+                              )}
                             </div>
                           </button>
                         );
                       })}
                     </div>
-                  </div>
+                  </section>
                 );
               })}
-
             </div>
           </div>
 
@@ -402,12 +386,9 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                     background: "var(--panel)", border: "1px solid rgba(255,255,255,0.06)",
                     borderRadius: 9, padding: "9px 10px",
                   }}>
-                    <span style={{
-                      width: 26, height: 26, borderRadius: 6, flexShrink: 0,
-                      background: item.color + "22",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 9, fontWeight: 800, color: item.color,
-                    }}>{item.abbr}</span>
+                    <span className="isp-summary-logo" style={logoSurface(item.color)}>
+                      <ConnectorIcon name={item.id} size={13} />
+                    </span>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
                     <span style={{ fontSize: 11, fontWeight: 800, color: "#D4924A" }}>${item.addOnPrice}/mo</span>
                   </div>
@@ -499,8 +480,8 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                               width: 24, height: 24, borderRadius: 5, flexShrink: 0,
                               background: item.color + "22",
                               display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 8.5, fontWeight: 800, color: item.color,
-                            }}>{item.abbr}</div>
+                              color: item.color,
+                            }}><ConnectorIcon name={item.id} size={13} /></div>
                             <span style={{
                               flex: 1, fontSize: 12, color: isActive ? "var(--text-1)" : "var(--text-2)",
                               fontWeight: isActive ? 600 : 400,
@@ -554,8 +535,8 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                     width: 44, height: 44, borderRadius: 10, flexShrink: 0,
                     background: active.color + "22",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 14, fontWeight: 800, color: active.color,
-                  }}>{active.abbr}</div>
+                    color: active.color,
+                  }}><ConnectorIcon name={active.id} size={22} /></div>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: 18, fontWeight: 800, color: "var(--text-1)" }}>{active.name}</span>
@@ -635,8 +616,8 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                         <div style={{
                           width: 20, height: 20, borderRadius: 4, background: "rgba(255,255,255,0.2)",
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 9, fontWeight: 800, flexShrink: 0,
-                        }}>{active.abbr}</div>
+                          flexShrink: 0,
+                        }}><ConnectorIcon name={active.id} size={12} /></div>
                         {isConnecting ? "Connecting…" : (active.oauthLabel ?? `Connect with ${active.name}`)}
                       </button>
                     ) : (

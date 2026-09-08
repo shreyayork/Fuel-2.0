@@ -144,7 +144,7 @@ type CategoryData = {
   label: string;
   fullLabel: string;
   description: string;
-  icon: string;
+  icon: FuelIconName;
   colour: string;
   colourDim: string;
   colourBorder: string;
@@ -511,11 +511,11 @@ const CATEGORY_METRIC_KEYS: Record<ScorecardCategory, MetricKey[]> = {
 };
 
 const CATEGORY_META: Record<ScorecardCategory, {
-  label: string; fullLabel: string; description: string; icon: string; colour: string; colourDim: string; colourBorder: string; drillTitle: string; urgentLabel: string;
+  label: string; fullLabel: string; description: string; icon: FuelIconName; colour: string; colourDim: string; colourBorder: string; drillTitle: string; urgentLabel: string;
 }> = {
-  dev: { label: "R&D", fullLabel: "Research and Development", description: "Headcount, gross margin, R&D velocity and technical execution.", icon: "⚙", colour: "var(--fuel-accent)", colourDim: "rgba(18, 184, 134, 0.1)",   colourBorder: "rgba(18, 184, 134, 0.28)",   drillTitle: "Engineering & product",  urgentLabel: "R&D velocity"  },
-  mkt: { label: "GTM", fullLabel: "Go to Market",          description: "Revenue, growth, retention, customers and GTM execution.",       icon: "↗", colour: "var(--fuel-accent)", colourDim: "rgba(18, 184, 134, 0.1)", colourBorder: "rgba(18, 184, 134, 0.28)", drillTitle: "GTM & acquisition",      urgentLabel: "GTM motion"    },
-  rev: { label: "G&A", fullLabel: "General and Administrative",  description: "Cash, burn, runway and operational performance.",                icon: "◎", colour: "#F5A623", colourDim: "rgba(245,166,35,0.1)", colourBorder: "rgba(245,166,35,0.28)", drillTitle: "Revenue operations",     urgentLabel: "Cash runway"   },
+  dev: { label: "R&D", fullLabel: "Research and Development", description: "Headcount, gross margin, R&D velocity and technical execution.", icon: "development" as const, colour: "var(--fuel-accent)", colourDim: "rgba(18, 184, 134, 0.1)",   colourBorder: "rgba(18, 184, 134, 0.28)",   drillTitle: "Engineering & product",  urgentLabel: "R&D velocity"  },
+  mkt: { label: "GTM", fullLabel: "Go to Market",          description: "Revenue, growth, retention, customers and GTM execution.",       icon: "gtm" as const, colour: "var(--fuel-accent)", colourDim: "rgba(18, 184, 134, 0.1)", colourBorder: "rgba(18, 184, 134, 0.28)", drillTitle: "GTM & acquisition",      urgentLabel: "GTM motion"    },
+  rev: { label: "G&A", fullLabel: "General and Administrative",  description: "Cash, burn, runway and operational performance.",                icon: "finance" as const, colour: "#F5A623", colourDim: "rgba(245,166,35,0.1)", colourBorder: "rgba(245,166,35,0.28)", drillTitle: "Revenue operations",     urgentLabel: "Cash runway"   },
 };
 
 // Status labels — richer than raw quartile
@@ -1465,11 +1465,11 @@ function GlanceScoreRing({
         >
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="sc-glance-ring" aria-hidden>
             <circle
+              className="sc-glance-ring-baseline"
               cx={size / 2}
               cy={size / 2}
               r={radius}
               fill="none"
-              stroke="var(--surface-3)"
               strokeWidth={stroke}
             />
             <circle
@@ -3097,7 +3097,9 @@ function CategoryCard({ cat, onClick, onViewDetails, onViewBenchmark, expanded, 
     >
       <div className="sc-cat-header">
         <div className="sc-cat-header-id">
-          <div className="sc-cat-icon" style={{ background: cat.colourDim, color: cat.colour, borderColor: cat.colourBorder }} aria-hidden>{cat.icon}</div>
+          <div className="sc-cat-icon" style={{ background: cat.colourDim, color: cat.colour, borderColor: cat.colourBorder }} aria-hidden>
+            <FuelIcon name={cat.icon} size={16} />
+          </div>
           <div className="sc-cat-header-text">
             <div className="sc-cat-header-title">
               <h3 className="sc-cat-full-name">{cat.fullLabel}</h3>
@@ -6825,7 +6827,7 @@ function CategoryDrilldownView({
           </button>
           <div className="scorecard-drill-hero-crumb">
             <div className="scorecard-cat-badge" style={{ background: meta.colourDim, borderColor: meta.colourBorder, color: meta.colour, margin: 0 }}>
-              {meta.icon} {meta.label}
+              <FuelIcon name={meta.icon} size={14} /> {meta.label}
             </div>
           </div>
         </div>

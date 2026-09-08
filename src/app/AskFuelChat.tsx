@@ -8,6 +8,7 @@ import {
 } from "./fuelBrief";
 
 import { briefFlagToColor } from "./statusSystem";
+import { FuelIcon } from "./icons";
 
 const FLAG_COLOUR: Record<BriefFlag, string> = {
   good: briefFlagToColor("good"),
@@ -138,7 +139,7 @@ export function BriefAdvisorCard({ brief, onViewDetails }: { brief: Brief; onVie
   return (
     <div className="fb-card">
       <div className="fb-card-head">
-        <span className="fb-card-label">✦ Fuel AI · Advisor</span>
+        <span className="fb-card-label"><FuelIcon name="sparkles" size={11} strokeWidth={2} /> Fuel AI · Advisor</span>
         <span className="fb-card-date">{brief.generatedAtLabel}</span>
       </div>
       <p className="fb-card-headline">{brief.summary.headline}</p>
@@ -260,19 +261,19 @@ type PitchDeckEvaluation = {
 function buildPitchDeckEvaluation(companyName: string, deckName: string): PitchDeckEvaluation {
   return {
     overall: 74,
-    summary: `Extracted text from ${deckName} and scored ${companyName} against the Fuel pitch rubric. Traction and narrative are the strongest slides; market sizing and the ask still draw the most investor pushback.`,
+    summary: `${companyName}’s deck reads clearly on problem, team, and traction. Market sizing and the ask are where investors are most likely to push — tighten those slides before the next meeting.`,
     rows: [
-      { label: "Problem", score: 82, note: "Clear pain + buyer urgency", flag: "good" },
-      { label: "Market", score: 61, note: "TAM needs sharper bottom-up proof", flag: "warn" },
-      { label: "Traction", score: 78, note: "Pipeline + logos land well", flag: "good" },
+      { label: "Problem", score: 82, note: "Pain and urgency land quickly", flag: "good" },
+      { label: "Market", score: 61, note: "Needs sharper bottom-up TAM math", flag: "warn" },
+      { label: "Traction", score: 78, note: "Pipeline and logos feel credible", flag: "good" },
       { label: "Team", score: 80, note: "Relevant operator depth", flag: "good" },
-      { label: "Ask", score: 58, note: "Use of funds / milestones thin", flag: "warn" },
-      { label: "Narrative", score: 76, note: "Story arcs cleanly; tighten ending", flag: "good" },
+      { label: "Ask", score: 58, note: "Use of funds and milestones thin", flag: "warn" },
+      { label: "Narrative", score: 76, note: "Story flows; ending can be tighter", flag: "good" },
     ],
     investorQuestions: [
-      "Slide 4 · What is the bottom-up market math behind the TAM?",
-      "Slide 9 · How durable is retention after the first 2 renewal cycles?",
-      "Slide 14 · What milestones does this raise specifically fund?",
+      "Slide 4 · What’s the bottom-up math behind the TAM?",
+      "Slide 9 · How durable is retention after the first two renewals?",
+      "Slide 14 · Which milestones does this raise specifically fund?",
     ],
   };
 }
@@ -291,13 +292,15 @@ function PitchDeckEvalCard({
   return (
     <div className="afc-flow-card is-ready is-eval">
       <div className="afc-flow-eyebrow">Pitch Deck Evaluation</div>
-      <strong className="afc-flow-title">{companyName} · rubric score {evaluation.overall}/100</strong>
+      <strong className="afc-flow-title">
+        Investor-ready score: {evaluation.overall}/100
+      </strong>
       <p className="afc-flow-copy">{evaluation.summary}</p>
       <div className="afc-deck-file">
-        <div className="afc-deck-file-icon" aria-hidden="true">📄</div>
+        <div className="afc-deck-file-icon" aria-hidden="true"><FuelIcon name="file" size={18} /></div>
         <div className="afc-deck-file-copy">
           <strong>{deckName}</strong>
-          <span>Parsed · scored against problem · market · traction · team · ask · narrative</span>
+          <span>Reviewed on problem · market · traction · team · ask · narrative</span>
         </div>
       </div>
       <div className="afc-flow-metrics afc-eval-rubric">
@@ -310,7 +313,7 @@ function PitchDeckEvalCard({
         ))}
       </div>
       <div className="afc-eval-questions">
-        <span className="afc-eval-questions-label">Slides likely to draw investor questions</span>
+        <span className="afc-eval-questions-label">Questions investors may ask first</span>
         <ul>
           {evaluation.investorQuestions.map(item => (
             <li key={item}>{item}</li>
@@ -320,7 +323,7 @@ function PitchDeckEvalCard({
       <div className="afc-flow-actions">
         {onOpenDataRoom ? (
           <button type="button" className="afc-brief-btn primary" onClick={onOpenDataRoom}>
-            Open Data Room →
+            View in Data Room →
           </button>
         ) : null}
       </div>
@@ -361,15 +364,15 @@ function PitchDeckFlowCard({
       <div className={`afc-flow-card is-ready${submitted ? " is-submitted" : ""}`}>
         <div className="afc-flow-eyebrow">Pitch Deck Evaluation</div>
         <strong className="afc-flow-title">
-          {submitted ? "Generating intelligence from pitch deck" : "Pitch deck ready"}
+          {submitted ? "Reviewing your deck…" : "Deck uploaded — ready to review"}
         </strong>
         <p className="afc-flow-copy">
           {submitted
-            ? `Fuel is extracting text from ${pitchDeck.name} and generating intelligence for ${companyName} — scoring problem, market, traction, team, ask, and narrative.`
-            : `Fuel linked ${pitchDeck.name} to the Data Room for ${companyName}. Generate intelligence to score narrative, traction, and ask quality — the same path as Data Room.`}
+            ? `Fuel is reading ${pitchDeck.name} and scoring how clearly ${companyName} communicates problem, market, traction, team, ask, and story.`
+            : `${pitchDeck.name} is saved to your Data Room. Generate intelligence to see where the narrative is strong — and where investors may push back.`}
         </p>
         <div className="afc-deck-file">
-          <div className="afc-deck-file-icon" aria-hidden="true">📄</div>
+          <div className="afc-deck-file-icon" aria-hidden="true"><FuelIcon name="file" size={18} /></div>
           <div className="afc-deck-file-copy">
             <strong>{pitchDeck.name}</strong>
             <span>{pitchDeck.format} · uploaded {pitchDeck.uploadedAt}</span>
@@ -382,7 +385,7 @@ function PitchDeckFlowCard({
             disabled={submitted}
             onClick={() => onDiscardPitchDeck?.()}
           >
-            ×
+            <FuelIcon name="close" size={14} />
           </button>
         </div>
         <div className="afc-flow-actions">
@@ -396,7 +399,7 @@ function PitchDeckFlowCard({
               onSubmitPitchDeck?.(pitchDeck);
             }}
           >
-            {submitted ? "Generating…" : "Generate intelligence"}
+            {submitted ? "Reviewing…" : "Generate intelligence"}
           </button>
         </div>
       </div>
@@ -406,9 +409,9 @@ function PitchDeckFlowCard({
   return (
     <div className="afc-flow-card">
       <div className="afc-flow-eyebrow">Pitch Deck Evaluation</div>
-      <strong className="afc-flow-title">No pitch deck listed</strong>
+      <strong className="afc-flow-title">Add your investor deck</strong>
       <p className="afc-flow-copy">
-        Upload the latest investor deck for {companyName}. Fuel will store it in the Data Room and score narrative, traction, and ask quality.
+        Drop in {companyName}’s latest pitch deck. Fuel reviews clarity of the story, traction proof, and ask — then flags slides investors are likely to question.
       </p>
       <div
         className={`afc-deck-drop${dragging ? " is-dragging" : ""}${uploading ? " is-busy" : ""}`}
@@ -421,15 +424,21 @@ function PitchDeckFlowCard({
           takeFile(e.dataTransfer.files?.[0]);
         }}
       >
-        <strong>{uploading ? "Uploading to Data Room…" : "Drag and drop your pitch deck"}</strong>
-        <span>PDF or PowerPoint · synced automatically with Data Room</span>
+        <strong>
+          {uploading
+            ? "Uploading your deck…"
+            : dragging
+              ? "Drop to upload"
+              : "Drag your deck here"}
+        </strong>
+        <span>PDF or PowerPoint · also saved to Data Room · one file</span>
         <button
           type="button"
           className="afc-brief-btn primary"
           disabled={uploading}
           onClick={() => inputRef.current?.click()}
         >
-          {uploading ? "Uploading…" : "Upload Pitch Deck"}
+          {uploading ? "Uploading…" : "Choose file"}
         </button>
         <input
           ref={inputRef}
@@ -550,7 +559,7 @@ export function AskFuelChatDrawer({
     setMessages(prev => [
       ...prev,
       { id: mid(), role: "user", text: `Generate intelligence from “${deck.name}”` },
-      { id: thinkId, role: "ai", kind: "thinking", label: "Generating intelligence from pitch deck…" },
+      { id: thinkId, role: "ai", kind: "thinking", label: "Reviewing your deck for investor clarity…" },
     ]);
     window.setTimeout(() => {
       const evaluation = buildPitchDeckEvaluation(companyName, deck.name);
@@ -637,16 +646,18 @@ export function AskFuelChatDrawer({
       >
         <header className="afc-head">
           <div>
-            <span className="afc-eyebrow">✦ Fuel AI</span>
+            <span className="afc-eyebrow"><FuelIcon name="sparkles" size={12} strokeWidth={2} /> Fuel AI</span>
             <strong className="afc-co">{companyName}</strong>
           </div>
-          <button type="button" className="afc-x" onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="afc-x" onClick={onClose} aria-label="Close">
+            <FuelIcon name="close" size={14} />
+          </button>
         </header>
 
         <div className="afc-thread" ref={threadRef} aria-live="polite" aria-relevant="additions text">
           {empty ? (
             <div className="afc-empty">
-              <div className="afc-empty-mark">✦</div>
+              <div className="afc-empty-mark" aria-hidden="true"><FuelIcon name="sparkles" size={28} strokeWidth={1.5} /></div>
               <div className="afc-empty-title">Ask Fuel AI about {companyName}</div>
               <p className="afc-empty-sub">Generate a full intelligence brief, run a playbook, or ask anything. Everything runs against {companyName}'s live benchmark and signal data.</p>
               <div className="afc-suggest">
@@ -711,13 +722,16 @@ export function AskFuelChatDrawer({
             <>
               <div className="afc-pb-backdrop" onClick={() => setPlaybooksOpen(false)} />
               <div className="afc-pb">
-                <input
-                  className="afc-pb-search"
-                  autoFocus
-                  placeholder={`Search ${PLAYBOOK_COUNT} playbooks…`}
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
+                <div className="afc-pb-search-wrap">
+                  <FuelIcon name="search" size={14} className="afc-pb-search-ic" />
+                  <input
+                    className="afc-pb-search"
+                    autoFocus
+                    placeholder={`Search ${PLAYBOOK_COUNT} playbooks…`}
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                </div>
                 <div className="afc-pb-list">
                   {Object.keys(grouped).length === 0 ? (
                     <div className="afc-pb-none">No playbooks match “{search}”.</div>
@@ -728,7 +742,7 @@ export function AskFuelChatDrawer({
                         <button key={pb.id} type="button" className="afc-pb-item" onClick={() => runPlaybook(pb)}>
                           <div className="afc-pb-item-head">
                             <span className="afc-pb-name">{pb.name}</span>
-                            <span className="afc-pb-kind"> · {pb.kind}</span>
+                            <span className="afc-pb-kind">{pb.kind}</span>
                           </div>
                           <div className="afc-pb-desc">{pb.description}</div>
                         </button>
@@ -738,7 +752,7 @@ export function AskFuelChatDrawer({
                 </div>
                 <div className="afc-pb-foot">
                   <span>Click to run against {companyName}</span>
-                  <span className="afc-pb-catalog">Full catalog →</span>
+                  <button type="button" className="afc-pb-catalog">Full catalog →</button>
                 </div>
               </div>
             </>
@@ -756,13 +770,15 @@ export function AskFuelChatDrawer({
             <div className="afc-composer-row">
               <div className="afc-composer-actions">
                 <button type="button" className={`afc-chip${playbooksOpen ? " active" : ""}`} onClick={() => setPlaybooksOpen(o => !o)}>
-                  <span className="afc-chip-ic">▤</span> Playbooks <span className="afc-chip-caret">▾</span>
+                  <FuelIcon name="layoutGrid" size={14} className="afc-chip-ic" /> Playbooks <FuelIcon name="chevronDown" size={12} className="afc-chip-caret" />
                 </button>
                 <button type="button" className="afc-chip accent" onClick={runBrief} disabled={busy}>
-                  <span className="afc-chip-ic">≡</span> Generate brief
+                  <FuelIcon name="wand" size={14} className="afc-chip-ic" /> Generate brief
                 </button>
               </div>
-              <button type="button" className="afc-send" onClick={sendCustom} disabled={!input.trim() || busy} aria-label="Send">↑</button>
+              <button type="button" className="afc-send" onClick={sendCustom} disabled={!input.trim() || busy} aria-label="Send">
+                <FuelIcon name="send" size={16} strokeWidth={2.25} />
+              </button>
             </div>
           </div>
         </div>
