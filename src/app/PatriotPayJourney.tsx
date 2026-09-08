@@ -12173,10 +12173,11 @@ function PatriotPayJourneyInner({
         benchmark={scorecardBenchmarkForm}
         hasBenchmark={hasFilledBenchmarkMetric(scorecardBenchmarkForm)}
         onOpenBenchmark={() => {
+          // Open Complete Benchmark over Ask Fuel; defer so the CTA click cannot hit the new scrim.
           setBenchmarkDrawerElevated(true);
-          window.requestAnimationFrame(() => {
+          window.setTimeout(() => {
             setBenchmarkDrawerOpen(true);
-          });
+          }, 0);
         }}
         pitchDeck={(() => {
           const current = documentSlots.find(slot => slot.typeId === "pitch_deck")?.current;

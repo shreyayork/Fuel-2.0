@@ -206,12 +206,12 @@ function BenchmarkFlowCard({
     return (
       <div className="afc-flow-card">
         <div className="afc-flow-eyebrow">KPI Benchmark</div>
-        <strong className="afc-flow-title">No benchmark generated yet</strong>
+        <strong className="afc-flow-title">No benchmark information available</strong>
         <p className="afc-flow-copy">
-          Fuel needs your core metrics before it can compare {companyName} to the cohort.
+          Fuel needs {companyName}’s core metrics before it can run a cohort comparison.
           {" "}
           <button type="button" className="afc-flow-link" onClick={() => onOpenBenchmark?.()}>
-            Complete your benchmark profile to get started
+            Add your benchmark metrics to get started
           </button>
           .
         </p>
@@ -553,12 +553,12 @@ export function AskFuelChatDrawer({
       if (pb.marquee) {
         const brief = generateBrief(benchmark, companyName);
         setMessages([
-          { id: mid(), role: "user", text: `Run \u201c${pb.name}\u201d` },
+          { id: mid(), role: "user", text: `Generate intelligence · ${pb.name}` },
           { id: mid(), role: "ai", kind: "brief", brief },
         ]);
         onBriefGenerated(brief);
       } else {
-        const userMsg: ChatMsg = { id: mid(), role: "user", text: `Run \u201c${pb.name}\u201d against ${companyName}` };
+        const userMsg: ChatMsg = { id: mid(), role: "user", text: `Generate intelligence · ${pb.name}` };
         const thinkId = mid();
         setMessages([userMsg, { id: thinkId, role: "ai", kind: "thinking", label: `Running ${pb.name}\u2026` }]);
         window.setTimeout(() => {
@@ -659,7 +659,7 @@ export function AskFuelChatDrawer({
     if (pb.marquee) { runBrief(); return; }
     if (busy) return;
     setBusy(true);
-    const userMsg: ChatMsg = { id: mid(), role: "user", text: `Run “${pb.name}” against ${companyName}` };
+    const userMsg: ChatMsg = { id: mid(), role: "user", text: `Generate intelligence · ${pb.name}` };
     const thinkId = mid();
     setMessages(prev => [...prev, userMsg, { id: thinkId, role: "ai", kind: "thinking", label: `Running ${pb.name}…` }]);
     window.setTimeout(() => {
@@ -818,7 +818,7 @@ export function AskFuelChatDrawer({
                   ))}
                 </div>
                 <div className="afc-pb-foot">
-                  <span>Click to run against {companyName}</span>
+                  <span>Click to generate intelligence for {companyName}</span>
                   <button type="button" className="afc-pb-catalog">Full catalog →</button>
                 </div>
               </div>

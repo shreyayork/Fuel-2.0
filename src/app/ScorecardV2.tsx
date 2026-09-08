@@ -6768,7 +6768,7 @@ function CategoryDetailView({
                   <div className="scorecard-drill-pb-content">
                     <div className="scorecard-drill-pb-title">{pb.title}</div>
                     <div className="scorecard-drill-pb-desc">{pb.description}</div>
-                    <div className="scorecard-drill-pb-cta" style={{ color: cat.colour }}>Run playbook →</div>
+                    <div className="scorecard-drill-pb-cta" style={{ color: cat.colour }}>Generate intelligence →</div>
                   </div>
                 </button>
               ))}
@@ -6892,7 +6892,7 @@ function CategoryDrilldownView({
             <div className="scorecard-drill-pb-content">
               <div className="scorecard-drill-pb-title">{pb.title}</div>
               <div className="scorecard-drill-pb-desc">{pb.description}</div>
-              <div className="scorecard-drill-pb-cta" style={{ color: meta.colour }}>Run playbook →</div>
+              <div className="scorecard-drill-pb-cta" style={{ color: meta.colour }}>Generate intelligence →</div>
             </div>
           </button>
         ))}

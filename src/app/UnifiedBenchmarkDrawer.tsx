@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { drawerPanelPointerProps, useScrimPointerClose } from "./drawerScrim";
 import { sanitizeBenchmarkNumericInput } from "./benchmarkInput";
 import { useDialogA11y } from "./a11y/useDialogA11y";
+import { useSaveExitConfirm } from "./SaveExitConfirmDialog";
 import {
   BENCHMARK_REWARD_CREDITS,
   computeCreditBalance,
