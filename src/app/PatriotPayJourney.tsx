@@ -16,7 +16,6 @@ import {
 import { dailyRemaining, totalRemaining } from "./credits/creditLogic";
 import {
   BENCHMARK_REWARD_CREDITS,
-  computeCreditBalance,
   EMPTY_EARNED_PROFILE_CREDITS,
   getModuleReward,
   loadEarnedProfileCredits,
@@ -24,8 +23,6 @@ import {
   markModuleEarned,
   markModulesEarned,
   PROFILE_MODULE_EARNABLE_TOTAL,
-  PROFILE_STARTING_CREDITS,
-  PROFILE_TOTAL_CREDITS,
   remainingBenchmarkRewardCredits,
   remainingIntelligenceRewardCredits,
   sumModuleRewards,
@@ -68,6 +65,7 @@ import ScorecardV2, {
 } from "./ScorecardV2";
 import { hasCompletedOnboardingTracks, mapOnboardingToDetailAnswers, ORGANIZATION_TYPES } from "./OnboardingFlow.tsx";
 import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
+import { FuelHelpFaqPage } from "./FuelHelpFaq.tsx";
 import { SkipLink } from "./a11y/SkipLink";
 import { TopbarCompanySearch } from "./a11y/TopbarCompanySearch";
 import { useDialogA11y } from "./a11y/useDialogA11y";
@@ -85,7 +83,7 @@ import {
   type YorkServiceOffer,
 } from "./yorkIeUpsell";
 import { isYorkOfferDismissed } from "./yorkDismiss";
-import { saveActivePage } from "./workspaceSession";
+import { isReloadLandingActive, saveActivePage } from "./workspaceSession";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import InvestorDashboard, { type InvestorDashboardSection } from "./investor/InvestorDashboard.tsx";
 import {
@@ -4705,7 +4703,7 @@ function DataRoomPage({
           </p>
         </div>
       ) : (
-        <div className="data-room-list data-room-list-cards">
+        <div className="data-room-list">
           <div className="data-room-row data-room-row-head">
             <span>Type</span>
             <span>Latest file</span>
@@ -4715,7 +4713,10 @@ function DataRoomPage({
             <span>Actions</span>
           </div>
           {activeSlots.map(slot => (
-            <div className={`data-room-row data-room-row-card${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`} key={slot.typeId}>
+            <div
+              className={`data-room-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`}
+              key={slot.typeId}
+            >
               <strong>{slot.typeLabel}</strong>
               <span className="data-room-latest">{slot.current?.name || "—"}</span>
               <span>{slot.current?.format || "—"}</span>
@@ -4741,7 +4742,7 @@ function DataRoomPage({
                 onUpload={onUploadDocument}
                 onOpenHistory={onOpenDocumentHistory}
               />
-        </div>
+            </div>
           ))}
         </div>
       )}
@@ -9546,6 +9547,7 @@ function SidebarNavItem({
 
 function SidebarProfileFooter({
   onOpenAccountSettings,
+  onOpenHelp,
   onLogout,
   yorkUpsellReady = false,
   profileComplete = true,
@@ -9554,6 +9556,7 @@ function SidebarProfileFooter({
   earnedProfileCredits,
 }: {
   onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
+  onOpenHelp?: () => void;
   onLogout?: () => void;
   yorkUpsellReady?: boolean;
   /** Hide York help + credit balance until profile completion. */
@@ -9646,6 +9649,18 @@ function SidebarProfileFooter({
                 className="sidebar-user-menu-item"
                 onClick={() => {
                   setMenuOpen(false);
+                  onOpenHelp?.();
+                }}
+              >
+                <SidebarMenuIcon name="help" />
+                <span className="sidebar-user-menu-label">Help / FAQ</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="sidebar-user-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
                   onLogout?.();
                 }}
               >
@@ -9720,7 +9735,7 @@ function PatriotPayJourneyInner({
   persona?: "founder" | "investor";
   onLogout?: () => void;
 }) {
-  const [reloadLandingActive, setReloadLandingActive] = useState(false);
+  const [reloadLandingActive, setReloadLandingActive] = useState(() => isReloadLandingActive());
 
   const isInvestorPersona = persona === "investor";
   const startsWithTour = initialPage === "guided-tour";
@@ -9800,16 +9815,10 @@ function PatriotPayJourneyInner({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const creditToastCompanyKeyRef = useRef(FOUNDER_COMPANY.id);
   const showProfileCreditReward = useCallback((reward: ProfileCreditReward | null) => {
-    if (!reward || reward.amount <= 0) return;
+    // Only the first dashboard-benchmark-card save may celebrate; modules/sources stay silent.
+    if (!reward || reward.amount <= 0 || reward.kind !== "benchmark") return;
     const companyKey = creditToastCompanyKeyRef.current;
     if (hasSeenProfileCreditRewardToast(companyKey)) return;
-    // After the first unlock celebration, later milestones stay silent.
-    const earnedNow = loadEarnedProfileCredits(companyKey);
-    const earnedTotal = computeCreditBalance(earnedNow) - PROFILE_STARTING_CREDITS;
-    if (earnedTotal > reward.amount) {
-      markProfileCreditRewardToastSeen(companyKey);
-      return;
-    }
     markProfileCreditRewardToastSeen(companyKey);
     setProfileCreditReward(reward);
   }, []);
@@ -9992,12 +10001,6 @@ function PatriotPayJourneyInner({
     };
   });
   creditToastCompanyKeyRef.current = selectedCompany.id;
-  useEffect(() => {
-    const earned = loadEarnedProfileCredits(selectedCompany.id);
-    if (computeCreditBalance(earned) > PROFILE_STARTING_CREDITS) {
-      markProfileCreditRewardToastSeen(selectedCompany.id);
-    }
-  }, [selectedCompany.id]);
   const [intelligenceFocus, setIntelligenceFocus] = useState<IntelligenceFocus | null>(null);
   const [benchmarkSubmission, setBenchmarkSubmission] = useState<BenchmarkSubmission | null>(() =>
     loadStoredBenchmarkSubmission() ?? initialIntelligenceSeed.submission,
@@ -10037,10 +10040,6 @@ function PatriotPayJourneyInner({
     syncProfileCompleteFromStorage(selectedCompany.id);
   }, [selectedCompany.id, syncProfileCompleteFromStorage]);
 
-  const handleModuleCreditReward = useCallback((reward: ProfileCreditReward) => {
-    showProfileCreditReward(reward);
-  }, [showProfileCreditReward]);
-
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [askFuelOpen, setAskFuelOpen] = useState(false);
   const openAccountSettings = useCallback((tab: AccountSettingsTab = "profile") => {
@@ -10062,6 +10061,7 @@ function PatriotPayJourneyInner({
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
+  const [askFuelBenchmarkSubmitSignal, setAskFuelBenchmarkSubmitSignal] = useState(0);
   const { tryAction } = useCredits();
   const isOnCompanyWorkspace = activePage !== "investor-home"
     && activePage !== "investor-portfolios"
@@ -10153,9 +10153,8 @@ function PatriotPayJourneyInner({
           intelligenceIds: generatedIds,
           intelligenceCount: generatedItems.length,
         }));
-        const { earned, reward } = tryMarkIntelligenceSourcesEarned(selectedCompany.id);
+        const { earned } = tryMarkIntelligenceSourcesEarned(selectedCompany.id);
         setEarnedProfileCredits(earned);
-        showProfileCreditReward(reward);
         setProcessingDocumentTypeId(null);
       }, 1400);
     });
@@ -10175,9 +10174,8 @@ function PatriotPayJourneyInner({
       intelligenceIds,
       intelligenceCount: intelligenceIds.length,
     }));
-    const { earned, reward } = tryMarkIntelligenceSourcesEarned(selectedCompany.id);
+    const { earned } = tryMarkIntelligenceSourcesEarned(selectedCompany.id);
     setEarnedProfileCredits(earned);
-    showProfileCreditReward(reward);
   };
   const applySourceGenerationResult = useCallback(({
     title,
@@ -10600,11 +10598,13 @@ function PatriotPayJourneyInner({
     } else {
       applyBenchmarkSubmission(values);
     }
-    const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
+    const { earned } = tryMarkBenchmarkEarned(selectedCompany.id);
     setEarnedProfileCredits(earned);
-    if (reward) showProfileCreditReward(reward);
     setProfileDetailsSyncKey(key => key + 1);
     startOverviewBuild("summary", "single");
+    if (askFuelOpen) {
+      setAskFuelBenchmarkSubmitSignal(signal => signal + 1);
+    }
   };
   const handleViewIntelligenceFromDataRoom = (record: DataRoomFileRecord) => {
     if (!record.intelligenceIds.length) return;
@@ -11120,6 +11120,7 @@ function PatriotPayJourneyInner({
   }
 
   const isAccountPage = activePage === "account";
+  const isHelpPage = activePage === "help";
   const isCompanyProfilePage = activePage === "company-profile";
   const isInvestorShellPage = activePage === "investor-home"
     || activePage === "investor-portfolios"
@@ -11131,6 +11132,8 @@ function PatriotPayJourneyInner({
         : "portfolios"; // home dashboard hidden — portfolios is the investor landing
   const breadcrumbLabel = isAccountPage
     ? `Account · ${accountTabLabel(accountTab)}`
+    : isHelpPage
+      ? "Help & FAQ"
     : isCompanyProfilePage
       ? `${selectedCompany.displayName} profile`
     : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
@@ -11324,6 +11327,7 @@ function PatriotPayJourneyInner({
         </nav>
         <SidebarProfileFooter
           onOpenAccountSettings={openAccountSettings}
+          onOpenHelp={() => setActivePage("help")}
           onLogout={onLogout}
           yorkUpsellReady={profileComplete && (overviewBuildPhase == null || overviewBuildPhase === "ready")}
           profileComplete={profileComplete}
@@ -11417,6 +11421,29 @@ function PatriotPayJourneyInner({
               data-tour-target={tourOpen && tourSteps[tourStep].target === "account-settings" ? "account-settings" : undefined}
             >
               <AccountSettings tab={accountTab} onTabChange={setAccountTab} onLogout={onLogout} />
+            </div>
+          </>
+        ) : activePage === "help" ? (
+          <>
+            <div className="topbar">
+              <div className="topbar-left">
+                {mobileNavToggleButton}
+                <nav className="breadcrumb" aria-label="Breadcrumb">
+                  <span>Fuel</span>
+                  <span aria-hidden="true" style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                  <span className="current" aria-current="page">{breadcrumbLabel}</span>
+                </nav>
+                <h1 className="sr-only">{breadcrumbLabel}</h1>
+              </div>
+              <div className="topbar-right">
+                <TopbarCompanySearch />
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content">
+              <FuelHelpFaqPage
+                onBack={() => setActivePage(isInvestorPersona ? "investor-portfolios" : "scorecard-v2")}
+              />
             </div>
           </>
         ) : (<><div className={`topbar${showTourCoachmark ? " has-tour-coachmark" : ""}`}>
@@ -11871,9 +11898,8 @@ function PatriotPayJourneyInner({
                 startOverviewBuild("summary", "single");
               }}
               onBenchmarkEarlyUnlock={() => {
-                const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
+                const { earned } = tryMarkBenchmarkEarned(selectedCompany.id);
                 setEarnedProfileCredits(earned);
-                if (reward) showProfileCreditReward(reward);
                 setProfileDetailsSyncKey(key => key + 1);
                 startOverviewBuild("summary", "single");
               }}
@@ -12147,10 +12173,10 @@ function PatriotPayJourneyInner({
         benchmark={scorecardBenchmarkForm}
         hasBenchmark={hasFilledBenchmarkMetric(scorecardBenchmarkForm)}
         onOpenBenchmark={() => {
-          setAskFuelOpen(false);
-          setActivePage("scorecard-v2");
-          setBenchmarkEditSide("right");
-          setBenchmarkEditRequestKey(key => key + 1);
+          setBenchmarkDrawerElevated(true);
+          window.requestAnimationFrame(() => {
+            setBenchmarkDrawerOpen(true);
+          });
         }}
         pitchDeck={(() => {
           const current = documentSlots.find(slot => slot.typeId === "pitch_deck")?.current;
@@ -12194,6 +12220,7 @@ function PatriotPayJourneyInner({
         focusBriefSignal={briefFocusSignal}
         focusPlaybook={pendingPlaybook}
         focusPlaybookSignal={playbookFocusSignal}
+        benchmarkSubmitSignal={askFuelBenchmarkSubmitSignal}
       />
       <CompleteBenchmarkDrawer
         open={benchmarkDrawerOpen && (isOwnCompany || usesPerCompanyWorkspace)}
@@ -12239,7 +12266,6 @@ function PatriotPayJourneyInner({
         }}
         onModuleSaved={handleProfileModuleSaved}
         onModuleProgress={handleProfileModuleProgress}
-        onModuleCreditReward={handleModuleCreditReward}
         onModuleEarned={(earned) => {
           if (!isOwnCompany) return;
           setEarnedProfileCredits(earned);

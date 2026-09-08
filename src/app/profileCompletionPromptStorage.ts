@@ -10,6 +10,7 @@ const PROFILE_PHASE_MODULES: ProfileModuleId[] = ["company", "dev", "gtm", "rev"
 
 const PROFILE_PROMPT_BLOCKED_PAGES = new Set([
   "account",
+  "help",
   "connectors",
   "investor-portfolios",
   "investor-pipeline",

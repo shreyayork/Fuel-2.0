@@ -9,6 +9,7 @@ import {
 
 import { briefFlagToColor } from "./statusSystem";
 import { FuelIcon } from "./icons";
+import { consumeAskFuelFreshStart } from "./workspaceSession";
 
 const FLAG_COLOUR: Record<BriefFlag, string> = {
   good: briefFlagToColor("good"),
@@ -186,11 +187,13 @@ function BenchmarkFlowCard({
   benchmark,
   hasBenchmark,
   onOpenBenchmark,
+  onRunBenchmark,
 }: {
   companyName: string;
   benchmark: BenchmarkFormValues;
   hasBenchmark: boolean;
   onOpenBenchmark?: () => void;
+  onRunBenchmark?: () => void;
 }) {
   const preview = useMemo(
     () => BENCHMARK_PREVIEW_KEYS
@@ -234,8 +237,11 @@ function BenchmarkFlowCard({
         </div>
       ) : null}
       <div className="afc-flow-actions">
-        <button type="button" className="afc-brief-btn primary" onClick={() => onOpenBenchmark?.()}>
-          Run the KPI benchmark playbook
+        <button type="button" className="afc-brief-btn primary" onClick={() => onRunBenchmark?.()}>
+          Generate cohort comparison
+        </button>
+        <button type="button" className="afc-brief-btn" onClick={() => onOpenBenchmark?.()}>
+          Edit metrics
         </button>
       </div>
     </div>
@@ -409,9 +415,9 @@ function PitchDeckFlowCard({
   return (
     <div className="afc-flow-card">
       <div className="afc-flow-eyebrow">Pitch Deck Evaluation</div>
-      <strong className="afc-flow-title">Add your investor deck</strong>
+      <strong className="afc-flow-title">No pitch deck uploaded yet</strong>
       <p className="afc-flow-copy">
-        Drop in {companyName}’s latest pitch deck. Fuel reviews clarity of the story, traction proof, and ask — then flags slides investors are likely to question.
+        There’s nothing in {companyName}’s Data Room for Fuel to review. Upload the latest investor deck and we’ll score story clarity, traction proof, and the ask — then flag slides investors are likely to question.
       </p>
       <div
         className={`afc-deck-drop${dragging ? " is-dragging" : ""}${uploading ? " is-busy" : ""}`}
@@ -429,9 +435,9 @@ function PitchDeckFlowCard({
             ? "Uploading your deck…"
             : dragging
               ? "Drop to upload"
-              : "Drag your deck here"}
+              : "Upload a pitch deck to get started"}
         </strong>
-        <span>PDF or PowerPoint · also saved to Data Room · one file</span>
+        <span>PDF or PowerPoint · saved to Data Room · one file</span>
         <button
           type="button"
           className="afc-brief-btn primary"
@@ -474,6 +480,7 @@ export function AskFuelChatDrawer({
   focusBriefSignal,
   focusPlaybook,
   focusPlaybookSignal,
+  benchmarkSubmitSignal = 0,
 }: {
   open: boolean;
   onClose: () => void;
@@ -493,6 +500,8 @@ export function AskFuelChatDrawer({
   focusBriefSignal: number;
   focusPlaybook?: Playbook | null;
   focusPlaybookSignal?: number;
+  /** Bumped after benchmark metrics are submitted while Ask Fuel is open. */
+  benchmarkSubmitSignal?: number;
 }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -503,9 +512,22 @@ export function AskFuelChatDrawer({
   const dialogRef = useRef<HTMLElement>(null);
   const lastFocus = useRef(0);
   const lastPbFocus = useRef(0);
+  const lastBenchSubmit = useRef(0);
+  const busyRef = useRef(false);
   const benchmarkReady = hasBenchmark || hasBenchmarkMetrics(benchmark);
+  busyRef.current = busy;
 
   useDialogA11y(open, dialogRef, onClose);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!consumeAskFuelFreshStart()) return;
+    setMessages([]);
+    setInput("");
+    setPlaybooksOpen(false);
+    setSearch("");
+    setBusy(false);
+  }, [open]);
 
   useEffect(() => {
     const el = threadRef.current;
@@ -549,7 +571,51 @@ export function AskFuelChatDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, focusPlaybookSignal]);
 
+  useEffect(() => {
+    if (!open || !benchmarkSubmitSignal || benchmarkSubmitSignal === lastBenchSubmit.current) return;
+    if (busyRef.current) return;
+    lastBenchSubmit.current = benchmarkSubmitSignal;
+    busyRef.current = true;
+    setBusy(true);
+    const thinkId = mid();
+    setMessages(prev => [
+      ...prev,
+      { id: mid(), role: "user", text: "Submitted KPI benchmark" },
+      { id: thinkId, role: "ai", kind: "thinking", label: "Comparing metrics to the cohort…" },
+    ]);
+    window.setTimeout(() => {
+      const brief = generateBrief(benchmark, companyName);
+      setMessages(prev => prev.map(m => (
+        m.id === thinkId ? { id: thinkId, role: "ai", kind: "brief", brief } : m
+      )));
+      onBriefGenerated(brief);
+      busyRef.current = false;
+      setBusy(false);
+    }, 1600);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, benchmarkSubmitSignal]);
+
   if (!open) return null;
+
+  const runBenchmarkAnalysis = () => {
+    if (busy || !benchmarkReady) return;
+    setPlaybooksOpen(false);
+    setBusy(true);
+    const thinkId = mid();
+    setMessages(prev => [
+      ...prev,
+      { id: mid(), role: "user", text: "Generate cohort comparison" },
+      { id: thinkId, role: "ai", kind: "thinking", label: "Comparing metrics to the cohort…" },
+    ]);
+    window.setTimeout(() => {
+      const brief = generateBrief(benchmark, companyName);
+      setMessages(prev => prev.map(m => (
+        m.id === thinkId ? { id: thinkId, role: "ai", kind: "brief", brief } : m
+      )));
+      onBriefGenerated(brief);
+      setBusy(false);
+    }, 1600);
+  };
 
   const runPitchDeckEvaluation = (deck: NonNullable<AskFuelPitchDeckInfo>) => {
     if (busy) return;
@@ -688,6 +754,7 @@ export function AskFuelChatDrawer({
                   benchmark={benchmark}
                   hasBenchmark={benchmarkReady}
                   onOpenBenchmark={onOpenBenchmark}
+                  onRunBenchmark={runBenchmarkAnalysis}
                 />
               </div>
             );

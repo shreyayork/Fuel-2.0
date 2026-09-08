@@ -7234,6 +7234,8 @@ export default function ScorecardV2({
   const landingBaselineRef = useRef<string | null>(null);
   const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
   const [benchmarkEditElevated, setBenchmarkEditElevated] = useState(false);
+  /** Toast only when opened from the dashboard benchmark card (module grid / recommended action). */
+  const celebrateDashboardBenchmarkRewardRef = useRef(false);
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
   const [benchmarkValues, setBenchmarkValues] = useState<OnboardingBenchmarkInput>(benchmark);
   const benchmarkSyncKey = useMemo(() => JSON.stringify(benchmark), [benchmark]);
@@ -7379,7 +7381,9 @@ export default function ScorecardV2({
     if (filled <= 0 && !benchmarkSaved) return;
     const { earned, reward } = tryMarkBenchmarkEarned(companyKey);
     onProfileCreditsChange?.(earned);
-    if (reward) onProfileCreditReward?.(reward);
+    const shouldCelebrate = celebrateDashboardBenchmarkRewardRef.current;
+    celebrateDashboardBenchmarkRewardRef.current = false;
+    if (reward && shouldCelebrate) onProfileCreditReward?.(reward);
   }, [
     benchmarkSaved,
     benchmarkValues,
@@ -7391,12 +7395,12 @@ export default function ScorecardV2({
 
   const awardSourcesCredits = useCallback(() => {
     if (!companyKey || remainingIntelligenceRewardCredits(earnedProfileCredits) <= 0) return;
-    const { earned, reward } = tryMarkIntelligenceSourcesEarned(companyKey);
+    const { earned } = tryMarkIntelligenceSourcesEarned(companyKey);
     onProfileCreditsChange?.(earned);
-    if (reward) onProfileCreditReward?.(reward);
-  }, [companyKey, earnedProfileCredits, onProfileCreditReward, onProfileCreditsChange]);
+  }, [companyKey, earnedProfileCredits, onProfileCreditsChange]);
 
   const openRecommendedBenchmark = useCallback(() => {
+    celebrateDashboardBenchmarkRewardRef.current = true;
     setBenchmarkEditElevated(false);
     setEditBenchmarkOpen(true);
   }, []);
@@ -7404,11 +7408,13 @@ export default function ScorecardV2({
   const closeBenchmarkEditDrawer = useCallback(() => {
     setEditBenchmarkOpen(false);
     setBenchmarkEditElevated(false);
+    celebrateDashboardBenchmarkRewardRef.current = false;
     onBenchmarkEditClosed?.();
   }, [onBenchmarkEditClosed]);
 
   useEffect(() => {
     if (!benchmarkEditRequestKey) return;
+    celebrateDashboardBenchmarkRewardRef.current = false;
     setActiveView("overview");
     setBenchmarkEditElevated(benchmarkEditSide !== "left");
     setEditBenchmarkOpen(true);
@@ -7546,7 +7552,10 @@ export default function ScorecardV2({
           activeInitiatives={activeInitiatives}
           onBack={() => setActiveView("overview")}
           onUpdateDetails={() => openDetailsDrawer(activeCategory.id)}
-          onEditBenchmark={() => setEditBenchmarkOpen(true)}
+          onEditBenchmark={() => {
+            celebrateDashboardBenchmarkRewardRef.current = false;
+            setEditBenchmarkOpen(true);
+          }}
           onOpenIntelligence={onOpenIntelligence}
           onOpenInitiatives={onOpenInitiatives}
           onAddInitiative={onAddInitiative}

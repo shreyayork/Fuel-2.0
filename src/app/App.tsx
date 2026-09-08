@@ -19,6 +19,7 @@ import {
   clearBusinessType,
 } from "./onboardingProgressStorage.ts";
 import {
+  applyBrowserReloadReset,
   clearSignedOut,
   clearStaleReloadLandingFlag,
   clearWorkspaceSession,
@@ -62,11 +63,14 @@ export default function App() {
   useEffect(() => {
     applyFuelTheme(readFuelTheme());
     if (isBrowserReload()) {
+      applyBrowserReloadReset("patriotpay");
       clearWorkspaceSession();
       clearOnboardingProgress();
       clearBusinessType();
+      clearSignedOut();
+    } else {
+      clearStaleReloadLandingFlag();
     }
-    clearStaleReloadLandingFlag();
   }, []);
 
   useEffect(() => {
