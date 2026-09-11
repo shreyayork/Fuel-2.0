@@ -3,6 +3,8 @@ import { SIGNAL_CATALOG, SIGNAL_CATALOG_BY_KEY, SIGNAL_CATEGORY_KEYS } from "./s
 import { createPortal } from "react-dom";
 import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
+import { FuelHelpFaqPage } from "./FuelHelpFaq.tsx";
+import { FuelIcon } from "./icons.tsx";
 import "./credits/credits.css";
 import {
   CreditProvider,
@@ -29,12 +31,11 @@ import {
 import {
   computeEarnedCredits,
   loadEarnedProfileCredits,
-  onboardingModuleCreditReward,
   tryMarkBenchmarkEarned,
   type EarnedProfileCredits,
   type ProfileCreditReward,
 } from "./profileCredits";
-import { AskFuelChatDrawer } from "./AskFuelChat.tsx";
+import { AskFuelChatDrawer, ASK_FUEL_FLOW_VERSION } from "./AskFuelChat.tsx";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 import { AccountSettings } from "./account/AccountSettings.tsx";
 import {
@@ -66,7 +67,7 @@ import {
   type IntelligenceCustomRange,
   type IntelligenceDatePreset,
 } from "./intelligenceFilters";
-import { DETAIL_QUESTION_LABEL, completedOnboardingModules, type DetailSectionId } from "./trackQuestions.ts";
+import { DETAIL_QUESTION_LABEL, type DetailSectionId } from "./trackQuestions.ts";
 import { getCompanyLogoColors } from "./companyLogoColors";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -901,7 +902,7 @@ const roadmapStatusFilters = [
 function TeamAvatars({ team, trackId, openDropdown, setOpenDropdown }) {
   if (!team.length) {
     return (
-      <span style={{ fontSize: "11px", color: "var(--text-4)", fontStyle: "italic" }}>
+      <span className="team-empty" style={{ color: "var(--text-4)", fontStyle: "italic" }}>
         No team assigned
       </span>
     );
@@ -3013,6 +3014,14 @@ function upsertDocumentSlot(
   return [...slots, { typeId: params.typeId, typeLabel: params.typeLabel, current: record, history: [] }];
 }
 
+function clearDocumentSlotCurrent(slots: DataRoomDocumentSlot[], typeId: string): DataRoomDocumentSlot[] {
+  return slots.map(slot => {
+    if (slot.typeId !== typeId) return slot;
+    if (slot.current?.downloadUrl) URL.revokeObjectURL(slot.current.downloadUrl);
+    return { ...slot, current: null, history: slot.current ? [slot.current, ...slot.history] : slot.history };
+  });
+}
+
 function getFileFormat(fileName: string) {
   const extension = fileName.split(".").pop()?.toLowerCase() || "file";
   if (extension === "pdf") return "PDF";
@@ -3186,7 +3195,7 @@ type IntelligenceFocus = {
   label: string;
 };
 
-type BenchmarkFormValues = {
+export type BenchmarkFormValues = {
   headcount: string;
   paidCustomers: string;
   arr: string;
@@ -4967,7 +4976,7 @@ function SourcesDrawer({
         </header>
         <div className="bench-drawer-body">
           {sources.length === 0 ? (
-            <p style={{ color: "var(--text-3)", fontSize: 13 }}>No sources added yet.</p>
+            <p className="sources-empty" style={{ color: "var(--text-3)" }}>No sources added yet.</p>
           ) : (
             <div className="sources-drawer-list">
               {sources.map(source => {
@@ -8992,9 +9001,11 @@ function SidebarMenuIcon({ children }: { children: React.ReactNode }) {
 
 function SidebarProfileFooter({
   onOpenAccountSettings,
+  onOpenHelp,
   yorkUpsellReady = false,
 }: {
   onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
+  onOpenHelp?: () => void;
   yorkUpsellReady?: boolean;
 }) {
   const { snapshot } = useCredits();
@@ -9088,6 +9099,21 @@ function SidebarProfileFooter({
                 type="button"
                 role="menuitem"
                 className="sidebar-user-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenHelp?.();
+                }}
+              >
+                <SidebarMenuIcon>
+                  <FuelIcon name="help" size={16} />
+                </SidebarMenuIcon>
+                <span className="sidebar-user-menu-label">Help / FAQ</span>
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                className="sidebar-user-menu-item"
                 onClick={() => setMenuOpen(false)}
               >
                 <SidebarMenuIcon>
@@ -9125,7 +9151,7 @@ function SidebarProfileFooter({
             <div className="sidebar-foot-name">
               Shreya Gokani
               {snapshot.plan === "free" ? <span className="credit-inline-badge">Free</span> : (
-                <span className="credit-plan-badge pro" style={{ marginLeft: 6, fontSize: 9, padding: "2px 6px" }}>Pro</span>
+                <span className="credit-plan-badge pro" style={{ marginLeft: 6, padding: "2px 6px" }}>Pro</span>
               )}
             </div>
             <div className="sidebar-foot-email">shreya.g@york.ie</div>
@@ -9227,14 +9253,18 @@ function PatriotPayJourneyInner({
   const [earnedProfileCredits, setEarnedProfileCredits] = useState<EarnedProfileCredits>(() =>
     loadEarnedProfileCredits(FOUNDER_CLAIMED_COMPANY_ID),
   );
-  const [profileCreditReward, setProfileCreditReward] = useState<ProfileCreditReward | null>(() => (
-    initialOnboardingAnswers
-      ? onboardingModuleCreditReward(
-          completedOnboardingModules(initialOnboardingAnswers),
-          loadEarnedProfileCredits(FOUNDER_CLAIMED_COMPANY_ID),
-        )
-      : null
-  ));
+  const [profileCreditReward, setProfileCreditReward] = useState<ProfileCreditReward | null>(null);
+  // Landing here straight from onboarding (finished or Set up later) must never pop the credit
+  // reward toast — those credits were already granted silently. Only a founder action arms it.
+  const landedFromOnboarding = Boolean(initialOnboardingAnswers);
+  const creditToastArmedRef = useRef(!landedFromOnboarding);
+  const armProfileCreditToast = useCallback(() => {
+    creditToastArmedRef.current = true;
+  }, []);
+  const handleProfileCreditReward = useCallback((reward: ProfileCreditReward) => {
+    if (!creditToastArmedRef.current) return;
+    setProfileCreditReward(reward);
+  }, []);
   const [profileCompletionPromptOpen, setProfileCompletionPromptOpen] = useState(() =>
     persona !== "investor"
     && isProfileCompletionPromptDue(
@@ -9251,6 +9281,9 @@ function PatriotPayJourneyInner({
   );
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [askFuelOpen, setAskFuelOpen] = useState(false);
+  const [askFuelBenchmarkSubmitSignal, setAskFuelBenchmarkSubmitSignal] = useState(0);
+  const [elevateDetailsDrawer, setElevateDetailsDrawer] = useState(false);
+  const askFuelAwaitingBenchmarkRef = useRef(false);
   const openAccountSettings = useCallback((tab: AccountSettingsTab = "profile") => {
     setAccountTab(tab);
     setActivePage("account");
@@ -9719,6 +9752,13 @@ function PatriotPayJourneyInner({
     setBenchmarkBlinkIds(submission.intelligenceIds);
     window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
   };
+  const reciprocateAskFuelBenchmarkSubmit = useCallback(() => {
+    if (!askFuelAwaitingBenchmarkRef.current) return;
+    askFuelAwaitingBenchmarkRef.current = false;
+    setElevateDetailsDrawer(false);
+    setAskFuelOpen(true);
+    setAskFuelBenchmarkSubmitSignal(signal => signal + 1);
+  }, []);
   const handleBenchmarkSubmit = (values: BenchmarkFormValues) => {
     if (usesPerCompanyWorkspace) {
       applyBenchmarkSubmission(values, selectedCompany.id);
@@ -9726,10 +9766,16 @@ function PatriotPayJourneyInner({
       applyBenchmarkSubmission(values);
     }
     if (isBenchmarkFormComplete(values)) {
+      armProfileCreditToast();
       const { earned, reward } = tryMarkBenchmarkEarned(selectedCompany.id);
       setEarnedProfileCredits(earned);
-      if (reward) setProfileCreditReward(reward);
+      if (reward) handleProfileCreditReward(reward);
     }
+    if (askFuelAwaitingBenchmarkRef.current) {
+      reciprocateAskFuelBenchmarkSubmit();
+      return;
+    }
+    if (askFuelOpen) setAskFuelBenchmarkSubmitSignal(signal => signal + 1);
     setActivePage("signals");
   };
   const handleViewIntelligenceFromDataRoom = (record: DataRoomFileRecord) => {
@@ -10035,6 +10081,7 @@ function PatriotPayJourneyInner({
   }
 
   const isAccountPage = activePage === "account";
+  const isHelpPage = activePage === "help";
   const isInvestorShellPage = activePage === "investor-home"
     || activePage === "investor-portfolios"
     || activePage === "investor-pipeline"
@@ -10045,6 +10092,8 @@ function PatriotPayJourneyInner({
         : "portfolios"; // home dashboard hidden — portfolios is the investor landing
   const breadcrumbLabel = isAccountPage
     ? `Account · ${accountTabLabel(accountTab)}`
+    : isHelpPage
+      ? "Help & FAQ"
     : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
       : activePage === "investor-pipeline" ? "Pipeline"
         : activePage === "investor-watchlists" ? "Watchlists"
@@ -10180,6 +10229,7 @@ function PatriotPayJourneyInner({
         </div>
         <SidebarProfileFooter
           onOpenAccountSettings={openAccountSettings}
+          onOpenHelp={() => setActivePage("help")}
           yorkUpsellReady={overviewBuildPhase == null || overviewBuildPhase === "ready"}
         />
       </aside>
@@ -10196,13 +10246,71 @@ function PatriotPayJourneyInner({
               </div>
               <div className="topbar-right">
                 <div className="search-box">
-                  <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
+                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
                 </div>
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
               </div>
             </div>
             <div className="content">
               <AccountSettings tab={accountTab} onTabChange={setAccountTab} />
+            </div>
+          </>
+        ) : activePage === "help" ? (
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content">
+              <FuelHelpFaqPage
+                onBack={() => setActivePage(isInvestorPersona ? "investor-portfolios" : "scorecard-v2")}
+                onGoTo={dest => {
+                  switch (dest) {
+                    case "ask-fuel":
+                      setBriefFocusSignal(0);
+                      setAskFuelOpen(true);
+                      return;
+                    case "account":
+                      openAccountSettings("profile");
+                      return;
+                    case "account-integrations":
+                      openAccountSettings("integrations");
+                      return;
+                    case "account-billing":
+                      openAccountSettings("billing");
+                      return;
+                    case "overview":
+                      setActivePage(isInvestorPersona ? "investor-portfolios" : "scorecard-v2");
+                      return;
+                    case "intelligence":
+                      setActivePage("signals");
+                      return;
+                    case "initiatives":
+                      setActivePage("initiatives");
+                      return;
+                    case "data-room":
+                      setActivePage("data-room");
+                      return;
+                    case "investor-portfolios":
+                      setActivePage("investor-portfolios");
+                      return;
+                    case "investor-pipeline":
+                      setActivePage("investor-pipeline");
+                      return;
+                    case "investor-watchlists":
+                      setActivePage("investor-watchlists");
+                      return;
+                  }
+                }}
+              />
             </div>
           </>
         ) : (<><div className={`topbar${showTourCoachmark ? " has-tour-coachmark" : ""}`}>
@@ -10212,7 +10320,7 @@ function PatriotPayJourneyInner({
           </div>
           <div className="topbar-right">
             <div className="search-box">
-              <span style={{ fontSize: "12px", opacity: 0.6 }}>⌕</span> Search companies...
+              <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
             </div>
             {!isProfileWizard && !tourTaken && headerTourEnabled ? (
               <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
@@ -10355,7 +10463,7 @@ function PatriotPayJourneyInner({
               setActivePage("initiatives");
             }}
           >
-            Initiatives <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>2</span>
+            Initiatives <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>2</span>
           </div>
           <div
             className={`tab ${activePage === "data-room" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "data-room" ? "tour-highlight" : ""}`}
@@ -10364,7 +10472,7 @@ function PatriotPayJourneyInner({
           >
             Data Room
             {countActiveDocuments(documentSlots) > 0 ? (
-              <span style={{ fontSize: "11px", color: "var(--text-3)", marginLeft: "4px" }}>{countActiveDocuments(documentSlots)}</span>
+              <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{countActiveDocuments(documentSlots)}</span>
             ) : null}
           </div>
         </div> : null}
@@ -10420,6 +10528,7 @@ function PatriotPayJourneyInner({
               section={investorDashboardSection}
               hubspotConnected={Boolean(initialOnboardingAnswers?.hubspotConnected)}
               onOpenCompany={openInvestorCompany}
+              onOpenCompanyProfile={openInvestorCompany}
               onOpenAccount={() => openAccountSettings("overview")}
               onNavigateSection={(next) => {
                 setActivePage(
@@ -10690,8 +10799,17 @@ function PatriotPayJourneyInner({
               onOpenIntelligence={() => setActivePage("signals")}
               onOpenInitiatives={() => setActivePage("initiatives")}
               onGenerateInitiative={() => setActivePage("initiatives")}
-              onRunPlaybook={() => {
-                setPlaybookFocusSignal(s => s + 1);
+              onRunPlaybook={(playbookId) => {
+                const needle = playbookId.trim().toLowerCase();
+                const pb = PLAYBOOKS.find(item => item.id === playbookId)
+                  || PLAYBOOKS.find(item => item.name.toLowerCase() === needle)
+                  || PLAYBOOKS.find(item => item.id === "kpi-benchmark" && needle.includes("benchmark"))
+                  || PLAYBOOKS.find(item => item.id === "pitch-deck-eval" && (needle.includes("pitch") || needle.includes("deck")));
+                if (pb) {
+                  setLastPlaybook({ name: pb.name, kind: pb.kind, description: pb.description, category: pb.category });
+                  setPendingPlaybook(pb);
+                  setPlaybookFocusSignal(s => s + 1);
+                }
                 setAskFuelOpen(true);
               }}
               onAddSources={() => setActivePage("signals")}
@@ -10700,10 +10818,19 @@ function PatriotPayJourneyInner({
               earnedProfileCredits={earnedProfileCredits}
               companyKey={selectedCompany.id}
               onProfileCreditsChange={setEarnedProfileCredits}
-              onProfileCreditReward={setProfileCreditReward}
+              onProfileCreditReward={handleProfileCreditReward}
               creditRewardVisible={Boolean(profileCreditReward)}
               openProfileModuleKey={openProfileModuleKey}
               openProfileModuleSection={openProfileModuleSection}
+              elevateDetailsDrawer={elevateDetailsDrawer}
+              onDetailsFieldEdited={armProfileCreditToast}
+              onDetailsDrawerClosed={(saved) => {
+                setElevateDetailsDrawer(false);
+                if (!askFuelAwaitingBenchmarkRef.current) return;
+                askFuelAwaitingBenchmarkRef.current = false;
+                setAskFuelOpen(true);
+                if (saved) setAskFuelBenchmarkSubmitSignal(signal => signal + 1);
+              }}
               brief={generatedBrief}
               lastPlaybook={lastPlaybook}
               onDismissPlaybook={() => setLastPlaybook(null)}
@@ -10790,17 +10917,63 @@ function PatriotPayJourneyInner({
         />
       ) : null}
       <AskFuelChatDrawer
+        key={`ask-fuel-${ASK_FUEL_FLOW_VERSION}-${askFuelOpen ? "open" : "shut"}-${playbookFocusSignal}`}
         open={askFuelOpen}
         onClose={() => setAskFuelOpen(false)}
         companyName={selectedCompany.displayName}
         benchmark={scorecardBenchmarkForm}
+        hasBenchmark={hasFilledBenchmarkMetric(scorecardBenchmarkForm)}
+        onOpenBenchmark={() => {
+          askFuelAwaitingBenchmarkRef.current = true;
+          setElevateDetailsDrawer(true);
+          setActivePage("scorecard-v2");
+          setOpenProfileModuleSection("benchmark");
+          setOpenProfileModuleKey(key => key + 1);
+        }}
+        pitchDeck={(() => {
+          const current = documentSlots.find(slot => slot.typeId === "pitch_deck")?.current;
+          if (!current) return null;
+          return {
+            id: current.id,
+            name: current.name,
+            format: current.format,
+            uploadedAt: current.uploadedAt,
+            downloadUrl: current.downloadUrl,
+          };
+        })()}
+        pitchDeckUploading={processingDocumentTypeId === "pitch_deck"}
+        onUploadPitchDeck={(file) => {
+          setProcessingDocumentTypeId("pitch_deck");
+          window.setTimeout(() => {
+            setDocumentSlots(previous => upsertDocumentSlot(previous, {
+              typeId: "pitch_deck",
+              typeLabel: "Pitch deck",
+              file,
+              source: "Ask Fuel AI · Pitch deck upload",
+              intelligenceIds: [],
+              intelligenceCount: 0,
+            }));
+            setProcessingDocumentTypeId(null);
+          }, 900);
+        }}
+        onDiscardPitchDeck={() => {
+          setDocumentSlots(previous => clearDocumentSlotCurrent(previous, "pitch_deck"));
+        }}
+        onGeneratePitchDeckIntelligence={() => {
+          handleGenerateFromPending("pending-doc-pitch_deck");
+        }}
+        onOpenDataRoom={() => {
+          setAskFuelOpen(false);
+          setActivePage("data-room");
+        }}
         onBriefGenerated={setGeneratedBrief}
         onViewInitiatives={() => { setAskFuelOpen(false); setActivePage("initiatives"); }}
         focusBriefSignal={briefFocusSignal}
         focusPlaybook={pendingPlaybook}
         focusPlaybookSignal={playbookFocusSignal}
+        benchmarkSubmitSignal={askFuelBenchmarkSubmitSignal}
       />
-      {profileCreditReward ? (
+      {profileCreditReward && creditToastArmedRef.current ? (
         <ProfileCreditRewardToast
           reward={profileCreditReward}
           onDismiss={() => setProfileCreditReward(null)}

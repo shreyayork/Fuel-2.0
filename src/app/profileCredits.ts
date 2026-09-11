@@ -335,23 +335,6 @@ export function resetAndAwardOnboardingCredits(
   return loadEarnedProfileCredits(companyKey);
 }
 
-/** Toast for the last module this onboarding session actually completed. */
-export function onboardingModuleCreditReward(
-  modules: readonly ProfileModuleId[],
-  earned: EarnedProfileCredits,
-): ProfileCreditReward | null {
-  const module = modules[modules.length - 1];
-  if (!module) return null;
-  return {
-    kind: "module",
-    module,
-    amount: PROFILE_MODULE_REWARDS[module],
-    balance: computeCreditBalance(earned),
-    headline: moduleCreditsHeadline(module),
-    message: moduleCreditsMessage(module),
-  };
-}
-
 export function moduleCreditsHeadline(module: ProfileModuleId): string {
   switch (module) {
     case "company":

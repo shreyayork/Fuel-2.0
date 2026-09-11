@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   ProfileMotion, DevMotion, GtmMotion, RevopsMotion,
   InvestmentMotion, BenchmarkMotion, HubSpotMotion,
-  GTM_FUNNEL_HINTS, GTM_FUNNEL_CHOICES, type GtmFunnelStage,
+  GTM_FUNNEL_HINTS, GTM_FUNNEL_CHOICES, PROFILE_BUILD_MS, type GtmFunnelStage,
 } from "./OnboardingMotionGraphics.tsx";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney.tsx";
 import {
@@ -1092,7 +1092,8 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
         id: rid(), type: f.type, amount: f.amount, date: "", investors: "",
       })));
       setSearchState("review");
-    }, 1600);
+      // ProfileMotion paces its payoff cards and progress bar against this window.
+    }, PROFILE_BUILD_MS);
   }
 
   function trySelectCompanyFromQuery() {
@@ -1321,7 +1322,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                             <div className="of-spin" style={{ width:56, height:56, borderRadius:"50%", border:"2px solid rgba(61,214,140,0.06)", borderBottom:"2px solid rgba(61,214,140,0.4)", position:"absolute", top:12, left:12, animationDirection:"reverse", animationDuration:"0.65s" }} />
                           </div>
                           <div style={{ fontSize:17, fontWeight:700, color:"var(--text-1)", marginBottom:6 }}>Building {companyQuery}'s profile…</div>
-                          <div style={{ fontSize:13, color:"#556878" }}>Pulling Crunchbase, LinkedIn, funding, and cohort signals</div>
+                          <div style={{ fontSize:13, color:"#556878" }}>Matching you to a real peer cohort so your first benchmark means something</div>
                         </div>
                       )}
 

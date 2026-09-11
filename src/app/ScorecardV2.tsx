@@ -298,6 +298,11 @@ export type ScorecardV2Props = {
   creditRewardVisible?: boolean;
   openProfileModuleKey?: number;
   openProfileModuleSection?: DetailSectionId | "benchmark";
+  /** Sit above Ask Fuel when that chat opened this drawer. */
+  elevateDetailsDrawer?: boolean;
+  /** Fires when the founder edits a details field — arms the credit reward toast. */
+  onDetailsFieldEdited?: () => void;
+  onDetailsDrawerClosed?: (saved: boolean) => void;
 };
 
 export type OverviewBuildPhase =
@@ -1772,22 +1777,22 @@ function CategoryGlanceRow({
 
       <div className="sc-glance-track-body">
         <div className="sc-glance-track-lead">
-          <GlanceScoreRing
-            cat={cat}
-            score={score}
-            isOpen={glancePopoverOpen}
-            onRequestOpen={onGlancePopoverOpen}
-            onRequestClose={onGlancePopoverClose}
+            <GlanceScoreRing
+              cat={cat}
+              score={score}
+              isOpen={glancePopoverOpen}
+              onRequestOpen={onGlancePopoverOpen}
+              onRequestClose={onGlancePopoverClose}
             size={88}
             className="sc-glance-ring-wrap--track sc-glance-ring-wrap--ref"
           />
           <div className="sc-glance-track-lead-copy">
             <h3 className="sc-glance-track-title-link">
               {cat.label} — {cat.fullLabel} <span aria-hidden="true">→</span>
-            </h3>
+              </h3>
             {focusLine ? <p className="sc-glance-track-focus">{focusLine}</p> : null}
+            </div>
           </div>
-        </div>
 
         <div className="sc-glance-track-mid">
           <TrackInsightPanel
@@ -1852,8 +1857,8 @@ function CategoryCard({ cat, onClick, onViewDetails, onViewBenchmark, expanded, 
             style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 108, padding: "6px 4px" }}
           >
             <div style={{ display: "flex", alignItems: "baseline", gap: 4, color: "var(--text-1)", lineHeight: 1 }}>
-              <strong style={{ fontSize: 56, fontWeight: 700, letterSpacing: "-0.03em" }}>{score}</strong>
-              <span style={{ fontSize: 14, color: "var(--text-3)", fontWeight: 500 }}>/100</span>
+              <strong className="sc-score-num" style={{ fontWeight: 700, letterSpacing: "-0.03em" }}>{score}</strong>
+              <span className="sc-score-denom" style={{ color: "var(--text-3)", fontWeight: 500 }}>/100</span>
             </div>
             {popoverOpen && (
               <ScoreHealthPopover cat={cat} score={score} updatedLabel={updatedLabel} />
@@ -4463,6 +4468,7 @@ function scrollDrawerNodeIntoView(node: HTMLElement | null) {
 function DetailsDrawer({
   companyName, answers, onSelect, onSaveClose, onClose, initialStep = 0,
   benchmark, benchmarkContext, onBenchmarkChange, creditRewardVisible = false,
+  elevate = false,
 }: {
   companyName: string;
   answers: DetailAnswers;
@@ -4474,6 +4480,7 @@ function DetailsDrawer({
   benchmarkContext?: ScorecardBenchmarkContext;
   onBenchmarkChange: (next: OnboardingBenchmarkInput, context: ScorecardBenchmarkContext, commit?: boolean) => void;
   creditRewardVisible?: boolean;
+  elevate?: boolean;
 }) {
   const [step, setStep] = useState(initialStep);
   const [benchDraft, setBenchDraft] = useState<OnboardingBenchmarkInput>(benchmark);
@@ -4584,8 +4591,8 @@ function DetailsDrawer({
   useEffect(() => () => window.clearTimeout(highlightTimerRef.current), []);
 
   return (
-    <div className="sc-drawer-scrim" onClick={handleClose}>
-      <aside className="sc-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Add company details">
+    <div className={`sc-drawer-scrim${elevate ? " sc-drawer-scrim--over-ask-fuel" : ""}`} onClick={handleClose}>
+      <aside className={`sc-drawer${elevate ? " sc-drawer--over-ask-fuel" : ""}`} onClick={e => e.stopPropagation()} role="dialog" aria-label="Add company details">
         <header className="sc-drawer-head">
           <div>
             <span className="sc-drawer-eyebrow">✦ Fuel AI · Add details</span>
@@ -4673,7 +4680,7 @@ function DetailsDrawer({
                     answers={answers}
                     onSelect={onSelect}
                   />
-                </div>
+              </div>
               ) : null}
             </>
           )}
@@ -5573,7 +5580,7 @@ function CategoryDetailInitiativesWidget({
                   >
                     View
                   </button>
-                </div>
+              </div>
             </div>
           ))}
           </div>
@@ -6031,7 +6038,7 @@ function BenchmarkDrilldownView({
         <button type="button" className="scorecard-drill-back-btn" onClick={onBack}>← Overview</button>
         <div style={{ flex: 1 }}>
           <div className="scorecard-v2-drill-title">Full benchmark</div>
-          <div style={{ color: "var(--text-3)", fontSize: 12, marginTop: 2 }}>{cohortLabel}</div>
+          <div className="scorecard-v2-drill-cohort" style={{ color: "var(--text-3)", marginTop: 2 }}>{cohortLabel}</div>
         </div>
       </div>
 
@@ -6324,6 +6331,9 @@ export default function ScorecardV2({
   creditRewardVisible = false,
   openProfileModuleKey = 0,
   openProfileModuleSection = "profile",
+  elevateDetailsDrawer = false,
+  onDetailsFieldEdited,
+  onDetailsDrawerClosed,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
@@ -6344,6 +6354,10 @@ export default function ScorecardV2({
     [detailAnswers, onboardingAnswers],
   );
 
+  // Onboarding and Set up later credits are saved silently. The reward toast belongs to a
+  // field the founder edits in this sidebar, so it stays closed until selectDetail runs.
+  const sidebarFieldEditedRef = useRef(false);
+
   const syncModuleCredits = useCallback((answers: DetailAnswers) => {
     const ready = completedOnboardingModules({
       ...answers,
@@ -6360,6 +6374,7 @@ export default function ScorecardV2({
       );
       if (!reward) return;
       onProfileCreditsChange?.(earned);
+      if (!sidebarFieldEditedRef.current) return;
       onProfileCreditReward?.(reward);
     });
   }, [companyKey, onboardingAnswers, onProfileCreditReward, onProfileCreditsChange]);
@@ -6395,6 +6410,8 @@ export default function ScorecardV2({
   }, [cName]);
 
   const selectDetail = (qid: string, value: string) => {
+    sidebarFieldEditedRef.current = true;
+    onDetailsFieldEdited?.();
     setDetailAnswers(prev => {
       const next = { ...prev };
       if (value) next[qid] = value; else delete next[qid];
@@ -6811,14 +6828,19 @@ export default function ScorecardV2({
           benchmarkContext={benchmarkContext}
           onBenchmarkChange={persistDrawerBenchmark}
           creditRewardVisible={creditRewardVisible}
+          elevate={elevateDetailsDrawer}
           onSelect={selectDetail}
           onSaveClose={() => {
             setDrawerOpen(false);
             saveStoredQuarter(`fuel-details-q-${cName}`);
             onWorkspaceActivity?.();
             syncModuleCredits(mergedDetailAnswers);
+            onDetailsDrawerClosed?.(true);
           }}
-          onClose={() => setDrawerOpen(false)}
+          onClose={() => {
+            setDrawerOpen(false);
+            onDetailsDrawerClosed?.(false);
+          }}
         />
       )}
 
