@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useDialogA11y } from "../a11y/useDialogA11y";
+import { OverviewBuildPanel, type OverviewBuildPhase } from "../ScorecardV2.tsx";
 import { drawerPanelPointerProps, useScrimPointerClose } from "../drawerScrim";
+import { useDialogA11y } from "../a11y/useDialogA11y";
 import {
   Bar,
   BarChart,
@@ -18,6 +19,7 @@ import {
   INVESTOR_PORTFOLIO,
   INVESTOR_PORTFOLIO_LISTS,
   buildInitialPortfolioLists,
+  buildOnboardingPortfolioRows,
   normalizePortfolioListRow,
   INVESTOR_WATCHLISTS,
   PIPELINE_BOARDS,
@@ -30,7 +32,6 @@ import {
   resolveCompanyLogoUrl,
   buildBenchmarkDotsForCompanies,
   buildPortfolioBenchmarkSummary,
-  type BenchmarkCohortScale,
   buildPortfolioCompanyView,
   buildSectorAllocation,
   companiesForPortfolioList,
@@ -53,6 +54,7 @@ import {
   type PortfolioListDigest,
   type PortfolioListRow,
   type PortfolioListScope,
+  type OnboardingPortfolioInput,
   PORTFOLIO_COHORT_STAGES,
   PORTFOLIO_LIST_LOGO_VISIBLE,
   buildPortfolioMeta,
@@ -85,6 +87,78 @@ import "./investor.css";
 export type InvestorDashboardSection = "home" | "portfolios" | "pipeline" | "watchlists";
 
 const HUBSPOT_STORAGE_KEY = "fuel-investor-hubspot-connected";
+const PORTFOLIO_BUILD_SEEN_PREFIX = "fuel-investor-portfolio-built:v1:";
+const PORTFOLIO_BUILD_PENDING_KEY = "fuel-investor-play-portfolio-build";
+const PORTFOLIO_BUILD_MS = 3200;
+const PORTFOLIO_BUILD_STEPS: { id: Exclude<OverviewBuildPhase, "ready">; label: string }[] = [
+  { id: "summary", label: "Bringing in portfolio companies" },
+  { id: "dev", label: "Organising by stage and sector" },
+  { id: "mkt", label: "Adding them to your portfolio table" },
+];
+
+function portfolioBuildSeen(input: OnboardingPortfolioInput): boolean {
+  try {
+    return window.sessionStorage.getItem(
+      `${PORTFOLIO_BUILD_SEEN_PREFIX}${input.fundName.trim().toLowerCase()}`,
+    ) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function markPortfolioBuildSeen(input: OnboardingPortfolioInput) {
+  try {
+    window.sessionStorage.setItem(
+      `${PORTFOLIO_BUILD_SEEN_PREFIX}${input.fundName.trim().toLowerCase()}`,
+      "true",
+    );
+  } catch {
+    /* Session storage is optional. */
+  }
+}
+
+function hasPendingPortfolioBuild(): boolean {
+  try {
+    return window.sessionStorage.getItem(PORTFOLIO_BUILD_PENDING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function clearPendingPortfolioBuild() {
+  try {
+    window.sessionStorage.removeItem(PORTFOLIO_BUILD_PENDING_KEY);
+  } catch {
+    /* Session storage is optional. */
+  }
+}
+
+/** Call when onboarding completes so the next Portfolios visit replays the build. */
+export function clearPortfolioBuildSeen(fundName: string | undefined | null) {
+  const key = (fundName ?? "").trim().toLowerCase();
+  if (!key) return;
+  try {
+    window.sessionStorage.removeItem(`${PORTFOLIO_BUILD_SEEN_PREFIX}${key}`);
+  } catch {
+    /* Session storage is optional. */
+  }
+}
+
+/** Mark a fresh onboarding landing so Portfolios plays the build before the list. */
+export function requestPortfolioBuild(fundName: string | undefined | null) {
+  clearPortfolioBuildSeen(fundName);
+  try {
+    window.sessionStorage.setItem(PORTFOLIO_BUILD_PENDING_KEY, "1");
+  } catch {
+    /* Session storage is optional. */
+  }
+}
+
+function shouldPlayOnboardingPortfolioBuild(input?: OnboardingPortfolioInput): boolean {
+  if (hasPendingPortfolioBuild()) return true;
+  if (!input) return false;
+  return !portfolioBuildSeen(input);
+}
 
 function readHubspotConnected(initial?: boolean): boolean {
   if (initial) return true;
@@ -127,23 +201,38 @@ export default function InvestorDashboard({
   fundName = "Your fund",
   section = "home",
   hubspotConnected: hubspotConnectedInitial = false,
+  onboardingPortfolio,
   onOpenCompany,
-  onOpenCompanyProfile,
   onOpenAccount,
   onNavigateSection,
 }: {
   fundName?: string;
   section?: InvestorDashboardSection;
   hubspotConnected?: boolean;
+  onboardingPortfolio?: OnboardingPortfolioInput;
   onOpenCompany: (company: InvestorCompanyRef) => void;
-  onOpenCompanyProfile: (company: PortfolioCompanyView) => void;
+  onOpenCompanyProfile?: (company: PortfolioCompanyView) => void;
   onOpenAccount?: () => void;
   onNavigateSection?: (section: Exclude<InvestorDashboardSection, "home">) => void;
 }) {
   const [activeBoardId, setActiveBoardId] = useState<PipelineBoardId>("growth_fund");
   const [hubspotConnected, setHubspotConnected] = useState(() => readHubspotConnected(hubspotConnectedInitial));
   const [hubspotConnecting, setHubspotConnecting] = useState(false);
+  const [profileCompany, setProfileCompany] = useState<PortfolioCompanyView | null>(null);
   const summary = useMemo(() => buildInvestorFundSummary(INVESTOR_PORTFOLIO), []);
+
+  const openCompanyProfile = useCallback((company: PortfolioCompanyView) => {
+    setProfileCompany(company);
+  }, []);
+
+  const closeCompanyProfile = useCallback(() => {
+    setProfileCompany(null);
+  }, []);
+
+  const openWorkspaceFromProfile = useCallback((company: InvestorCompanyRef) => {
+    setProfileCompany(null);
+    onOpenCompany(company);
+  }, [onOpenCompany]);
 
   function connectHubSpot() {
     if (hubspotConnected || hubspotConnecting) return;
@@ -155,19 +244,30 @@ export default function InvestorDashboard({
     }, 1400);
   }
 
+  const profileDrawer = (
+    <InvestorCompanyProfileDrawer
+      company={profileCompany}
+      onClose={closeCompanyProfile}
+      onOpenWorkspace={openWorkspaceFromProfile}
+    />
+  );
+
   if (section === "home") {
     return (
-      <HomeDashboard
-        fundName={fundName}
-        summary={summary}
-        hubspotConnected={hubspotConnected}
-        hubspotConnecting={hubspotConnecting}
-        onConnectHubSpot={connectHubSpot}
-        onOpenCompany={onOpenCompany}
-        onOpenCompanyProfile={onOpenCompanyProfile}
-        onOpenAccount={onOpenAccount}
-        onNavigateSection={onNavigateSection}
-      />
+      <>
+        <HomeDashboard
+          fundName={fundName}
+          summary={summary}
+          hubspotConnected={hubspotConnected}
+          hubspotConnecting={hubspotConnecting}
+          onConnectHubSpot={connectHubSpot}
+          onOpenCompany={onOpenCompany}
+          onOpenCompanyProfile={openCompanyProfile}
+          onOpenAccount={onOpenAccount}
+          onNavigateSection={onNavigateSection}
+        />
+        {profileDrawer}
+      </>
     );
   }
 
@@ -188,6 +288,7 @@ export default function InvestorDashboard({
     || (section === "pipeline" && hubspotConnected);
 
   return (
+    <>
     <section className="investor-dashboard overview-tour-page">
       {!hideShellHeader ? (
         <header className="investor-dashboard-head">
@@ -204,8 +305,9 @@ export default function InvestorDashboard({
 
       {section === "portfolios" ? (
         <PortfoliosPage
+          onboardingPortfolio={onboardingPortfolio}
           onOpenCompany={onOpenCompany}
-          onOpenCompanyProfile={onOpenCompanyProfile}
+          onOpenCompanyProfile={openCompanyProfile}
         />
       ) : null}
 
@@ -230,6 +332,8 @@ export default function InvestorDashboard({
         )
       ) : null}
     </section>
+    {profileDrawer}
+    </>
   );
 }
 
@@ -931,12 +1035,86 @@ type BenchDrawerState = {
   highlightCompanyId?: string;
 } | null;
 
-function buildTierCounts(dots: PortfolioBenchmarkDot[]) {
-  const counts = { strong: 0, watch: 0, concern: 0 };
-  for (const dot of dots) {
-    counts[benchmarkScoreTier(dot.score)] += 1;
+function buildTierCounts(dots: PortfolioBenchmarkDot[]): Record<BenchmarkTier, number> {
+  return dots.reduce(
+    (counts, dot) => {
+      counts[benchmarkScoreTier(dot.score)] += 1;
+      return counts;
+    },
+    { strong: 0, watch: 0, concern: 0 },
+  );
+}
+
+function majorityBenchmarkTier(dots: PortfolioBenchmarkDot[]): BenchmarkTier {
+  const counts = buildTierCounts(dots);
+  if (counts.strong >= counts.watch && counts.strong >= counts.concern) return "strong";
+  if (counts.watch >= counts.concern) return "watch";
+  return "concern";
+}
+
+type CompanyRailCluster = {
+  id: string;
+  position: number;
+  start: number;
+  end: number;
+  dots: PortfolioBenchmarkDot[];
+  tier: BenchmarkTier;
+};
+
+const BENCH_RAIL_LOGO_MAX = 10;
+
+/** Keep the rail sparse as lists grow: logos, then ticks, then count pills. */
+function benchRailMaxMarks(count: number): number {
+  if (count <= BENCH_RAIL_LOGO_MAX) return count;
+  if (count <= 24) return 12;
+  if (count <= 80) return 10;
+  return 8;
+}
+
+function clusterCompanyRailMarks(dots: PortfolioBenchmarkDot[]): CompanyRailCluster[] {
+  if (dots.length === 0) return [];
+
+  const clusterOnce = (gap: number): CompanyRailCluster[] => {
+    const sorted = [...dots].sort((left, right) => left.position - right.position);
+    const groups: CompanyRailCluster[] = [];
+    for (const dot of sorted) {
+      const last = groups[groups.length - 1];
+      if (last && Math.abs(dot.position - last.position) < gap) {
+        last.dots.push(dot);
+        last.position = last.dots.reduce((sum, item) => sum + item.position, 0) / last.dots.length;
+        last.start = Math.min(last.start, dot.position);
+        last.end = Math.max(last.end, dot.position);
+      } else {
+        groups.push({
+          id: dot.id,
+          position: dot.position,
+          start: dot.position,
+          end: dot.position,
+          dots: [dot],
+          tier: benchmarkScoreTier(dot.score),
+        });
+      }
+    }
+    return groups.map(group => ({
+      ...group,
+      id: group.dots.map(dot => dot.id).join("-"),
+      tier: majorityBenchmarkTier(group.dots),
+      end: group.end + 0.05,
+    }));
+  };
+
+  const maxMarks = benchRailMaxMarks(dots.length);
+  let gap = dots.length <= 24 ? 2.8 : dots.length <= 80 ? 5 : 8;
+  let groups = clusterOnce(gap);
+  while (groups.length > maxMarks && gap < 22) {
+    gap += dots.length > 80 ? 1.6 : 1.1;
+    groups = clusterOnce(gap);
   }
-  return counts;
+  return groups;
+}
+
+function mapBenchAxisLeft(position: number): number {
+  return BENCH_TRACK_INSET + (position / 100) * (100 - BENCH_TRACK_INSET * 2);
 }
 
 const BENCH_TRACK_INSET = 5;
@@ -1066,6 +1244,42 @@ function buildBenchmarkDensityBins(
   }
 
   return { bins, peak: Math.max(1, peak), binCount };
+}
+
+/** Sampled density bins are a few thousand dots; scale counts to the labeled cohort n. */
+function scaleDensityToSampleSize(
+  result: { bins: BenchmarkDensityBin[]; peak: number; binCount: number },
+  sampleSize: number,
+): { bins: BenchmarkDensityBin[]; peak: number; binCount: number } {
+  const sampledTotal = result.bins.reduce((sum, bin) => sum + bin.count, 0);
+  if (sampledTotal === 0 || sampledTotal >= sampleSize) return result;
+  const scale = sampleSize / sampledTotal;
+  const bins = result.bins.map(bin => ({
+    ...bin,
+    count: Math.round(bin.count * scale),
+    strong: Math.round(bin.strong * scale),
+    watch: Math.round(bin.watch * scale),
+    concern: Math.round(bin.concern * scale),
+  }));
+  return {
+    bins,
+    peak: Math.max(1, Math.round(result.peak * scale)),
+    binCount: result.binCount,
+  };
+}
+
+function scaleTierCounts(
+  counts: ReturnType<typeof buildTierCounts>,
+  sampleSize: number,
+  sampledLength: number,
+) {
+  const scale = sampleSize / Math.max(1, sampledLength);
+  if (scale <= 1.01) return counts;
+  return {
+    strong: Math.round(counts.strong * scale),
+    watch: Math.round(counts.watch * scale),
+    concern: Math.round(counts.concern * scale),
+  };
 }
 
 function formatBenchmarkCount(value: number): string {
@@ -1482,116 +1696,76 @@ function BenchmarkPercentileDistribution({
   );
 }
 
-function BenchmarkDotStrip({
-  metric,
-  onTierClick,
-}: {
-  metric: PortfolioBenchmarkMetric;
-  onTierClick?: (tier: BenchmarkTier) => void;
-}) {
-  const positions = useMemo(() => {
-    const trackSpan = 100 - BENCH_TRACK_INSET * 2;
-    return metric.dots.map(dot => ({
-      dot,
-      tier: benchmarkScoreTier(dot.score),
-      left: BENCH_TRACK_INSET + (dot.position / 100) * trackSpan,
-    }));
-  }, [metric.dots]);
-
-  return (
-    <div className="investor-bench-dot-strip">
-      <div
-        className="investor-bench-dot-strip-canvas"
-        role="group"
-        aria-label={`${metric.sampleSize} companies plotted as compact dots`}
-      >
-        {positions.map(({ dot, tier, left }) => (
-          <button
-            key={dot.id}
-            type="button"
-            className={`investor-bench-dot is-${tier}`}
-            style={{ left: `${left}%` }}
-            onClick={() => onTierClick?.(tier)}
-            aria-label={`${dot.name} — ${benchmarkTierLabel(tier)}`}
-            title={dot.name}
-          />
-        ))}
-      </div>
-      <p className="investor-bench-density-note">
-        Compact view · {formatBenchmarkCount(metric.sampleSize)} dots · click a dot group via tier pills below.
-      </p>
-    </div>
-  );
-}
-
-/** Bins for the large-cohort range area chart */
-const BENCH_RANGE_BIN_COUNT = 24;
-
 /**
- * Unified range chart for 10k / 100k — smooth area curve on a numeric axis with
- * compact tier summary (replaces the separate axis + bubble row).
+ * Compact researched-range rail. Company ticks stay visible; nearby companies
+ * collapse into a count so large VC portfolios do not overlap into noise.
  */
 function BenchmarkRangeChart({
   metric,
+  companiesById,
   cohortBandLeft,
   cohortBandWidth,
   portfolioMarkerLeft,
-  onBinClick,
-  onTierClick,
+  onOpenCompanyList,
+  onOpenCompanyProfile,
 }: {
   metric: PortfolioBenchmarkMetric;
+  companiesById: Map<string, PortfolioCompanyView>;
   cohortBandLeft: number;
   cohortBandWidth: number;
   portfolioMarkerLeft: number;
-  onBinClick?: (range: BenchPositionRange) => void;
-  onTierClick?: (tier: BenchmarkTier) => void;
+  onOpenCompanyList?: (opts: {
+    tier?: BenchmarkTier;
+    positionRange?: BenchPositionRange;
+    companyId?: string;
+  }) => void;
+  onOpenCompanyProfile?: (company: PortfolioCompanyView) => void;
 }) {
-  const { bins, peak } = useMemo(
-    () => buildBenchmarkDensityBins(metric.dots, BENCH_RANGE_BIN_COUNT),
-    [metric.dots],
-  );
-  const tierCounts = useMemo(() => buildTierCounts(metric.dots), [metric.dots]);
+  const companyDots = metric.portfolioDots.length > 0 ? metric.portfolioDots : [];
+  const clusters = useMemo(() => clusterCompanyRailMarks(companyDots), [companyDots]);
+  const showLogos = companyDots.length > 0 && companyDots.length <= BENCH_RAIL_LOGO_MAX
+    && clusters.every(cluster => cluster.dots.length === 1);
+  const tierCounts = useMemo(() => buildTierCounts(companyDots), [companyDots]);
   const tierSegments = useMemo(() => ([
     { tier: "strong" as BenchmarkTier, count: tierCounts.strong, label: "Strong" },
     { tier: "watch" as BenchmarkTier, count: tierCounts.watch, label: "Watch" },
     { tier: "concern" as BenchmarkTier, count: tierCounts.concern, label: "Concern" },
   ]).filter(segment => segment.count > 0), [tierCounts]);
 
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const activeBin = activeIndex === null ? null : bins[activeIndex] ?? null;
-  const gradientId = `bench-range-fill-${metric.id}`;
+  const [hoverTip, setHoverTip] = useState<BenchmarkHoverTipState | null>(null);
+  const hideTipTimerRef = useRef<number | null>(null);
 
-  const mapX = useCallback(
-    (position: number) => BENCH_TRACK_INSET + (position / 100) * (100 - BENCH_TRACK_INSET * 2),
-    [],
-  );
-
-  const chartGeometry = useMemo(() => {
-    const chartHeight = 44;
-    const baseline = chartHeight;
-    const points = bins.map(bin => {
-      const x = mapX((bin.start + bin.end) / 2);
-      const normalized = bin.count === 0 ? 0 : Math.sqrt(bin.count / peak);
-      const y = bin.count === 0
-        ? baseline
-        : baseline - Math.max(4, normalized * (chartHeight - 8));
-      return { x, y, bin };
-    });
-
-    if (points.length === 0) {
-      return { chartHeight, baseline, points, linePath: "", areaPath: "" };
+  const clearHideTipTimer = useCallback(() => {
+    if (hideTipTimerRef.current !== null) {
+      window.clearTimeout(hideTipTimerRef.current);
+      hideTipTimerRef.current = null;
     }
+  }, []);
 
-    const linePath = points
-      .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-      .join(" ");
-    const areaPath = `${linePath} L ${mapX(100).toFixed(2)} ${baseline} L ${mapX(0).toFixed(2)} ${baseline} Z`;
+  const showHoverTip = useCallback((
+    company: PortfolioCompanyView,
+    dot: PortfolioBenchmarkDot,
+    tier: BenchmarkTier,
+    target: HTMLElement,
+  ) => {
+    clearHideTipTimer();
+    setHoverTip({ company, dot, tier, anchor: target.getBoundingClientRect() });
+  }, [clearHideTipTimer]);
 
-    return { chartHeight, baseline, points, linePath, areaPath };
-  }, [bins, mapX, peak]);
+  const scheduleHideHoverTip = useCallback(() => {
+    clearHideTipTimer();
+    hideTipTimerRef.current = window.setTimeout(() => setHoverTip(null), 120);
+  }, [clearHideTipTimer]);
+
+  const dismissHoverTip = useCallback(() => {
+    clearHideTipTimer();
+    setHoverTip(null);
+  }, [clearHideTipTimer]);
+
+  useEffect(() => () => clearHideTipTimer(), [clearHideTipTimer]);
 
   return (
-    <div className="investor-bench-range-chart">
+    <div className="investor-bench-range-chart investor-bench-company-rail">
       <div className="investor-bench-range-chart-limitations" aria-hidden="true">
         <span className="investor-bench-range-chart-limitations-label">Benchmark range</span>
         <div className="investor-bench-range-chart-limitations-track">
@@ -1603,87 +1777,91 @@ function BenchmarkRangeChart({
       </div>
 
       <div
-        className="investor-bench-range-chart-canvas"
-        onMouseLeave={() => setActiveIndex(null)}
+        className="investor-bench-company-rail-plot"
+        role="img"
+        aria-label={`${companyDots.length} portfolio ${companyDots.length === 1 ? "company" : "companies"} on ${metric.label}. Portfolio median ${metric.portfolioLabel}. Cohort P50 ${metric.cohortP50Label}.`}
       >
-        <svg
-          className="investor-bench-range-chart-svg"
-          viewBox={`0 0 100 ${chartGeometry.chartHeight}`}
-          preserveAspectRatio="none"
+        <span className="investor-bench-company-rail-track" aria-hidden="true" />
+        <span
+          className="investor-bench-company-rail-band"
+          style={{ left: `${cohortBandLeft}%`, width: `${Math.max(4, cohortBandWidth)}%` }}
           aria-hidden="true"
-        >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-              <stop className="investor-bench-range-stop-bad" offset="0%" />
-              <stop className="investor-bench-range-stop-watch" offset="48%" />
-              <stop className="investor-bench-range-stop-good" offset="100%" />
-            </linearGradient>
-          </defs>
+        />
+        <span
+          className="investor-bench-company-rail-you"
+          style={{ left: `${portfolioMarkerLeft}%` }}
+          aria-hidden="true"
+        />
 
-          {chartGeometry.areaPath ? (
-            <path className="investor-bench-range-chart-area" d={chartGeometry.areaPath} fill={`url(#${gradientId})`} />
-          ) : null}
-          {chartGeometry.linePath ? (
-            <path className="investor-bench-range-chart-line" d={chartGeometry.linePath} />
-          ) : null}
+        {clusters.map(cluster => {
+          const left = mapBenchAxisLeft(cluster.position);
+          const count = cluster.dots.length;
+          const firstDot = cluster.dots[0]!;
+          const company = count === 1 ? companiesById.get(firstDot.id) : undefined;
+          const label = count === 1
+            ? (company?.displayName ?? firstDot.name)
+            : `${count} companies`;
 
-          <rect
-            className="investor-bench-range-chart-band"
-            x={cohortBandLeft}
-            y={0}
-            width={Math.max(1.5, cohortBandWidth)}
-            height={chartGeometry.chartHeight}
-            rx={1}
-          />
-
-          <line
-            className="investor-bench-range-chart-portfolio-line"
-            x1={portfolioMarkerLeft}
-            x2={portfolioMarkerLeft}
-            y1={0}
-            y2={chartGeometry.chartHeight}
-          />
-
-          {activeBin ? (
-            <line
-              className="investor-bench-range-chart-hover-line"
-              x1={mapX((activeBin.start + activeBin.end) / 2)}
-              x2={mapX((activeBin.start + activeBin.end) / 2)}
-              y1={0}
-              y2={chartGeometry.chartHeight}
-            />
-          ) : null}
-        </svg>
-
-        <div className="investor-bench-range-chart-hitlayer" role="presentation">
-          {bins.map((bin, index) => (
+          return (
             <button
-              key={bin.index}
+              key={cluster.id}
               type="button"
-              className={`investor-bench-range-chart-hit${activeIndex === index ? " is-active" : ""}`}
-              style={{
-                left: `${mapX(bin.start)}%`,
-                width: `${Math.max(0.5, mapX(bin.end) - mapX(bin.start))}%`,
+              className={
+                count > 1
+                  ? `investor-bench-company-count is-${cluster.tier}`
+                  : showLogos
+                    ? `investor-bench-company-logo is-${cluster.tier}`
+                    : `investor-bench-company-tick is-${cluster.tier}`
+              }
+              style={{ left: `${left}%` }}
+              title={
+                count > 1
+                  ? cluster.dots.length <= 6
+                    ? cluster.dots.map(dot => dot.name).join(", ")
+                    : `${cluster.dots.slice(0, 5).map(dot => dot.name).join(", ")} +${cluster.dots.length - 5} more`
+                  : label
+              }
+              aria-label={
+                count > 1
+                  ? `${count} companies near this point on ${metric.label}`
+                  : `${label} — ${benchmarkTierLabel(cluster.tier)} on ${metric.label}`
+              }
+              onMouseEnter={event => {
+                if (company && count === 1) showHoverTip(company, firstDot, cluster.tier, event.currentTarget);
               }}
-              onMouseEnter={() => setActiveIndex(index)}
-              onFocus={() => setActiveIndex(index)}
-              onBlur={() => setActiveIndex(null)}
-              onClick={() => onBinClick?.({ start: bin.start, end: bin.end })}
-              aria-label={`${formatBenchmarkCount(bin.count)} companies in this range`}
-            />
-          ))}
-        </div>
-
-        {activeBin ? (
-          <div
-            className={`investor-bench-range-chart-tip is-${activeBin.tier}`}
-            style={{ left: `${mapX((activeBin.start + activeBin.end) / 2)}%` }}
-            aria-hidden="true"
-          >
-            <strong>{formatBenchmarkCount(activeBin.count)}</strong>
-            <span>companies</span>
-          </div>
-        ) : null}
+              onMouseLeave={scheduleHideHoverTip}
+              onFocus={event => {
+                if (company && count === 1) showHoverTip(company, firstDot, cluster.tier, event.currentTarget);
+              }}
+              onBlur={scheduleHideHoverTip}
+              onClick={() => {
+                dismissHoverTip();
+                if (count === 1) {
+                  onOpenCompanyList?.({ companyId: firstDot.id });
+                  return;
+                }
+                onOpenCompanyList?.({ positionRange: { start: cluster.start, end: cluster.end } });
+              }}
+            >
+              {count > 1 ? count : showLogos ? (
+                company ? (
+                  <PortfolioCompanyLogo company={company} size="xs" />
+                ) : (
+                  <PortfolioCompanyLogo
+                    company={{
+                      displayName: firstDot.name,
+                      logo: companyBenchmarkInitials(firstDot.name),
+                      logoBg: firstDot.color,
+                      domain: `${companyLogoSlug(firstDot.name).replace(/-/g, "")}.com`,
+                      logoUrl: buildCompanyLogoAssetUrl(firstDot.name),
+                    }}
+                    size="xs"
+                  />
+                )
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
       <div className="investor-bench-range-chart-scale">
@@ -1700,20 +1878,30 @@ function BenchmarkRangeChart({
       </div>
 
       {tierSegments.length > 0 ? (
-        <div className="investor-bench-range-tier-row" role="group" aria-label="Companies by tier">
+        <div className="investor-bench-range-tier-row" role="group" aria-label="Portfolio companies by tier">
           {tierSegments.map(segment => (
             <button
               key={segment.tier}
               type="button"
               className={`investor-bench-range-tier-chip is-${segment.tier}`}
-              onClick={() => onTierClick?.(segment.tier)}
+              onClick={() => onOpenCompanyList?.({ tier: segment.tier })}
             >
               <span className="investor-bench-range-tier-chip-dot" aria-hidden="true" />
               {segment.label}
-              <strong>{formatBenchmarkCount(segment.count)}</strong>
+              <strong>{segment.count}</strong>
             </button>
           ))}
         </div>
+      ) : null}
+
+      {hoverTip ? (
+        <BenchmarkTierHoverTip
+          tip={hoverTip}
+          metric={metric}
+          onDismiss={dismissHoverTip}
+          onKeepOpen={clearHideTipTimer}
+          onOpenProfile={onOpenCompanyProfile}
+        />
       ) : null}
     </div>
   );
@@ -2091,62 +2279,10 @@ function PortfolioBenchmarkChart({
   }) => void;
 }) {
   const trendGlyph = metric.trend === "up" ? "↑" : metric.trend === "down" ? "↓" : "→";
-  const tierCounts = useMemo(() => buildTierCounts(metric.dots), [metric.dots]);
-  const axisLowLabel = metric.lowerIsBetter ? "better" : "lower";
-  const axisHighLabel = metric.lowerIsBetter ? "worse" : "higher";
-
-  const tierSegments = useMemo(() => ([
-    { tier: "strong" as BenchmarkTier, count: tierCounts.strong, label: "strong" },
-    { tier: "watch" as BenchmarkTier, count: tierCounts.watch, label: "watch" },
-    { tier: "concern" as BenchmarkTier, count: tierCounts.concern, label: "concern" },
-  ]).filter(segment => segment.count > 0), [tierCounts]);
-
-  const renderMode = benchmarkRenderMode(metric.dots.length);
-
-  const tierLogoLayout = useMemo(
-    () => (renderMode === "logos"
-      ? layoutBenchmarkLogoPositions(metric.dots)
-      : { laneCount: 1, positions: [] as ReturnType<typeof layoutBenchmarkLogoPositions>["positions"] }),
-    [renderMode, metric.dots],
-  );
-  const tierLogoPositions = tierLogoLayout.positions;
-  const logoLaneCount = tierLogoLayout.laneCount;
-
-  const portfolioMarkerLeft = BENCH_TRACK_INSET + (metric.portfolioPosition / 100) * (100 - BENCH_TRACK_INSET * 2);
-  const cohortBandLeft = BENCH_TRACK_INSET + (metric.bandStart / 100) * (100 - BENCH_TRACK_INSET * 2);
+  const companyCount = metric.portfolioDots.length;
+  const portfolioMarkerLeft = mapBenchAxisLeft(metric.portfolioPosition);
+  const cohortBandLeft = mapBenchAxisLeft(metric.bandStart);
   const cohortBandWidth = ((metric.bandEnd - metric.bandStart) / 100) * (100 - BENCH_TRACK_INSET * 2);
-
-  const [hoverTip, setHoverTip] = useState<BenchmarkHoverTipState | null>(null);
-  const hideTipTimerRef = useRef<number | null>(null);
-
-  const clearHideTipTimer = useCallback(() => {
-    if (hideTipTimerRef.current !== null) {
-      window.clearTimeout(hideTipTimerRef.current);
-      hideTipTimerRef.current = null;
-    }
-  }, []);
-
-  const showHoverTip = useCallback((
-    company: PortfolioCompanyView,
-    dot: PortfolioBenchmarkDot,
-    tier: BenchmarkTier,
-    target: HTMLElement,
-  ) => {
-    clearHideTipTimer();
-    setHoverTip({ company, dot, tier, anchor: target.getBoundingClientRect() });
-  }, [clearHideTipTimer]);
-
-  const scheduleHideHoverTip = useCallback(() => {
-    clearHideTipTimer();
-    hideTipTimerRef.current = window.setTimeout(() => setHoverTip(null), 120);
-  }, [clearHideTipTimer]);
-
-  const dismissHoverTip = useCallback(() => {
-    clearHideTipTimer();
-    setHoverTip(null);
-  }, [clearHideTipTimer]);
-
-  useEffect(() => () => clearHideTipTimer(), [clearHideTipTimer]);
 
   return (
     <article className="investor-bench-card investor-bench-card--wide investor-bench-card--compact">
@@ -2154,7 +2290,9 @@ function PortfolioBenchmarkChart({
         <div className="investor-bench-card-title">
           <strong>
             {metric.label}{" "}
-            <em className="investor-bench-n">n={metric.sampleSize}</em>
+            <em className="investor-bench-n">
+              {companyCount} {companyCount === 1 ? "company" : "companies"}
+            </em>
           </strong>
           {metric.hint ? <em className="investor-bench-hint">{metric.hint}</em> : null}
         </div>
@@ -2175,132 +2313,20 @@ function PortfolioBenchmarkChart({
       </header>
 
       <div className="investor-bench-card-body investor-bench-card-body--compact">
-        <div className={`investor-bench-tier-wrap${renderMode === "density" ? " investor-bench-tier-wrap--range" : ""}`}>
-          {renderMode !== "density" ? (
-            <div className="investor-bench-scale-labels">
-              <span>{axisLowLabel}</span>
-              <span>{axisHighLabel}</span>
-            </div>
-          ) : null}
-          <div className={`investor-bench-tier-track${renderMode === "density" ? " investor-bench-tier-track--range" : ""}`}>
-            {renderMode === "density" ? (
-              <BenchmarkRangeChart
-                metric={metric}
-                cohortBandLeft={cohortBandLeft}
-                cohortBandWidth={Math.max(4, cohortBandWidth)}
-                portfolioMarkerLeft={portfolioMarkerLeft}
-                onBinClick={positionRange => onOpenCompanyList?.({ positionRange })}
-                onTierClick={tier => onOpenCompanyList?.({ tier })}
-              />
-            ) : (
-            <>
-            <div className="investor-bench-range-chart-limitations" aria-hidden="true">
-              <span className="investor-bench-range-chart-limitations-label">Benchmark range</span>
-              <div className="investor-bench-range-chart-limitations-track">
-                <span
-                  className="investor-bench-range-chart-limitations-band"
-                  style={{ left: `${cohortBandLeft}%`, width: `${Math.max(4, cohortBandWidth)}%` }}
-                />
-              </div>
-            </div>
-
-            <div
-              className="investor-bench-tier-plot"
-              role="img"
-              aria-label={`Performance axis from ${axisLowLabel} to ${axisHighLabel}. Portfolio median at ${metric.portfolioLabel}.`}
-            >
-              <span
-                className="investor-bench-tier-portfolio-mark investor-bench-tier-portfolio-mark--plot"
-                style={{ left: `${portfolioMarkerLeft}%` }}
-                title={`Portfolio median · ${metric.portfolioLabel}`}
-                aria-hidden="true"
-              />
-
-            {renderMode === "dots" ? (
-              <BenchmarkDotStrip
-                metric={metric}
-                onTierClick={tier => onOpenCompanyList?.({ tier })}
-              />
-            ) : (
-              <div
-                className="investor-bench-tier-logos"
-                style={{ "--bench-logo-lanes": logoLaneCount } as React.CSSProperties}
-                role="group"
-                aria-label="Companies by performance tier"
-              >
-                {tierLogoPositions.map(({ dot, left, tier, lane }) => {
-                  const company = companiesById.get(dot.id);
-                  const label = company?.displayName ?? dot.name;
-                  return (
-                    <button
-                      key={dot.id}
-                      type="button"
-                      className={`investor-bench-tier-logo is-${tier}`}
-                      style={{ left: `${left}%`, "--lane": lane } as React.CSSProperties}
-                      onMouseEnter={event => {
-                        if (company) showHoverTip(company, dot, tier, event.currentTarget);
-                      }}
-                      onMouseLeave={scheduleHideHoverTip}
-                      onFocus={event => {
-                        if (company) showHoverTip(company, dot, tier, event.currentTarget);
-                      }}
-                      onBlur={scheduleHideHoverTip}
-                      onClick={() => {
-                        dismissHoverTip();
-                        onOpenCompanyList?.({ companyId: dot.id });
-                      }}
-                      aria-label={`${label} — ${benchmarkTierLabel(tier)} on ${metric.label}`}
-                    >
-                      {company ? (
-                        <PortfolioCompanyLogo company={company} size="xs" />
-                      ) : (
-                        <PortfolioCompanyLogo
-                          company={{
-                            displayName: dot.name,
-                            logo: companyBenchmarkInitials(dot.name),
-                            logoBg: dot.color,
-                            domain: `${companyLogoSlug(dot.name).replace(/-/g, "")}.com`,
-                            logoUrl: buildCompanyLogoAssetUrl(dot.name),
-                          }}
-                          size="xs"
-                        />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            </div>
-
-            {tierSegments.length > 0 ? (
-              <div className="investor-bench-tier-pills investor-bench-tier-pills--track">
-                {tierSegments.map(segment => (
-                  <button
-                    key={segment.tier}
-                    type="button"
-                    className={`is-${segment.tier}`}
-                    onClick={() => onOpenCompanyList?.({ tier: segment.tier })}
-                  >
-                    {segment.label} · {segment.count}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            </>
-            )}
+        <div className="investor-bench-tier-wrap investor-bench-tier-wrap--range">
+          <div className="investor-bench-tier-track investor-bench-tier-track--range">
+            <BenchmarkRangeChart
+              metric={metric}
+              companiesById={companiesById}
+              cohortBandLeft={cohortBandLeft}
+              cohortBandWidth={Math.max(4, cohortBandWidth)}
+              portfolioMarkerLeft={portfolioMarkerLeft}
+              onOpenCompanyList={onOpenCompanyList}
+              onOpenCompanyProfile={onOpenCompanyProfile}
+            />
           </div>
         </div>
       </div>
-
-      {hoverTip ? (
-        <BenchmarkTierHoverTip
-          tip={hoverTip}
-          metric={metric}
-          onDismiss={dismissHoverTip}
-          onKeepOpen={clearHideTipTimer}
-          onOpenProfile={onOpenCompanyProfile}
-        />
-      ) : null}
     </article>
   );
 }
@@ -2326,8 +2352,9 @@ function BenchmarkSummaryTiles({
   const topPerformerStats = useMemo(() => {
     const wins = new Map<string, number>();
     for (const metric of summary.metrics) {
-      if (metric.dots.length === 0) continue;
-      const leader = metric.dots.reduce((best, dot) => (
+      const dots = metric.portfolioDots.length > 0 ? metric.portfolioDots : metric.dots;
+      if (dots.length === 0) continue;
+      const leader = dots.reduce((best, dot) => (
         dot.score > best.score ? dot : best
       ));
       wins.set(leader.id, (wins.get(leader.id) ?? 0) + 1);
@@ -2344,7 +2371,7 @@ function BenchmarkSummaryTiles({
 
     const topCompany = companies.find(company => company.id === topId);
     const fallbackDot = summary.metrics
-      .flatMap(metric => metric.dots)
+      .flatMap(metric => metric.portfolioDots.length > 0 ? metric.portfolioDots : metric.dots)
       .find(dot => dot.id === topId);
     const displayName = topCompany?.displayName ?? fallbackDot?.name ?? summary.topPerformer;
     const companyForLogo = topCompany ?? (fallbackDot ? {
@@ -2366,7 +2393,8 @@ function BenchmarkSummaryTiles({
   const watchlistStats = useMemo(() => {
     const scoresByCompany = new Map<string, number[]>();
     for (const metric of summary.metrics) {
-      for (const dot of metric.dots) {
+      const dots = metric.portfolioDots.length > 0 ? metric.portfolioDots : metric.dots;
+      for (const dot of dots) {
         const scores = scoresByCompany.get(dot.id) ?? [];
         scores.push(dot.score);
         scoresByCompany.set(dot.id, scores);
@@ -2448,14 +2476,10 @@ function BenchmarkSummaryTiles({
 function PortfolioBenchmarkSection({
   summary,
   companies = [],
-  cohortScale,
-  onCohortScaleChange,
   onOpenCompanyProfile,
 }: {
   summary: PortfolioBenchmarkSummary;
   companies?: PortfolioCompanyView[];
-  cohortScale: BenchmarkCohortScale;
-  onCohortScaleChange: (scale: BenchmarkCohortScale) => void;
   onOpenCompanyProfile?: (company: PortfolioCompanyView) => void;
 }) {
   const [drawerState, setDrawerState] = useState<BenchDrawerState>(null);
@@ -2466,30 +2490,21 @@ function PortfolioBenchmarkSection({
   const portfolioDotsByMetricId = useMemo(() => {
     const map = new Map<string, PortfolioBenchmarkDot[]>();
     for (const metric of summary.metrics) {
-      const dots = cohortScale === "portfolio"
-        ? metric.dots
-        : buildBenchmarkDotsForCompanies(
-          metric.id,
-          companies,
-          metric.lowerIsBetter,
-          metric.bandStart,
-          metric.bandEnd,
-        );
-      map.set(metric.id, dots);
+      map.set(
+        metric.id,
+        metric.portfolioDots.length > 0
+          ? metric.portfolioDots
+          : buildBenchmarkDotsForCompanies(
+            metric.id,
+            companies,
+            metric.lowerIsBetter,
+            metric.bandStart,
+            metric.bandEnd,
+          ),
+      );
     }
     return map;
-  }, [cohortScale, companies, summary.metrics]);
-  const sampleSize = summary.metrics[0]?.sampleSize ?? companies.length;
-  const renderMode = benchmarkRenderMode(sampleSize);
-  const sectionCopy = cohortScale === "percentile"
-    ? "All metrics in one table — companies grouped into P25–P100 buckets. Click a bar to expand portfolio companies inline."
-    : renderMode === "logos"
-    ? "Each logo is one company on that metric — positioned left to right from better to worse. Click a logo to open the company list, or use tier pills to filter."
-    : renderMode === "dots"
-      ? "At this cohort size, companies appear as compact tier-colored dots. Click tier pills to open your portfolio company list."
-      : cohortScale === "xlarge"
-        ? "At 100k scale, only aggregated distribution buckets are shown. Click a bar or tier pill to see your portfolio companies in that slice."
-        : "At 10k scale, the chart shows cohort density. Click a bar or tier pill to see your portfolio companies in that slice.";
+  }, [companies, summary.metrics]);
 
   return (
     <section className="investor-bench-section" aria-label="Benchmark distribution">
@@ -2498,22 +2513,11 @@ function PortfolioBenchmarkSection({
           <div className="investor-bench-section-head-copy">
             <span>Benchmark distribution</span>
             <h2>How the portfolio stacks up</h2>
-            <p>{sectionCopy}</p>
+            <p>
+              Each mark is a company on the researched range. Nearby companies combine into a count so large portfolios stay readable. Click a mark or tier to open the list.
+            </p>
           </div>
           <div className="investor-bench-section-filters">
-            <label className="investor-bench-filter">
-              <span className="investor-bench-filter-label">view</span>
-              <select
-                value={cohortScale}
-                onChange={event => onCohortScaleChange(event.target.value as BenchmarkCohortScale)}
-                aria-label="Benchmark cohort view"
-              >
-                <option value="portfolio">Portfolio companies</option>
-                <option value="full">Full cohort (10k)</option>
-                <option value="xlarge">Full cohort (100k)</option>
-                <option value="percentile">Percentile distribution</option>
-              </select>
-            </label>
             <label className="investor-bench-filter">
               <span className="investor-bench-filter-label">cohort</span>
               <select defaultValue={summary.filterLabel} aria-label="Filter cohort">
@@ -2525,18 +2529,8 @@ function PortfolioBenchmarkSection({
           </div>
         </div>
 
-        {cohortScale !== "percentile" ? (
-          <BenchmarkSummaryTiles summary={summary} companies={companies} />
-        ) : null}
+        <BenchmarkSummaryTiles summary={summary} companies={companies} />
 
-        {cohortScale === "percentile" ? (
-          <BenchmarkPercentileDistribution
-            summary={summary}
-            portfolioDotsByMetricId={portfolioDotsByMetricId}
-            companiesById={companiesById}
-            onOpenCompanyProfile={onOpenCompanyProfile}
-          />
-        ) : (
         <div className="investor-bench-grid">
           {summary.metrics.map(metric => (
             <PortfolioBenchmarkChart
@@ -2553,7 +2547,6 @@ function PortfolioBenchmarkSection({
             />
           ))}
         </div>
-        )}
       </div>
 
       <BenchmarkMetricCompaniesDrawer
@@ -2601,39 +2594,107 @@ function PortfolioCompanyChipLogo({ chip }: { chip: WatchlistCompanyChip }) {
 }
 
 function PortfoliosPage({
+  onboardingPortfolio,
   onOpenCompany,
   onOpenCompanyProfile,
 }: {
+  onboardingPortfolio?: OnboardingPortfolioInput;
   onOpenCompany: (company: InvestorCompanyRef) => void;
   onOpenCompanyProfile: (company: PortfolioCompanyView) => void;
 }) {
-  const [lists, setLists] = useState<PortfolioListRow[]>(() =>
-    buildInitialPortfolioLists().map(normalizePortfolioListRow),
+  const initialOnboardingLists = useMemo(
+    () => onboardingPortfolio
+      ? buildOnboardingPortfolioRows(onboardingPortfolio).map(normalizePortfolioListRow)
+      : [],
+    [onboardingPortfolio],
   );
+  const initialOnboardingList = initialOnboardingLists[0] ?? null;
+  const playOnboardingBuild = shouldPlayOnboardingPortfolioBuild(onboardingPortfolio);
+  const [lists, setLists] = useState<PortfolioListRow[]>(() => {
+    const defaults = buildInitialPortfolioLists().map(normalizePortfolioListRow);
+    if (initialOnboardingLists.length === 0) return defaults;
+    const createdIds = new Set(initialOnboardingLists.map(row => row.id));
+    return [...initialOnboardingLists, ...defaults.filter(row => !createdIds.has(row.id))];
+  });
   const [tab, setTab] = useState<"all" | "mine" | "shared" | "starred">("all");
   const [query, setQuery] = useState("");
-  const [starredIds, setStarredIds] = useState<string[]>(() =>
-    INVESTOR_PORTFOLIO_LISTS.filter(row => row.starred).map(row => row.id),
-  );
-  const [digestById, setDigestById] = useState<Record<string, PortfolioListDigest>>(() =>
-    Object.fromEntries(INVESTOR_PORTFOLIO_LISTS.map(row => [row.id, row.digest])),
-  );
+  const [starredIds, setStarredIds] = useState<string[]>(() => {
+    const ids = INVESTOR_PORTFOLIO_LISTS.filter(row => row.starred).map(row => row.id);
+    initialOnboardingLists.filter(row => row.starred).forEach(row => ids.unshift(row.id));
+    return [...new Set(ids)];
+  });
+  const [digestById, setDigestById] = useState<Record<string, PortfolioListDigest>>(() => ({
+    ...Object.fromEntries(INVESTOR_PORTFOLIO_LISTS.map(row => [row.id, row.digest])),
+    ...Object.fromEntries(initialOnboardingLists.map(row => [row.id, row.digest])),
+  }));
   const [creating, setCreating] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftFundLabel, setDraftFundLabel] = useState("");
   const [draftCohort, setDraftCohort] = useState("");
   const [draftScope, setDraftScope] = useState<PortfolioListScope>("Account");
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [cohortScale, setCohortScale] = useState<BenchmarkCohortScale>("portfolio");
+  const [buildingPortfolio, setBuildingPortfolio] = useState(playOnboardingBuild);
+  const [buildPhase, setBuildPhase] = useState<OverviewBuildPhase>("summary");
   const [addingCompanies, setAddingCompanies] = useState(false);
   const [companyQuery, setCompanyQuery] = useState("");
+  const buildPlayedForId = useRef<string | null>(
+    playOnboardingBuild ? null : initialOnboardingList?.id ?? null,
+  );
 
   const activeList = lists.find(row => row.id === activeId) ?? null;
 
+  useEffect(() => {
+    if (initialOnboardingLists.length === 0) return;
+    setLists(previous => {
+      const createdIds = new Set(initialOnboardingLists.map(row => row.id));
+      return [...initialOnboardingLists, ...previous.filter(row => !createdIds.has(row.id))];
+    });
+    setStarredIds(previous => [
+      ...initialOnboardingLists.filter(row => row.starred).map(row => row.id),
+      ...previous,
+    ].filter((id, index, all) => all.indexOf(id) === index));
+    setDigestById(previous => ({
+      ...previous,
+      ...Object.fromEntries(initialOnboardingLists.map(row => [row.id, row.digest])),
+    }));
+  }, [initialOnboardingLists]);
+
+  // The onboarding portfolio can arrive after this page mounts, so start the
+  // build whenever a fresh one shows up and it has not played this session.
+  useEffect(() => {
+    if (buildPlayedForId.current && buildPlayedForId.current === initialOnboardingList?.id) return;
+    if (!shouldPlayOnboardingPortfolioBuild(onboardingPortfolio)) {
+      if (initialOnboardingList) buildPlayedForId.current = initialOnboardingList.id;
+      return;
+    }
+    setBuildingPortfolio(true);
+  }, [initialOnboardingList, onboardingPortfolio]);
+
+  useEffect(() => {
+    if (!buildingPortfolio) return;
+    setBuildPhase("summary");
+    const timers = [
+      window.setTimeout(() => setBuildPhase("dev"), 1100),
+      window.setTimeout(() => setBuildPhase("mkt"), 2200),
+    ];
+    return () => timers.forEach(timer => window.clearTimeout(timer));
+  }, [buildingPortfolio]);
+
+  useEffect(() => {
+    if (!buildingPortfolio || !onboardingPortfolio) return;
+    const timer = window.setTimeout(() => {
+      markPortfolioBuildSeen(onboardingPortfolio);
+      clearPendingPortfolioBuild();
+      buildPlayedForId.current = initialOnboardingList?.id ?? "onboarding";
+      setBuildingPortfolio(false);
+    }, PORTFOLIO_BUILD_MS);
+    return () => window.clearTimeout(timer);
+  }, [buildingPortfolio, initialOnboardingList, onboardingPortfolio]);
+
   const activeBenchmarks = useMemo(() => {
     if (!activeList) return null;
-    return buildPortfolioBenchmarkSummary(activeList, INVESTOR_PORTFOLIO, { cohortScale });
-  }, [activeList, cohortScale]);
+    return buildPortfolioBenchmarkSummary(activeList, INVESTOR_PORTFOLIO, { cohortScale: "xlarge" });
+  }, [activeList]);
 
   const filteredLists = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -2741,11 +2802,10 @@ function PortfoliosPage({
     }));
   }
 
-  if (activeList && activeBenchmarks) {
+  if (activeList && activeBenchmarks && !buildingPortfolio) {
     const benchmarks = activeBenchmarks;
     const displayCompanyCount = detailCompanies.length || activeList.companyCount;
-    const ownerLabel = activeList.ownerEmail || activeList.ownerName;
-    const metaTags = portfolioMetaDisplayTags(activeList.meta);
+    const metaTags = portfolioMetaDisplayTags(activeList.meta).filter(part => !part.includes("$"));
 
     return (
       <section className="investor-portfolios-page">
@@ -2755,7 +2815,6 @@ function PortfoliosPage({
             className="investor-portfolio-back"
             onClick={() => {
               setActiveId(null);
-              setCohortScale("portfolio");
               setAddingCompanies(false);
               setCompanyQuery("");
             }}
@@ -2781,21 +2840,11 @@ function PortfoliosPage({
                         {part}
                       </span>
                     ))}
-                    <span className="investor-portfolio-detail-updated">
-                      Updated {activeList.updatedAt}
-                    </span>
                   </div>
                 </div>
-                <p className="investor-portfolio-detail-owner">Owner: {ownerLabel}</p>
               </div>
 
               <div className="investor-portfolio-detail-actions">
-                <button type="button" className="investor-portfolio-detail-menu-btn">
-                  Playbooks
-                  <svg viewBox="0 0 20 20" aria-hidden="true">
-                    <path d="M5 7.5 10 12.5 15 7.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" />
-                  </svg>
-                </button>
                 <button
                   type="button"
                   className="investor-suggested-primary investor-portfolio-detail-add-btn"
@@ -2840,8 +2889,6 @@ function PortfoliosPage({
           <PortfolioBenchmarkSection
             summary={benchmarks}
             companies={detailCompanies}
-            cohortScale={cohortScale}
-            onCohortScaleChange={setCohortScale}
             onOpenCompanyProfile={onOpenCompanyProfile}
           />
         ) : null}
@@ -2895,7 +2942,7 @@ function PortfoliosPage({
           <h1>Portfolios</h1>
           <p>Companies in your funds, tracked per-fund with signal digests</p>
         </div>
-        {!creating ? (
+        {!creating && !buildingPortfolio ? (
           <button
             type="button"
             className="investor-portfolios-header-btn is-new"
@@ -2909,7 +2956,15 @@ function PortfoliosPage({
       </header>
 
       <div className="investor-portfolios-list-panel">
-        {creating ? (
+        {buildingPortfolio ? (
+          <OverviewBuildPanel
+            phase={buildPhase}
+            eyebrow="Building your Portfolios"
+            title="Fuel is working from your onboarding"
+            copy="Companies are grouped by the stages and sectors you invest in. The table fills in when they are ready."
+            steps={PORTFOLIO_BUILD_STEPS}
+          />
+        ) : creating ? (
           <div id="portfolio-create-bar" className="investor-portfolios-create-bar">
             <input
               className="investor-portfolios-create-name"
@@ -2979,6 +3034,7 @@ function PortfoliosPage({
           </div>
         ) : null}
 
+        {!buildingPortfolio ? <>
         <div className="investor-watchlists-toolbar investor-portfolios-toolbar">
           <div className="investor-watchlists-tabs investor-portfolios-tabs" role="tablist" aria-label="Portfolio filters">
             {([
@@ -3048,11 +3104,6 @@ function PortfoliosPage({
                     }}
                   >
                     <strong className="investor-watchlists-name">{row.name}</strong>
-                    {portfolioMetaDisplayTags(row.meta).map(part => (
-                      <span key={`${row.id}-${part}`} className="investor-portfolios-tag">
-                        · {part.toUpperCase()}
-                      </span>
-                    ))}
                   </button>
                 </span>
                 <span role="cell" className="investor-watchlists-companies investor-portfolios-companies">
@@ -3156,7 +3207,8 @@ function PortfoliosPage({
             ))
           )}
         </div>
-      </div>
+        </div>
+        </> : null}
       </div>
     </section>
   );

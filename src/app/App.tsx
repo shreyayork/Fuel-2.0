@@ -7,6 +7,7 @@ import OnboardingFlow, {
   type OnboardingFlowAnswers,
 } from "./OnboardingFlow.tsx";
 import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
+import { requestPortfolioBuild } from "./investor/InvestorDashboard.tsx";
 import { resetAndAwardOnboardingCredits } from "./profileCredits.ts";
 import { completedOnboardingModules } from "./trackQuestions.ts";
 import {
@@ -43,6 +44,7 @@ export default function App() {
     <OnboardingFlow
       onComplete={answers => {
         clearStoredDetailAnswers(answers.profileCompany, "Patriot Pay", "patriotpay");
+        requestPortfolioBuild(answers.profileCompany || "Your fund");
         setOnboardingBenchmark(answersToOnboardingBenchmark(answers));
         setOnboardingAnswers(answers);
         resetAndAwardOnboardingCredits(

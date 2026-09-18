@@ -36,6 +36,7 @@ interface Answers extends OnboardingTrackAnswers {
   monthlyBurn: string; cashOnHand: string;
   headcount: string; payingCustomers: string;
   investCheckSize: string; investGeography: string[]; investPipeline: string;
+  investStages?: string[]; investSectors?: string[];
   hubspotConnected?: boolean;
   profileSetupComplete?: boolean;
   profileIndustry?: string;
@@ -63,6 +64,7 @@ import {
   investGeographyDisplayLabel,
   normalizeInvestGeography,
 } from "./investGeography.ts";
+import { searchCrunchbaseIndustries } from "./crunchbaseIndustries.ts";
 
 export {
   INVEST_GEOGRAPHY_OPTIONS,
@@ -380,6 +382,7 @@ const css = `
 
   .of-input {
     width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     background: #1A2D3F;
     border: 1px solid var(--border-strong);
@@ -392,6 +395,55 @@ const css = `
     transition: border-color 0.2s;
   }
   .of-input:focus { border-color: rgba(61,214,140,0.4) !important; outline: none; }
+
+  .of-tag-search {
+    margin-top: 28px;
+    background: #1A2D3F;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    min-height: 52px;
+  }
+  .of-tag-search:focus-within { border-color: rgba(61,214,140,0.4); }
+  .of-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px 5px 10px;
+    border-radius: 8px;
+    background: rgba(61,214,140,0.12);
+    border: 1px solid rgba(61,214,140,0.35);
+    color: var(--text-1);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .of-tag-chip button {
+    background: none;
+    border: none;
+    color: var(--text-2);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 2px;
+    font-family: inherit;
+  }
+  .of-tag-search-input {
+    flex: 1 1 80px;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-1);
+    font-size: 15px;
+    font-family: inherit;
+    padding: 6px 4px;
+  }
+  .of-tag-search-input::placeholder { color: #8FA99A; }
 
   .of-chip { transition: all 0.15s; }
   .of-chip:hover { border-color: var(--border-strong) !important; color: var(--text-1) !important; }
@@ -413,14 +465,30 @@ const css = `
 
   .of-suggest-item:hover { background: rgba(61,214,140,0.08) !important; }
 
-  .of-left-col { width: 50%; min-width: 0; }
+  .of-left-col { width: 50%; min-width: 0; overflow-x: hidden; }
   .of-form-col {
     width: 100%;
-    max-width: 520px;
-    padding: 88px 72px 100px;
+    min-width: 0;
+    max-width: min(520px, 100%);
+    padding: 88px clamp(28px, 5.5vw, 72px) 100px;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+  }
+  .of-form-col .of-step { min-width: 0; max-width: 100%; }
+  .of-figma-opt { min-width: 0; }
+  .of-round-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 1.3fr) 28px;
+    gap: 8px;
+    align-items: center;
+  }
+  .of-round-row input,
+  .of-round-row select {
+    width: 100%;
+    min-width: 0;
     box-sizing: border-box;
   }
-  .of-form-col--centered { padding: 40px 72px 96px; }
+  .of-form-col--centered { padding: 40px clamp(28px, 5.5vw, 72px) 96px; }
 
   .of-motion-scale-inner {
     --of-motion-scale: 1;
@@ -466,7 +534,7 @@ const css = `
 
   @media (min-width: 1280px) {
     .of-left-col { width: 48%; }
-    .of-form-col { max-width: 560px; padding: 92px 80px 104px; }
+    .of-form-col { max-width: min(560px, 100%); padding: 92px 80px 104px; }
     .of-form-col--centered { padding: 44px 80px 100px; }
     .of-figma-q-title { font-size: clamp(28px, 2.9vw, 38px); }
     .of-figma-q-grouped { font-size: 16px; }
@@ -491,7 +559,7 @@ const css = `
 
   @media (min-width: 1440px) {
     .of-left-col { width: 47%; }
-    .of-form-col { max-width: 600px; padding: 96px 84px 108px; }
+    .of-form-col { max-width: min(600px, 100%); padding: 96px 84px 108px; }
     .of-form-col--centered { padding: 48px 84px 104px; }
     .of-step-heading { margin-bottom: 40px !important; }
     .of-figma-q-title { font-size: clamp(29px, 3vw, 40px); }
@@ -515,7 +583,7 @@ const css = `
   }
 
   @media (min-width: 1600px) {
-    .of-form-col { max-width: 620px; padding: 100px 88px 112px; }
+    .of-form-col { max-width: min(620px, 100%); padding: 100px 88px 112px; }
     .of-form-col--centered { padding: 52px 88px 108px; }
     .of-figma-q-title { font-size: clamp(30px, 3.1vw, 42px); }
     .of-figma-q-grouped { font-size: 17px; }
@@ -536,7 +604,7 @@ const css = `
   }
 
   @media (min-width: 1920px) {
-    .of-form-col { max-width: 640px; padding: 104px 92px 116px; }
+    .of-form-col { max-width: min(640px, 100%); padding: 104px 92px 116px; }
     .of-form-col .of-figma-opt { font-size: 15px !important; }
     .of-motion-scale-inner {
       --of-motion-scale: 1.2;
@@ -756,6 +824,124 @@ function FigmaDescQuestion({
         })}
       </div>
       {hint && <p style={{ fontSize: 12, color: "var(--text-2)", marginTop: 12, lineHeight: 1.55 }}>{hint}</p>}
+    </div>
+  );
+}
+
+function FigmaCrunchbaseSectorSearch({
+  title, subtitle, selected, onToggle, max = 3, accent = SELECT_ACCENT,
+}: {
+  title: string; subtitle?: string; selected: string[];
+  onToggle: (v: string) => void; max?: number; accent?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const atMax = selected.length >= max;
+  const suggestions = useMemo(
+    () => searchCrunchbaseIndustries(query, selected, 12),
+    [query, selected],
+  );
+
+  useEffect(() => {
+    function onDocClick(event: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  useEffect(() => { setHighlight(0); }, [query, suggestions.length]);
+
+  function add(name: string) {
+    if (selected.includes(name) || atMax) return;
+    onToggle(name);
+    setQuery("");
+    setOpen(true);
+    inputRef.current?.focus();
+  }
+
+  return (
+    <div>
+      <h2 className="of-figma-q-title">{title}</h2>
+      {subtitle ? <p className="of-figma-q-sub">{subtitle}</p> : null}
+      <div ref={wrapRef} style={{ position: "relative" }}>
+        <div
+          className="of-tag-search"
+          onClick={() => inputRef.current?.focus()}
+        >
+          {selected.map(name => (
+            <span key={name} className="of-tag-chip">
+              {name}
+              <button type="button" aria-label={`Remove ${name}`} onClick={event => { event.stopPropagation(); onToggle(name); }}>×</button>
+            </span>
+          ))}
+          <input
+            ref={inputRef}
+            className="of-tag-search-input"
+            value={query}
+            disabled={atMax}
+            onChange={event => { setQuery(event.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={event => {
+              if (event.key === "Backspace" && !query && selected.length > 0) {
+                onToggle(selected[selected.length - 1]!);
+                return;
+              }
+              if (!open || suggestions.length === 0) return;
+              if (event.key === "ArrowDown") { event.preventDefault(); setHighlight(h => Math.min(h + 1, suggestions.length - 1)); }
+              if (event.key === "ArrowUp") { event.preventDefault(); setHighlight(h => Math.max(h - 1, 0)); }
+              if (event.key === "Enter") { event.preventDefault(); add(suggestions[highlight]!.name); }
+              if (event.key === "Escape") setOpen(false);
+            }}
+            placeholder={selected.length === 0 ? "Search Crunchbase industries…" : atMax ? "3 selected" : "Add another…"}
+            aria-label="Search Crunchbase industries"
+            aria-autocomplete="list"
+            aria-expanded={open}
+            role="combobox"
+          />
+        </div>
+
+        {open && !atMax && suggestions.length > 0 ? (
+          <div className="of-suggest-panel" style={{
+            position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 20,
+            background: "var(--panel)", border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 12, overflow: "hidden",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.35)",
+            maxHeight: 280,
+            overflowY: "auto",
+          }}>
+            <div style={{ padding: "8px 14px", fontSize: 10, fontWeight: 700, color: "#8FA99A", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              {query.trim() ? "Industries · Crunchbase" : "Industry groups · Crunchbase"}
+            </div>
+            {suggestions.map((item, index) => (
+              <button
+                key={`${item.group}-${item.name}`}
+                type="button"
+                className="of-suggest-item"
+                onMouseEnter={() => setHighlight(index)}
+                onClick={() => add(item.name)}
+                style={{
+                  width: "100%", textAlign: "left", border: "none", cursor: "pointer",
+                  fontFamily: "inherit", padding: "11px 14px",
+                  background: index === highlight ? `${accent}14` : "transparent",
+                  borderBottom: index < suggestions.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{item.name}</div>
+                {item.group !== "Industry group" ? (
+                  <div style={{ fontSize: 12, color: "#8FA99A", marginTop: 2 }}>{item.group}</div>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {selected.length > 0 ? (
+        <p style={{ marginTop: 16, fontSize: 13, color: "#8FA99A" }}>{selected.length} of {max} selected</p>
+      ) : null}
     </div>
   );
 }
@@ -1159,6 +1345,8 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
       profileLinkedin: profileForm.linkedin,
       profileAdditionalContext: profileForm.additionalContext,
       profileFundingRounds: fundingRounds.length > 0 ? serializeProfileFundingRounds(fundingRounds) : "",
+      investStages,
+      investSectors,
       hubspotConnected: connected,
     };
     onComplete({
@@ -1253,7 +1441,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
     <>
       <style>{css}</style>
       <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex" }}>
-        <div style={{ width:"100vw", height:"100vh", background:"#0C1A25", display:"flex", fontFamily:"Inter, -apple-system, sans-serif" }}>
+        <div style={{ width:"100%", height:"100%", background:"#0C1A25", display:"flex", fontFamily:"Inter, -apple-system, sans-serif" }}>
 
           {/* ── LEFT ── */}
           <div className="of-left-col" style={{ display:"flex", flexDirection:"column", position:"relative" }}>
@@ -1285,9 +1473,9 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
             <div
               ref={scrollRef}
               style={{
-                flex: 1, overflowY: "auto", display: "flex",
+                flex: 1, overflowX: "hidden", overflowY: "auto", display: "flex",
                 alignItems: isCenteredView ? "center" : "flex-start",
-                justifyContent: "center", minHeight: 0,
+                justifyContent: "center", minHeight: 0, minWidth: 0, width: "100%",
               }}
             >
               <div className={`of-form-col${isCenteredView ? " of-form-col--centered" : ""}`}>
@@ -1365,7 +1553,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                                     <div style={{ width:18, height:18, borderRadius:"50%", flexShrink:0, marginTop:1, border: on ? `2px solid ${SELECT_ACCENT}` : "2px solid rgba(255,255,255,0.15)", background: on ? `${SELECT_ACCENT}33` : "transparent", display:"flex", alignItems:"center", justifyContent:"center" }}>
                                       {on && <div style={{ width:7, height:7, borderRadius:"50%", background:SELECT_ACCENT }} />}
                                     </div>
-                                    <div>
+                                    <div style={{ minWidth: 0 }}>
                                       <div style={{ fontSize:13, fontWeight:700, color: on?"var(--text-1)":"var(--text-2)", marginBottom:2 }}>{bm.label}</div>
                                       <div style={{ fontSize:12, color:"#3A4F5E", lineHeight:1.5 }}>{bm.desc}</div>
                                     </div>
@@ -1410,7 +1598,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                               <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:8 }}>
                                 {fundingRounds.map(r=>(
                                   <div key={r.id} style={{ background:"#1A2D3F", border:"1px solid rgba(255,255,255,0.07)", borderRadius:9, padding:"11px 13px" }}>
-                                    <div style={{ display:"grid", gridTemplateColumns:"110px 90px 110px 1fr 28px", gap:8, alignItems:"center" }}>
+                                    <div className="of-round-row">
                                       <select value={r.type} onChange={e=>updateRound(r.id,"type",e.target.value)} style={{ ...inp, padding:"7px 9px", cursor:"pointer" }}>
                                         {ROUND_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
                                       </select>
@@ -1489,10 +1677,9 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                       )}
 
                       {investQ===1 && (
-                        <FigmaMultiSelect
+                        <FigmaCrunchbaseSectorSearch
                           title="What sectors are you most active in?"
-                          subtitle="Pick up to 3."
-                          options={["SaaS / Software", "FinTech", "Healthcare", "Deep tech / AI", "Consumer", "Other"]}
+                          subtitle="Search the Crunchbase industry list. Pick up to 3."
                           selected={investSectors}
                           onToggle={s => {
                             if (investSectors.includes(s)) setInvestSectors(p => p.filter(x => x !== s));

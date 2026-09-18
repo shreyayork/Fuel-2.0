@@ -9718,6 +9718,16 @@ function PatriotPayJourneyInner({
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
   }, []);
   const fundName = initialOnboardingAnswers?.profileCompany || "Your fund";
+  const onboardingPortfolio = useMemo(() => {
+    if (!isInvestorPersona || !initialOnboardingAnswers) return undefined;
+    return {
+      fundName,
+      stages: initialOnboardingAnswers.investStages,
+      sectors: initialOnboardingAnswers.investSectors,
+      checkSize: initialOnboardingAnswers.investCheckSize,
+      geography: initialOnboardingAnswers.investGeography,
+    };
+  }, [fundName, initialOnboardingAnswers, isInvestorPersona]);
   const applyBenchmarkSubmission = (values: BenchmarkFormValues, forCompanyId?: string) => {
     const { items, submission } = createBenchmarkIntelligence(values);
     const usePerCompany = Boolean(
@@ -10527,6 +10537,7 @@ function PatriotPayJourneyInner({
               fundName={fundName}
               section={investorDashboardSection}
               hubspotConnected={Boolean(initialOnboardingAnswers?.hubspotConnected)}
+              onboardingPortfolio={onboardingPortfolio}
               onOpenCompany={openInvestorCompany}
               onOpenCompanyProfile={openInvestorCompany}
               onOpenAccount={() => openAccountSettings("overview")}

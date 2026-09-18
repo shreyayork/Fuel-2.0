@@ -1640,24 +1640,33 @@ function CategoryGlanceHeaderBar({
   );
 }
 
-function OverviewBuildPanel({
+export function OverviewBuildPanel({
   phase,
+  eyebrow = "Building your Overview",
+  title = "Fuel is working from your onboarding",
+  copy = "Summary lands first. R&D, GTM, and G&A follow — other tabs stay open.",
+  steps = OVERVIEW_BUILD_STEPS,
 }: {
   phase: OverviewBuildPhase;
+  eyebrow?: string;
+  title?: string;
+  copy?: string;
+  steps?: { id: Exclude<OverviewBuildPhase, "ready">; label: string }[];
   onStartOptionalTour?: () => void;
 }) {
-  const idx = overviewBuildPhaseIndex(phase);
-  const progress = Math.min(100, Math.round((idx / (OVERVIEW_BUILD_PHASE_ORDER.length - 1)) * 100));
-  const activeStep = OVERVIEW_BUILD_STEPS.find(step => step.id === phase) ?? OVERVIEW_BUILD_STEPS[0];
+  const order: OverviewBuildPhase[] = [...steps.map(step => step.id), "ready"];
+  const idx = Math.max(0, order.indexOf(phase));
+  const progress = Math.min(100, Math.round((idx / Math.max(order.length - 1, 1)) * 100));
+  const activeStep = steps.find(step => step.id === phase) ?? steps[0];
 
   return (
     <div className="sc-overview-build overview-panel" role="status" aria-live="polite">
       <div className="sc-overview-build-top">
         <div>
-          <span className="sc-overview-build-eyebrow">Building your Overview</span>
-          <h2 className="sc-overview-build-title">Fuel is working from your onboarding</h2>
+          <span className="sc-overview-build-eyebrow">{eyebrow}</span>
+          <h2 className="sc-overview-build-title">{title}</h2>
           <p className="sc-overview-build-copy">
-            Summary lands first. R&amp;D, GTM, and G&amp;A follow — other tabs stay open.
+            {copy}
           </p>
         </div>
       </div>

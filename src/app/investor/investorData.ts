@@ -1038,8 +1038,8 @@ function buildSeedFundPortfolioCompany(chip: WatchlistCompanyChip, index: number
     nrr: 86 + (index % 12) * 2,
     runwayMonths: 6 + (index % 14),
     runway: `${6 + (index % 14)} mo`,
-    stage: "Seed",
-    sector: "B2B SaaS",
+    stage: (["Pre-seed", "Seed", "Seed", "Series A", "Series B"] as const)[index % 5]!,
+    sector: (["B2B SaaS", "FinTech", "Healthcare", "AI Operations", "Consumer Marketplace"] as const)[index % 5]!,
     investedAt: ["Jan 2024", "Mar 2024", "May 2024", "Aug 2024", "Nov 2024"][index % 5]!,
     daysSinceBenchmark: 8 + (index % 40),
     health,
@@ -1077,6 +1077,162 @@ export function buildSeedFundPortfolioRow(): PortfolioListRow {
     digest: "Off",
     starred: false,
   };
+}
+
+export type OnboardingPortfolioInput = {
+  fundName: string;
+  stages?: readonly string[];
+  sectors?: readonly string[];
+  checkSize?: string;
+  geography?: readonly string[];
+};
+
+function onboardingPortfolioName(fundName: string): string {
+  const cleanName = fundName.trim() || "My";
+  return /\bportfolio\b/i.test(cleanName) ? cleanName : `${cleanName} Portfolio`;
+}
+
+function onboardingPortfolioCohort(stages: readonly string[] = []): PortfolioCohortStage {
+  const first = stages[0]?.toLowerCase() ?? "";
+  if (first.includes("pre-seed")) return "Pre-seed";
+  if (first.includes("series a")) return "Series A";
+  if (first.includes("series b")) return "Series B";
+  if (first.includes("growth") || first.includes("series c")) return "Growth";
+  return "Seed";
+}
+
+function onboardingFundSlug(fundName: string): string {
+  return (fundName.trim() || "my-fund")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function onboardingStageCohorts(stages: readonly string[] = []): PortfolioCohortStage[] {
+  const cohorts: PortfolioCohortStage[] = [];
+  for (const stage of stages) {
+    const lower = stage.toLowerCase();
+    if (lower.includes("pre-seed")) cohorts.push("Pre-seed");
+    if (lower.includes("seed") && !lower.includes("series")) cohorts.push("Seed");
+    if (lower.includes("series a") || lower.includes("a / b")) cohorts.push("Series A");
+    if (lower.includes("series b") || lower.includes("a / b")) cohorts.push("Series B");
+    if (lower.includes("growth") || lower.includes("series c")) cohorts.push("Growth");
+  }
+  return [...new Set(cohorts)];
+}
+
+function companyMatchesOnboardingSector(company: PortfolioCompany, sector: string): boolean {
+  const needle = sector.toLowerCase();
+  const hay = `${company.sector} ${company.meta}`.toLowerCase();
+  if (needle.includes("saas") || needle.includes("software")) {
+    return hay.includes("saas") || hay.includes("software") || hay.includes("sales tech");
+  }
+  if (needle.includes("fintech")) return hay.includes("fintech") || hay.includes("payment");
+  if (needle.includes("health")) return hay.includes("health");
+  if (needle.includes("ai") || needle.includes("deep")) {
+    return hay.includes("ai") || hay.includes("deep");
+  }
+  if (needle.includes("consumer")) return hay.includes("consumer") || hay.includes("sports");
+  return hay.includes(needle);
+}
+
+function companyMatchesOnboardingStage(company: PortfolioCompany, cohort: PortfolioCohortStage): boolean {
+  const stage = company.stage.toLowerCase();
+  if (cohort === "Growth") return stage.includes("growth") || stage.includes("series c") || stage === "ipo";
+  return stage === cohort.toLowerCase();
+}
+
+function thesisPortfolioRow(
+  id: string,
+  name: string,
+  cohort: PortfolioCohortStage,
+  meta: string,
+  companies: PortfolioCompany[],
+): PortfolioListRow {
+  const chips = companies.slice(0, PORTFOLIO_LIST_LOGO_VISIBLE).map(portfolioCompanyToChip);
+  return {
+    id,
+    name,
+    meta,
+    cohort,
+    companyCount: companies.length,
+    companies: chips,
+    companyIds: companies.map(company => company.id),
+    ownerName: "You",
+    ownerEmail: "",
+    ownerKind: "mine",
+    scope: "Account",
+    updatedAt: "Just now",
+    digest: "Off",
+    starred: true,
+  };
+}
+
+/** Portfolio prepared from the investor's onboarding thesis for immediate review. */
+export function buildOnboardingPortfolioRow(input: OnboardingPortfolioInput): PortfolioListRow {
+  const fundSlug = onboardingFundSlug(input.fundName);
+  const meta = [
+    ...(input.sectors ?? []).slice(0, 2),
+    ...(input.geography ?? []).slice(0, 1),
+  ].filter((value): value is string => Boolean(value?.trim())).join(" · ");
+
+  return {
+    id: `pf-onboarding-${fundSlug}`,
+    name: onboardingPortfolioName(input.fundName),
+    meta,
+    cohort: onboardingPortfolioCohort(input.stages),
+    companyCount: SEED_FUND_EXTENDED_PORTFOLIO.length,
+    companies: SEED_FUND_PORTFOLIO_CHIPS.slice(0, PORTFOLIO_LIST_LOGO_VISIBLE),
+    companyIds: SEED_FUND_COMPANY_IDS,
+    ownerName: "You",
+    ownerEmail: "",
+    ownerKind: "mine",
+    scope: "Account",
+    updatedAt: "Just now",
+    digest: "Off",
+    starred: true,
+  };
+}
+
+/** Fund portfolio plus stage and sector lists from the investor's onboarding answers. */
+export function buildOnboardingPortfolioRows(input: OnboardingPortfolioInput): PortfolioListRow[] {
+  const fundSlug = onboardingFundSlug(input.fundName);
+  const fundLabel = input.fundName.trim() || "My fund";
+  const rows = [buildOnboardingPortfolioRow(input)];
+  const pool = SEED_FUND_EXTENDED_PORTFOLIO;
+
+  for (const cohort of onboardingStageCohorts(input.stages)) {
+    const companies = pool.filter(company => companyMatchesOnboardingStage(company, cohort));
+    if (companies.length === 0) continue;
+    rows.push(thesisPortfolioRow(
+      `pf-onboarding-${fundSlug}-stage-${cohort.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      `${fundLabel} · ${cohort}`,
+      cohort,
+      cohort,
+      companies,
+    ));
+  }
+
+  for (const sector of input.sectors ?? []) {
+    const label = sector.trim();
+    if (!label) continue;
+    const companies = pool.filter(company => companyMatchesOnboardingSector(company, label));
+    if (companies.length === 0) continue;
+    rows.push(thesisPortfolioRow(
+      `pf-onboarding-${fundSlug}-sector-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      `${fundLabel} · ${label}`,
+      onboardingPortfolioCohort(input.stages),
+      label,
+      companies,
+    ));
+  }
+
+  const seen = new Set<string>();
+  return rows.filter(row => {
+    if (seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  });
 }
 
 export function buildInitialPortfolioLists(): PortfolioListRow[] {
@@ -1131,7 +1287,9 @@ export function companiesForPortfolioList(
     return SEED_FUND_EXTENDED_PORTFOLIO;
   }
 
-  const byId = new Map(portfolio.map(company => [company.id, company]));
+  const byId = new Map(
+    [...portfolio, ...SEED_FUND_EXTENDED_PORTFOLIO].map(company => [company.id, company]),
+  );
   const ids = list.companyIds.length > 0 ? list.companyIds : portfolio.map(company => company.id);
   return ids
     .map(id => byId.get(id))
@@ -1176,6 +1334,8 @@ export type PortfolioBenchmarkMetric = {
   /** Whether portfolio median is above cohort P75 */
   isLeader: boolean;
   dots: PortfolioBenchmarkDot[];
+  /** Actual portfolio companies, plotted from dummy per-company benchmark numbers. */
+  portfolioDots: PortfolioBenchmarkDot[];
 };
 
 export type PortfolioBenchmarkSummary = {
@@ -1199,6 +1359,222 @@ function seededUnit(seed: string): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   return (hash % 1000) / 1000;
+}
+
+function parseUsdCompact(label: string): number {
+  const trimmed = label.replace(/[$,\s]/g, "");
+  const million = trimmed.match(/^([\d.]+)M$/i);
+  if (million) return parseFloat(million[1]!) * 1_000_000;
+  const thousand = trimmed.match(/^([\d.]+)K$/i);
+  if (thousand) return parseFloat(thousand[1]!) * 1_000;
+  const raw = parseFloat(trimmed);
+  return Number.isFinite(raw) ? raw : 0;
+}
+
+function parseHeadcountBand(employees: string): number {
+  if (employees.includes("1-10")) return 7;
+  if (employees.includes("11-50")) return 24;
+  if (employees.includes("51-200")) return 90;
+  if (employees.includes("201")) return 280;
+  const parsed = parseInt(employees, 10);
+  return Number.isFinite(parsed) ? parsed : 18;
+}
+
+function medianNumber(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[mid]!
+    : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+function valueToAxisPosition(value: number, min: number, max: number): number {
+  if (max === min) return 50;
+  return Math.min(96, Math.max(4, ((value - min) / (max - min)) * 100));
+}
+
+function scoreFromPosition(position: number, lowerIsBetter: boolean): number {
+  return lowerIsBetter ? 100 - position : position;
+}
+
+type BenchmarkUnit = "x" | "mo" | "pct" | "usd" | "count";
+
+function formatBenchmarkNumber(value: number, unit: BenchmarkUnit): string {
+  if (unit === "x") return `${value.toFixed(1)}x`;
+  if (unit === "mo") return `${Math.round(value)} mo`;
+  if (unit === "pct") return `${Math.round(value)}%`;
+  if (unit === "count") return `${Math.round(value)}`;
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    const millions = value / 1_000_000;
+    return `$${millions >= 10 ? Math.round(millions) : millions.toFixed(1)}M`;
+  }
+  if (abs >= 1_000) return `$${Math.round(value / 1000)}K`;
+  return `$${Math.round(value)}`;
+}
+
+/** Dummy cohort percentiles — stand-in until live benchmark data is wired. */
+const PORTFOLIO_BENCHMARK_DEFS: Array<{
+  id: string;
+  label: string;
+  hint: string | null;
+  unit: BenchmarkUnit;
+  min: number;
+  max: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  lowerIsBetter: boolean;
+}> = [
+  { id: "burn", label: "Burn multiple", hint: "lower is better", unit: "x", min: 0.8, max: 5.0, p25: 1.3, p50: 2.1, p75: 3.4, p90: 4.6, lowerIsBetter: true },
+  { id: "cac", label: "CAC payback", hint: "lower is better", unit: "mo", min: 6, max: 36, p25: 10, p50: 16, p75: 26, p90: 34, lowerIsBetter: true },
+  { id: "gm", label: "Gross margin", hint: null, unit: "pct", min: 45, max: 92, p25: 62, p50: 72, p75: 82, p90: 88, lowerIsBetter: false },
+  { id: "r40", label: "Rule of 40", hint: null, unit: "count", min: 5, max: 65, p25: 18, p50: 28, p75: 40, p90: 55, lowerIsBetter: false },
+  { id: "cash", label: "Cash on hand", hint: null, unit: "usd", min: 200_000, max: 8_000_000, p25: 800_000, p50: 1_500_000, p75: 3_200_000, p90: 6_000_000, lowerIsBetter: false },
+  { id: "burnUsd", label: "Monthly burn", hint: "lower is better", unit: "usd", min: 25_000, max: 250_000, p25: 45_000, p50: 80_000, p75: 140_000, p90: 210_000, lowerIsBetter: true },
+  { id: "arr", label: "ARR", hint: null, unit: "usd", min: 50_000, max: 5_000_000, p25: 180_000, p50: 500_000, p75: 1_200_000, p90: 2_500_000, lowerIsBetter: false },
+  { id: "arrGrowth", label: "ARR growth YoY", hint: null, unit: "pct", min: 20, max: 400, p25: 80, p50: 180, p75: 260, p90: 340, lowerIsBetter: false },
+  { id: "customers", label: "Paid customers", hint: null, unit: "count", min: 5, max: 250, p25: 18, p50: 40, p75: 90, p90: 160, lowerIsBetter: false },
+  { id: "logo", label: "Logo retention", hint: null, unit: "pct", min: 60, max: 99, p25: 78, p50: 88, p75: 93, p90: 97, lowerIsBetter: false },
+  { id: "nrr", label: "Net revenue retention", hint: null, unit: "pct", min: 75, max: 140, p25: 95, p50: 108, p75: 118, p90: 130, lowerIsBetter: false },
+  { id: "fte", label: "Headcount (FTE)", hint: null, unit: "count", min: 3, max: 80, p25: 8, p50: 12, p75: 28, p90: 48, lowerIsBetter: false },
+];
+
+type DummyBenchmarkDef = (typeof PORTFOLIO_BENCHMARK_DEFS)[number];
+
+function cohortUsdFactor(cohort: PortfolioCohortStage): number {
+  switch (cohort) {
+    case "Pre-seed": return 0.28;
+    case "Seed": return 0.55;
+    case "Series A": return 1;
+    case "Series B": return 2.3;
+    case "Series C": return 4.8;
+    case "Growth": return 8;
+  }
+}
+
+function enforceIncreasing(values: number[]): number[] {
+  const next = [...values];
+  for (let index = 1; index < next.length; index += 1) {
+    next[index] = Math.max(next[index]!, next[index - 1]! * 1.04 + 0.01);
+  }
+  return next;
+}
+
+/** Dummy cohort table shifted by list stage so Seed vs Series A graphs are not identical. */
+function dummyCohortBenchmarksForList(def: DummyBenchmarkDef, list: PortfolioListRow): DummyBenchmarkDef {
+  const jitter = 0.94 + seededUnit(`${list.id}:${def.id}:p`) * 0.12;
+  const usd = cohortUsdFactor(list.cohort) * jitter;
+  let min = def.min;
+  let p25 = def.p25;
+  let p50 = def.p50;
+  let p75 = def.p75;
+  let p90 = def.p90;
+  let max = def.max;
+
+  if (def.unit === "usd") {
+    min *= usd;
+    p25 *= usd;
+    p50 *= usd;
+    p75 *= usd;
+    p90 *= usd;
+    max *= usd;
+  } else if (def.unit === "count") {
+    const factor = Math.sqrt(usd) * jitter;
+    min *= factor;
+    p25 *= factor;
+    p50 *= factor;
+    p75 *= factor;
+    p90 *= factor;
+    max *= factor;
+  } else if (def.unit === "pct") {
+    const delta = def.id === "arrGrowth" ? (1 - usd) * 22 : (usd - 1) * 6;
+    min += delta * 0.35;
+    p25 += delta * 0.55;
+    p50 += delta;
+    p75 += delta * 0.75;
+    p90 += delta * 0.45;
+    max += delta * 0.25;
+  } else if (def.unit === "x") {
+    const factor = 1.18 / Math.max(0.55, Math.sqrt(usd));
+    min *= factor;
+    p25 *= factor;
+    p50 *= factor;
+    p75 *= factor;
+    p90 *= factor;
+    max *= factor;
+  } else {
+    const factor = 0.86 + Math.log2(Math.max(1, usd)) * 0.16;
+    min *= factor;
+    p25 *= factor;
+    p50 *= factor;
+    p75 *= factor;
+    p90 *= factor;
+    max *= factor;
+  }
+
+  const ordered = enforceIncreasing([min, p25, p50, p75, p90, max]);
+  return {
+    ...def,
+    min: ordered[0]!,
+    p25: ordered[1]!,
+    p50: ordered[2]!,
+    p75: ordered[3]!,
+    p90: ordered[4]!,
+    max: ordered[5]!,
+  };
+}
+
+/** Dummy operating metrics for a company — derived from known fields plus a stable seed. */
+export function dummyCompanyBenchmarkValues(company: PortfolioCompany): Record<string, number> {
+  const roll = (key: string) => seededUnit(`${company.id}:${key}`);
+  const arr = parseUsdCompact(company.arr) || 500_000;
+  const healthDrag = company.health === "struggling" ? 0.22 : company.health === "watch" ? 0.08 : 0;
+  const burn = Math.round((1.05 + roll("burn") * 2.2 + healthDrag * 1.4) * 10) / 10;
+  const cac = Math.round(8 + roll("cac") * 20 + healthDrag * 8);
+  const gm = Math.round(58 + roll("gm") * 26 - healthDrag * 10);
+  const arrGrowth = Math.max(12, Math.round(90 + company.arrGrowthQoQ * 3.4 + roll("growth") * 50));
+  const r40 = Math.round(arrGrowth * 0.22 + gm * 0.35 - 12);
+  const burnUsd = Math.round(32_000 + roll("mburn") * 150_000 + (arr / 40));
+  const cash = Math.round(burnUsd * Math.max(4, company.runwayMonths) * (0.85 + roll("cash") * 0.4));
+  const customers = Math.max(6, Math.round(arr / 22_000 + roll("cust") * 18));
+  const logo = Math.min(99, Math.max(62, Math.round(company.nrr * 0.76 + roll("logo") * 10)));
+  const nrr = company.nrr;
+  const fte = Math.max(3, Math.round(parseHeadcountBand(company.employees) + (roll("fte") - 0.5) * 8));
+  return {
+    burn,
+    cac,
+    gm,
+    r40,
+    cash,
+    burnUsd,
+    arr,
+    arrGrowth,
+    customers,
+    logo,
+    nrr,
+    fte,
+  };
+}
+
+function makeValueDot(
+  company: PortfolioCompany,
+  value: number,
+  min: number,
+  max: number,
+  lowerIsBetter: boolean,
+): PortfolioBenchmarkDot {
+  const position = valueToAxisPosition(value, min, max);
+  const score = scoreFromPosition(position, lowerIsBetter);
+  return {
+    id: company.id,
+    name: company.displayName,
+    position,
+    score,
+    color: colorForBenchmarkScore(score),
+  };
 }
 
 function makeBenchmarkDot(
@@ -1232,16 +1608,15 @@ function buildDotsForMetric(
   metricId: string,
   companies: PortfolioCompany[],
   lowerIsBetter: boolean,
-  bandStart: number,
-  bandEnd: number,
+  min: number,
+  max: number,
 ): PortfolioBenchmarkDot[] {
-  return companies.map(company => makeBenchmarkDot(
-    company.id,
-    company.displayName,
-    `${metricId}-${company.id}`,
+  return companies.map(company => makeValueDot(
+    company,
+    dummyCompanyBenchmarkValues(company)[metricId] ?? min,
+    min,
+    max,
     lowerIsBetter,
-    bandStart,
-    bandEnd,
   ));
 }
 
@@ -1253,10 +1628,19 @@ export function buildBenchmarkDotsForCompanies(
   bandStart: number,
   bandEnd: number,
 ): PortfolioBenchmarkDot[] {
-  return buildDotsForMetric(metricId, companies, lowerIsBetter, bandStart, bandEnd);
+  const def = PORTFOLIO_BENCHMARK_DEFS.find(item => item.id === metricId);
+  if (def) return buildDotsForMetric(metricId, companies, def.lowerIsBetter, def.min, def.max);
+  return companies.map(company => makeBenchmarkDot(
+    company.id,
+    company.displayName,
+    `${metricId}-${company.id}`,
+    lowerIsBetter,
+    bandStart,
+    bandEnd,
+  ));
 }
 
-/** Synthetic cohort for large-n preview (1k–10k) — same distribution shape, no per-logo render. */
+/** Synthetic cohort for large-n preview — sample the curve, keep labeled n at the full size. */
 export function buildSyntheticBenchmarkDots(
   metricId: string,
   count: number,
@@ -1265,7 +1649,8 @@ export function buildSyntheticBenchmarkDots(
   bandEnd: number,
 ): PortfolioBenchmarkDot[] {
   const safeCount = Math.max(1, Math.min(100_000, Math.round(count)));
-  return Array.from({ length: safeCount }, (_, index) => makeBenchmarkDot(
+  const renderCount = Math.min(2_400, safeCount);
+  return Array.from({ length: renderCount }, (_, index) => makeBenchmarkDot(
     `cohort-${metricId}-${index}`,
     `Cohort co. ${index + 1}`,
     `${metricId}-synthetic-${index}`,
@@ -1274,35 +1659,6 @@ export function buildSyntheticBenchmarkDots(
     bandEnd,
   ));
 }
-
-const PORTFOLIO_BENCHMARK_DEFS: Array<{
-  id: string;
-  label: string;
-  hint: string | null;
-  cohortP50Label: string;
-  portfolioLabel: string;
-  axisMinLabel: string;
-  axisMaxLabel: string;
-  portfolioPosition: number;
-  bandStart: number;
-  bandEnd: number;
-  lowerIsBetter: boolean;
-  trend: "up" | "down" | "flat";
-  isLeader: boolean;
-}> = [
-  { id: "burn", label: "Burn multiple", hint: "lower is better", cohortP50Label: "2.1x", portfolioLabel: "1.6x", axisMinLabel: "0.8x", axisMaxLabel: "5.0x", portfolioPosition: 28, bandStart: 18, bandEnd: 58, lowerIsBetter: true, trend: "down", isLeader: true },
-  { id: "cac", label: "CAC payback", hint: "lower is better", cohortP50Label: "16 mo", portfolioLabel: "11 mo", axisMinLabel: "6 mo", axisMaxLabel: "36 mo", portfolioPosition: 32, bandStart: 20, bandEnd: 62, lowerIsBetter: true, trend: "down", isLeader: true },
-  { id: "gm", label: "Gross margin", hint: null, cohortP50Label: "72%", portfolioLabel: "78%", axisMinLabel: "45%", axisMaxLabel: "92%", portfolioPosition: 68, bandStart: 48, bandEnd: 88, lowerIsBetter: false, trend: "up", isLeader: true },
-  { id: "r40", label: "Rule of 40", hint: null, cohortP50Label: "28", portfolioLabel: "41", axisMinLabel: "5", axisMaxLabel: "65", portfolioPosition: 72, bandStart: 30, bandEnd: 78, lowerIsBetter: false, trend: "up", isLeader: true },
-  { id: "cash", label: "Cash on hand", hint: null, cohortP50Label: "$1.5M", portfolioLabel: "$2.1M", axisMinLabel: "$200K", axisMaxLabel: "$8M", portfolioPosition: 58, bandStart: 22, bandEnd: 55, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "burnUsd", label: "Monthly burn", hint: "lower is better", cohortP50Label: "$80K", portfolioLabel: "$64K", axisMinLabel: "$25K", axisMaxLabel: "$250K", portfolioPosition: 36, bandStart: 16, bandEnd: 56, lowerIsBetter: true, trend: "flat", isLeader: false },
-  { id: "arr", label: "ARR", hint: null, cohortP50Label: "$500K", portfolioLabel: "$890K", axisMinLabel: "$50K", axisMaxLabel: "$5M", portfolioPosition: 62, bandStart: 10, bandEnd: 52, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "arrGrowth", label: "ARR growth YoY", hint: null, cohortP50Label: "180%", portfolioLabel: "210%", axisMinLabel: "20%", axisMaxLabel: "400%", portfolioPosition: 56, bandStart: 22, bandEnd: 62, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "customers", label: "Paid customers", hint: null, cohortP50Label: "40", portfolioLabel: "62", axisMinLabel: "5", axisMaxLabel: "250", portfolioPosition: 48, bandStart: 8, bandEnd: 42, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "logo", label: "Logo retention", hint: null, cohortP50Label: "88%", portfolioLabel: "91%", axisMinLabel: "60%", axisMaxLabel: "99%", portfolioPosition: 70, bandStart: 58, bandEnd: 92, lowerIsBetter: false, trend: "flat", isLeader: false },
-  { id: "nrr", label: "Net revenue retention", hint: null, cohortP50Label: "108%", portfolioLabel: "114%", axisMinLabel: "75%", axisMaxLabel: "140%", portfolioPosition: 64, bandStart: 50, bandEnd: 84, lowerIsBetter: false, trend: "up", isLeader: false },
-  { id: "fte", label: "Headcount (FTE)", hint: null, cohortP50Label: "12", portfolioLabel: "18", axisMinLabel: "3", axisMaxLabel: "80", portfolioPosition: 52, bandStart: 18, bandEnd: 58, lowerIsBetter: false, trend: "up", isLeader: false },
-];
 
 export type BenchmarkCohortScale = "portfolio" | "full" | "xlarge" | "percentile";
 
@@ -1330,33 +1686,72 @@ export function buildPortfolioBenchmarkSummary(
   const portfolioCount = Math.max(1, companies.length);
   const cohortScale = options?.cohortScale ?? "portfolio";
   const sampleSize = benchmarkCohortSampleSize(cohortScale, portfolioCount);
-  const metrics: PortfolioBenchmarkMetric[] = PORTFOLIO_BENCHMARK_DEFS.map(def => ({
-    ...def,
-    sampleSize,
-    dots: cohortScale !== "portfolio"
-      ? buildSyntheticBenchmarkDots(
-        def.id,
-        sampleSize,
-        def.lowerIsBetter,
-        def.bandStart,
-        def.bandEnd,
-      )
-      : buildDotsForMetric(
-        def.id,
-        companies,
-        def.lowerIsBetter,
-        def.bandStart,
-        def.bandEnd,
-      ),
-  }));
-  const leadersCount = metrics.filter(metric => metric.isLeader).length;
+  const valueCache = new Map(companies.map(company => [company.id, dummyCompanyBenchmarkValues(company)]));
+
+  const metrics: PortfolioBenchmarkMetric[] = PORTFOLIO_BENCHMARK_DEFS.map(rawDef => {
+    const def = dummyCohortBenchmarksForList(rawDef, list);
+    const values = companies.map(company => valueCache.get(company.id)?.[def.id] ?? def.p50);
+    const portfolioMedian = medianNumber(values);
+    const axisMin = Math.min(def.min, portfolioMedian, ...values);
+    const axisMax = Math.max(def.max, portfolioMedian, ...values);
+    const portfolioPosition = valueToAxisPosition(portfolioMedian, axisMin, axisMax);
+    const bandStart = valueToAxisPosition(def.p25, axisMin, axisMax);
+    const bandEnd = valueToAxisPosition(def.p90, axisMin, axisMax);
+    const beatsP50 = def.lowerIsBetter ? portfolioMedian < def.p50 : portfolioMedian > def.p50;
+    const nearP50 = Math.abs(portfolioMedian - def.p50) / Math.max(1, Math.abs(def.p50)) < 0.04;
+    const isLeader = def.lowerIsBetter ? portfolioMedian <= def.p25 : portfolioMedian >= def.p75;
+    const portfolioDots = companies.map(company => makeValueDot(
+      company,
+      valueCache.get(company.id)?.[def.id] ?? def.p50,
+      axisMin,
+      axisMax,
+      def.lowerIsBetter,
+    ));
+    const dots = portfolioDots;
+    return {
+      id: def.id,
+      label: def.label,
+      hint: def.hint,
+      sampleSize,
+      cohortP50Label: formatBenchmarkNumber(def.p50, def.unit),
+      portfolioLabel: formatBenchmarkNumber(portfolioMedian, def.unit),
+      axisMinLabel: formatBenchmarkNumber(axisMin, def.unit),
+      axisMaxLabel: formatBenchmarkNumber(axisMax, def.unit),
+      portfolioPosition,
+      bandStart,
+      bandEnd,
+      lowerIsBetter: def.lowerIsBetter,
+      trend: nearP50 ? "flat" : beatsP50 ? (def.lowerIsBetter ? "down" : "up") : (def.lowerIsBetter ? "up" : "down"),
+      isLeader,
+      dots,
+      portfolioDots,
+    };
+  });
+
+  const winCounts = new Map<string, number>();
+  for (const metric of metrics) {
+    if (metric.portfolioDots.length === 0) continue;
+    const leader = metric.portfolioDots.reduce((best, dot) => (dot.score > best.score ? dot : best));
+    winCounts.set(leader.id, (winCounts.get(leader.id) ?? 0) + 1);
+  }
+  let topId = companies[0]?.id ?? "";
+  let topWins = 0;
+  for (const [id, count] of winCounts) {
+    if (count > topWins) {
+      topWins = count;
+      topId = id;
+    }
+  }
+  const topCompany = companies.find(company => company.id === topId) ?? companies[0];
+  const sectorTag = list.meta.split("·").map(part => part.trim()).find(Boolean) || "B2B SaaS";
   const filterSample = cohortScale === "portfolio" ? Math.max(portfolioCount, 3) : sampleSize;
+
   return {
-    filterLabel: `B2B SaaS · Seed · US · n=${filterSample}`,
-    leadersCount,
+    filterLabel: `${sectorTag} · ${list.cohort} · US · n=${filterSample}`,
+    leadersCount: metrics.filter(metric => metric.isLeader).length,
     leadersDenom: metrics.length,
-    topPerformer: companies[1]?.displayName ?? companies[0]?.displayName ?? "—",
-    topPerformerBenchmarks: Math.min(7, metrics.length),
+    topPerformer: topCompany?.displayName ?? "—",
+    topPerformerBenchmarks: topWins,
     totalQuartiles: 16,
     metrics,
   };

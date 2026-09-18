@@ -4066,6 +4066,132 @@
   padding: 4px 0 0;
 }
 
+.investor-bench-company-rail {
+  gap: 8px;
+}
+
+.investor-bench-company-rail-plot {
+  height: 36px;
+  position: relative;
+  width: 100%;
+}
+
+.investor-bench-company-rail-track {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--status-bad, #e05c5c) 55%, var(--panel-inset)) 0%,
+    color-mix(in srgb, var(--status-watch, #f5a623) 50%, var(--panel-inset)) 48%,
+    color-mix(in srgb, var(--status-good, #12b886) 55%, var(--panel-inset)) 100%
+  );
+  border-radius: 99px;
+  height: 6px;
+  left: 5%;
+  opacity: 0.9;
+  position: absolute;
+  right: 5%;
+  top: 15px;
+}
+
+.investor-bench-company-rail-band {
+  background: color-mix(in srgb, var(--accent, #12b886) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #12b886) 40%, transparent);
+  border-radius: 4px;
+  height: 14px;
+  pointer-events: none;
+  position: absolute;
+  top: 11px;
+}
+
+.investor-bench-company-rail-you {
+  background: var(--panel-strong);
+  border-radius: 1px;
+  height: 28px;
+  margin-left: -1px;
+  pointer-events: none;
+  position: absolute;
+  top: 4px;
+  width: 2px;
+  z-index: 1;
+}
+
+.investor-bench-company-tick,
+.investor-bench-company-count,
+.investor-bench-company-logo {
+  cursor: pointer;
+  padding: 0;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.investor-bench-company-tick {
+  background: var(--panel);
+  border: 2px solid var(--status-good, #12b886);
+  border-radius: 99px;
+  height: 22px;
+  width: 10px;
+}
+
+.investor-bench-company-tick.is-watch {
+  border-color: var(--status-watch, #f5a623);
+}
+
+.investor-bench-company-tick.is-concern {
+  border-color: var(--status-bad, #e05c5c);
+}
+
+.investor-bench-company-count {
+  align-items: center;
+  background: var(--status-good, #12b886);
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  height: 20px;
+  justify-content: center;
+  min-width: 20px;
+  padding: 0 6px;
+}
+
+.investor-bench-company-count.is-watch {
+  background: var(--status-watch, #f5a623);
+  color: #1a2b26;
+}
+
+.investor-bench-company-count.is-concern {
+  background: var(--status-bad, #e05c5c);
+}
+
+.investor-bench-company-logo {
+  align-items: center;
+  background: transparent;
+  border: 2px solid var(--status-good, #12b886);
+  border-radius: 999px;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  overflow: hidden;
+  width: 24px;
+}
+
+.investor-bench-company-logo.is-watch {
+  border-color: var(--status-watch, #f5a623);
+}
+
+.investor-bench-company-logo.is-concern {
+  border-color: var(--status-bad, #e05c5c);
+}
+
+.investor-bench-company-tick:focus-visible,
+.investor-bench-company-count:focus-visible,
+.investor-bench-company-logo:focus-visible {
+  outline: 2px solid var(--accent, #12b886);
+  outline-offset: 2px;
+}
+
 /* ─── Range area chart — large cohorts (10k / 100k) ─── */
 .investor-bench-range-chart {
   display: flex;
@@ -5833,6 +5959,171 @@ button.investor-bench-drawer-row:hover .investor-bench-drawer-chevron {
   gap: 24px;
 }
 
+.investor-portfolio-build {
+  align-items: center;
+  align-self: center;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  margin-top: clamp(32px, 9vh, 96px);
+  max-width: 620px;
+  padding: 42px 44px;
+  text-align: center;
+  width: 100%;
+}
+
+.investor-portfolio-build--in-list {
+  align-self: stretch;
+  background: transparent;
+  border: 0;
+  margin: 28px auto 36px;
+  max-width: 560px;
+  padding: 28px 16px 36px;
+}
+
+.investor-portfolio-build h2 {
+  color: var(--panel-strong);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 6px 0 8px;
+}
+
+.investor-portfolio-build-orbit {
+  height: 76px;
+  margin-bottom: 24px;
+  position: relative;
+  width: 76px;
+}
+
+.investor-portfolio-build-orbit strong {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 14px;
+  color: #07131c;
+  display: flex;
+  font-size: 20px;
+  font-weight: 900;
+  inset: 15px;
+  justify-content: center;
+  position: absolute;
+}
+
+.investor-portfolio-build-orbit span {
+  animation: investorPortfolioOrbit 2.1s linear infinite;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 50%;
+  inset: 0;
+  position: absolute;
+}
+
+.investor-portfolio-build-orbit span:nth-child(2) {
+  animation-delay: -0.7s;
+  inset: 6px;
+}
+
+.investor-portfolio-build-orbit span:nth-child(3) {
+  animation-delay: -1.4s;
+  inset: 11px;
+}
+
+.investor-portfolio-build h1 {
+  color: var(--panel-strong);
+  font-size: var(--inv-h1);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 6px 0 8px;
+}
+
+.investor-portfolio-build > p {
+  color: var(--panel-body);
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 480px;
+}
+
+.investor-portfolio-build-steps {
+  display: grid;
+  gap: 8px;
+  margin: 26px 0 20px;
+  text-align: left;
+  width: min(100%, 420px);
+}
+
+.investor-portfolio-build-steps span {
+  color: var(--panel-muted);
+  font-size: 12.5px;
+  padding-left: 18px;
+  position: relative;
+}
+
+.investor-portfolio-build-steps span::before {
+  background: var(--panel-border);
+  border-radius: 50%;
+  content: "";
+  height: 6px;
+  left: 0;
+  position: absolute;
+  top: 6px;
+  width: 6px;
+}
+
+.investor-portfolio-build-steps span.is-active {
+  color: var(--panel-strong);
+  font-weight: 700;
+}
+
+.investor-portfolio-build-steps span.is-active::before {
+  animation: investorPortfolioPulse 1.2s ease-in-out infinite;
+  background: var(--accent);
+}
+
+.investor-portfolio-build-track {
+  background: var(--panel-inset);
+  border-radius: 999px;
+  height: 5px;
+  overflow: hidden;
+  width: min(100%, 420px);
+}
+
+.investor-portfolio-build-track span {
+  animation: investorPortfolioProgress 3.2s cubic-bezier(0.16, 0.9, 0.3, 1) forwards;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ecd67f));
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  width: 8%;
+}
+
+@keyframes investorPortfolioOrbit {
+  0% { opacity: 0.2; transform: rotate(0deg) scale(0.84); }
+  50% { opacity: 0.7; transform: rotate(180deg) scale(1); }
+  100% { opacity: 0.2; transform: rotate(360deg) scale(0.84); }
+}
+
+@keyframes investorPortfolioPulse {
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 14%, transparent); }
+}
+
+@keyframes investorPortfolioProgress {
+  to { width: 96%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .investor-portfolio-build-orbit span,
+  .investor-portfolio-build-steps span.is-active::before {
+    animation: none;
+  }
+
+  .investor-portfolio-build-track span {
+    animation: none;
+    width: 92%;
+  }
+}
+
 .investor-portfolios-page-head-card {
   align-items: center;
   background: var(--panel);
@@ -5871,6 +6162,10 @@ button.investor-bench-drawer-row:hover .investor-bench-drawer-chevron {
   gap: 0;
   overflow: hidden;
   width: 100%;
+}
+
+.investor-portfolios-list-panel > .sc-overview-build {
+  margin: 16px;
 }
 
 .investor-portfolios-list-panel .investor-portfolios-create-bar {
