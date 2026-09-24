@@ -205,78 +205,600 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
   const apiReady = (active.apiFields ?? []).every(f => apiVals[f.key]?.trim());
   const isConnecting = statuses[active.id] === "connecting";
   const isConnected  = statuses[active.id] === "connected";
+  const configurableCount = selectedIds.filter(id => !YORK_IDS.includes(id)).length;
+  const hasConfigurable = configurableCount > 0;
 
   return (
-    <div style={{ flex: embedded ? 1 : undefined, height: embedded ? "100%" : undefined, minHeight: embedded ? "unset" : "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", fontFamily: "Inter, -apple-system, sans-serif" }}>
+    <div
+      className={`isp-root${embedded ? " is-embedded" : ""}`}
+      style={{
+        flex: embedded ? 1 : undefined,
+        height: embedded ? "100%" : undefined,
+        minHeight: embedded ? 0 : "100vh",
+        background: "var(--bg)",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "Inter, -apple-system, sans-serif",
+        minWidth: 0,
+      }}
+    >
+      <style>{`
+        .isp-root.is-embedded {
+          min-height: 0;
+        }
+        @media (max-width: 760px) {
+          .isp-root {
+            height: 100% !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+          .isp-topbar {
+            height: auto !important;
+            min-height: 48px;
+            padding: 10px 14px !important;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+          }
+          .isp-topbar-right {
+            flex-wrap: wrap;
+            width: 100%;
+            justify-content: flex-start !important;
+            gap: 8px 12px !important;
+          }
+          .isp-body {
+            flex: 1 1 0 !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+          .isp-select-shell {
+            display: flex !important;
+            flex: 1 1 0 !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+          .isp-select-scroll {
+            -webkit-overflow-scrolling: touch;
+            display: block !important;
+            flex: 1 1 0 !important;
+            min-height: 0 !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+          }
+          .isp-select-layout {
+            display: flex !important;
+            flex: none !important;
+            flex-direction: column !important;
+            height: auto !important;
+            min-height: min-content !important;
+            overflow: visible !important;
+            width: 100% !important;
+          }
+          .isp-select-main {
+            flex: none !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            padding: 16px 14px 12px !important;
+          }
+          .isp-select-main h1 {
+            font-size: 20px !important;
+            letter-spacing: -0.02em;
+            line-height: 1.2 !important;
+            margin-bottom: 6px !important;
+          }
+          .isp-card-grid {
+            gap: 12px !important;
+            grid-template-columns: 1fr !important;
+          }
+          .isp-connector-card {
+            min-height: 0 !important;
+            padding: 14px !important;
+          }
+          .isp-summary-rail,
+          .isp-config-nav,
+          .isp-progress-rail {
+            width: 100% !important;
+            border-left: none !important;
+            border-right: none !important;
+            border-top: 1px solid var(--panel-border, rgba(255,255,255,0.07)) !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          .isp-summary-rail {
+            padding: 14px 14px 20px !important;
+          }
+          .isp-select-footer {
+            align-items: stretch !important;
+            box-shadow: 0 -8px 28px rgba(0,0,0,0.18) !important;
+            flex-direction: column !important;
+            gap: 8px !important;
+            padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+          }
+          .isp-select-footer button {
+            width: 100% !important;
+          }
+          .isp-select-footer-meta {
+            line-height: 1.4;
+            white-space: normal !important;
+          }
+          .isp-config-nav {
+            border-bottom: 1px solid var(--panel-border, rgba(255,255,255,0.07)) !important;
+            border-top: none !important;
+            display: flex !important;
+            flex-direction: row !important;
+            overflow-x: auto !important;
+            padding: 8px 0 !important;
+            scrollbar-width: none;
+          }
+          .isp-config-nav::-webkit-scrollbar {
+            display: none;
+          }
+          .isp-config-nav > div {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+          }
+          .isp-detail-meta {
+            grid-template-columns: 1fr !important;
+          }
+          .isp-config-stage {
+            flex-direction: column !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+          .isp-config-main {
+            -webkit-overflow-scrolling: touch;
+            flex: 1 1 0 !important;
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            padding: 16px 14px !important;
+          }
+          .isp-config-nav button {
+            flex: 0 0 auto;
+            white-space: nowrap;
+          }
+        }
+        @media (max-width: 480px) {
+          .isp-topbar-right {
+            gap: 8px;
+            font-size: 12px;
+          }
+        }
+        .isp-topbar {
+          align-items: center;
+          background: var(--surface-3, var(--panel));
+          border-bottom: 1px solid var(--panel-border, rgb(38, 57, 71));
+          display: flex;
+          flex-shrink: 0;
+          height: 52px;
+          justify-content: space-between;
+          padding: 0 24px;
+        }
+        .isp-topbar-left,
+        .isp-topbar-right {
+          align-items: center;
+          display: flex;
+          gap: 12px;
+          min-width: 0;
+        }
+        .isp-brand-mark {
+          align-items: center;
+          background: linear-gradient(135deg, rgb(0, 180, 138) 0%, rgb(236, 214, 127) 100%);
+          border-radius: 7px;
+          color: #0a1a12;
+          display: inline-flex;
+          flex-shrink: 0;
+          font-size: 12px;
+          font-weight: 900;
+          height: 28px;
+          justify-content: center;
+          width: 28px;
+        }
+        .isp-brand-name {
+          color: var(--text-1);
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .isp-brand-sub,
+        .isp-back-link {
+          background: none;
+          border: 0;
+          color: var(--text-3);
+          cursor: pointer;
+          font: inherit;
+          font-size: 12px;
+          padding: 0;
+        }
+        .isp-badge {
+          background: rgba(212, 146, 74, 0.12);
+          border: 1px solid rgba(212, 146, 74, 0.28);
+          border-radius: 6px;
+          color: #d4924a;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          padding: 3px 8px;
+        }
+        .isp-topbar-stat {
+          color: var(--text-3);
+          font-size: 12px;
+        }
+        .isp-topbar-stat strong {
+          color: var(--fuel-accent, #00b48a);
+          font-weight: 700;
+        }
+        .isp-topbar-addons {
+          color: #d4924a;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .isp-skip-btn {
+          background: transparent;
+          border: 1px solid var(--panel-border, rgb(38, 57, 71));
+          border-radius: 7px;
+          color: var(--text-2);
+          cursor: pointer;
+          font: inherit;
+          font-size: 12px;
+          padding: 5px 12px;
+        }
+        .isp-select-inner {
+          margin: 0 auto;
+          max-width: 880px;
+        }
+        .isp-select-intro {
+          margin-bottom: 24px;
+        }
+        .isp-select-intro h1 {
+          color: var(--text-1);
+          font-size: 24px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          line-height: 1.2;
+          margin: 0 0 8px;
+        }
+        .isp-select-intro p {
+          color: var(--text-2);
+          font-size: 14px;
+          line-height: 1.55;
+          margin: 0;
+        }
+        .isp-category {
+          margin-bottom: 24px;
+        }
+        .isp-category-label {
+          color: var(--fuel-accent, #00b48a);
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          margin-bottom: 12px;
+          text-transform: uppercase;
+        }
+        .isp-card-grid {
+          display: grid;
+          gap: 16px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .isp-connector-card {
+          align-items: flex-start;
+          background: var(--panel, #172632);
+          border: 1px solid var(--panel-border, rgb(38, 57, 71));
+          border-radius: 10px;
+          color: inherit;
+          cursor: pointer;
+          display: flex;
+          font: inherit;
+          gap: 12px;
+          min-height: 0;
+          padding: 16px;
+          text-align: left;
+          transition: border-color 0.14s ease, background 0.14s ease;
+        }
+        .isp-connector-card:hover:not(.is-york) {
+          border-color: rgba(255, 255, 255, 0.16);
+        }
+        .isp-connector-card.is-selected {
+          background: color-mix(in srgb, var(--fuel-accent, #00b48a) 10%, var(--panel, #172632));
+          border-color: color-mix(in srgb, var(--fuel-accent, #00b48a) 45%, var(--panel-border, rgb(38, 57, 71)));
+        }
+        .isp-connector-card.is-york {
+          cursor: default;
+        }
+        .isp-connector-logo {
+          align-items: center;
+          border-radius: 8px;
+          display: inline-flex;
+          flex-shrink: 0;
+          font-size: 12px;
+          font-weight: 800;
+          height: 36px;
+          justify-content: center;
+          width: 36px;
+        }
+        .isp-connector-body {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
+        }
+        .isp-connector-name {
+          color: var(--text-1);
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1.25;
+        }
+        .isp-connector-desc {
+          color: var(--text-2);
+          font-size: 12.5px;
+          line-height: 1.45;
+        }
+        .isp-connector-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 4px;
+        }
+        .isp-chip {
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 4px 9px;
+        }
+        .isp-chip--included,
+        .isp-chip--free {
+          background: color-mix(in srgb, var(--fuel-accent, #00b48a) 12%, transparent);
+          border: 1px solid color-mix(in srgb, var(--fuel-accent, #00b48a) 28%, transparent);
+          color: var(--fuel-accent, #00b48a);
+        }
+        .isp-chip--premium {
+          background: rgba(212, 146, 74, 0.12);
+          border: 1px solid rgba(212, 146, 74, 0.28);
+          color: #d4924a;
+        }
+        .isp-connector-check {
+          align-items: center;
+          border: 1px solid var(--panel-border, rgb(38, 57, 71));
+          border-radius: 999px;
+          color: var(--fuel-accent, #00b48a);
+          display: inline-flex;
+          flex-shrink: 0;
+          font-size: 12px;
+          font-weight: 700;
+          height: 22px;
+          justify-content: center;
+          width: 22px;
+        }
+        .isp-connector-check.is-on {
+          background: color-mix(in srgb, var(--fuel-accent, #00b48a) 16%, transparent);
+          border-color: color-mix(in srgb, var(--fuel-accent, #00b48a) 50%, transparent);
+        }
+        .isp-summary-rail {
+          background: var(--surface-3, var(--panel)) !important;
+          border-left: 1px solid var(--panel-border, rgb(38, 57, 71)) !important;
+        }
+        .isp-select-footer {
+          background: var(--surface-3, var(--panel)) !important;
+          border-top: 1px solid var(--panel-border, rgb(38, 57, 71)) !important;
+        }
+        html[data-theme="light"] .isp-connector-card {
+          background: #ffffff;
+          border-color: #e8eaed;
+          box-shadow: 0 1px 2px rgba(26, 35, 50, 0.03);
+        }
+        html[data-theme="light"] .isp-connector-card:hover:not(.is-york) {
+          border-color: #d5dae1;
+        }
+        html[data-theme="light"] .isp-connector-card.is-selected {
+          background: color-mix(in srgb, var(--fuel-accent, #00b48a) 8%, #ffffff);
+          border-color: color-mix(in srgb, var(--fuel-accent, #00b48a) 40%, #e8eaed);
+          box-shadow: none;
+        }
+        html[data-theme="light"] .isp-topbar,
+        html[data-theme="light"] .isp-summary-rail,
+        html[data-theme="light"] .isp-select-footer {
+          background: #f7f8fa !important;
+          border-color: #e8eaed !important;
+        }
+        html[data-theme="light"] .isp-skip-btn {
+          background: #ffffff;
+          border-color: #e8eaed;
+          color: var(--text-1);
+        }
+        html[data-theme="light"] .isp-connector-check {
+          border-color: #d5dae1;
+        }
+        @media (max-width: 1100px) {
+          .isp-card-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 760px) {
+          .isp-card-grid {
+            gap: 12px !important;
+            grid-template-columns: 1fr !important;
+          }
+          .isp-connector-card {
+            min-height: 0 !important;
+            padding: 14px !important;
+          }
+          .isp-select-intro h1 {
+            font-size: 20px !important;
+          }
+          .isp-select-intro p {
+            font-size: 13px !important;
+          }
+          .isp-category {
+            margin-bottom: 18px;
+          }
+        }
+
+        html[data-theme="light"] .isp-summary-rail,
+        html[data-theme="light"] .isp-select-footer,
+        html[data-theme="light"] .isp-topbar {
+          border-color: #e8eaed !important;
+        }
+
+        .isp-summary-title,
+        .isp-summary-section-label {
+          color: var(--text-3);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          margin-bottom: 10px;
+          text-transform: uppercase;
+        }
+
+        .isp-summary-title {
+          font-size: 12px;
+          margin-bottom: 12px;
+        }
+
+        .isp-summary-card {
+          background: var(--panel, #172632);
+          border: 1px solid var(--panel-border, rgb(38, 57, 71));
+          border-radius: 12px;
+          margin-bottom: 16px;
+          padding: 14px;
+        }
+
+        .isp-summary-row {
+          align-items: center;
+          color: var(--text-2);
+          display: flex;
+          font-size: 12.5px;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+
+        .isp-summary-row:last-of-type {
+          margin-bottom: 0;
+        }
+
+        .isp-summary-row strong {
+          color: var(--text-1);
+          font-weight: 700;
+        }
+
+        .isp-summary-row strong.is-free {
+          color: var(--fuel-accent, #00b48a);
+        }
+
+        .isp-summary-row strong.is-premium {
+          color: #d4924a;
+        }
+
+        .isp-summary-divider {
+          background: var(--panel-border, var(--border));
+          height: 1px;
+          margin: 12px 0;
+        }
+
+        .isp-summary-total {
+          align-items: baseline;
+          display: flex;
+          justify-content: space-between;
+        }
+
+        .isp-summary-total-label {
+          color: var(--text-1);
+          font-size: 12.5px;
+          font-weight: 700;
+        }
+
+        .isp-summary-total-value {
+          color: var(--text-1);
+          font-size: 22px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+
+        .isp-summary-total-value span {
+          color: var(--text-3);
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .isp-summary-empty,
+        .isp-summary-note {
+          color: var(--text-2);
+          font-size: 12.5px;
+          line-height: 1.5;
+        }
+
+        .isp-summary-empty {
+          margin-bottom: 18px;
+        }
+
+        .isp-select-footer-cta:disabled {
+          background: var(--wash, rgba(10, 20, 28, 0.08)) !important;
+          color: var(--text-3) !important;
+          cursor: default !important;
+        }
+
+        html[data-theme="light"] .isp-summary-card {
+          background: #ffffff;
+          border-color: #e8eaed;
+          box-shadow: 0 1px 2px rgba(26, 35, 50, 0.04);
+        }
+
+        html[data-theme="light"] .isp-select-footer {
+          background: #ffffff !important;
+          border-top-color: #e8eaed !important;
+          box-shadow: 0 -8px 24px rgba(26, 35, 50, 0.06) !important;
+        }
+
+        html[data-theme="light"] .isp-select-footer-meta {
+          color: var(--text-3) !important;
+        }
+      `}</style>
 
       {/* Top bar */}
-      <div style={{
-        height: 52, background: "var(--surface-3)", borderBottom: "1px solid rgba(255,255,255,0.07)",
-        display: "flex", alignItems: "center", padding: "0 24px", justifyContent: "space-between", flexShrink: 0,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="isp-topbar">
+        <div className="isp-topbar-left">
           {!embedded && (
             <>
-              <div style={{
-                width: 28, height: 28, borderRadius: 7,
-                background: "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: 900, color: "#0a1a12",
-              }}>F</div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Fuel</span>
-              <span style={{ fontSize: 11, color: "#3A4F5E" }}>by York IE</span>
+              <div className="isp-brand-mark" aria-hidden="true">F</div>
+              <span className="isp-brand-name">Fuel</span>
+              <span className="isp-brand-sub">by York IE</span>
             </>
           )}
-          <span style={{
-            fontSize: 9, fontWeight: 700, color: "#D4924A",
-            background: "rgba(212,146,74,0.1)", border: "1px solid rgba(212,146,74,0.2)",
-            borderRadius: 4, padding: "1px 6px", letterSpacing: "0.3px",
-          }}>INTEGRATIONS</span>
+          <span className="isp-badge">Integrations</span>
           {embedded && view !== "select" && (
-            <button onClick={() => setView("select")} style={{
-              background: "none", border: "none", color: "#556878",
-              fontSize: 12, cursor: "pointer", padding: "0 4px",
-            }}>← Back to connectors</button>
+            <button type="button" className="isp-back-link" onClick={() => setView("select")}>← Back to connectors</button>
           )}
           {!embedded && view !== "select" && (
-            <button onClick={() => setView("select")} style={{
-              background: "none", border: "none", color: "#556878",
-              fontSize: 12, cursor: "pointer", padding: "0 4px",
-            }}>← Back to selection</button>
+            <button type="button" className="isp-back-link" onClick={() => setView("select")}>← Back to selection</button>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ fontSize: 12, color: "#556878" }}>
-            <span style={{ color: "#3DD68C", fontWeight: 700 }}>{connectedCount}</span> of {INTEGRATIONS.length} connected
+        <div className="isp-topbar-right">
+          <span className="isp-topbar-stat">
+            <strong>{connectedCount}</strong> of {INTEGRATIONS.length} connected
           </span>
           {selectedPremium.length > 0 && (
-            <span style={{ fontSize: 12, color: "#D4924A", fontWeight: 700 }}>
-              ${premiumMonthlyTotal}/mo add-ons
-            </span>
+            <span className="isp-topbar-addons">${premiumMonthlyTotal}/mo add-ons</span>
           )}
           {!embedded && (
-            <button onClick={onComplete} style={{
-              background: "none", border: "1px solid rgba(255,255,255,0.1)",
-              color: "var(--text-2)", fontSize: 12, borderRadius: 6, padding: "5px 12px", cursor: "pointer",
-            }}>Skip to journey →</button>
+            <button type="button" className="isp-skip-btn" onClick={onComplete}>Skip to journey →</button>
           )}
         </div>
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      <div className="isp-body" style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
 
         {/* ── SELECTION SCREEN ── */}
         {view === "select" && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          <div style={{ flex: 1, overflowY: "auto", padding: "40px 48px 24px" }}>
-            <div style={{ maxWidth: 850, margin: "0 auto" }}>
-              <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-1)", margin: "0 0 8px" }}>
-                  Choose your integrations
-                </h1>
-                <p style={{ fontSize: 14, color: "var(--text-2)", margin: 0, lineHeight: 1.6 }}>
+          <div className="isp-select-shell" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+          <div className="isp-select-scroll" style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+          <div className="isp-select-layout" style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden", width: "100%" }}>
+          <div className="isp-select-main" style={{ flex: 1, overflowY: "auto", padding: "40px 48px 24px", minHeight: 0 }}>
+            <div className="isp-select-inner">
+              <div className="isp-select-intro">
+                <h1>Choose your integrations</h1>
+                <p>
                   Select the tools you use. Premium connectors are summarized in the sidebar before setup.
                   York IE integrations are included automatically.
                 </p>
@@ -286,67 +808,43 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                 const items = INTEGRATIONS.filter(i => i.category === cat);
                 const catColor = items.find(i => i.method !== "york")?.color ?? "#3DD68C";
                 return (
-                  <div key={cat} style={{ marginBottom: 28 }}>
-                    <div style={{
-                      fontSize: 12, fontWeight: 700, color: catColor,
-                      textTransform: "uppercase", letterSpacing: "0.6px",
-                      marginBottom: 10,
-                    }}>{cat}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                  <div key={cat} className="isp-category">
+                    <div className="isp-category-label" style={{ color: catColor }}>{cat}</div>
+                    <div className="isp-card-grid">
                       {items.map(item => {
                         const isYork = item.method === "york";
                         const isSel = selectedIds.includes(item.id);
-                        const isPremium = item.premium;
+                        const isPremium = Boolean(item.premium);
                         return (
                           <button
+                            type="button"
                             key={item.id}
+                            className={`isp-connector-card${isSel ? " is-selected" : ""}${isYork ? " is-york" : ""}`}
                             onClick={() => toggleSelect(item.id)}
-                            style={{
-                              display: "flex", alignItems: "flex-start", gap: 10,
-                              padding: "14px 13px",
-                              background: isSel ? "rgba(61,214,140,0.06)" : "var(--panel)",
-                              border: isSel ? "1px solid rgba(61,214,140,0.25)" : "1px solid rgba(255,255,255,0.06)",
-                              borderRadius: 11, cursor: isYork ? "default" : "pointer",
-                              textAlign: "left", transition: "all 0.15s",
-                              minHeight: 142,
-                            }}
+                            aria-pressed={isSel}
                           >
-                            <div style={{
-                              width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                              background: item.color + "22",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 12, fontWeight: 800, color: item.color,
-                            }}>{item.abbr}</div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 15, fontWeight: 800, color: isSel ? "var(--text-1)" : "var(--text-2)", marginBottom: 6 }}>
-                                {item.name}
-                              </div>
-                              <div style={{ fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.45, marginBottom: 10 }}>
-                                {item.description}
-                              </div>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                {isYork && (
-                                  <span style={{ fontSize: 11.5, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>York IE · Included</span>
-                                )}
+                            <span
+                              className="isp-connector-logo"
+                              style={{ background: `${item.color}22`, color: item.color }}
+                              aria-hidden="true"
+                            >
+                              {item.abbr}
+                            </span>
+                            <span className="isp-connector-body">
+                              <strong className="isp-connector-name">{item.name}</strong>
+                              <span className="isp-connector-desc">{item.description}</span>
+                              <span className="isp-connector-chips">
+                                {isYork ? <span className="isp-chip isp-chip--included">York IE · Included</span> : null}
                                 {isPremium ? (
-                                  <span style={{ fontSize: 11.5, color: "#D4924A", background: "rgba(212,146,74,0.1)", border: "1px solid rgba(212,146,74,0.22)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
-                                    Premium · ${item.addOnPrice}/mo
-                                  </span>
-                                ) : !isYork && (
-                                  <span style={{ fontSize: 11.5, color: "#3DD68C", background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", borderRadius: 999, padding: "4px 9px", fontWeight: 800 }}>
-                                    Free
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div style={{
-                              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                              background: isSel ? "rgba(61,214,140,0.15)" : "transparent",
-                              border: isSel ? "1px solid rgba(61,214,140,0.5)" : "1px solid rgba(255,255,255,0.12)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                            }}>
-                              {isSel && <span style={{ fontSize: 12, color: "#3DD68C" }}>✓</span>}
-                            </div>
+                                  <span className="isp-chip isp-chip--premium">Premium · ${item.addOnPrice}/mo</span>
+                                ) : !isYork ? (
+                                  <span className="isp-chip isp-chip--free">Free</span>
+                                ) : null}
+                              </span>
+                            </span>
+                            <span className={`isp-connector-check${isSel ? " is-on" : ""}`} aria-hidden="true">
+                              {isSel ? "✓" : null}
+                            </span>
                           </button>
                         );
                       })}
@@ -358,48 +856,41 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
             </div>
           </div>
 
-          <div style={{
+          <div className="isp-summary-rail" style={{
             width: 280, flexShrink: 0, background: "var(--surface-3)",
-            borderLeft: "1px solid rgba(255,255,255,0.07)",
+            borderLeft: "1px solid var(--panel-border, rgba(255,255,255,0.07))",
             padding: "20px 16px", overflowY: "auto",
           }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.55px", marginBottom: 12 }}>
-              Selection summary
-            </div>
-            <div style={{
-              background: "rgba(19,33,48,0.72)", border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 11, padding: "13px 14px", marginBottom: 16,
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
+            <div className="isp-summary-title">Selection summary</div>
+            <div className="isp-summary-card">
+              <div className="isp-summary-row">
                 <span>Selected</span>
-                <strong style={{ color: "var(--text-1)" }}>{selectedIds.length}</strong>
+                <strong>{selectedIds.length}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>
+              <div className="isp-summary-row">
                 <span>Free connectors</span>
-                <strong style={{ color: "#3DD68C" }}>{selectedFree.length}</strong>
+                <strong className="is-free">{selectedFree.length}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-2)" }}>
+              <div className="isp-summary-row">
                 <span>Premium add-ons</span>
-                <strong style={{ color: "#D4924A" }}>{selectedPremium.length}</strong>
+                <strong className="is-premium">{selectedPremium.length}</strong>
               </div>
-              <div style={{ height: 1, background: "var(--panel-border)", margin: "13px 0" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-1)" }}>Monthly add-on</span>
-                <span style={{ fontSize: 22, fontWeight: 900, color: "var(--text-1)" }}>
-                  ${premiumMonthlyTotal}<span style={{ fontSize: 11, color: "#556878", fontWeight: 600 }}>/mo</span>
+              <div className="isp-summary-divider" />
+              <div className="isp-summary-total">
+                <span className="isp-summary-total-label">Monthly add-on</span>
+                <span className="isp-summary-total-value">
+                  ${premiumMonthlyTotal}<span>/mo</span>
                 </span>
               </div>
             </div>
 
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.55px", marginBottom: 10 }}>
-              Premium connectors
-            </div>
+            <div className="isp-summary-section-label">Premium connectors</div>
             {selectedPremium.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
                 {selectedPremium.map(item => (
-                  <div key={item.id} style={{
+                  <div key={item.id} className="isp-summary-premium-row" style={{
                     display: "flex", alignItems: "center", gap: 9,
-                    background: "var(--panel)", border: "1px solid rgba(255,255,255,0.06)",
+                    background: "var(--panel)", border: "1px solid var(--panel-border, rgba(255,255,255,0.06))",
                     borderRadius: 9, padding: "9px 10px",
                   }}>
                     <span style={{
@@ -414,46 +905,50 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                 ))}
               </div>
             ) : (
-              <div style={{ fontSize: 12, color: "#556878", lineHeight: 1.5, marginBottom: 18 }}>
-                No paid add-ons selected yet.
-              </div>
+              <p className="isp-summary-empty">No paid add-ons selected yet.</p>
             )}
 
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.55px", marginBottom: 10 }}>
-              Included
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.55 }}>
+            <div className="isp-summary-section-label">Included</div>
+            <p className="isp-summary-note">
               York IE connectors and free connectors do not change the subscription total.
-            </div>
+            </p>
+          </div>
           </div>
           </div>
 
           {/* Fixed bottom bar */}
-          <div style={{
-            flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.07)",
-            background: "var(--surface-3)", padding: "16px 48px",
-            display: "flex", alignItems: "center", gap: 16,
-            position: "sticky", bottom: 0, zIndex: 5,
-            boxShadow: "0 -18px 36px rgba(0,0,0,0.18)",
-          }}>
+          <div
+            className="isp-select-footer"
+            style={{
+              flexShrink: 0, borderTop: "1px solid var(--panel-border, rgba(255,255,255,0.07))",
+              background: "var(--surface-3)", padding: "16px 48px",
+              display: "flex", alignItems: "center", gap: 16,
+              zIndex: 5,
+              boxShadow: "0 -18px 36px rgba(0,0,0,0.18)",
+            }}
+          >
             <button
+              type="button"
+              className="isp-select-footer-cta"
               onClick={goToConfigure}
-              disabled={selectedIds.filter(id => !YORK_IDS.includes(id)).length === 0}
+              disabled={!hasConfigurable}
               style={{
-                background: selectedIds.filter(id => !YORK_IDS.includes(id)).length > 0
+                background: hasConfigurable
                   ? "linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)"
-                  : "rgba(255,255,255,0.06)",
-                color: selectedIds.filter(id => !YORK_IDS.includes(id)).length > 0 ? "#0a1a12" : "#3A4F5E",
+                  : undefined,
+                color: hasConfigurable ? "#0a1a12" : undefined,
                 border: "none", borderRadius: 8, padding: "11px 28px",
                 fontSize: 13, fontWeight: 800,
-                cursor: selectedIds.filter(id => !YORK_IDS.includes(id)).length > 0 ? "pointer" : "default",
+                cursor: hasConfigurable ? "pointer" : "default",
                 transition: "all 0.2s",
               }}
             >
-              Configure selected ({selectedIds.filter(id => !YORK_IDS.includes(id)).length}) →
+              {hasConfigurable
+                ? `Configure selected (${configurableCount}) →`
+                : "Select connectors to configure"}
             </button>
-            <span style={{ fontSize: 11, color: "#3A4F5E" }}>
-              {selectedIds.length} integrations selected · {selectedFree.length} free · {selectedPremium.length} premium · York IE included
+            <span className="isp-select-footer-meta" style={{ fontSize: 11, color: "var(--text-3)" }}>
+              {selectedIds.length} selected · {selectedFree.length} free · {selectedPremium.length} premium · York IE included
             </span>
           </div>
           </div>
@@ -463,7 +958,8 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
         {view === "configure" && (
           <>
             {/* Sidebar — only selected integrations */}
-            <div style={{
+            <div className="isp-config-stage" style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            <div className="isp-config-nav" style={{
               width: 232, flexShrink: 0, background: "var(--surface-3)",
               borderRight: "1px solid rgba(255,255,255,0.07)",
               overflowY: "auto", padding: "14px 0", display: "flex", flexDirection: "column",
@@ -545,7 +1041,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
             </div>
 
             {/* Main config panel */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
+            <div className="isp-config-main" style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
               <div style={{ maxWidth: 560 }}>
 
                 {/* Header */}
@@ -594,7 +1090,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#3A4F5E", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>
                     What Fuel pulls from {active.name}
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px" }}>
+                  <div className="isp-detail-meta" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px" }}>
                     {active.dataProvided.map(d => (
                       <div key={d} style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
                         <span style={{ color: active.color, fontSize: 10, marginTop: 2, flexShrink: 0 }}>·</span>
@@ -727,7 +1223,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
             </div>
 
             {/* Right progress rail */}
-            <div style={{
+            <div className="isp-progress-rail" style={{
               width: 210, flexShrink: 0, background: "var(--surface-3)",
               borderLeft: "1px solid rgba(255,255,255,0.07)",
               padding: "20px 16px", overflowY: "auto",
@@ -779,6 +1275,7 @@ export default function IntegrationSetupPage({ onComplete, embedded }: { onCompl
                   </div>
                 );
               })}
+            </div>
             </div>
           </>
         )}

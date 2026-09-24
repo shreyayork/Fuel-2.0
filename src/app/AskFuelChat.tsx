@@ -600,6 +600,7 @@ export function AskFuelChatDrawer({
   focusBriefSignal,
   focusPlaybook,
   focusPlaybookSignal,
+  focusPlaybooksBrowseSignal = 0,
   benchmarkSubmitSignal = 0,
 }: {
   open: boolean;
@@ -620,6 +621,8 @@ export function AskFuelChatDrawer({
   focusBriefSignal: number;
   focusPlaybook?: Playbook | null;
   focusPlaybookSignal?: number;
+  /** Bumped to open Ask Fuel with the playbooks catalog expanded. */
+  focusPlaybooksBrowseSignal?: number;
   /** Bumped after benchmark metrics are submitted while Ask Fuel is open. */
   benchmarkSubmitSignal?: number;
 }) {
@@ -632,6 +635,7 @@ export function AskFuelChatDrawer({
   const dialogRef = useRef<HTMLElement>(null);
   const lastFocus = useRef(0);
   const lastPbFocus = useRef(0);
+  const lastPbBrowse = useRef(0);
   const lastBenchSubmit = useRef(0);
   const busyRef = useRef(false);
   const benchmarkReady = hasBenchmark || hasBenchmarkMetrics(benchmark);
@@ -643,6 +647,7 @@ export function AskFuelChatDrawer({
     if (!open) return;
     if (!consumeAskFuelFreshStart()) return;
     if (focusPlaybookSignal && focusPlaybook) return;
+    if (focusPlaybooksBrowseSignal) return;
     setMessages([]);
     setInput("");
     setPlaybooksOpen(false);
@@ -663,14 +668,24 @@ export function AskFuelChatDrawer({
         { id: mid(), role: "user", text: "Generate intelligence brief" },
         { id: mid(), role: "ai", kind: "brief", brief },
       ]);
+      setPlaybooksOpen(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, focusBriefSignal]);
 
   useEffect(() => {
+    if (open && focusPlaybooksBrowseSignal && focusPlaybooksBrowseSignal !== lastPbBrowse.current) {
+      lastPbBrowse.current = focusPlaybooksBrowseSignal;
+      setPlaybooksOpen(true);
+      setSearch("");
+    }
+  }, [open, focusPlaybooksBrowseSignal]);
+
+  useEffect(() => {
     if (open && focusPlaybookSignal && focusPlaybook && focusPlaybookSignal !== lastPbFocus.current) {
       lastPbFocus.current = focusPlaybookSignal;
       const pb = focusPlaybook;
+      setPlaybooksOpen(false);
       if (pb.marquee) {
         const brief = generateBrief(benchmark, companyName);
         setMessages([
@@ -911,7 +926,14 @@ export function AskFuelChatDrawer({
           {playbooksOpen ? (
             <>
               <div className="afc-pb-backdrop" onClick={() => setPlaybooksOpen(false)} />
-              <div className="afc-pb">
+              <div className="afc-pb" role="dialog" aria-label="Playbooks">
+                <div className="afc-pb-handle" aria-hidden="true" />
+                <div className="afc-pb-head">
+                  <strong>Playbooks</strong>
+                  <button type="button" className="afc-pb-close" onClick={() => setPlaybooksOpen(false)} aria-label="Close playbooks">
+                    ✕
+                  </button>
+                </div>
                 <div className="afc-pb-search-wrap">
                   <FuelIcon name="search" size={14} className="afc-pb-search-ic" />
                   <input

@@ -4903,6 +4903,94 @@ function SubtypeRow({
 }
 
 // ─── Intelligence category panel (flat body — category chosen via tabs) ───────
+function IntelligenceMobileActions({
+  activeTourTarget,
+  onAddSource,
+  onLog,
+  onBenchmark,
+}: {
+  activeTourTarget?: string | null;
+  onAddSource: () => void;
+  onLog: () => void;
+  onBenchmark: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <div className="signals-mobile-actions">
+      <button
+        type="button"
+        className={`signals-mobile-actions-trigger${open ? " is-open" : ""}${
+          activeTourTarget === "add-source" || activeTourTarget === "log-intelligence" ? " tour-highlight" : ""
+        }`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="Intelligence actions"
+        onClick={() => setOpen(v => !v)}
+      >
+        +
+      </button>
+      {open ? createPortal(
+        <div className="signals-mobile-sheet-root is-entering" role="presentation">
+          <button
+            type="button"
+            className="signals-mobile-sheet-backdrop"
+            aria-label="Close actions"
+            onClick={() => setOpen(false)}
+          />
+          <div className="signals-mobile-sheet" role="dialog" aria-label="Intelligence actions">
+            <div className="signals-mobile-sheet-handle" aria-hidden="true" />
+            <strong className="signals-mobile-sheet-title">Add to Intelligence</strong>
+            <button
+              type="button"
+              className="signals-mobile-sheet-item"
+              data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
+              onClick={() => { setOpen(false); onAddSource(); }}
+            >
+              <span>Add source</span>
+              <em>Upload a doc or note Fuel can read</em>
+            </button>
+            <button
+              type="button"
+              className="signals-mobile-sheet-item"
+              data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
+              onClick={() => { setOpen(false); onLog(); }}
+            >
+              <span>Log intelligence</span>
+              <em>Capture a metric or context by hand</em>
+            </button>
+            <button
+              type="button"
+              className="signals-mobile-sheet-item"
+              onClick={() => { setOpen(false); onBenchmark(); }}
+            >
+              <span>Update benchmark</span>
+              <em>Refresh KPI inputs for your cohort</em>
+            </button>
+            <button
+              type="button"
+              className="signals-mobile-sheet-cancel"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </div>
+  );
+}
+
 function IntelligenceCategoryPanel({
   categoryKey,
   items,
@@ -5435,55 +5523,55 @@ function SignalsPage({
       ) : null}
 
       {!intelligenceFocusActive ? (
-        <div className="intel-category-tabs" role="tablist" aria-label="Intelligence categories">
-          {categoryTabOptions.map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTimelineFilter === tab.id}
-              className={`intel-category-tab${activeTimelineFilter === tab.id ? " is-active" : ""}`}
-              onClick={() => setActiveTimelineFilter(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+        <div className="signals-intel-chrome">
+          <div className="intel-category-tabs" role="tablist" aria-label="Intelligence categories">
+            {categoryTabOptions.map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeTimelineFilter === tab.id}
+                className={`intel-category-tab${activeTimelineFilter === tab.id ? " is-active" : ""}`}
+                onClick={() => setActiveTimelineFilter(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-      {!intelligenceFocusActive ? (
-        <div className="signals-intel-toolbar">
-          <label className="signals-intel-search">
-            <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={event => setSearchQuery(event.target.value)}
-              placeholder="Search signals…"
-              aria-label="Search intelligence"
-            />
-          </label>
+          <div className="signals-intel-toolbar">
+            <label className="signals-intel-search">
+              <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder="Search signals…"
+                aria-label="Search intelligence"
+              />
+            </label>
 
-          <div className="signals-intel-toolbar-right">
-            <select
-              className="signals-intel-toolbar-select"
-              value={datePreset}
-              onChange={event => setDatePreset(event.target.value as IntelligenceDatePreset)}
-              aria-label="Date range"
-            >
-              {INTELLIGENCE_DATE_PRESETS.map(preset => (
-                <option key={preset.id} value={preset.id}>{preset.label}</option>
-              ))}
-            </select>
+            <div className="signals-intel-toolbar-right">
+              <select
+                className="signals-intel-toolbar-select"
+                value={datePreset}
+                onChange={event => setDatePreset(event.target.value as IntelligenceDatePreset)}
+                aria-label="Date range"
+              >
+                {INTELLIGENCE_DATE_PRESETS.map(preset => (
+                  <option key={preset.id} value={preset.id}>{preset.label}</option>
+                ))}
+              </select>
 
-            <button
-              type="button"
-              className={`intel-sources-toolbar-btn${showSourcesDrawer ? " is-active" : ""}`}
-              onClick={() => setShowSourcesDrawer(o => !o)}
-            >
-              Sources
-              <span className="intel-sources-toolbar-count">{pendingSources.length}</span>
-            </button>
+              <button
+                type="button"
+                className={`intel-sources-toolbar-btn${showSourcesDrawer ? " is-active" : ""}`}
+                onClick={() => setShowSourcesDrawer(o => !o)}
+              >
+                Sources
+                <span className="intel-sources-toolbar-count">{pendingSources.length}</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -5531,32 +5619,40 @@ function SignalsPage({
         <CreditBlockBanner />
 
         <div className="signals-page-head">
-          <div>
+          <div className="signals-page-head-copy">
             <h2>Intelligence</h2>
             <p>Metrics from benchmarks, sources, and logged context — private to your account.</p>
           </div>
           {!intelligenceFocusActive ? (
-            <div className="signals-page-head-actions">
-              <button
-                type="button"
-                className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
-                data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
-                onClick={() => setSourceFormOpen(true)}
-              >
-                Add source
-              </button>
-              <button
-                type="button"
-                className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
-                data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
-                onClick={() => setShowLogForm(true)}
-              >
-                Log intelligence
-              </button>
-              <button type="button" className="initiatives-secondary-btn" onClick={openBenchmarkDrawer}>
-                Update benchmark
-              </button>
-            </div>
+            <>
+              <div className="signals-page-head-actions signals-page-head-actions--desktop">
+                <button
+                  type="button"
+                  className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
+                  data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
+                  onClick={() => setSourceFormOpen(true)}
+                >
+                  Add source
+                </button>
+                <button
+                  type="button"
+                  className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
+                  data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
+                  onClick={() => setShowLogForm(true)}
+                >
+                  Log intelligence
+                </button>
+                <button type="button" className="initiatives-secondary-btn" onClick={openBenchmarkDrawer}>
+                  Update benchmark
+                </button>
+              </div>
+              <IntelligenceMobileActions
+                activeTourTarget={activeTourTarget}
+                onAddSource={() => setSourceFormOpen(true)}
+                onLog={() => setShowLogForm(true)}
+                onBenchmark={openBenchmarkDrawer}
+              />
+            </>
           ) : null}
         </div>
 
@@ -6936,56 +7032,55 @@ function InitiativeDetailDrawer({
         aria-label={isCreate ? "New initiative" : (item.title || "Initiative")}
       >
         <header className="bench-drawer-head initiative-drawer-head">
-          <div className="initiative-drawer-head-copy">
+          <div className="initiative-drawer-head-top">
             <div className="initiative-drawer-eyebrow">Initiative</div>
+            <div className="initiative-drawer-head-actions">
+              <div className="initiative-drawer-status" role="group" aria-label="Status">
+                <button
+                  type="button"
+                  className={`initiative-drawer-status-btn${listStatus === "Active" ? " is-active" : ""}`}
+                  aria-pressed={listStatus === "Active"}
+                  onClick={() => setListStatus("Active")}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  className={`initiative-drawer-status-btn${listStatus === "Completed" ? " is-active" : ""}`}
+                  aria-pressed={listStatus === "Completed"}
+                  onClick={() => setListStatus("Completed")}
+                >
+                  Completed
+                </button>
+              </div>
+              {!isCreate && onDelete ? (
+                <button
+                  type="button"
+                  className="initiative-drawer-delete"
+                  onClick={onDelete}
+                >
+                  Delete
+                </button>
+              ) : null}
+              <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
+            </div>
+          </div>
+          <div className="initiative-drawer-head-copy">
             <h2 className="bench-drawer-title">
               {isCreate ? "New initiative" : (item.title || "Untitled initiative")}
             </h2>
-            <p className="bench-drawer-sub">
-              {isCreate
-                ? "Name the work, assign owners, link advisors, and set milestones before you create."
-                : (
-                  <>
-                    {initiativeKindLabel(item.kind)}
-                    {" · "}
-                    {initiativePillarLabel(item.pillar)}
-                    {" · "}
-                    {initiativeTopicLabel(item.pillar, item.topic)}
-                    {" · "}
-                    {displayInitiativeDue(item.due)}
-                  </>
-                )}
-            </p>
-          </div>
-          <div className="initiative-drawer-head-actions">
-            <div className="initiative-drawer-status" role="group" aria-label="Status">
-              <button
-                type="button"
-                className={`initiative-drawer-status-btn${listStatus === "Active" ? " is-active" : ""}`}
-                aria-pressed={listStatus === "Active"}
-                onClick={() => setListStatus("Active")}
-              >
-                Active
-              </button>
-              <button
-                type="button"
-                className={`initiative-drawer-status-btn${listStatus === "Completed" ? " is-active" : ""}`}
-                aria-pressed={listStatus === "Completed"}
-                onClick={() => setListStatus("Completed")}
-              >
-                Completed
-              </button>
-            </div>
-            {!isCreate && onDelete ? (
-              <button
-                type="button"
-                className="initiative-drawer-delete"
-                onClick={onDelete}
-              >
-                Delete
-              </button>
-            ) : null}
-            <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
+            {isCreate ? (
+              <p className="bench-drawer-sub">
+                Name the work, assign owners, link advisors, and set milestones before you create.
+              </p>
+            ) : (
+              <div className="initiative-drawer-meta-chips" aria-label="Initiative summary">
+                <span>{initiativeKindLabel(item.kind)}</span>
+                <span>{initiativePillarLabel(item.pillar)}</span>
+                <span>{initiativeTopicLabel(item.pillar, item.topic)}</span>
+                <span>{displayInitiativeDue(item.due)}</span>
+              </div>
+            )}
           </div>
         </header>
 
@@ -7133,7 +7228,7 @@ function InitiativeDetailDrawer({
                 ) : (
                   <button
                     type="button"
-                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    className="initiative-edit-btn"
                     onClick={() => setShowMilestoneForm(true)}
                   >
                     + Add milestone
@@ -8780,14 +8875,16 @@ function ContextFeedPage({
   );
 }
 
-function AskFuelAiButton({ onOpen }: { onOpen: () => void }) {
+function AskFuelAiButton({ onOpen, iconOnly = false }: { onOpen: () => void; iconOnly?: boolean }) {
   const { snapshot, generationBlocked, setPopoverOpen } = useCredits();
   const remaining = totalRemaining(snapshot);
   const dailyLeft = dailyRemaining(snapshot);
 
   return (
     <button
-      className={`ask-ai-btn${generationBlocked ? " credit-action-disabled" : ""}`}
+      type="button"
+      className={`ask-ai-btn${iconOnly ? " is-icon-only" : ""}${generationBlocked ? " credit-action-disabled" : ""}`}
+      aria-label="Ask Fuel AI"
       title={`${remaining} credits · ${dailyLeft} daily left`}
       onClick={() => {
         if (generationBlocked) {
@@ -8797,27 +8894,23 @@ function AskFuelAiButton({ onOpen }: { onOpen: () => void }) {
         onOpen();
       }}
     >
-      ✦ Ask Fuel AI
+      ✦{iconOnly ? null : <span className="ask-ai-label">Ask Fuel AI</span>}
     </button>
   );
 }
 
 function AiActionsMenu({
-  companyName,
   tourActive,
   tourHighlightItem,
-  onRunPlaybook,
+  onBrowsePlaybooks,
   onGenerateBrief,
 }: {
-  companyName: string;
   tourActive?: boolean;
   tourHighlightItem?: "playbooks" | "brief";
-  onRunPlaybook?: (pb: Playbook) => void;
+  onBrowsePlaybooks?: () => void;
   onGenerateBrief?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
-  const [search, setSearch] = useState("");
   const closeTimer = useRef<number | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -8829,35 +8922,17 @@ function AiActionsMenu({
     cancelClose();
     closeTimer.current = window.setTimeout(() => { setOpen(false); }, 220);
   };
-  const closeAll = () => { setOpen(false); setShowPicker(false); setSearch(""); };
+  const closeAll = () => { setOpen(false); };
 
   useEffect(() => {
     if (tourActive) {
       cancelClose();
       setOpen(true);
-      setShowPicker(false);
-      setSearch("");
       return;
     }
     setOpen(false);
-    setShowPicker(false);
   }, [tourActive]);
 
-  useEffect(() => {
-    if (!showPicker) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) closeAll();
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [showPicker]);
-
-  const q = search.toLowerCase();
-  const filtered = PLAYBOOKS.filter(p =>
-    !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q) || p.category.toLowerCase().includes(q),
-  );
-  const grouped: Record<string, Playbook[]> = {};
-  filtered.forEach(p => { (grouped[p.category] ||= []).push(p); });
   const menuOpen = open || Boolean(tourActive);
   const highlightPlaybooks = tourHighlightItem === "playbooks";
   const highlightBrief = tourHighlightItem === "brief";
@@ -8867,12 +8942,14 @@ function AiActionsMenu({
       className={`ai-actions-menu${tourActive ? " is-tour-open" : ""}`}
       ref={wrapRef}
       onMouseEnter={() => { cancelClose(); setOpen(true); }}
-      onMouseLeave={() => { if (!showPicker) scheduleClose(); }}
+      onMouseLeave={scheduleClose}
     >
       <button
         type="button"
         className="header-btn ai-menu-trigger"
         title="AI Actions"
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
         onClick={() => setOpen(v => !v)}
       >
         ✦
@@ -8881,9 +8958,9 @@ function AiActionsMenu({
         <div className="ai-actions-dropdown">
           <button
             type="button"
-            className={`ai-dropdown-item has-submenu${showPicker ? " active" : ""}${highlightPlaybooks ? " tour-highlight" : ""}`}
+            className={`ai-dropdown-item${highlightPlaybooks ? " tour-highlight" : ""}`}
             data-tour-target={highlightPlaybooks ? "ai-actions-playbooks" : undefined}
-            onClick={() => setShowPicker(v => !v)}
+            onClick={() => { onBrowsePlaybooks?.(); closeAll(); }}
           >
             <span>▤ Playbooks</span>
             <span className="ai-submenu-caret">▸</span>
@@ -8896,39 +8973,6 @@ function AiActionsMenu({
           >
             ≡ Generate brief
           </button>
-        </div>
-      ) : null}
-      {showPicker ? (
-        <div className="ai-pb-panel">
-          <input
-            className="afc-pb-search"
-            autoFocus
-            placeholder={`Search ${PLAYBOOK_COUNT} playbooks…`}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <div className="afc-pb-list">
-            {Object.keys(grouped).length === 0 ? (
-              <div className="afc-pb-none">No playbooks match “{search}”.</div>
-            ) : Object.entries(grouped).map(([cat, items]) => (
-              <div key={cat} className="afc-pb-group">
-                <div className="afc-pb-cat">{cat.toUpperCase()}</div>
-                {items.map(pb => (
-                  <button key={pb.id} type="button" className="afc-pb-item" onClick={() => { onRunPlaybook?.(pb); closeAll(); }}>
-                    <div className="afc-pb-item-head">
-                      <span className="afc-pb-name">{pb.name}</span>
-                      <span className="afc-pb-kind"> · {pb.kind}</span>
-                    </div>
-                    <div className="afc-pb-desc">{pb.description}</div>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div className="afc-pb-foot">
-            <span>Click to run against {companyName}</span>
-            <span className="afc-pb-catalog">Full catalog →</span>
-          </div>
         </div>
       ) : null}
     </div>
@@ -9283,7 +9327,21 @@ function PatriotPayJourneyInner({
   const [askFuelOpen, setAskFuelOpen] = useState(false);
   const [askFuelBenchmarkSubmitSignal, setAskFuelBenchmarkSubmitSignal] = useState(0);
   const [elevateDetailsDrawer, setElevateDetailsDrawer] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const askFuelAwaitingBenchmarkRef = useRef(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [activePage]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileNavOpen]);
   const openAccountSettings = useCallback((tab: AccountSettingsTab = "profile") => {
     setAccountTab(tab);
     setActivePage("account");
@@ -9316,6 +9374,7 @@ function PatriotPayJourneyInner({
   const [lastPlaybook, setLastPlaybook] = useState<{ name: string; kind: string; description: string; category: string } | null>(null);
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
+  const [playbooksBrowseSignal, setPlaybooksBrowseSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
   const { tryAction, syncFreeEarnedAllowance } = useCredits();
   useLayoutEffect(() => {
@@ -10131,17 +10190,41 @@ function PatriotPayJourneyInner({
     () => getCompanyLogoColors(selectedCompany.displayName || selectedCompany.logo),
     [selectedCompany.displayName, selectedCompany.logo],
   );
+  const showHeaderTourCta = !isProfileWizard && !tourTaken && headerTourEnabled;
 
   return (
     <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
-    <div className={`app${profilePromptBlocking ? " is-profile-prompt-gated" : ""}`}>
-      <aside className="sidebar">
+    <div className={`app${profilePromptBlocking ? " is-profile-prompt-gated" : ""}${mobileNavOpen ? " is-mobile-nav-open" : ""}`}>
+      <button
+        type="button"
+        className="mobile-nav-toggle"
+        aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+        aria-expanded={mobileNavOpen}
+        onClick={() => setMobileNavOpen(open => !open)}
+      >
+        <FuelIcon name={mobileNavOpen ? "close" : "menu"} size={18} />
+      </button>
+      <button
+        type="button"
+        className="mobile-nav-scrim"
+        aria-label="Close navigation"
+        onClick={() => setMobileNavOpen(false)}
+      />
+      <aside className={`sidebar${mobileNavOpen ? " is-open" : ""}`}>
         <div className="brand">
           <div className="brand-logo">Y</div>
           <div>
             <div className="brand-name">YORK·IE</div>
             <div className="brand-sub">FUEL 2.0</div>
           </div>
+          <button
+            type="button"
+            className="mobile-nav-close"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileNavOpen(false)}
+          >
+            <FuelIcon name="close" size={16} />
+          </button>
         </div>
         <div
           className="account-card"
@@ -10246,7 +10329,24 @@ function PatriotPayJourneyInner({
 
       <div className="main">
         {activePage === "connectors" ? (
-          <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">Connectors</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box" role="search">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }} aria-hidden="true">⌕</span>
+                  <span className="search-box-label">Search companies...</span>
+                </div>
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content content--connectors">
+              <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
+            </div>
+          </>
         ) : activePage === "account" ? (
           <>
             <div className="topbar">
@@ -10255,8 +10355,8 @@ function PatriotPayJourneyInner({
                 <span className="current">{breadcrumbLabel}</span>
               </div>
               <div className="topbar-right">
-                <div className="search-box">
-                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                <div className="search-box" role="search">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }} aria-hidden="true">⌕</span><span className="search-box-label">Search companies...</span>
                 </div>
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
               </div>
@@ -10273,8 +10373,8 @@ function PatriotPayJourneyInner({
                 <span className="current">{breadcrumbLabel}</span>
               </div>
               <div className="topbar-right">
-                <div className="search-box">
-                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                <div className="search-box" role="search">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }} aria-hidden="true">⌕</span><span className="search-box-label">Search companies...</span>
                 </div>
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
               </div>
@@ -10329,10 +10429,10 @@ function PatriotPayJourneyInner({
             <span className="current">{breadcrumbLabel}</span>
           </div>
           <div className="topbar-right">
-            <div className="search-box">
-              <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+            <div className="search-box" role="search">
+              <span className="search-box-icon" style={{ opacity: 0.6 }} aria-hidden="true">⌕</span><span className="search-box-label">Search companies...</span>
             </div>
-            {!isProfileWizard && !tourTaken && headerTourEnabled ? (
+            {showHeaderTourCta ? (
               <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
                 <button
                   type="button"
@@ -10366,10 +10466,12 @@ function PatriotPayJourneyInner({
             ) : null}
             <span
               data-tour-target="ask-fuel-ai"
-              className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
-              style={{ display: "inline-flex" }}
+              className={`topbar-ask-fuel${showHeaderTourCta ? " is-icon-only" : ""}${tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? " tour-highlight" : ""}`}
             >
-              <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              <AskFuelAiButton
+                iconOnly={showHeaderTourCta}
+                onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }}
+              />
             </span>
           </div>
         </div>
@@ -10434,7 +10536,6 @@ function PatriotPayJourneyInner({
                 </button>
               ) : null}
               <AiActionsMenu
-                companyName={selectedCompany.displayName}
                 tourActive={
                   tourOpen
                   && (tourSteps[tourStep].target === "ai-actions-playbooks"
@@ -10447,10 +10548,8 @@ function PatriotPayJourneyInner({
                       ? "brief"
                       : undefined
                 }
-                onRunPlaybook={(pb) => {
-                  setLastPlaybook({ name: pb.name, kind: pb.kind, description: pb.description, category: pb.category });
-                  setPendingPlaybook(pb);
-                  setPlaybookFocusSignal(s => s + 1);
+                onBrowsePlaybooks={() => {
+                  setPlaybooksBrowseSignal(s => s + 1);
                   setAskFuelOpen(true);
                 }}
                 onGenerateBrief={() => {
@@ -10982,6 +11081,7 @@ function PatriotPayJourneyInner({
         focusBriefSignal={briefFocusSignal}
         focusPlaybook={pendingPlaybook}
         focusPlaybookSignal={playbookFocusSignal}
+        focusPlaybooksBrowseSignal={playbooksBrowseSignal}
         benchmarkSubmitSignal={askFuelBenchmarkSubmitSignal}
       />
       {profileCreditReward && creditToastArmedRef.current ? (

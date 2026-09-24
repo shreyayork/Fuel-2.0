@@ -1594,38 +1594,41 @@ function CategoryGlanceHeaderBar({
   const playbookCount = suggestionsReady ? cat.suggestedPlaybooks.length : 0;
   const intelCount = cat.intelDisplayCount;
   const answeredMeta = cat.detailQuestionCount > 0
-    ? `${cat.detailAnsweredCount} of ${cat.detailQuestionCount} answered`
+    ? `${cat.detailAnsweredCount}/${cat.detailQuestionCount} answered`
     : null;
+  const hasMetaLinks = initiativeCount > 0 || intelCount > 0 || playbookCount > 0;
 
   return (
     <div className="sc-glance-header-bar" onClick={e => e.stopPropagation()}>
-      <div className="sc-glance-header-bar-start">
-        <div className="sc-glance-meta-badges">
-          {initiativeCount > 0 ? (
-            <button type="button" className="sc-glance-meta-badge" onClick={() => onOpenInitiatives?.()}>
-              {initiativeCount} initiative{initiativeCount === 1 ? "" : "s"} <span aria-hidden="true">→</span>
-            </button>
-          ) : suggestionsReady ? (
-            <span className="sc-glance-meta-badge">0 initiatives <span aria-hidden="true">→</span></span>
-          ) : null}
-          <button type="button" className="sc-glance-meta-badge is-intel" onClick={() => onOpenIntelligence?.()}>
-            {intelCount} Intelligence signal{intelCount === 1 ? "" : "s"} <span aria-hidden="true">→</span>
-          </button>
-          {playbookCount > 0 ? (
-            <button type="button" className="sc-glance-meta-badge" onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}>
-              {playbookCount} playbook{playbookCount === 1 ? "" : "s"} <span aria-hidden="true">→</span>
-            </button>
-          ) : suggestionsReady ? (
-            <span className="sc-glance-meta-badge">0 playbooks <span aria-hidden="true">→</span></span>
-          ) : null}
+      {hasMetaLinks ? (
+        <div className="sc-glance-header-bar-start">
+          <div className="sc-glance-meta-badges">
+            {initiativeCount > 0 ? (
+              <button type="button" className="sc-glance-meta-badge" onClick={() => onOpenInitiatives?.()}>
+                {`${initiativeCount} initiative${initiativeCount === 1 ? "" : "s"}`}
+              </button>
+            ) : null}
+            {intelCount > 0 ? (
+              <button type="button" className="sc-glance-meta-badge is-intel" onClick={() => onOpenIntelligence?.()}>
+                {`${intelCount} signal${intelCount === 1 ? "" : "s"}`}
+              </button>
+            ) : null}
+            {playbookCount > 0 ? (
+              <button
+                type="button"
+                className="sc-glance-meta-badge is-playbook"
+                onClick={() => onRunPlaybook?.(cat.suggestedPlaybooks[0].id)}
+              >
+                {`${playbookCount} playbook${playbookCount === 1 ? "" : "s"}`}
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
       {onUpdateDetails ? (
         <div className="sc-glance-header-bar-end">
           {answeredMeta ? (
             <p className="sc-glance-header-bar-answered">{answeredMeta}</p>
-          ) : answersCta.meta ? (
-            <p className="sc-glance-header-bar-answered">{answersCta.meta}</p>
           ) : null}
           <button
             type="button"
@@ -1786,22 +1789,23 @@ function CategoryGlanceRow({
 
       <div className="sc-glance-track-body">
         <div className="sc-glance-track-lead">
-            <GlanceScoreRing
-              cat={cat}
-              score={score}
-              isOpen={glancePopoverOpen}
-              onRequestOpen={onGlancePopoverOpen}
-              onRequestClose={onGlancePopoverClose}
-            size={88}
+          <GlanceScoreRing
+            cat={cat}
+            score={score}
+            isOpen={glancePopoverOpen}
+            onRequestOpen={onGlancePopoverOpen}
+            onRequestClose={onGlancePopoverClose}
+            size={72}
             className="sc-glance-ring-wrap--track sc-glance-ring-wrap--ref"
           />
           <div className="sc-glance-track-lead-copy">
             <h3 className="sc-glance-track-title-link">
-              {cat.label} — {cat.fullLabel} <span aria-hidden="true">→</span>
-              </h3>
+              <span className="sc-glance-track-abbr">{cat.label}</span>
+              <span className="sc-glance-track-fullname">{cat.fullLabel}</span>
+            </h3>
             {focusLine ? <p className="sc-glance-track-focus">{focusLine}</p> : null}
-            </div>
           </div>
+        </div>
 
         <div className="sc-glance-track-mid">
           <TrackInsightPanel
@@ -4131,55 +4135,68 @@ function ProfileFundingRoundsInput({
       </div>
       {rounds.length > 0 ? (
         <div className="sc-drawer-funding-list">
-          {rounds.map(round => (
-            <div key={round.id} className="sc-drawer-funding-row">
-              <select
-                className="sc-drawer-input sc-drawer-funding-type"
-                value={round.type}
-                aria-label="Round type"
-                onChange={event => updateRounds(rounds.map(item => (
-                  item.id === round.id ? { ...item, type: event.target.value } : item
-                )))}
-              >
-                {PROFILE_FUNDING_ROUND_TYPES.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-              <input
-                className="sc-drawer-input sc-drawer-funding-amount"
-                value={round.amount}
-                placeholder="$1.2M"
-                aria-label="Round amount"
-                onChange={event => updateRounds(rounds.map(item => (
-                  item.id === round.id ? { ...item, amount: event.target.value } : item
-                )))}
-              />
-              <input
-                type="date"
-                className="sc-drawer-input sc-drawer-funding-date"
-                value={round.date}
-                aria-label="Round date"
-                onChange={event => updateRounds(rounds.map(item => (
-                  item.id === round.id ? { ...item, date: event.target.value } : item
-                )))}
-              />
-              <input
-                className="sc-drawer-input sc-drawer-funding-investors"
-                value={round.investors}
-                placeholder="Investors"
-                aria-label="Round investors"
-                onChange={event => updateRounds(rounds.map(item => (
-                  item.id === round.id ? { ...item, investors: event.target.value } : item
-                )))}
-              />
-              <button
-                type="button"
-                className="sc-drawer-funding-remove"
-                aria-label="Remove funding round"
-                onClick={() => updateRounds(rounds.filter(item => item.id !== round.id))}
-              >
-                ×
-              </button>
+          {rounds.map((round, index) => (
+            <div key={round.id} className="sc-drawer-funding-card">
+              <div className="sc-drawer-funding-card-top">
+                <strong>Round {index + 1}{round.type ? ` · ${round.type}` : ""}</strong>
+                <button
+                  type="button"
+                  className="sc-drawer-funding-remove"
+                  aria-label={`Remove round ${index + 1}`}
+                  onClick={() => updateRounds(rounds.filter(item => item.id !== round.id))}
+                >
+                  Remove
+                </button>
+              </div>
+              <div className="sc-drawer-funding-fields">
+                <label className="sc-drawer-funding-field">
+                  <span>Round type</span>
+                  <select
+                    className="sc-drawer-input sc-drawer-funding-type"
+                    value={round.type}
+                    onChange={event => updateRounds(rounds.map(item => (
+                      item.id === round.id ? { ...item, type: event.target.value } : item
+                    )))}
+                  >
+                    {PROFILE_FUNDING_ROUND_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="sc-drawer-funding-field">
+                  <span>Amount</span>
+                  <input
+                    className="sc-drawer-input sc-drawer-funding-amount"
+                    value={round.amount}
+                    placeholder="$1.2M"
+                    onChange={event => updateRounds(rounds.map(item => (
+                      item.id === round.id ? { ...item, amount: event.target.value } : item
+                    )))}
+                  />
+                </label>
+                <label className="sc-drawer-funding-field">
+                  <span>Close date</span>
+                  <input
+                    type="date"
+                    className="sc-drawer-input sc-drawer-funding-date"
+                    value={round.date}
+                    onChange={event => updateRounds(rounds.map(item => (
+                      item.id === round.id ? { ...item, date: event.target.value } : item
+                    )))}
+                  />
+                </label>
+                <label className="sc-drawer-funding-field sc-drawer-funding-field--full">
+                  <span>Lead / investors</span>
+                  <input
+                    className="sc-drawer-input sc-drawer-funding-investors"
+                    value={round.investors}
+                    placeholder="e.g. Accel, Index"
+                    onChange={event => updateRounds(rounds.map(item => (
+                      item.id === round.id ? { ...item, investors: event.target.value } : item
+                    )))}
+                  />
+                </label>
+              </div>
             </div>
           ))}
         </div>

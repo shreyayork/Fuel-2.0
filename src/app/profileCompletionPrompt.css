@@ -18,14 +18,20 @@
   border: 1px solid var(--panel-border, var(--border));
   border-radius: 16px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
   max-width: 520px;
   overflow: hidden;
   padding: 0;
   width: min(100%, 520px);
 }
 
-.profile-completion-prompt-body {
-  padding: 28px 28px 24px;
+.profile-completion-prompt-handle {
+  display: none;
+}
+
+.profile-completion-prompt-scroll {
+  padding: 28px 28px 8px;
 }
 
 .profile-completion-prompt-dialog h2 {
@@ -119,9 +125,13 @@
   line-height: 1.45;
 }
 
+.profile-completion-prompt-perk-detail-short {
+  display: none !important;
+}
+
 .profile-completion-prompt-benefits {
   list-style: none;
-  margin: 0 0 22px;
+  margin: 0 0 14px;
   padding: 0;
 }
 
@@ -152,14 +162,18 @@
 
 .profile-completion-prompt-actions {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+  padding: 8px 28px 24px;
 }
 
 .profile-completion-prompt-btn {
+  align-items: center;
   border-radius: 10px;
   cursor: pointer;
+  display: inline-flex;
   font-size: 13px;
   font-weight: 700;
   padding: 11px 16px;
@@ -201,21 +215,125 @@
   }
 }
 
+@keyframes profileCompletionPromptSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 560px) {
-  .profile-completion-prompt-body {
-    padding: 22px 20px 20px;
+  .profile-completion-prompt-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .profile-completion-prompt-backdrop.is-entering .profile-completion-prompt-dialog {
+    animation: profileCompletionPromptSlideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .profile-completion-prompt-dialog {
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    max-height: min(88dvh, 100%);
+    max-width: none;
+    width: 100%;
+  }
+
+  .profile-completion-prompt-handle {
+    background: color-mix(in srgb, var(--text-2, #8fa99a) 45%, transparent);
+    border-radius: 999px;
+    display: block;
+    flex-shrink: 0;
+    height: 4px;
+    margin: 10px auto 0;
+    width: 36px;
+  }
+
+  .profile-completion-prompt-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 14px 16px 8px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .profile-completion-prompt-dialog h2 {
-    font-size: 21px;
+    font-size: 19px;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    margin-bottom: 6px;
+  }
+
+  .profile-completion-prompt-lead {
+    font-size: 13px;
+    line-height: 1.45;
+    margin-bottom: 14px;
+  }
+
+  .profile-completion-prompt-perks {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .profile-completion-prompt-perk {
+    border-radius: 12px;
+    gap: 10px;
+    padding: 11px 12px;
+  }
+
+  .profile-completion-prompt-perk-icon {
+    font-size: 12px;
+    height: 28px;
+    width: 28px;
+  }
+
+  .profile-completion-prompt-perk-copy strong {
+    font-size: 13px;
+  }
+
+  .profile-completion-prompt-perk-copy span {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .profile-completion-prompt-perk-detail {
+    display: none !important;
+  }
+
+  .profile-completion-prompt-perk-detail-short {
+    display: block !important;
+  }
+
+  .profile-completion-prompt-benefits {
+    margin-bottom: 4px;
+  }
+
+  .profile-completion-prompt-benefits li {
+    font-size: 12.5px;
+    gap: 8px;
+    padding: 3px 0;
   }
 
   .profile-completion-prompt-actions {
+    background: var(--panel, var(--fuel-surface, #1f3140));
+    border-top: 1px solid var(--panel-border, var(--border));
     flex-direction: column-reverse;
+    gap: 8px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   }
 
   .profile-completion-prompt-btn {
     justify-content: center;
+    min-height: 48px;
+    padding: 13px 16px;
     width: 100%;
   }
 }

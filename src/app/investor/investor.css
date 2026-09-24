@@ -7560,3 +7560,73 @@ html[data-theme="dark"] .investor-watchlist-access-avatar {
   margin-left: 0;
   margin-top: 4px;
 }
+
+@media (max-width: 760px) {
+  .investor-company-drawer-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .investor-home-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .investor-portfolio-build {
+    margin-top: 24px;
+    padding: 28px 18px;
+  }
+
+  .investor-suggested-table-shell,
+  .investor-portfolio-table-shell,
+  .investor-watchlists-table-shell {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 760px) {
+  .investor-company-drawer-tabs {
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .investor-company-drawer-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .investor-company-drawer-foot {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .investor-company-drawer-foot .investor-suggested-primary,
+  .investor-company-drawer-foot .investor-suggested-ghost {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .investor-home-thesis-actions {
+    flex-direction: column;
+  }
+
+  .investor-home-thesis-actions .investor-suggested-primary,
+  .investor-home-thesis-actions .investor-suggested-ghost {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .investor-page-head,
+  .investor-portfolios-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .investor-home-kpis,
+  .investor-portfolio-totals {
+    grid-template-columns: 1fr;
+  }
+}

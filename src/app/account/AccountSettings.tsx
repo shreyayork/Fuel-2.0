@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useCredits } from "../credits/CreditProvider";
 import { totalRemaining } from "../credits/creditLogic";
 import { ACTION_LABELS, CREDIT_COSTS, TOP_UP_OPTIONS } from "../credits/constants";
@@ -386,9 +386,9 @@ function AccountUsageTab({ snapshot }: { snapshot: CreditSnapshot }) {
           {actionBreakdown.map(row => (
             <div className="acct-usage-row acct-usage-row-actions" key={row.action}>
               <strong>{row.label}</strong>
-              <span className="acct-usage-num">{row.unitCost}</span>
-              <span className="acct-usage-num">{row.count}</span>
-              <span className="acct-usage-num">{formatCompact(row.credits)}</span>
+              <span className="acct-usage-num" data-label="Cost">{row.unitCost}</span>
+              <span className="acct-usage-num" data-label="Runs">{row.count}</span>
+              <span className="acct-usage-num" data-label="Credits">{formatCompact(row.credits)}</span>
             </div>
           ))}
         </div>
@@ -566,6 +566,12 @@ export function AccountSettings({
 }) {
   const { snapshot } = useCredits();
   const isProfile = tab === "profile";
+  const tabsRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const active = tabsRef.current?.querySelector<HTMLElement>(".account-settings-tab.is-active");
+    active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [tab]);
 
   return (
     <div className="account-settings">
@@ -587,7 +593,7 @@ export function AccountSettings({
         ) : null}
       </header>
 
-      <nav className="account-settings-tabs" aria-label="Account settings">
+      <nav className="account-settings-tabs" aria-label="Account settings" ref={tabsRef}>
         {ACCOUNT_SETTINGS_TABS.filter(item => !item.hidden).map(item => (
           <button
             key={item.id}

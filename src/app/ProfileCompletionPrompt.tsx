@@ -19,6 +19,7 @@ export function ProfileCompletionPrompt({
   onContinue: () => void;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const balance = computeCreditBalance(earnedProfileCredits);
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +46,9 @@ export function ProfileCompletionPrompt({
         aria-describedby="profile-completion-prompt-desc"
         onPointerDown={event => event.stopPropagation()}
       >
-        <div className="profile-completion-prompt-body">
+        <div className="profile-completion-prompt-handle" aria-hidden="true" />
+
+        <div className="profile-completion-prompt-scroll">
           <h2 id="profile-completion-prompt-title">
             Complete your profile. Unlock more intelligence.
           </h2>
@@ -60,9 +63,12 @@ export function ProfileCompletionPrompt({
                 <strong>
                   Up to <em>{PROFILE_TOTAL_CREDITS}</em> credits
                 </strong>
-                <span>
-                  You have {computeCreditBalance(earnedProfileCredits)} of {PROFILE_TOTAL_CREDITS} today.
+                <span className="profile-completion-prompt-perk-detail">
+                  You have {balance} of {PROFILE_TOTAL_CREDITS} today.
                   {" "}Complete your profile and onboarding questions to earn the rest — same credits you spend in Fuel.
+                </span>
+                <span className="profile-completion-prompt-perk-detail-short">
+                  You have {balance} of {PROFILE_TOTAL_CREDITS} today. Finish profile and onboarding to earn the rest.
                 </span>
               </div>
             </article>
@@ -86,20 +92,20 @@ export function ProfileCompletionPrompt({
               <span><em>Credits</em> to spend on chat, uploads, and playbooks</span>
             </li>
           </ul>
+        </div>
 
-          <div className="profile-completion-prompt-actions">
-            <button type="button" className="profile-completion-prompt-btn secondary" onClick={onContinue}>
-              Continue to Overview
-            </button>
-            <button
-              type="button"
-              className="profile-completion-prompt-btn primary"
-              autoFocus
-              onClick={onCompleteProfile}
-            >
-              Complete My Profile
-            </button>
-          </div>
+        <div className="profile-completion-prompt-actions">
+          <button type="button" className="profile-completion-prompt-btn secondary" onClick={onContinue}>
+            Continue to Overview
+          </button>
+          <button
+            type="button"
+            className="profile-completion-prompt-btn primary"
+            autoFocus
+            onClick={onCompleteProfile}
+          >
+            Complete My Profile
+          </button>
         </div>
       </div>
     </div>,

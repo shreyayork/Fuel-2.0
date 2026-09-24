@@ -461,7 +461,53 @@ const css = `
   .of-add-round:hover { border-color: var(--border-strong) !important; color: var(--text-2) !important; }
 
   .of-back:hover { color: var(--text-2) !important; }
-  .of-setup-later:hover { color: var(--text-1) !important; }
+
+  .of-setup-later {
+    align-items: center;
+    background: #1a3d32 !important;
+    border: 1px solid rgba(61, 214, 140, 0.45) !important;
+    border-radius: 8px !important;
+    color: var(--text-1) !important;
+    cursor: pointer;
+    display: inline-flex;
+    font-family: inherit;
+    font-size: 12px !important;
+    font-weight: 700;
+    gap: 4px;
+    padding: 7px 12px !important;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .of-setup-later:hover {
+    background: #214a3d !important;
+    border-color: rgba(61, 214, 140, 0.65) !important;
+    color: var(--text-1) !important;
+  }
+
+  .of-top-chrome {
+    align-items: center;
+    background: #0C1A25;
+    border-bottom: 1px solid rgb(38, 57, 71);
+    display: flex;
+    flex-shrink: 0;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 14px 28px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .of-logo-bar {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .of-logo-bar .of-byline {
+    color: #8FA99A;
+    font-size: 11px;
+  }
 
   .of-suggest-item:hover { background: rgba(61,214,140,0.08) !important; }
 
@@ -470,7 +516,7 @@ const css = `
     width: 100%;
     min-width: 0;
     max-width: min(520px, 100%);
-    padding: 88px clamp(28px, 5.5vw, 72px) 100px;
+    padding: 36px clamp(28px, 5.5vw, 72px) 100px;
     box-sizing: border-box;
     overflow-wrap: break-word;
   }
@@ -487,6 +533,113 @@ const css = `
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
+  }
+
+  .of-funding {
+    margin-bottom: 20px;
+  }
+  .of-funding-intro {
+    color: #556878;
+    font-size: 12px;
+    line-height: 1.55;
+    margin: 0 0 12px;
+  }
+  .of-funding-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .of-funding-card {
+    background: rgba(10, 20, 28, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 10px;
+    padding: 12px 12px 14px;
+  }
+  .of-funding-card-top {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .of-funding-card-title {
+    color: var(--text-1);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .of-funding-card-title em {
+    color: #8FA99A;
+    font-style: normal;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .of-funding-remove {
+    align-items: center;
+    background: rgba(224, 92, 92, 0.12);
+    border: 1px solid rgba(224, 92, 92, 0.28);
+    border-radius: 7px;
+    color: #E05C5C;
+    cursor: pointer;
+    display: inline-flex;
+    flex-shrink: 0;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    gap: 4px;
+    height: 30px;
+    justify-content: center;
+    padding: 0 10px;
+  }
+  .of-funding-remove:hover {
+    background: rgba(224, 92, 92, 0.18);
+  }
+  .of-funding-fields {
+    display: grid;
+    gap: 10px 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .of-funding-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .of-funding-field--full {
+    grid-column: 1 / -1;
+  }
+  .of-funding-field span {
+    color: var(--text-2);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .of-funding-field .of-input {
+    margin: 0;
+  }
+  .of-add-round {
+    align-items: center;
+    background: rgba(61, 214, 140, 0.06);
+    border: 1px dashed rgba(61, 214, 140, 0.28);
+    border-radius: 9px;
+    color: #8FA99A;
+    cursor: pointer;
+    display: flex;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    gap: 8px;
+    justify-content: center;
+    padding: 11px 16px;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    width: 100%;
+  }
+  .of-add-round:hover {
+    background: rgba(61, 214, 140, 0.1);
+    border-color: rgba(61, 214, 140, 0.45);
+    color: var(--text-1);
   }
   .of-form-col--centered { padding: 40px clamp(28px, 5.5vw, 72px) 96px; }
 
@@ -534,7 +687,7 @@ const css = `
 
   @media (min-width: 1280px) {
     .of-left-col { width: 48%; }
-    .of-form-col { max-width: min(560px, 100%); padding: 92px 80px 104px; }
+    .of-form-col { max-width: min(560px, 100%); padding: 40px 80px 104px; }
     .of-form-col--centered { padding: 44px 80px 100px; }
     .of-figma-q-title { font-size: clamp(28px, 2.9vw, 38px); }
     .of-figma-q-grouped { font-size: 16px; }
@@ -559,7 +712,7 @@ const css = `
 
   @media (min-width: 1440px) {
     .of-left-col { width: 47%; }
-    .of-form-col { max-width: min(600px, 100%); padding: 96px 84px 108px; }
+    .of-form-col { max-width: min(600px, 100%); padding: 44px 84px 108px; }
     .of-form-col--centered { padding: 48px 84px 104px; }
     .of-step-heading { margin-bottom: 40px !important; }
     .of-figma-q-title { font-size: clamp(29px, 3vw, 40px); }
@@ -583,7 +736,7 @@ const css = `
   }
 
   @media (min-width: 1600px) {
-    .of-form-col { max-width: min(620px, 100%); padding: 100px 88px 112px; }
+    .of-form-col { max-width: min(620px, 100%); padding: 48px 88px 112px; }
     .of-form-col--centered { padding: 52px 88px 108px; }
     .of-figma-q-title { font-size: clamp(30px, 3.1vw, 42px); }
     .of-figma-q-grouped { font-size: 17px; }
@@ -604,7 +757,7 @@ const css = `
   }
 
   @media (min-width: 1920px) {
-    .of-form-col { max-width: min(640px, 100%); padding: 104px 92px 116px; }
+    .of-form-col { max-width: min(640px, 100%); padding: 52px 92px 116px; }
     .of-form-col .of-figma-opt { font-size: 15px !important; }
     .of-motion-scale-inner {
       --of-motion-scale: 1.2;
@@ -612,6 +765,79 @@ const css = `
       --of-motion-pad-x: clamp(34px, 1.8vw, 40px);
       --of-motion-glow: clamp(660px, 34vw, 720px);
       --of-motion-root: clamp(14.75px, 0.24vw + 12.8px, 16.75px);
+    }
+  }
+
+  @media (max-width: 760px) {
+    .of-shell {
+      flex-direction: column !important;
+    }
+    .of-left-col {
+      width: 100% !important;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .of-right-col {
+      display: none !important;
+    }
+    .of-top-chrome {
+      padding: 12px 16px;
+    }
+    .of-logo-bar {
+      left: auto !important;
+      top: auto !important;
+    }
+    .of-setup-later {
+      font-size: 11px !important;
+      max-width: none;
+      padding: 6px 10px !important;
+      position: static !important;
+      right: auto !important;
+      top: auto !important;
+      white-space: nowrap;
+    }
+    .of-form-col {
+      max-width: 100%;
+      padding: 28px 16px 96px !important;
+    }
+    .of-form-col--centered {
+      padding: 24px 16px 96px !important;
+    }
+    .of-bottom-bar {
+      padding: 10px 16px !important;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: #0C1A25;
+      z-index: 3;
+      height: auto !important;
+      min-height: 64px;
+    }
+    .of-scroll {
+      padding-bottom: 80px !important;
+    }
+    .of-funding-fields {
+      grid-template-columns: 1fr !important;
+    }
+    .of-round-row {
+      grid-template-columns: 1fr !important;
+    }
+    .of-figma-opt-grid,
+    .of-figma-opts {
+      grid-template-columns: 1fr !important;
+    }
+    .of-pair-grid {
+      grid-template-columns: 1fr !important;
+      gap: 0 !important;
+    }
+    .of-figma-q-title {
+      font-size: 24px !important;
+    }
+    .of-step-heading h2 {
+      font-size: 24px !important;
+    }
+    h2.of-figma-q-title {
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
   }
 
@@ -666,7 +892,7 @@ function FigmaQuestion({
     <div style={{ marginBottom: grouped ? 36 : 0 }}>
       <h2 className={grouped ? "of-figma-q-grouped" : "of-figma-q-title"}>{title}</h2>
       {subtitle && <p className="of-figma-q-sub">{subtitle}</p>}
-      <div style={{
+      <div className="of-figma-opts" style={{
         display: "grid",
         gridTemplateColumns: singleColumn ? "1fr" : "repeat(2, minmax(0, 1fr))",
         gap: 10,
@@ -957,7 +1183,7 @@ function FigmaMultiSelect({
     <div>
       <h2 className="of-figma-q-title">{title}</h2>
       {subtitle && <p className="of-figma-q-sub">{subtitle}</p>}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginTop: 28 }}>
+      <div className="of-figma-opt-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginTop: 28 }}>
         {options.map(opt => {
           const on = selected.includes(opt);
           const disabled = !on && atMax;
@@ -1441,37 +1667,33 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
     <>
       <style>{css}</style>
       <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex" }}>
-        <div style={{ width:"100%", height:"100%", background:"#0C1A25", display:"flex", fontFamily:"Inter, -apple-system, sans-serif" }}>
+        <div className="of-shell" style={{ width:"100%", height:"100%", background:"#0C1A25", display:"flex", fontFamily:"Inter, -apple-system, sans-serif" }}>
 
           {/* ── LEFT ── */}
           <div className="of-left-col" style={{ display:"flex", flexDirection:"column", position:"relative" }}>
 
-            {/* Logo — top left */}
-            <div style={{ position:"absolute", top:28, left:48, display:"flex", alignItems:"center", gap:8, zIndex:2 }}>
-              <div style={{ width:24, height:24, borderRadius:6, background:"linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#0a1a12" }}>F</div>
-              <span style={{ fontSize:13, fontWeight:700, color:"var(--text-1)", letterSpacing:"-0.2px" }}>Fuel</span>
-              <span style={{ fontSize:11, color:"#2A3D4E" }}>by York IE</span>
-            </div>
+            <div className="of-top-chrome">
+              <div className="of-logo-bar">
+                <div style={{ width:24, height:24, borderRadius:6, background:"linear-gradient(135deg, rgb(0,180,138) 0%, rgb(236,214,127) 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:900, color:"#0a1a12", flexShrink:0 }}>F</div>
+                <span style={{ fontSize:13, fontWeight:700, color:"var(--text-1)", letterSpacing:"-0.2px" }}>Fuel</span>
+                <span className="of-byline">by York IE</span>
+              </div>
 
-            {stepIndex >= 1 ? (
-              <button
-                type="button"
-                className="of-setup-later"
-                onClick={() => finishOnboarding(true)}
-                style={{
-                  position:"absolute", top:31, right:48, zIndex:2,
-                  background:"none", border:"none", color:"var(--text-2)",
-                  fontSize:12, cursor:"pointer", transition:"color 0.15s",
-                  fontFamily:"inherit", padding:0,
-                }}
-              >
-                Set up later →
-              </button>
-            ) : null}
+              {stepIndex >= 1 ? (
+                <button
+                  type="button"
+                  className="of-setup-later"
+                  onClick={() => finishOnboarding(true)}
+                >
+                  Set up later →
+                </button>
+              ) : <span aria-hidden="true" />}
+            </div>
 
             {/* Scrollable content */}
             <div
               ref={scrollRef}
+              className="of-scroll"
               style={{
                 flex: 1, overflowX: "hidden", overflowY: "auto", display: "flex",
                 alignItems: isCenteredView ? "center" : "flex-start",
@@ -1567,7 +1789,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                             <input className="of-input" value={profileForm.industry} onChange={e=>setPF("industry",e.target.value)} style={inp} />
                           </Field>
 
-                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
+                          <div className="of-pair-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
                             <Field label="Founded" required>
                               <input className="of-input" value={profileForm.founded} onChange={e=>setPF("founded",e.target.value)} placeholder="2021" style={inp} />
                             </Field>
@@ -1591,28 +1813,77 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                           </Field>
 
                           {/* Funding rounds */}
-                          <div style={{ marginBottom:20 }}>
-                            <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-2)", textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:9 }}>Funding history</label>
-                            <p style={{ fontSize:12, color:"#556878", margin:"0 0 10px", lineHeight:1.55 }}>From Crunchbase — confirm rounds, amounts, and dates. No need to re-enter if this looks right.</p>
-                            {fundingRounds.length>0 && (
-                              <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:8 }}>
-                                {fundingRounds.map(r=>(
-                                  <div key={r.id} style={{ background:"#1A2D3F", border:"1px solid rgba(255,255,255,0.07)", borderRadius:9, padding:"11px 13px" }}>
-                                    <div className="of-round-row">
-                                      <select value={r.type} onChange={e=>updateRound(r.id,"type",e.target.value)} style={{ ...inp, padding:"7px 9px", cursor:"pointer" }}>
-                                        {ROUND_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-                                      </select>
-                                      <input value={r.amount} onChange={e=>updateRound(r.id,"amount",e.target.value)} placeholder="$4.2M" style={{ ...inp, padding:"7px 10px" }} />
-                                      <input value={r.date} onChange={e=>updateRound(r.id,"date",e.target.value)} placeholder="dd/mm/yyyy" style={{ ...inp, padding:"7px 10px" }} />
-                                      <input value={r.investors} onChange={e=>updateRound(r.id,"investors",e.target.value)} placeholder="Investors" style={{ ...inp, padding:"7px 10px" }} />
-                                      <button onClick={()=>removeRound(r.id)} style={{ background:"none", border:"none", color:"#556878", fontSize:16, cursor:"pointer", padding:0, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+                          <div className="of-funding">
+                            <label className="of-field-label">Funding history</label>
+                            <p className="of-funding-intro">
+                              From Crunchbase — confirm rounds, amounts, and dates. Skip anything that looks wrong.
+                            </p>
+                            {fundingRounds.length > 0 && (
+                              <div className="of-funding-list">
+                                {fundingRounds.map((r, index) => (
+                                  <div key={r.id} className="of-funding-card">
+                                    <div className="of-funding-card-top">
+                                      <div className="of-funding-card-title">
+                                        Round {index + 1}
+                                        {r.type ? <em>{r.type}</em> : null}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="of-funding-remove"
+                                        aria-label={`Remove round ${index + 1}`}
+                                        onClick={() => removeRound(r.id)}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                    <div className="of-funding-fields">
+                                      <label className="of-funding-field">
+                                        <span>Round type</span>
+                                        <select
+                                          className="of-input"
+                                          value={r.type}
+                                          onChange={e => updateRound(r.id, "type", e.target.value)}
+                                        >
+                                          {ROUND_TYPES.map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                      <label className="of-funding-field">
+                                        <span>Amount</span>
+                                        <input
+                                          className="of-input"
+                                          value={r.amount}
+                                          onChange={e => updateRound(r.id, "amount", e.target.value)}
+                                          placeholder="$4.2M"
+                                          inputMode="text"
+                                        />
+                                      </label>
+                                      <label className="of-funding-field">
+                                        <span>Close date</span>
+                                        <input
+                                          className="of-input"
+                                          value={r.date}
+                                          onChange={e => updateRound(r.id, "date", e.target.value)}
+                                          placeholder="YYYY-MM or dd/mm/yyyy"
+                                        />
+                                      </label>
+                                      <label className="of-funding-field of-funding-field--full">
+                                        <span>Lead / investors</span>
+                                        <input
+                                          className="of-input"
+                                          value={r.investors}
+                                          onChange={e => updateRound(r.id, "investors", e.target.value)}
+                                          placeholder="e.g. Accel, Index"
+                                        />
+                                      </label>
                                     </div>
                                   </div>
                                 ))}
                               </div>
                             )}
-                            <button className="of-add-round" onClick={addRound} style={{ background:"none", border:"1px dashed rgba(255,255,255,0.1)", borderRadius:8, padding:"9px 18px", fontSize:13, color:"#3A4F5E", cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:7, transition:"all 0.15s" }}>
-                              <span style={{ fontSize:16, lineHeight:1 }}>+</span> Add round
+                            <button type="button" className="of-add-round" onClick={addRound}>
+                              <span aria-hidden="true">+</span> Add round
                             </button>
                           </div>
 
@@ -1829,7 +2100,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
             </div>
 
             {/* Bottom bar — back + progress + CTA */}
-            <div style={{ position:"absolute", bottom:0, left:0, right:0, height:64, display:"flex", alignItems:"center", padding:"0 48px", justifyContent:"space-between" }}>
+            <div className="of-bottom-bar" style={{ position:"absolute", bottom:0, left:0, right:0, minHeight:64, height:"auto", display:"flex", alignItems:"center", padding:"10px 48px", justifyContent:"space-between", boxSizing:"border-box" }}>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                 {showBack && (
                   <button className="of-back" onClick={back} style={{ background:"none", border:"none", color:"var(--text-2)", fontSize:18, cursor:"pointer", fontFamily:"inherit", lineHeight:1, padding:0, flexShrink:0 }}>←</button>
@@ -1880,7 +2151,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
           </div>
 
           {/* ── RIGHT ── */}
-          <div style={{ flex:1, background:"linear-gradient(175deg, #EEF8F5 0%, #D8F0EA 45%, #C8E8DF 100%)", overflow:"hidden", position:"relative" }}>
+          <div className="of-right-col" style={{ flex:1, background:"linear-gradient(175deg, #EEF8F5 0%, #D8F0EA 45%, #C8E8DF 100%)", overflow:"hidden", position:"relative" }}>
             <div className="of-motion-scale-inner of-step" key={`g-${stepId}-${searchState}-${currentSubQ}-${hubspotStatus}-${benchmarkGenerating}-${benchmarkSummaryReady}`}>
               {rightPanel[stepId]}
             </div>

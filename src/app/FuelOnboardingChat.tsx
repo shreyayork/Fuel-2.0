@@ -945,57 +945,70 @@ function ProfileFormCard({
               <FieldLabel>{requiredLabel("LinkedIn")}</FieldLabel>
               <input required value={linkedin} onChange={event => setLinkedin(event.target.value)} style={compactInputStyle} />
             </label>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div className="sc-drawer-funding">
+              <div className="sc-drawer-funding-head" style={{ justifyContent: "space-between", alignItems: "center" }}>
                 <FieldLabel>Funding rounds</FieldLabel>
-                <button onClick={addRound} style={{
-                  background: "rgba(61,214,140,0.08)",
-                  border: "1px solid rgba(61,214,140,0.2)",
-                  borderRadius: 6,
-                  color: "#00B48A",
-                  cursor: "pointer",
-                  font: "inherit",
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  padding: "4px 9px",
-                }}>
+                <button type="button" className="sc-drawer-funding-add" onClick={addRound}>
                   + Add round
                 </button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {rounds.map(round => (
-                  <div key={round.id} style={{
-                    alignItems: "center",
-                    background: "var(--panel)",
-                    border: "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 8,
-                    display: "grid",
-                    gap: 6,
-                    gridTemplateColumns: "96px 86px 128px 1fr 26px",
-                    padding: 7,
-                  }}>
-                    <select value={round.type} onChange={event => updateRound(round.id, "type", event.target.value)} style={{ ...compactInputStyle, padding: "6px 7px", fontSize: 11 }}>
-                      {ROUND_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                    <input value={round.amount} onChange={event => updateRound(round.id, "amount", event.target.value)} placeholder="$1.2M" style={{ ...compactInputStyle, padding: "6px 7px", fontSize: 11 }} />
-                    <input type="date" value={round.date} onChange={event => updateRound(round.id, "date", event.target.value)} placeholder="dd/mm/yyyy" style={{ ...compactInputStyle, padding: "6px 7px", fontSize: 11 }} />
-                    <input value={round.investors} onChange={event => updateRound(round.id, "investors", event.target.value)} placeholder="Investors" style={{ ...compactInputStyle, padding: "6px 7px", fontSize: 11 }} />
-                    <button onClick={() => deleteRound(round.id)} style={{
-                      alignItems: "center",
-                      background: "rgba(201,95,95,0.1)",
-                      border: "1px solid rgba(201,95,95,0.2)",
-                      borderRadius: 5,
-                      color: "#C95F5F",
-                      cursor: "pointer",
-                      display: "flex",
-                      fontSize: 13,
-                      height: 24,
-                      justifyContent: "center",
-                      lineHeight: 1,
-                      width: 24,
-                    }}>
-                      ×
-                    </button>
+              <div className="sc-drawer-funding-list">
+                {rounds.map((round, index) => (
+                  <div key={round.id} className="sc-drawer-funding-card">
+                    <div className="sc-drawer-funding-card-top">
+                      <strong>Round {index + 1}{round.type ? ` · ${round.type}` : ""}</strong>
+                      <button
+                        type="button"
+                        className="sc-drawer-funding-remove"
+                        aria-label={`Remove round ${index + 1}`}
+                        onClick={() => deleteRound(round.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="sc-drawer-funding-fields">
+                      <label className="sc-drawer-funding-field">
+                        <span>Round type</span>
+                        <select
+                          className="sc-drawer-input sc-drawer-funding-type"
+                          value={round.type}
+                          onChange={event => updateRound(round.id, "type", event.target.value)}
+                          style={{ ...compactInputStyle, padding: "8px 10px", fontSize: 12 }}
+                        >
+                          {ROUND_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                        </select>
+                      </label>
+                      <label className="sc-drawer-funding-field">
+                        <span>Amount</span>
+                        <input
+                          className="sc-drawer-input sc-drawer-funding-amount"
+                          value={round.amount}
+                          onChange={event => updateRound(round.id, "amount", event.target.value)}
+                          placeholder="$1.2M"
+                          style={{ ...compactInputStyle, padding: "8px 10px", fontSize: 12 }}
+                        />
+                      </label>
+                      <label className="sc-drawer-funding-field">
+                        <span>Close date</span>
+                        <input
+                          type="date"
+                          className="sc-drawer-input sc-drawer-funding-date"
+                          value={round.date}
+                          onChange={event => updateRound(round.id, "date", event.target.value)}
+                          style={{ ...compactInputStyle, padding: "8px 10px", fontSize: 12 }}
+                        />
+                      </label>
+                      <label className="sc-drawer-funding-field sc-drawer-funding-field--full">
+                        <span>Lead / investors</span>
+                        <input
+                          className="sc-drawer-input sc-drawer-funding-investors"
+                          value={round.investors}
+                          onChange={event => updateRound(round.id, "investors", event.target.value)}
+                          placeholder="e.g. Accel, Index"
+                          style={{ ...compactInputStyle, padding: "8px 10px", fontSize: 12 }}
+                        />
+                      </label>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -7905,7 +7918,24 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
         }
         .fuel-chip-btn:hover { opacity: 0.85; transform: translateY(-1px); }
         .fuel-send:hover { opacity: 0.85; }
-        .fuel-manual:hover { color: var(--text-2) !important; }
+        .fuel-manual {
+          align-items: center;
+          background: rgba(61, 214, 140, 0.12) !important;
+          border: 1px solid rgba(61, 214, 140, 0.32) !important;
+          border-radius: 8px !important;
+          color: var(--text-1) !important;
+          cursor: pointer;
+          display: inline-flex;
+          font-size: 12px !important;
+          font-weight: 700;
+          padding: 7px 12px !important;
+          transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .fuel-manual:hover {
+          background: rgba(61, 214, 140, 0.2) !important;
+          border-color: rgba(61, 214, 140, 0.5) !important;
+          color: var(--text-1) !important;
+        }
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
@@ -7949,10 +7979,7 @@ export default function FuelOnboardingChat({ onComplete, onManual }: { onComplet
           <button
             onClick={onManual}
             className="fuel-manual"
-            style={{
-              background: "none", border: "none", color: "var(--text-2)",
-              fontSize: 12, cursor: "pointer", transition: "color 0.15s",
-            }}
+            type="button"
           >
             Set up later →
           </button>
