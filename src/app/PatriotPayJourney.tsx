@@ -4874,8 +4874,7 @@ function SubtypeRow({
               title={`${sourceCount} linked source${sourceCount === 1 ? "" : "s"}`}
               aria-label={`${sourceCount} source${sourceCount === 1 ? "" : "s"}`}
             >
-              <span className="intel-signal-meta-label">Sources</span>
-              <span className="intel-signal-meta-count">{sourceCount}</span>
+              Sources {sourceCount}
             </span>
           ) : null}
           {history.length > 0 ? (
@@ -4886,8 +4885,7 @@ function SubtypeRow({
               aria-expanded={historyOpen}
               title={`${history.length} earlier entr${history.length === 1 ? "y" : "ies"}`}
             >
-              <span className="intel-signal-meta-label">History</span>
-              <span className="intel-signal-meta-count">{history.length}</span>
+              History {history.length}
               <span className="intel-signal-meta-chevron" aria-hidden="true">{historyOpen ? "▴" : "▾"}</span>
             </button>
           ) : null}
