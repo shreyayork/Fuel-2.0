@@ -33,12 +33,21 @@ const FOUNDER_ACTIVE_PAGES = new Set([
   "account",
   "help",
   "company-profile",
+  "investor-advisors",
+  "investor-service-providers",
+  "investor-investors",
 ]);
 
 const INVESTOR_ACTIVE_PAGES = new Set([
   "investor-portfolios",
   "investor-pipeline",
   "investor-watchlists",
+  "investor-benchmarks",
+  "investor-playbooks",
+  "investor-initiatives",
+  "investor-advisors",
+  "investor-service-providers",
+  "investor-investors",
   "investor-home",
   "account",
   "help",

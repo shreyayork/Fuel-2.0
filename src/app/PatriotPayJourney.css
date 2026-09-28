@@ -547,6 +547,14 @@ html[data-theme="light"] .york-rail--overview .york-rail-mark {
   letter-spacing: 0.3px;
 }
 
+.brand-byline {
+  color: var(--nav-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-left: 4px;
+}
+
 .brand-sub {
   font-size: 10px;
   color: var(--nav-muted);
@@ -564,6 +572,10 @@ html[data-theme="light"] .york-rail--overview .york-rail-mark {
   margin-bottom: 18px;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.account-card.is-org .account-name {
+  font-weight: 600;
 }
 
 .account-card.is-active {
@@ -613,6 +625,11 @@ html[data-theme="light"] .york-rail--overview .york-rail-mark {
   color: var(--nav-text);
   cursor: pointer;
   margin-bottom: 1px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
 }
 
 .nav-item:hover {
@@ -19853,11 +19870,204 @@ html[data-theme="light"] .sc-adv-rec-spotlight.tour-highlight {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 10px;
-  margin: 0 0 18px;
+  margin: 0 0 14px;
 }
 
 .sc-adv-rec-title-row .sc-adv-rec-title {
   margin: 0;
+}
+
+/* Prominent focus tracks inside Fuel AI Advisor */
+.sc-adv-focus-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 22px;
+}
+
+.sc-adv-focus-tracks > .sc-adv-rec-title {
+  margin: 0;
+}
+
+.sc-adv-focus-track-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sc-adv-focus-track {
+  align-items: center;
+  background: var(--surface-3);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 12px 14px;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sc-adv-focus-track:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.sc-adv-focus-track:focus-visible {
+  outline: 2px solid var(--accent, #3fe0a4);
+  outline-offset: 2px;
+}
+
+.sc-adv-focus-track.is-watch {
+  background: rgba(245, 166, 35, 0.1);
+  border-color: rgba(245, 166, 35, 0.28);
+}
+
+.sc-adv-focus-track.is-stable {
+  background: rgba(18, 184, 134, 0.1);
+  border-color: rgba(18, 184, 134, 0.28);
+}
+
+.sc-adv-focus-track.is-urgent {
+  background: rgba(224, 92, 92, 0.1);
+  border-color: rgba(224, 92, 92, 0.28);
+}
+
+.sc-adv-focus-track.is-pending {
+  opacity: 0.72;
+}
+
+.sc-adv-focus-track-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sc-adv-focus-track-copy strong {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.sc-adv-focus-track-copy span {
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.sc-adv-focus-ring {
+  align-items: center;
+  color: var(--border-strong, rgba(255, 255, 255, 0.12));
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  position: relative;
+}
+
+.sc-adv-focus-ring svg {
+  display: block;
+  grid-area: 1 / 1;
+}
+
+.sc-adv-focus-ring strong {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  grid-area: 1 / 1;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  z-index: 1;
+}
+
+.sc-adv-focus-ring-track {
+  opacity: 0.9;
+}
+
+.sc-adv-featured-brief-col > .sc-adv > .sc-adv-focus-tracks + .sc-adv-rec-title-row {
+  margin-top: 0;
+}
+
+.sc-adv-featured-brief-col > .sc-adv > .sc-adv-summary {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .sc-adv-focus-track-grid {
+    display: flex;
+    gap: 10px;
+    margin: 0 -4px;
+    overflow-x: auto;
+    padding: 2px 4px 6px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .sc-adv-focus-track-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sc-adv-focus-track {
+    flex: 0 0 min(260px, 78vw);
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .sc-adv-focus-tracks {
+    margin-bottom: 18px;
+  }
+
+  .sc-adv-focus-track-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0;
+    overflow: visible;
+    padding: 0;
+    scroll-snap-type: none;
+  }
+
+  .sc-adv-focus-track {
+    flex: none;
+    padding: 12px;
+    width: 100%;
+  }
+
+  .sc-adv-focus-track-copy strong {
+    font-size: 12.5px;
+  }
+
+  .sc-adv-rec-title-row {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .sc-adv-rec-title-row .sc-wiki-expand-btn {
+    margin-left: 0;
+  }
+
+  .sc-adv-featured .sc-adv-summary {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .sc-adv-rec-item {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .sc-adv-rec-cta {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 2px;
+    white-space: normal;
+  }
 }
 
 .sc-workspace-setup-hint {
@@ -27603,6 +27813,42 @@ html[data-theme="light"] .sc-overview-advisor-wrap:not(.is-collapsed) .sc-adv-fe
 
 html[data-theme="light"] .sc-adv-featured-rec-col {
   border-left: 1px solid #e8eaed;
+}
+
+html[data-theme="light"] .sc-adv-focus-track {
+  background: #f7f8fa;
+  border-color: #e8eaed;
+}
+
+html[data-theme="light"] .sc-adv-focus-track:hover {
+  border-color: #d5d9de;
+}
+
+html[data-theme="light"] .sc-adv-focus-track.is-watch {
+  background: #fbf6ee;
+  border-color: rgba(245, 166, 35, 0.28);
+}
+
+html[data-theme="light"] .sc-adv-focus-track.is-stable {
+  background: #eef8f3;
+  border-color: rgba(18, 184, 134, 0.28);
+}
+
+html[data-theme="light"] .sc-adv-focus-track.is-urgent {
+  background: #fdf2f2;
+  border-color: rgba(224, 92, 92, 0.28);
+}
+
+html[data-theme="light"] .sc-adv-focus-track-copy strong {
+  color: #1a2332;
+}
+
+html[data-theme="light"] .sc-adv-focus-track-copy span {
+  color: #6b7c8c;
+}
+
+html[data-theme="light"] .sc-adv-focus-ring {
+  color: #e8eaed;
 }
 
 html[data-theme="light"] .sc-adv-featured-brief-col,

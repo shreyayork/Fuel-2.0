@@ -9250,14 +9250,20 @@ function PatriotPayJourneyInner({
     initialPage === "investor-home"
     || initialPage === "investor-portfolios"
     || initialPage === "investor-pipeline"
-    || initialPage === "investor-watchlists";
+    || initialPage === "investor-watchlists"
+    || initialPage === "investor-benchmarks"
+    || initialPage === "investor-playbooks"
+    || initialPage === "investor-initiatives"
+    || initialPage === "investor-advisors"
+    || initialPage === "investor-service-providers"
+    || initialPage === "investor-investors";
   const [openTracks, setOpenTracks] = useState(() => new Set());
   const [openDropdown, setOpenDropdown] = useState(null);
   const [barsAnimated, setBarsAnimated] = useState(false);
   const [activePage, setActivePage] = useState(
-    // Investor fund dashboard is hidden for now — land on Portfolios.
+    // Investor org nav: Research → Watchlists is the landing surface.
     initialPage === "investor-home" || initialPage === "investor-portfolios"
-      ? "investor-portfolios"
+      ? "investor-watchlists"
       : startsWithTour ? "overview"
       : (startsWithScorecard || startsWithOverviewBuilding) ? "scorecard-v2"
       : startsWithOverview ? "signals-loading"
@@ -9361,13 +9367,13 @@ function PatriotPayJourneyInner({
     setSelectedCompany(FOUNDER_COMPANY);
     setActivePage("scorecard-v2");
   }, []);
-  const openInvestorPortfolios = useCallback(() => {
-    setActivePage("investor-portfolios");
+  const openInvestorHome = useCallback(() => {
+    setActivePage("investor-watchlists");
   }, []);
   const openAccountHome = useCallback(() => {
-    if (isInvestorPersona) openInvestorPortfolios();
+    if (isInvestorPersona) openInvestorHome();
     else openMyCompanyProfile();
-  }, [isInvestorPersona, openInvestorPortfolios, openMyCompanyProfile]);
+  }, [isInvestorPersona, openInvestorHome, openMyCompanyProfile]);
   const [generatedBrief, setGeneratedBrief] = useState<Brief | null>(null);
   const [lastPlaybook, setLastPlaybook] = useState<{ name: string; kind: string; description: string; category: string } | null>(null);
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
@@ -9382,7 +9388,14 @@ function PatriotPayJourneyInner({
     && activePage !== "investor-portfolios"
     && activePage !== "investor-pipeline"
     && activePage !== "investor-watchlists"
+    && activePage !== "investor-benchmarks"
+    && activePage !== "investor-playbooks"
+    && activePage !== "investor-initiatives"
+    && activePage !== "investor-advisors"
+    && activePage !== "investor-service-providers"
+    && activePage !== "investor-investors"
     && activePage !== "account"
+    && activePage !== "help"
     && activePage !== "connectors";
   const isClaimedFounderCompany = !isInvestorPersona && selectedCompany.id === FOUNDER_CLAIMED_COMPANY_ID;
   const isInvestorCompanyView = isInvestorPersona && isOnCompanyWorkspace;
@@ -10152,11 +10165,23 @@ function PatriotPayJourneyInner({
   const isInvestorShellPage = activePage === "investor-home"
     || activePage === "investor-portfolios"
     || activePage === "investor-pipeline"
-    || activePage === "investor-watchlists";
+    || activePage === "investor-watchlists"
+    || activePage === "investor-benchmarks"
+    || activePage === "investor-playbooks"
+    || activePage === "investor-initiatives"
+    || activePage === "investor-advisors"
+    || activePage === "investor-service-providers"
+    || activePage === "investor-investors";
   const investorDashboardSection: InvestorDashboardSection =
     activePage === "investor-pipeline" ? "pipeline"
       : activePage === "investor-watchlists" ? "watchlists"
-        : "portfolios"; // home dashboard hidden — portfolios is the investor landing
+        : activePage === "investor-benchmarks" ? "benchmarks"
+          : activePage === "investor-playbooks" ? "playbooks"
+            : activePage === "investor-initiatives" ? "initiatives"
+              : activePage === "investor-advisors" ? "advisors"
+                : activePage === "investor-service-providers" ? "service-providers"
+                  : activePage === "investor-investors" ? "investors"
+                    : "watchlists"; // org investor landing
   const breadcrumbLabel = isAccountPage
     ? `Account · ${accountTabLabel(accountTab)}`
     : isHelpPage
@@ -10164,9 +10189,15 @@ function PatriotPayJourneyInner({
     : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
       : activePage === "investor-pipeline" ? "Pipeline"
         : activePage === "investor-watchlists" ? "Watchlists"
-          : isInvestorShellPage
-            ? "Portfolios"
-            : "Company";
+          : activePage === "investor-benchmarks" ? "Benchmarks"
+            : activePage === "investor-playbooks" ? "Playbooks"
+              : activePage === "investor-initiatives" ? "Initiatives"
+                : activePage === "investor-advisors" ? "Advisors"
+                  : activePage === "investor-service-providers" ? "Service providers"
+                    : activePage === "investor-investors" ? "Investors"
+                      : isInvestorShellPage
+                        ? "Portfolios"
+                        : "Company";
 
   const founderBenchmarkForm = useMemo(
     () => resolveBenchmarkFormValues(benchmarkSubmission, initialBenchmark),
@@ -10208,12 +10239,18 @@ function PatriotPayJourneyInner({
         aria-label="Close navigation"
         onClick={() => setMobileNavOpen(false)}
       />
-      <aside className={`sidebar${mobileNavOpen ? " is-open" : ""}`}>
+      <aside className={`sidebar${mobileNavOpen ? " is-open" : ""}${isInvestorPersona ? " is-investor" : ""}`}>
         <div className="brand">
           <div className="brand-logo">Y</div>
           <div>
-            <div className="brand-name">YORK·IE</div>
-            <div className="brand-sub">FUEL 2.0</div>
+            {isInvestorPersona ? (
+              <div className="brand-name">Fuel <span className="brand-byline">BY YORK IE</span></div>
+            ) : (
+              <>
+                <div className="brand-name">YORK·IE</div>
+                <div className="brand-sub">FUEL 2.0</div>
+              </>
+            )}
           </div>
           <button
             type="button"
@@ -10225,10 +10262,11 @@ function PatriotPayJourneyInner({
           </button>
         </div>
         <div
-          className="account-card"
+          className={`account-card${isInvestorPersona ? " is-org" : ""}`}
           onClick={openAccountHome}
           role="button"
           tabIndex={0}
+          aria-label={isInvestorPersona ? `Organization ${fundName}` : "My Account"}
           onKeyDown={e => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -10236,63 +10274,197 @@ function PatriotPayJourneyInner({
             }
           }}
         >
-          <div className="account-avatar">M</div>
-          <div className="account-name">My Account</div>
+          <div className="account-avatar">{isInvestorPersona ? (fundName.trim().charAt(0).toUpperCase() || "Y") : "M"}</div>
+          <div className="account-name">{isInvestorPersona ? fundName : "My Account"}</div>
         </div>
         <div className="sidebar-nav">
-        <div className="nav-section">
-          <div className="nav-label">{isInvestorPersona ? "Fund" : "Research"}</div>
-          <div
-            className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
-            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
-            onClick={isInvestorPersona ? () => setActivePage("investor-watchlists") : undefined}
-          >
-            ⊟ Watchlists
-          </div>
-          <div
-            className={`nav-item${activePage === "investor-pipeline" ? " is-active" : ""}`}
-            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
-            onClick={isInvestorPersona ? () => setActivePage("investor-pipeline") : undefined}
-          >
-            ▦ Pipeline <span className="nav-count">{isInvestorPersona ? "13" : "0"}</span>
-          </div>
-        </div>
-        <div className="nav-section">
-          <div className="nav-label">Portfolio</div>
-          <div
-            className={`nav-item${activePage === "investor-portfolios" ? " is-active" : ""}`}
-            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
-            onClick={isInvestorPersona ? () => setActivePage("investor-portfolios") : undefined}
-          >
-            ▢ Portfolios {isInvestorPersona ? <span className="nav-count">3</span> : null}
-          </div>
-        </div>
-        <div className="nav-section">
-          <div className="nav-label">Value creation</div>
-          <div className="nav-item">
-            ↗ Initiatives <span className="nav-count">0</span>
-          </div>
-          <div className="nav-item">▥ Benchmarks</div>
-          <div className="nav-item">▤ Playbooks</div>
-        </div>
-        <div className="nav-section">
-          <div className="nav-label">Integrations</div>
-          <div className="nav-item" style={{ cursor: "pointer" }} onClick={() => setActivePage("connectors")}>
-            ⟳ Connectors <span className="nav-count">13</span>
-          </div>
-        </div>
-        <div className="nav-section">
-          <div className="nav-label">Network</div>
-          <div className="nav-item">
-            ◉ Advisors <span className="nav-count">32</span>
-          </div>
-          <div className="nav-item">
-            ⚉ Service providers <span className="nav-count">0</span>
-          </div>
-          <div className="nav-item">
-            ↗ Investors <span className="nav-count">0</span>
-          </div>
-        </div>
+        {isInvestorPersona ? (
+          <>
+            <div className="nav-section">
+              <div className="nav-label">Research</div>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-watchlists")}
+              >
+                ⊟ Watchlists
+              </button>
+            </div>
+            <div className="nav-section">
+              <div className="nav-label">Value creation</div>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-benchmarks" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-benchmarks")}
+              >
+                ▥ Benchmarks
+              </button>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-playbooks" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-playbooks")}
+              >
+                ▤ Playbooks
+              </button>
+            </div>
+            <div className="nav-section">
+              <div className="nav-label">Network</div>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-advisors" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-advisors")}
+              >
+                ◉ Advisors <span className="nav-count">1</span>
+              </button>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-service-providers" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-service-providers")}
+              >
+                ⚉ Service providers <span className="nav-count">1</span>
+              </button>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-investors" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-investors")}
+              >
+                ↗ Investors <span className="nav-count">20</span>
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="nav-section">
+              <div className="nav-label">Workspace</div>
+              <div
+                className={`nav-item${activePage === "scorecard-v2" ? " is-active" : ""}`}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActivePage("scorecard-v2")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActivePage("scorecard-v2");
+                  }
+                }}
+              >
+                ⊞ Overview
+              </div>
+              <div
+                className={`nav-item${activePage === "signals" || activePage === "context-feed" ? " is-active" : ""}`}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActivePage("signals")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActivePage("signals");
+                  }
+                }}
+              >
+                ⊟ Intelligence
+              </div>
+              <div
+                className={`nav-item${activePage === "initiatives" ? " is-active" : ""}`}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActivePage("initiatives")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActivePage("initiatives");
+                  }
+                }}
+              >
+                ↗ Initiatives
+              </div>
+              <div
+                className={`nav-item${activePage === "data-room" ? " is-active" : ""}`}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActivePage("data-room")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActivePage("data-room");
+                  }
+                }}
+              >
+                ▣ Data Room
+              </div>
+            </div>
+            <div className="nav-section">
+              <div className="nav-label">Integrations</div>
+              <div
+                className={`nav-item${activePage === "connectors" ? " is-active" : ""}`}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActivePage("connectors")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActivePage("connectors");
+                  }
+                }}
+              >
+                ⟳ Connectors <span className="nav-count">13</span>
+              </div>
+            </div>
+            <div className="nav-section">
+              <div className="nav-label">Network</div>
+              <div
+                className={`nav-item${activePage === "investor-advisors" ? " is-active" : ""}`}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActivePage("investor-advisors")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActivePage("investor-advisors");
+                  }
+                }}
+              >
+                ◉ Advisors <span className="nav-count">1</span>
+              </div>
+              <div
+                className={`nav-item${activePage === "investor-service-providers" ? " is-active" : ""}`}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActivePage("investor-service-providers")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActivePage("investor-service-providers");
+                  }
+                }}
+              >
+                ⚉ Service providers <span className="nav-count">1</span>
+              </div>
+              <div
+                className={`nav-item${activePage === "investor-investors" ? " is-active" : ""}`}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setActivePage("investor-investors")}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActivePage("investor-investors");
+                  }
+                }}
+              >
+                ↗ Investors <span className="nav-count">20</span>
+              </div>
+            </div>
+          </>
+        )}
         <div className="nav-section">
           <div className="nav-label">Recently viewed</div>
           {recentCompanies.map(company => (
@@ -10379,7 +10551,7 @@ function PatriotPayJourneyInner({
             </div>
             <div className="content">
               <FuelHelpFaqPage
-                onBack={() => setActivePage(isInvestorPersona ? "investor-portfolios" : "scorecard-v2")}
+                onBack={() => setActivePage(isInvestorPersona ? "investor-watchlists" : "scorecard-v2")}
                 onGoTo={dest => {
                   switch (dest) {
                     case "ask-fuel":
@@ -10396,7 +10568,7 @@ function PatriotPayJourneyInner({
                       openAccountSettings("billing");
                       return;
                     case "overview":
-                      setActivePage(isInvestorPersona ? "investor-portfolios" : "scorecard-v2");
+                      setActivePage(isInvestorPersona ? "investor-watchlists" : "scorecard-v2");
                       return;
                     case "intelligence":
                       setActivePage("signals");
@@ -10415,6 +10587,24 @@ function PatriotPayJourneyInner({
                       return;
                     case "investor-watchlists":
                       setActivePage("investor-watchlists");
+                      return;
+                    case "investor-benchmarks":
+                      setActivePage("investor-benchmarks");
+                      return;
+                    case "investor-playbooks":
+                      setActivePage("investor-playbooks");
+                      return;
+                    case "investor-initiatives":
+                      setActivePage("investor-initiatives");
+                      return;
+                    case "investor-advisors":
+                      setActivePage("investor-advisors");
+                      return;
+                    case "investor-service-providers":
+                      setActivePage("investor-service-providers");
+                      return;
+                    case "investor-investors":
+                      setActivePage("investor-investors");
                       return;
                   }
                 }}
@@ -10639,11 +10829,18 @@ function PatriotPayJourneyInner({
               onOpenCompanyProfile={openInvestorCompany}
               onOpenAccount={() => openAccountSettings("overview")}
               onNavigateSection={(next) => {
-                setActivePage(
-                  next === "portfolios" ? "investor-portfolios"
-                    : next === "pipeline" ? "investor-pipeline"
-                      : "investor-watchlists",
-                );
+                const pageBySection: Record<Exclude<InvestorDashboardSection, "home">, string> = {
+                  portfolios: "investor-portfolios",
+                  pipeline: "investor-pipeline",
+                  watchlists: "investor-watchlists",
+                  benchmarks: "investor-benchmarks",
+                  playbooks: "investor-playbooks",
+                  initiatives: "investor-initiatives",
+                  advisors: "investor-advisors",
+                  "service-providers": "investor-service-providers",
+                  investors: "investor-investors",
+                };
+                setActivePage(pageBySection[next] ?? "investor-watchlists");
               }}
             />
           ) : activePage === "signals-loading" ? (

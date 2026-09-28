@@ -82,9 +82,25 @@ import {
   watchlistTeamLabels,
   watchlistVisibilityCopy,
 } from "./investorData.ts";
+import BenchmarksPage from "./BenchmarksPage.tsx";
+import PlaybooksPage from "./PlaybooksPage.tsx";
+import FundInitiativesPage from "./FundInitiativesPage.tsx";
+import AdvisorsPage from "./AdvisorsPage.tsx";
+import ServiceProvidersPage from "./ServiceProvidersPage.tsx";
+import InvestorsPage from "./InvestorsPage.tsx";
 import "./investor.css";
 
-export type InvestorDashboardSection = "home" | "portfolios" | "pipeline" | "watchlists";
+export type InvestorDashboardSection =
+  | "home"
+  | "portfolios"
+  | "pipeline"
+  | "watchlists"
+  | "benchmarks"
+  | "playbooks"
+  | "initiatives"
+  | "advisors"
+  | "service-providers"
+  | "investors";
 
 const HUBSPOT_STORAGE_KEY = "fuel-investor-hubspot-connected";
 const PORTFOLIO_BUILD_SEEN_PREFIX = "fuel-investor-portfolio-built:v1:";
@@ -275,16 +291,42 @@ export default function InvestorDashboard({
     ? "Portfolios"
     : section === "pipeline"
       ? "Pipeline"
-      : "Watchlists";
+      : section === "benchmarks"
+        ? "Benchmarks"
+        : section === "playbooks"
+          ? "Playbooks"
+          : section === "initiatives"
+            ? "Initiatives"
+            : section === "advisors"
+              ? "Advisors"
+              : section === "service-providers"
+                ? "Service providers"
+                : section === "investors"
+                  ? "Investors"
+                  : "Watchlists";
   const pageLede = section === "portfolios"
     ? "Companies in your funds, tracked per-fund with signal digests"
     : section === "pipeline"
       ? hubspotConnected
         ? "Live deal stages synced from HubSpot."
         : "Connect HubSpot to sync deal stages and track your pipeline."
-      : "Curated company lists for markets, competitors, and deal flow";
+      : section === "benchmarks"
+        ? "Percentile distributions for key metrics across peer cohorts."
+        : section === "playbooks"
+          ? "Runbooks Fuel AI executes against a company using its signal context."
+          : section === "initiatives"
+            ? "Open work across portfolio companies from signals and scorecard gaps."
+            : section === "advisors" || section === "service-providers" || section === "investors"
+              ? "People and firms in your Fuel network."
+              : "Curated company lists for markets, competitors, and deal flow";
   const hideShellHeader = section === "portfolios"
     || section === "watchlists"
+    || section === "benchmarks"
+    || section === "playbooks"
+    || section === "initiatives"
+    || section === "advisors"
+    || section === "service-providers"
+    || section === "investors"
     || (section === "pipeline" && hubspotConnected);
 
   return (
@@ -314,6 +356,18 @@ export default function InvestorDashboard({
       {section === "watchlists" ? (
         <WatchlistsPage onOpenCompany={onOpenCompany} />
       ) : null}
+
+      {section === "benchmarks" ? <BenchmarksPage /> : null}
+
+      {section === "playbooks" ? <PlaybooksPage /> : null}
+
+      {section === "initiatives" ? <FundInitiativesPage /> : null}
+
+      {section === "advisors" ? <AdvisorsPage /> : null}
+
+      {section === "service-providers" ? <ServiceProvidersPage /> : null}
+
+      {section === "investors" ? <InvestorsPage /> : null}
 
       {section === "pipeline" ? (
         hubspotConnected ? (
@@ -4357,7 +4411,7 @@ function WatchlistsPage({
               ) : (
                 visibleSuggestions.map(company => (
                   <div key={company.id} className="investor-suggested-table-row investor-portfolios-row" role="row">
-                    <span role="cell" className="investor-suggested-table-company">
+                    <span role="cell" className="investor-suggested-table-company" data-label="Company">
                       <button type="button" className="investor-suggested-table-identity" onClick={() => onOpenCompany(company)}>
                         <PortfolioCompanyLogo company={company} size="sm" />
                         <span>
@@ -4366,12 +4420,12 @@ function WatchlistsPage({
                         </span>
                       </button>
                     </span>
-                    <span role="cell" className="investor-suggested-table-score">
+                    <span role="cell" className="investor-suggested-table-score" data-label="Score">
                       <b>{formatSuggestionScore(company.matchScore)}</b>
                     </span>
-                    <span role="cell" className="investor-suggested-table-why">{company.matchReason}</span>
-                    <span role="cell" className="investor-suggested-table-timing">{company.timing}</span>
-                    <span role="cell" className="investor-suggested-table-actions">
+                    <span role="cell" className="investor-suggested-table-why" data-label="Why">{company.matchReason}</span>
+                    <span role="cell" className="investor-suggested-table-timing" data-label="Timing">{company.timing}</span>
+                    <span role="cell" className="investor-suggested-table-actions" data-label="Actions">
                       <button
                         type="button"
                         className={`investor-suggested-primary${watchlistIds.includes(company.id) ? " is-done" : ""}`}
@@ -4424,7 +4478,7 @@ function WatchlistsPage({
                   const entryCount = watchlistEntryCount(row);
                   return (
                   <div key={row.id} className="investor-watchlists-row investor-portfolios-row" role="row">
-                    <span role="cell" className="investor-portfolios-name-cell">
+                    <span role="cell" className="investor-portfolios-name-cell" data-label="Name">
                       <button
                         type="button"
                         className="investor-portfolio-list-name investor-portfolios-list-name"
@@ -4433,7 +4487,7 @@ function WatchlistsPage({
                         <strong className="investor-watchlists-name">{row.name}</strong>
                       </button>
                     </span>
-                    <span role="cell" className="investor-watchlists-companies investor-portfolios-companies">
+                    <span role="cell" className="investor-watchlists-companies investor-portfolios-companies" data-label="Companies">
                       {previewChips.length > 0 ? (
                         <span className="investor-watchlists-logo-stack investor-portfolios-logo-stack" aria-hidden="true">
                           {previewChips.map(chip => (
@@ -4456,15 +4510,17 @@ function WatchlistsPage({
                         <span className="investor-portfolios-company-count is-empty">—</span>
                       )}
                     </span>
-                    <span role="cell" className="investor-watchlists-owner investor-portfolios-owner">
+                    <span role="cell" className="investor-watchlists-owner investor-portfolios-owner" data-label="Owner">
                       <strong>{row.ownerName}</strong>
                       {row.ownerEmail ? <em>{row.ownerEmail}</em> : null}
                     </span>
-                    <span role="cell">
+                    <span role="cell" className="investor-watchlists-scope-cell" data-label="Access">
                       <span className="investor-portfolio-detail-pill investor-portfolios-scope-pill">{row.scope}</span>
                     </span>
-                    <span role="cell" className="investor-watchlists-updated investor-portfolios-updated">{row.updatedAt}</span>
-                    <span role="cell">
+                    <span role="cell" className="investor-watchlists-updated investor-portfolios-updated" data-label="Updated">
+                      {row.updatedAt}
+                    </span>
+                    <span role="cell" className="investor-watchlists-digest-cell" data-label="Digest">
                       <label className="investor-watchlists-digest investor-portfolios-digest">
                         <span className="sr-only">Digest for {row.name}</span>
                         <select
@@ -4480,7 +4536,7 @@ function WatchlistsPage({
                         </select>
                       </label>
                     </span>
-                    <span role="cell" className="investor-watchlists-actions-col">
+                    <span role="cell" className="investor-watchlists-actions-col" data-label="Actions">
                       <div className="investor-watchlist-row-actions">
                         <button
                           type="button"
@@ -4508,7 +4564,7 @@ function WatchlistsPage({
                         </button>
                       </div>
                     </span>
-                    <span role="cell" className="investor-watchlists-star-col investor-portfolios-star-col">
+                    <span role="cell" className="investor-watchlists-star-col investor-portfolios-star-col" data-label="Starred">
                       <button
                         type="button"
                         className={`investor-watchlists-star investor-portfolios-star${starredIds.includes(row.id) ? " is-on" : ""}`}

@@ -4906,6 +4906,57 @@ function OverviewWorkspaceSetupPanel({
 }
 
 // ─── UI: Advisor panel (sc-adv split layout + existing scorecard content) ───
+function AdvisorFocusRing({
+  score,
+  colour,
+  ready,
+  size = 52,
+}: {
+  score: number;
+  colour: string;
+  ready: boolean;
+  size?: number;
+}) {
+  const stroke = 4.5;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = ready ? Math.max(0, Math.min(100, score)) : 0;
+  const offset = circumference - (clamped / 100) * circumference;
+
+  return (
+    <div className="sc-adv-focus-ring" style={{ width: size, height: size }} aria-hidden="true">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={stroke}
+          className="sc-adv-focus-ring-track"
+        />
+        {ready ? (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={colour}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        ) : null}
+      </svg>
+      <strong style={ready ? { color: colour } : undefined}>
+        {ready ? `${Math.round(clamped)}%` : "—"}
+      </strong>
+    </div>
+  );
+}
+
 function OverviewAdvisorPanel({
   categories,
   runway,
@@ -4913,14 +4964,13 @@ function OverviewAdvisorPanel({
   buildContext,
   benchmarkSaved = false,
   privateWorkspace = false,
-  onOpenIntelligence,
+  onOpenTrack,
   onEditBenchmark,
   onAddSources,
   onViewDetails,
   documentSlots,
   wikiSummary,
   onOpenWikiSummary,
-  suggestionsReady = true,
   overviewBuildPhase = null,
   tourHighlightRecommended = false,
 }: {
@@ -4930,14 +4980,13 @@ function OverviewAdvisorPanel({
   buildContext: CategoryBuildContext;
   benchmarkSaved?: boolean;
   privateWorkspace?: boolean;
-  onOpenIntelligence?: () => void;
+  onOpenTrack?: (id: CategoryData["id"]) => void;
   onEditBenchmark?: () => void;
   onAddSources?: () => void;
   onViewDetails?: () => void;
   documentSlots?: ScorecardDocumentSlot[];
   wikiSummary: WikiSummaryContent;
   onOpenWikiSummary: (highlightRefId?: number) => void;
-  suggestionsReady?: boolean;
   overviewBuildPhase?: OverviewBuildPhase | null;
   tourHighlightRecommended?: boolean;
 }) {
@@ -4950,6 +4999,7 @@ function OverviewAdvisorPanel({
     privateWorkspace,
   );
   const actionHandlers = [onEditBenchmark, onAddSources, onViewDetails];
+  const sourceCount = wikiSummary.references.length;
 
   return (
     <div className="sc-adv-featured sc-adv-featured-split">
@@ -4959,10 +5009,57 @@ function OverviewAdvisorPanel({
             <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
             <span className="sc-adv-company">{companyName}</span>
           </div>
+
+          <section className="sc-adv-focus-tracks" aria-label="Prominent focus tracks">
+            <div className="sc-adv-rec-title">Prominent Focus Tracks</div>
+            <div className="sc-adv-focus-track-grid">
+              {categories.map(cat => {
+                const ready = overviewTrackReady(cat.id, overviewBuildPhase);
+                const score = Math.max(0, Math.min(100, cat.score));
+                const tag = ready ? trackSignalTag(cat, runway) : null;
+                const statusWord = tag
+                  ? (tag.urgent ? "Watch" : tag.suffix)
+                  : "Building";
+                const tone = !ready
+                  ? "pending"
+                  : tag?.urgent
+                    ? "urgent"
+                    : tag?.suffix === "Stable"
+                      ? "stable"
+                      : "watch";
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    className={`sc-adv-focus-track is-${tone}`}
+                    onClick={() => onOpenTrack?.(cat.id)}
+                    aria-label={
+                      ready
+                        ? `${cat.fullLabel}, ${Math.round(score)} percent, ${statusWord}. Open track details.`
+                        : `${cat.fullLabel} — building`
+                    }
+                  >
+                    <div className="sc-adv-focus-track-copy">
+                      <strong>{cat.fullLabel}</strong>
+                      <span>
+                        {cat.label} · {statusWord}
+                      </span>
+                    </div>
+                    <AdvisorFocusRing
+                      score={score}
+                      colour={ready ? cat.barColour : "var(--text-3)"}
+                      ready={ready}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           <div className="sc-adv-rec-title-row">
-          <div className="sc-adv-rec-title">Summary</div>
+            <div className="sc-adv-rec-title">Summary</div>
             <span className="sc-wiki-source-count">
-              {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
+              {sourceCount} source{sourceCount === 1 ? "" : "s"}
             </span>
             <button
               type="button"
@@ -4972,51 +5069,10 @@ function OverviewAdvisorPanel({
             >
               ✦ Open brief
             </button>
-                  </div>
+          </div>
           <p className="sc-adv-summary sc-wiki-summary-compact">
             {wikiParagraphPlainText(wikiSummary.compact)}
           </p>
-          <button
-            type="button"
-            className="sc-wiki-view-more"
-            onClick={() => onOpenWikiSummary()}
-          >
-            View brief with references
-          </button>
-          <div className="sc-adv-tags-label">Recent signals</div>
-          <div className="sc-adv-tags">
-            {categories.map(cat => {
-              const signalReady = overviewTrackReady(cat.id, overviewBuildPhase);
-              const tag = signalReady ? trackSignalTag(cat, runway) : null;
-              const totalCount = signalReady
-                ? cat.intelDisplayCount
-                  + (suggestionsReady ? cat.openInitiatives.length : 0)
-                  + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
-                : null;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
-                  style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
-                  onClick={() => onOpenIntelligence?.()}
-                  aria-label={
-                    tag && totalCount != null
-                      ? `${cat.label} ${tag.suffix} — ${totalCount} total`
-                      : `${cat.label} — loading`
-                  }
-                >
-                  <span
-                    className="sc-adv-tag-dot"
-                    style={tag ? { background: tag.dotColour } : undefined}
-                  />
-                  {cat.label}
-                  {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
-                  {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
       <div className="sc-adv-featured-rec-col">
@@ -5025,20 +5081,20 @@ function OverviewAdvisorPanel({
           data-tour-target="recommended-actions"
         >
           <div className="sc-adv-rec-title">{privateWorkspace ? "Next steps" : "Recommended Actions"}</div>
-        <ol className="sc-adv-rec-list">
-          {actions.map((action, i) => (
-            <li key={action.title} className="sc-adv-rec-item">
-              <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
-              <div className="sc-adv-rec-body">
-                <strong className="sc-adv-rec-name">{action.title}</strong>
-                <p className="sc-adv-rec-sub">{action.sub}</p>
-              </div>
-              <button type="button" className="sc-adv-rec-cta" onClick={actionHandlers[i]}>
-                {action.cta} <span aria-hidden="true">→</span>
-              </button>
-            </li>
-          ))}
-        </ol>
+          <ol className="sc-adv-rec-list">
+            {actions.map((action, i) => (
+              <li key={action.title} className="sc-adv-rec-item">
+                <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
+                <div className="sc-adv-rec-body">
+                  <strong className="sc-adv-rec-name">{action.title}</strong>
+                  <p className="sc-adv-rec-sub">{action.sub}</p>
+                </div>
+                <button type="button" className="sc-adv-rec-cta" onClick={actionHandlers[i]}>
+                  {action.cta} <span aria-hidden="true">→</span>
+                </button>
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
     </div>
@@ -6758,17 +6814,16 @@ export default function ScorecardV2({
                 companyName={cName}
                 buildContext={buildContext}
                 benchmarkSaved={benchmarkSaved}
-            privateWorkspace={Boolean(privateWorkspaceLabel)}
-                onOpenIntelligence={onOpenIntelligence}
-            onEditBenchmark={() => openDrawerStep("benchmark")}
+                privateWorkspace={Boolean(privateWorkspaceLabel)}
+                onOpenTrack={id => setActiveView(id)}
+                onEditBenchmark={() => openDrawerStep("benchmark")}
                 onAddSources={() => setAddSourcesOpen(true)}
                 onViewDetails={() => openDetailsDrawer()}
                 documentSlots={documentSlots}
-            wikiSummary={wikiSummary}
-            onOpenWikiSummary={openWikiSummary}
-            suggestionsReady={suggestionsReady}
-            overviewBuildPhase={overviewBuildPhase}
-            tourHighlightRecommended={activeTourTarget === "recommended-actions"}
+                wikiSummary={wikiSummary}
+                onOpenWikiSummary={openWikiSummary}
+                overviewBuildPhase={overviewBuildPhase}
+                tourHighlightRecommended={activeTourTarget === "recommended-actions"}
               />
           )
         ) : null}

@@ -35,43 +35,60 @@ export type Brief = {
 };
 
 // ─── Playbook catalog ─────────────────────────────────────────────────────────
+export type PlaybookTrack = "rd" | "gtm" | "ga" | "investing" | "founder" | "other";
+
 export type Playbook = {
   id: string;
   name: string;
   category: string;        // section header (FOUNDER, FUNCTION, GROWTH …)
   kind: string;            // small label after the name (Assessment, Brief …)
   description: string;
+  track: PlaybookTrack;    // filter tab on the Playbooks page
+  tags: string[];
+  scope?: "global" | "workspace";
   marquee?: boolean;       // the headline "Generate brief" action
 };
 
 export const PLAYBOOKS: Playbook[] = [
-  { id: "intel-brief", name: "Generate Intelligence Brief", category: "Founder", kind: "Brief", marquee: true,
+  { id: "intel-brief", name: "Generate Intelligence Brief", category: "Founder", kind: "Brief", marquee: true, track: "founder", scope: "global",
+    tags: ["founder", "brief", "intelligence"],
     description: "Full signal-driven brief — state of business, traction, finance, risks, opportunities, and suggested initiatives in one pass." },
-  { id: "kpi-benchmark", name: "KPI Benchmark", category: "Founder", kind: "Assessment",
+  { id: "kpi-benchmark", name: "KPI Benchmark", category: "Founder", kind: "Assessment", track: "founder", scope: "global",
+    tags: ["founder", "assessment", "benchmark", "metrics"],
     description: "Confirm your headline metrics in a guided wizard, compare against your peer cohort's p25/p50/p75/p90 bands, and surface the 1-2 areas where you're most off-pace." },
-  { id: "pitch-deck-eval", name: "Pitch Deck Evaluation", category: "Founder", kind: "Assessment",
+  { id: "pitch-deck-eval", name: "Pitch Deck Evaluation", category: "Founder", kind: "Assessment", track: "founder", scope: "global",
+    tags: ["founder", "assessment", "pitch", "fundraising"],
     description: "Extract text from an uploaded pitch deck and evaluate it against a structured rubric — problem, market, traction, team, ask, narrative quality." },
-  { id: "finance-assessment", name: "Finance Assessment", category: "Function Assessment", kind: "Function Assessment",
+  { id: "finance-assessment", name: "Finance Assessment", category: "Function Assessment", kind: "Function Assessment", track: "ga", scope: "global",
+    tags: ["g&a", "assessment", "finance", "runway"],
     description: "Diagnose capital efficiency, runway, gross margin, and reporting maturity. Propose 3 initiatives to extend runway and tighten financial controls." },
-  { id: "marketing-assessment", name: "Marketing Assessment", category: "Function Assessment", kind: "Function Assessment",
+  { id: "marketing-assessment", name: "Marketing Assessment", category: "Function Assessment", kind: "Function Assessment", track: "gtm", scope: "global",
+    tags: ["gtm", "assessment", "marketing", "pipeline"],
     description: "Diagnose top-of-funnel + brand + lifecycle — pipeline contribution, channel mix, content velocity, retention — and propose 3 initiatives." },
-  { id: "product-eng-assessment", name: "Product & Engineering Assessment", category: "Function Assessment", kind: "Function Assessment",
+  { id: "product-eng-assessment", name: "Product & Engineering Assessment", category: "Function Assessment", kind: "Function Assessment", track: "rd", scope: "global",
+    tags: ["r&d", "assessment", "product", "engineering"],
     description: "Diagnose product velocity, engineering maturity, and roadmap discipline. Propose 3 initiatives to improve throughput and quality." },
-  { id: "revops-assessment", name: "RevOps Assessment", category: "Function Assessment", kind: "Function Assessment",
+  { id: "revops-assessment", name: "RevOps Assessment", category: "Function Assessment", kind: "Function Assessment", track: "gtm", scope: "global",
+    tags: ["gtm", "assessment", "revops", "pipeline"],
     description: "Audit pipeline hygiene, forecast accuracy, and billing operations. Surface where revenue is leaking and propose a tightened RevOps motion." },
-  { id: "retention-deep-dive", name: "Retention Deep Dive", category: "Growth", kind: "Analysis",
+  { id: "retention-deep-dive", name: "Retention Deep Dive", category: "Growth", kind: "Analysis", track: "gtm", scope: "global",
+    tags: ["gtm", "analysis", "retention", "churn"],
     description: "Decompose logo and net revenue retention by cohort, isolate churn drivers, and build a save/renewal playbook with quantified upside." },
-  { id: "gtm-economics", name: "GTM Economics Review", category: "Growth", kind: "Analysis",
+  { id: "gtm-economics", name: "GTM Economics Review", category: "Growth", kind: "Analysis", track: "gtm", scope: "global",
+    tags: ["gtm", "analysis", "cac", "economics"],
     description: "Pressure-test CAC payback, channel ROI, and sales-cycle efficiency to redesign a lower-CAC acquisition path." },
-  { id: "fundraise-readiness", name: "Fundraising Readiness", category: "Capital", kind: "Assessment",
+  { id: "fundraise-readiness", name: "Fundraising Readiness", category: "Capital", kind: "Assessment", track: "investing", scope: "global",
+    tags: ["investing", "assessment", "fundraising", "runway"],
     description: "Stress-test cash position, model bridge scenarios, and assemble the metrics narrative investors will probe before your next raise." },
-  { id: "competitor-scan", name: "Competitive Landscape Scan", category: "Market", kind: "Research",
+  { id: "competitor-scan", name: "Competitive Landscape Scan", category: "Market", kind: "Research", track: "other", scope: "global",
+    tags: ["market", "research", "competitive", "positioning"],
     description: "Map the competitive set, positioning gaps, and pricing posture in your category, with a defensibility read for the board." },
-  { id: "board-update", name: "Board Update Draft", category: "Capital", kind: "Draft",
+  { id: "board-update", name: "Board Update Draft", category: "Capital", kind: "Draft", track: "investing", scope: "global",
+    tags: ["investing", "draft", "board", "reporting"],
     description: "Assemble a tight, metrics-led board update from the latest signals — wins, risks, asks, and the numbers that matter." },
 ];
 
-export const PLAYBOOK_COUNT = 35; // catalog size shown in search placeholder
+export const PLAYBOOK_COUNT = PLAYBOOKS.length;
 
 // ─── Number helpers ───────────────────────────────────────────────────────────
 function num(s: string | undefined): number | null {

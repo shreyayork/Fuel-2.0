@@ -14,7 +14,13 @@ export type HelpFaqGoTo =
   | "account-billing"
   | "investor-portfolios"
   | "investor-pipeline"
-  | "investor-watchlists";
+  | "investor-watchlists"
+  | "investor-benchmarks"
+  | "investor-playbooks"
+  | "investor-initiatives"
+  | "investor-advisors"
+  | "investor-service-providers"
+  | "investor-investors";
 
 type HelpFaqNav = (dest: HelpFaqGoTo) => void;
 

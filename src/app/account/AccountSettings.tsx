@@ -7,6 +7,15 @@ import {
   ACCOUNT_SETTINGS_TABS,
   type AccountSettingsTab,
 } from "./AccountSettingsNav";
+import {
+  AccountBillingTab,
+  AccountDeveloperTab,
+  AccountIntegrationsTab,
+  AccountOverviewTab,
+  AccountSettingsTabPanel,
+  AccountTeamsTab,
+  AccountUsersTab,
+} from "./AccountSettingsPanels";
 import "./accountSettings.css";
 
 type UsageUserRow = {
@@ -394,6 +403,43 @@ function AccountUsageTab({ snapshot }: { snapshot: CreditSnapshot }) {
         </div>
       </section>
 
+      <section className="acct-usage-section">
+        <div className="acct-usage-section-head">
+          <h3 className="acct-usage-section-title">Usage activity</h3>
+          <p className="acct-usage-section-sub">
+            Credit-consuming actions across your team for the selected period.
+          </p>
+        </div>
+        <div className="acct-usage-list">
+          <div className="acct-usage-row acct-usage-row-head acct-usage-row-activity">
+            <span>Date</span>
+            <span>User</span>
+            <span>Action</span>
+            <span>Credits</span>
+          </div>
+          {(totalCredits > 0 ? actionBreakdown.filter(row => row.count > 0).slice(0, 6) : []).map((row, index) => (
+            <div className="acct-usage-row acct-usage-row-activity" key={`${row.action}-${index}`}>
+              <span data-label="Date">
+                {new Date(Date.now() - index * 36e5 * 18).toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </span>
+              <span className="acct-usage-user-email" data-label="User">
+                {userFilter === "all" ? "shreya.g@york.ie" : userFilter}
+              </span>
+              <strong data-label="Action">{row.label}</strong>
+              <span className="acct-usage-num" data-label="Credits">{row.unitCost}</span>
+            </div>
+          ))}
+          {totalCredits <= 0 ? (
+            <p className="acct-usage-empty">No usage activity in this period.</p>
+          ) : null}
+        </div>
+      </section>
+
       <p className="acct-usage-footnote">Usage · {rangeLabel}</p>
     </div>
   );
@@ -412,12 +458,12 @@ function AccountSettingsPlaceholder({ tab }: { tab: AccountSettingsTab }) {
 const PROFILE_USER = {
   name: "Shreya Gokani",
   email: "shreya.g@york.ie",
-  role: "member",
-  organization: "—",
+  role: "owner",
+  organization: "York IE",
   userId: "317ba520-4071-70b8-5a86-433196fa4817",
   initials: "SG",
-  portfolios: [{ name: "Shreya Gokani", count: 1 }],
-  watchlists: [] as { name: string; count: number }[],
+  portfolios: [{ name: "York IE", count: 55 }],
+  watchlists: [{ name: "Alpha's Watchlist", count: 1 }] as { name: string; count: number }[],
 };
 
 function AccountProfileTab({
@@ -565,7 +611,6 @@ export function AccountSettings({
   onTabChange: (tab: AccountSettingsTab) => void;
 }) {
   const { snapshot } = useCredits();
-  const isProfile = tab === "profile";
   const tabsRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -577,20 +622,18 @@ export function AccountSettings({
     <div className="account-settings">
       <header className="account-settings-hero">
         <div className="account-settings-hero-main">
-          <h1 className="account-settings-title">{isProfile ? "Profile" : "My Account"}</h1>
+          <h1 className="account-settings-title">York IE</h1>
           <p className="account-settings-sub">
-            {isProfile
-              ? "Your account, preferences, and the lists you own."
-              : "Account settings · members, teams, plan, and billing"}
+            Account settings · members, teams, plan, and billing
           </p>
         </div>
-        {!isProfile ? (
-          <div className="account-settings-badges">
-            {snapshot.plan === "free" ? <span className="account-settings-badge trial">Trial</span> : null}
-            <span className="account-settings-badge">fuel-teams</span>
-            <span className="account-settings-badge">admin</span>
-          </div>
-        ) : null}
+        <div className="account-settings-badges">
+          <span className="account-settings-badge is-pro">
+            {snapshot.plan === "pro" ? "Pro" : "Trial"}
+          </span>
+          <span className="account-settings-badge is-active">Active</span>
+          <span className="account-settings-badge">owner</span>
+        </div>
       </header>
 
       <nav className="account-settings-tabs" aria-label="Account settings" ref={tabsRef}>
@@ -610,8 +653,22 @@ export function AccountSettings({
       <div className="account-settings-body">
         {tab === "profile" ? (
           <AccountProfileTab onOpenUsage={() => onTabChange("usage")} />
+        ) : tab === "overview" ? (
+          <AccountOverviewTab />
+        ) : tab === "users" ? (
+          <AccountUsersTab />
+        ) : tab === "teams" ? (
+          <AccountTeamsTab />
+        ) : tab === "settings" ? (
+          <AccountSettingsTabPanel />
+        ) : tab === "integrations" ? (
+          <AccountIntegrationsTab />
         ) : tab === "usage" ? (
           <AccountUsageTab snapshot={snapshot} />
+        ) : tab === "developer" ? (
+          <AccountDeveloperTab />
+        ) : tab === "billing" ? (
+          <AccountBillingTab snapshot={snapshot} />
         ) : (
           <AccountSettingsPlaceholder tab={tab} />
         )}

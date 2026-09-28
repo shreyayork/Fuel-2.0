@@ -43,7 +43,7 @@ export function useAccountSettingsNavOptional() {
 
 export const ACCOUNT_SETTINGS_TABS: { id: AccountSettingsTab; label: string; hidden?: boolean }[] = [
   { id: "profile", label: "My Profile" },
-  { id: "overview", label: "Overview", hidden: true },
+  { id: "overview", label: "Overview" },
   { id: "users", label: "Users" },
   { id: "teams", label: "Teams" },
   { id: "settings", label: "Settings" },
