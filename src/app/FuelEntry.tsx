@@ -7,6 +7,7 @@ import OnboardingFlow, {
   type FuelEntryPersona,
   type OnboardingFlowAnswers,
 } from "./OnboardingFlow.tsx";
+import LandingPage from "./LandingPage.tsx";
 import { requestPortfolioBuild } from "./investor/InvestorDashboard.tsx";
 import { resetAndAwardOnboardingCredits } from "./profileCredits.ts";
 import { completedOnboardingModules } from "./trackQuestions.ts";
@@ -15,10 +16,11 @@ import {
   resetProfileCompletionPromptForNewLogin,
 } from "./profileCompletionPromptStorage.ts";
 
+type EntryPhase = "landing" | "onboarding" | "workspace";
+
 /**
- * Single product entry: onboarding → workspace.
- * `?persona=investor` seeds the same OnboardingFlow (York IE / Investment firm)
- * instead of a separate skip-to-workspace path.
+ * Single product entry: landing → onboarding → workspace.
+ * `?persona=investor` seeds OnboardingFlow (York IE / Investment firm).
  */
 function readEntryPersona(): FuelEntryPersona {
   if (typeof window === "undefined") return "founder";
@@ -33,11 +35,11 @@ function readEntryPersona(): FuelEntryPersona {
 
 export default function FuelEntry() {
   const entryPersona = useMemo(() => readEntryPersona(), []);
+  const [phase, setPhase] = useState<EntryPhase>("landing");
   const [onboardingBenchmark, setOnboardingBenchmark] = useState<OnboardingBenchmarkInput | null>(null);
   const [onboardingAnswers, setOnboardingAnswers] = useState<OnboardingFlowAnswers | null>(null);
-  const inWorkspace = onboardingAnswers != null;
 
-  if (inWorkspace) {
+  if (phase === "workspace" && onboardingAnswers) {
     const isInvestor = isInvestorPersona(onboardingAnswers);
     return (
       <PatriotPayJourney
@@ -49,21 +51,26 @@ export default function FuelEntry() {
     );
   }
 
-  return (
-    <OnboardingFlow
-      entryPersona={entryPersona}
-      onComplete={answers => {
-        clearStoredDetailAnswers(answers.profileCompany, "Patriot Pay", "patriotpay");
-        requestPortfolioBuild(answers.profileCompany || "Your fund");
-        setOnboardingBenchmark(answersToOnboardingBenchmark(answers));
-        setOnboardingAnswers(answers);
-        resetAndAwardOnboardingCredits(
-          completedOnboardingModules(answers),
-          isOnboardingBenchmarkComplete(answers),
-          "patriotpay",
-        );
-        resetProfileCompletionPromptForNewLogin("patriotpay");
-      }}
-    />
-  );
+  if (phase === "onboarding") {
+    return (
+      <OnboardingFlow
+        entryPersona={entryPersona}
+        onComplete={answers => {
+          clearStoredDetailAnswers(answers.profileCompany, "Patriot Pay", "patriotpay");
+          requestPortfolioBuild(answers.profileCompany || "Your fund");
+          setOnboardingBenchmark(answersToOnboardingBenchmark(answers));
+          setOnboardingAnswers(answers);
+          resetAndAwardOnboardingCredits(
+            completedOnboardingModules(answers),
+            isOnboardingBenchmarkComplete(answers),
+            "patriotpay",
+          );
+          resetProfileCompletionPromptForNewLogin("patriotpay");
+          setPhase("workspace");
+        }}
+      />
+    );
+  }
+
+  return <LandingPage onSignIn={() => setPhase("onboarding")} />;
 }
