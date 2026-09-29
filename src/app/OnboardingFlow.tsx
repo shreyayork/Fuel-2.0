@@ -1396,12 +1396,27 @@ export function isInvestorPersona(answers: OnboardingFlowAnswers | null | undefi
   return INVESTOR_MODELS.includes(answers?.profileBusinessModel ?? "");
 }
 
+/** Who opened the shared entry flow — same module, different seed. */
+export type FuelEntryPersona = "founder" | "investor";
+
+const FOUNDER_SEED_COMPANY = "Patriot Pay";
+const INVESTOR_SEED_COMPANY = "York IE";
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-export default function OnboardingFlow({ onComplete }: { onComplete: (answers: Answers) => void }) {
+export default function OnboardingFlow({
+  onComplete,
+  entryPersona = "founder",
+}: {
+  onComplete: (answers: Answers) => void;
+  /** Seeds company search; investor path still runs through this same flow. */
+  entryPersona?: FuelEntryPersona;
+}) {
   const [stepIndex, setStepIndex] = useState(0);
 
-  const [companyQuery, setCompanyQuery] = useState("Patriot Pay");
+  const [companyQuery, setCompanyQuery] = useState(
+    entryPersona === "investor" ? INVESTOR_SEED_COMPANY : FOUNDER_SEED_COMPANY,
+  );
   const [searchState, setSearchState] = useState<"idle" | "searching" | "review">("idle");
   const [profileForm, setProfileForm] = useState<ProfileForm>({
     company:"", whatTheyDo:"", businessModel:"",
@@ -1512,6 +1527,14 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
     const match = findCompanyByQuery(companyQuery);
     if (match) loadCompanyProfile(match);
   }
+
+  const investorSeeded = useRef(false);
+  useEffect(() => {
+    if (entryPersona !== "investor" || investorSeeded.current) return;
+    investorSeeded.current = true;
+    const match = findCompanyByQuery(INVESTOR_SEED_COMPANY);
+    if (match) loadCompanyProfile(match);
+  }, [entryPersona]);
 
   function addRound() { setFundingRounds(p=>[...p,{id:rid(),type:"Seed",amount:"",date:"",investors:""}]); }
   function updateRound(id:string,k:keyof FundingRound,v:string) { setFundingRounds(p=>p.map(r=>r.id===id?{...r,[k]:v}:r)); }

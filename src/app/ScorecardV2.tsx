@@ -6720,7 +6720,7 @@ export default function ScorecardV2({
           <button type="button" onClick={onDismissWorkspaceIntro}>Got it</button>
         </div>
       ) : null}
-      {privateWorkspaceLabel ? (
+      {privateWorkspaceLabel && showWorkspaceSetup ? (
         <div className="sc-private-workspace-label">{privateWorkspaceLabel}</div>
       ) : null}
       {wikiSummaryOpen && activeView === "overview" ? (
@@ -6744,7 +6744,7 @@ export default function ScorecardV2({
         />
       ) : (
         <>
-      {!isCategoryDetail && !allProfileCreditsEarned ? (
+      {!isCategoryDetail && !allProfileCreditsEarned && !(privateWorkspaceLabel && !showWorkspaceSetup) ? (
         <OverviewModuleTileGrid modules={overviewModules} />
       ) : null}
       {!isCategoryDetail && overviewBuildPhase && overviewBuildPhase !== "ready" ? (

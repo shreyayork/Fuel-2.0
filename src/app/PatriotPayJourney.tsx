@@ -4410,6 +4410,210 @@ const FOUNDER_COMPANY = {
   linkedin: "linkedin.com/company/patriotpay",
 };
 
+/** Demo cohort metrics tuned so Overview rings land near ~60 / ~50 / ~75. */
+const DEMO_INVESTOR_OVERVIEW_BENCHMARK: BenchmarkFormValues = {
+  headcount: "12",
+  paidCustomers: "38",
+  arr: "480000",
+  arrGrowth: "145",
+  nrr: "98",
+  logoRetention: "84",
+  grossMargin: "64",
+  cacPayback: "12",
+  burnMultiple: "1.5",
+  ruleOf40: "38",
+  cashOnHand: "3200000",
+  monthlyBurn: "55000",
+  openToIntros: true,
+  notableCustomers: "Regional health systems, mid-market SaaS finance teams",
+  notableHires: "VP Engineering, Head of Customer Success",
+  otherUpdates: "Seed-stage AI application with early revenue and expanding GTM coverage.",
+  biggestChallenges: "NRR and logo retention still trail the strongest peers in cohort.",
+};
+
+function demoInvestorDetailAnswers(companyName: string): Record<string, string> {
+  return {
+    profile_company: companyName,
+    profile_product_description: `${companyName} is a seed-stage product company building AI-assisted operating workflows for B2B teams.`,
+    profile_industry: "AI · Enterprise Software",
+    profile_founded: "2022",
+    profile_city: "Boston",
+    profile_state: "MA",
+    profile_country: "United States",
+    profile_website: "https://example.com",
+    profile_linkedin: "https://linkedin.com/company/example",
+    profile_headcount: "12",
+    profile_additional_context: "Early revenue with paying design partners and a focused ICP.",
+    profile_top_priorities: "Ship cadence, pipeline quality, and runway discipline",
+    profile_biggest_risk: "Retention and gross margin still need to catch cohort leaders",
+    profile_public_data_wrong: "",
+    profile_funding_rounds: "",
+    dev_product_stage: "Launched — early users or customers",
+    dev_product_type: "AI Application",
+    dev_delivery_constraint: "Planning and prioritization",
+    dev_primary_customer: "End user and buyer are the same role",
+    dev_launch_timeline: "Already live — no fixed date",
+    dev_build_model: "In-house engineering team",
+    dev_engineering_size: "4–10 engineers",
+    dev_ship_cadence: "Regular releases (e.g. weekly / biweekly)",
+    dev_ai_role: "AI powers major features",
+    dev_compliance: "On roadmap (e.g. SOC 2, ISO)",
+    dev_prioritization: "Customer Interviews",
+    dev_eng_bottleneck: "Planning and prioritization",
+    dev_feature_debt_split: "Balanced (70/30)",
+    dev_six_month_impact: "Ship product faster",
+    mkt_sales_motion: "Product-led",
+    mkt_funnel_gap: "Too few opportunities convert",
+    mkt_icp_clarity: "Documented and shared - Written ICP the team uses for targeting and qualification",
+    mkt_revenue_tracking: "CRM with a defined sales process",
+    mkt_pricing_model: "Tiered / per seat",
+    mkt_deal_size: "$25K–$100K",
+    mkt_demand_source: "Mix of channels",
+    mkt_sales_team: "Founder + 1 AE or SDR",
+    mkt_marketing_capacity: "Agency or fractional support",
+    mkt_marketing_measurement: "Pipeline created",
+    mkt_contract_length: "Annual",
+    mkt_competitive_pressure: "Moderate — several credible alternatives",
+    mkt_momentum_constraint: "Lead generation and pipeline",
+    mkt_deal_stall: "Late stage — legal, security, procurement",
+    mkt_twelve_month_priority: "Improve customer retention",
+    mkt_pipeline_definitions: "Yes, documented and shared — We have written criteria that the team uses.",
+    mkt_mql_sql_visibility: "Yes, we track this regularly",
+    mkt_pricing_governance: "Informal / Manual process",
+    mkt_cross_functional_slas: "Informal / Verbal agreements",
+    rev_runway: "Over 18 months",
+    rev_finance_management: "Outsourced finance/accounting",
+    rev_capital_priority: "Focused on extending runway / reaching profitability",
+    rev_twelve_month_goal: "Extend runway / reach profitability",
+    rev_operational_challenge: "Hiring & people",
+    rev_unit_economics: "Monthly / Spreadsheet-based",
+    rev_forecast: "Yes, monthly rolling forecast",
+    rev_diligence_readiness: "Mostly prepared",
+    rev_operating_mode: "Balanced growth and efficiency",
+    rev_diligence_readiness_followup: "Mostly prepared",
+    rev_hiring_plans: "Selective hires only",
+    rev_board_reporting: "Monthly updates",
+    rev_segment_economics: "Yes — tracked by segment",
+    rev_raise_needs: "Metrics and data room",
+  };
+}
+
+function demoInvestorIntelligence(companyId: string, companyName: string): IntelligenceItem[] {
+  const now = Date.now();
+  const date = new Date(now).toLocaleDateString("en-US");
+  return [
+    {
+      id: `intel-investor-${companyId}-product`,
+      type: "product",
+      title: "Ship cadence holding",
+      text: `${companyName} is shipping on a regular cadence with staged rollout discipline.`,
+      highlight: "R&D",
+      date,
+      age: "1d ago",
+      updatedAtMs: now - 86_400_000,
+      sources: [{
+        id: `src-${companyId}-1`,
+        title: "Product review notes",
+        description: "Investor diligence notes",
+        system: "manual",
+        sourceType: "private_note",
+        meta: "Private · Investor",
+        date,
+        snippet: "Weekly releases with improving quality gates.",
+      }],
+    },
+    {
+      id: `intel-investor-${companyId}-growth`,
+      type: "growth",
+      title: "Pipeline definitions in place",
+      text: "MQL/SQL stages are documented, but conversion still bottlenecks late in the funnel.",
+      highlight: "GTM",
+      date,
+      age: "2d ago",
+      updatedAtMs: now - 172_800_000,
+      sources: [{
+        id: `src-${companyId}-2`,
+        title: "GTM working session",
+        description: "Pipeline review",
+        system: "manual",
+        sourceType: "meeting",
+        meta: "Private · Investor",
+        date,
+        snippet: "Funnel definitions clear; closed-won conversion is the gap.",
+      }],
+    },
+    {
+      id: `intel-investor-${companyId}-finance`,
+      type: "finance",
+      title: "Cash position healthy",
+      text: "Cash on hand and burn multiple sit above median peers for this stage.",
+      highlight: "G&A",
+      date,
+      age: "3d ago",
+      updatedAtMs: now - 259_200_000,
+      sources: [{
+        id: `src-${companyId}-3`,
+        title: "Finance snapshot",
+        description: "Quarterly metrics",
+        system: "manual",
+        sourceType: "document",
+        meta: "Private · Investor",
+        date,
+        snippet: "18–24 months runway with disciplined hiring.",
+      }],
+    },
+  ];
+}
+
+function demoInvestorInitiatives(companyName: string): InitiativeRecord[] {
+  return [
+    createInitiativeRecord({
+      id: "demo-init-rd-1",
+      title: `Tighten ${companyName} release prioritization`,
+      description: "Reduce context switching so ship cadence stays predictable.",
+      pillar: "dev",
+      status: "Active",
+    }),
+    createInitiativeRecord({
+      id: "demo-init-rd-2",
+      title: "Close gross-margin delivery gaps",
+      description: "Pair eng capacity with margin-sensitive roadmap items.",
+      pillar: "dev",
+      status: "Active",
+    }),
+    createInitiativeRecord({
+      id: "demo-init-gtm-1",
+      title: "Improve SQL → closed-won conversion",
+      description: "Fix late-funnel stall points in security and procurement.",
+      pillar: "mkt",
+      status: "Active",
+    }),
+    createInitiativeRecord({
+      id: "demo-init-gtm-2",
+      title: "Lift NRR with expansion playbook",
+      description: "Package retention and expansion motions for existing accounts.",
+      pillar: "mkt",
+      status: "Active",
+    }),
+    createInitiativeRecord({
+      id: "demo-init-ga-1",
+      title: "Keep runway discipline through hiring",
+      description: "Gate new seats against burn and forecast checkpoints.",
+      pillar: "rev",
+      status: "Active",
+    }),
+  ];
+}
+
+function persistDemoDetailAnswers(companyName: string) {
+  try {
+    window.localStorage.setItem(
+      `fuel-details-${companyName}`,
+      JSON.stringify(demoInvestorDetailAnswers(companyName)),
+    );
+  } catch { /* ignore */ }
+}
+
 function hasInvestorWorkspaceOnCompany(
   companyId: string,
   intelligenceByCompany: Record<string, IntelligenceItem[]>,
@@ -9296,6 +9500,7 @@ function PatriotPayJourneyInner({
   const [investorBenchmarkByCompany, setInvestorBenchmarkByCompany] = useState<Record<string, BenchmarkSubmission | null>>({});
   const [investorOverviewIntroCompanyId, setInvestorOverviewIntroCompanyId] = useState<string | null>(null);
   const [investorWorkspaceStarted, setInvestorWorkspaceStarted] = useState<Record<string, boolean>>({});
+  const [overviewRemountKey, setOverviewRemountKey] = useState(0);
   const [dataRoomAccessRequests, setDataRoomAccessRequests] = useState<Record<string, boolean>>({});
   const [selectedCompany, setSelectedCompany] = useState(FOUNDER_COMPANY);
   const [earnedProfileCredits, setEarnedProfileCredits] = useState<EarnedProfileCredits>(() =>
@@ -9368,7 +9573,7 @@ function PatriotPayJourneyInner({
     setActivePage("scorecard-v2");
   }, []);
   const openInvestorHome = useCallback(() => {
-    setActivePage("investor-watchlists");
+    setActivePage("investor-home");
   }, []);
   const openAccountHome = useCallback(() => {
     if (isInvestorPersona) openInvestorHome();
@@ -9773,8 +9978,40 @@ function PatriotPayJourneyInner({
   const openInvestorCompany = useCallback((company: InvestorCompanyRef) => {
     setSelectedCompany(investorCompanyToSelected(company));
     setProfileComplete(true);
-    setActivePage("overview");
+    persistDemoDetailAnswers(company.displayName || company.name);
+    const { items, submission } = createBenchmarkIntelligence(DEMO_INVESTOR_OVERVIEW_BENCHMARK);
+    setInvestorBenchmarkByCompany(previous => ({ ...previous, [company.id]: submission }));
+    setInvestorIntelligenceByCompany(previous => ({
+      ...previous,
+      [company.id]: [
+        ...demoInvestorIntelligence(company.id, company.displayName || company.name),
+        ...items,
+      ],
+    }));
+    setInvestorInitiativesByCompany(previous => ({
+      ...previous,
+      [company.id]: demoInvestorInitiatives(company.displayName || company.name),
+    }));
+    setInvestorWorkspaceStarted(previous => ({ ...previous, [company.id]: true }));
+    setOverviewRemountKey(key => key + 1);
+    setActivePage("scorecard-v2");
   }, []);
+
+  const openOverviewPage = useCallback(() => {
+    openInvestorCompany({
+      id: selectedCompany.id,
+      name: selectedCompany.name || selectedCompany.displayName,
+      displayName: selectedCompany.displayName,
+      domain: selectedCompany.domain,
+      logo: selectedCompany.logo,
+      logoBg: selectedCompany.logoBg,
+      meta: selectedCompany.meta,
+      headquarters: selectedCompany.headquarters,
+      employees: selectedCompany.employees,
+      linkedin: selectedCompany.linkedin,
+      onFuel: true,
+    });
+  }, [openInvestorCompany, selectedCompany]);
   const openRecentCompany = useCallback((companyId: string) => {
     const company = INVESTOR_PORTFOLIO.find(item => item.id === companyId)
       ?? SUGGESTED_FOUNDERS.find(item => item.id === companyId);
@@ -10173,20 +10410,23 @@ function PatriotPayJourneyInner({
     || activePage === "investor-service-providers"
     || activePage === "investor-investors";
   const investorDashboardSection: InvestorDashboardSection =
-    activePage === "investor-pipeline" ? "pipeline"
-      : activePage === "investor-watchlists" ? "watchlists"
-        : activePage === "investor-benchmarks" ? "benchmarks"
-          : activePage === "investor-playbooks" ? "playbooks"
-            : activePage === "investor-initiatives" ? "initiatives"
-              : activePage === "investor-advisors" ? "advisors"
-                : activePage === "investor-service-providers" ? "service-providers"
-                  : activePage === "investor-investors" ? "investors"
-                    : "watchlists"; // org investor landing
+    activePage === "investor-home" ? "home"
+      : activePage === "investor-portfolios" ? "portfolios"
+        : activePage === "investor-pipeline" ? "pipeline"
+          : activePage === "investor-watchlists" ? "watchlists"
+            : activePage === "investor-benchmarks" ? "benchmarks"
+              : activePage === "investor-playbooks" ? "playbooks"
+                : activePage === "investor-initiatives" ? "initiatives"
+                  : activePage === "investor-advisors" ? "advisors"
+                    : activePage === "investor-service-providers" ? "service-providers"
+                      : activePage === "investor-investors" ? "investors"
+                        : "home";
   const breadcrumbLabel = isAccountPage
     ? `Account · ${accountTabLabel(accountTab)}`
     : isHelpPage
       ? "Help & FAQ"
-    : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
+    : activePage === "investor-home" ? "Home"
+      : activePage === "investor-portfolios" ? "Portfolios"
       : activePage === "investor-pipeline" ? "Pipeline"
         : activePage === "investor-watchlists" ? "Watchlists"
           : activePage === "investor-benchmarks" ? "Benchmarks"
@@ -10196,7 +10436,7 @@ function PatriotPayJourneyInner({
                   : activePage === "investor-service-providers" ? "Service providers"
                     : activePage === "investor-investors" ? "Investors"
                       : isInvestorShellPage
-                        ? "Portfolios"
+                        ? "Home"
                         : "Company";
 
   const founderBenchmarkForm = useMemo(
@@ -10281,6 +10521,16 @@ function PatriotPayJourneyInner({
         {isInvestorPersona ? (
           <>
             <div className="nav-section">
+              <div className="nav-label">Workspace</div>
+              <button
+                type="button"
+                className={`nav-item${activePage === "scorecard-v2" ? " is-active" : ""}`}
+                onClick={openOverviewPage}
+              >
+                ⊞ Overview
+              </button>
+            </div>
+            <div className="nav-section">
               <div className="nav-label">Research</div>
               <button
                 type="button"
@@ -10336,132 +10586,74 @@ function PatriotPayJourneyInner({
           <>
             <div className="nav-section">
               <div className="nav-label">Workspace</div>
-              <div
+              <button
+                type="button"
                 className={`nav-item${activePage === "scorecard-v2" ? " is-active" : ""}`}
-                style={{ cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
                 onClick={() => setActivePage("scorecard-v2")}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActivePage("scorecard-v2");
-                  }
-                }}
               >
                 ⊞ Overview
-              </div>
-              <div
-                className={`nav-item${activePage === "signals" || activePage === "context-feed" ? " is-active" : ""}`}
-                style={{ cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
-                onClick={() => setActivePage("signals")}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActivePage("signals");
-                  }
-                }}
+              </button>
+            </div>
+            <div className="nav-section">
+              <div className="nav-label">Research</div>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-watchlists")}
               >
-                ⊟ Intelligence
-              </div>
-              <div
-                className={`nav-item${activePage === "initiatives" ? " is-active" : ""}`}
-                style={{ cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
-                onClick={() => setActivePage("initiatives")}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActivePage("initiatives");
-                  }
-                }}
+                ⊟ Watchlists
+              </button>
+            </div>
+            <div className="nav-section">
+              <div className="nav-label">Value creation</div>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-benchmarks" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-benchmarks")}
               >
-                ↗ Initiatives
-              </div>
-              <div
-                className={`nav-item${activePage === "data-room" ? " is-active" : ""}`}
-                style={{ cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
-                onClick={() => setActivePage("data-room")}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActivePage("data-room");
-                  }
-                }}
+                ▥ Benchmarks
+              </button>
+              <button
+                type="button"
+                className={`nav-item${activePage === "investor-playbooks" ? " is-active" : ""}`}
+                onClick={() => setActivePage("investor-playbooks")}
               >
-                ▣ Data Room
-              </div>
+                ▤ Playbooks
+              </button>
             </div>
             <div className="nav-section">
               <div className="nav-label">Integrations</div>
-              <div
+              <button
+                type="button"
                 className={`nav-item${activePage === "connectors" ? " is-active" : ""}`}
-                style={{ cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
                 onClick={() => setActivePage("connectors")}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActivePage("connectors");
-                  }
-                }}
               >
                 ⟳ Connectors <span className="nav-count">13</span>
-              </div>
+              </button>
             </div>
             <div className="nav-section">
               <div className="nav-label">Network</div>
-              <div
+              <button
+                type="button"
                 className={`nav-item${activePage === "investor-advisors" ? " is-active" : ""}`}
-                style={{ cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
                 onClick={() => setActivePage("investor-advisors")}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActivePage("investor-advisors");
-                  }
-                }}
               >
                 ◉ Advisors <span className="nav-count">1</span>
-              </div>
-              <div
+              </button>
+              <button
+                type="button"
                 className={`nav-item${activePage === "investor-service-providers" ? " is-active" : ""}`}
-                style={{ cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
                 onClick={() => setActivePage("investor-service-providers")}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActivePage("investor-service-providers");
-                  }
-                }}
               >
                 ⚉ Service providers <span className="nav-count">1</span>
-              </div>
-              <div
+              </button>
+              <button
+                type="button"
                 className={`nav-item${activePage === "investor-investors" ? " is-active" : ""}`}
-                style={{ cursor: "pointer" }}
-                role="button"
-                tabIndex={0}
                 onClick={() => setActivePage("investor-investors")}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActivePage("investor-investors");
-                  }
-                }}
               >
                 ↗ Investors <span className="nav-count">20</span>
-              </div>
+              </button>
             </div>
           </>
         )}
@@ -10995,6 +11187,7 @@ function PatriotPayJourneyInner({
             />
           ) : activePage === "scorecard-v2" ? (
             <ScorecardV2
+              key={`overview-${selectedCompany.id}-${overviewRemountKey}`}
               benchmark={scorecardBenchmark}
               onBenchmarkChange={(next, context) => {
                 applyBenchmarkSubmission({
@@ -11121,7 +11314,7 @@ function PatriotPayJourneyInner({
               onAddDetails={() => setActivePage("scorecard-v2")}
               onboardingAnswers={usesPerCompanyWorkspace ? null : initialOnboardingAnswers}
               earnedProfileCredits={earnedProfileCredits}
-              companyKey={selectedCompany.id}
+              companyKey={`${selectedCompany.id}-${overviewRemountKey}`}
               onProfileCreditsChange={setEarnedProfileCredits}
               onProfileCreditReward={handleProfileCreditReward}
               creditRewardVisible={Boolean(profileCreditReward)}
