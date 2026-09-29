@@ -1,0 +1,34 @@
+{
+  "name": "@fuel/infrastructure",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "fuel2": "bin/fuel2.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "synth": "./scripts/with-secrets.sh cdk synth",
+    "diff:dev": "./scripts/with-secrets.sh cdk diff fuel2-dev",
+    "deploy:dev": "./scripts/with-secrets.sh cdk deploy fuel2-dev fuel2-dev-peering --require-approval broadening",
+    "diff:stage": "./scripts/with-secrets.sh cdk diff fuel2-stage",
+    "diff:prod": "./scripts/with-secrets.sh cdk diff fuel2-prod fuel2-prod-peering",
+    "deploy:stage": "./scripts/with-secrets.sh cdk deploy fuel2-stage --require-approval broadening",
+    "deploy:prod": "./scripts/with-secrets.sh cdk deploy fuel2-prod fuel2-prod-peering --require-approval broadening",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "tsx --test test/cognito-email-templates.test.ts test/onboard-enrichment-queue.test.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1129.0",
+    "aws-cdk-lib": "^2.170.0",
+    "constructs": "^10.3.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.163",
+    "@types/node": "^20.12.0",
+    "aws-cdk": "^2.170.0",
+    "esbuild": "0.21.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
+}

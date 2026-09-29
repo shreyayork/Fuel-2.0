@@ -1,0 +1,21 @@
+---
+description: Signal pick + value input — kind/unit placeholders, validation, parse helpers (Log intelligence and similar)
+globs: apps/web/src/components/intelligence/**,apps/web/src/components/company/initiatives/**,apps/web/src/lib/signals/**,apps/web/src/lib/intelligence/**
+alwaysApply: false
+---
+
+# Signal value input
+
+When building or changing any UI that **selects a signal and collects a value**, follow [signals.md](../skills/fuel-engineering/signals.md).
+
+**Reuse** `apps/web/src/lib/signals/group-catalog.ts`:
+
+- `manualObservationValuePlaceholder(signal)` — never hardcode `e.g. 2.4M` for all signals
+- `parseManualObservationValue(signal, raw)` — gate submit on `.valid`
+- Branch controls on `kind`: qualitative text · boolean select · quantitative by `unit`
+
+**Validation:** USD may use `$`/`K`/`M`/`B`. Units like `months`, `pct`, `days`, `count` accept **plain numbers only** — no letters (`12m` must not become millions).
+
+**Checklist:** kind-aware control + placeholder · reset value on signal change · `canSubmit` uses parse validity · inline error with `t.negative` when invalid.
+
+**Reference UIs:** `LogIntelligenceDrawer.tsx`, initiative drawer log form in `InitiativesTab.tsx`.

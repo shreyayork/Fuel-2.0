@@ -1,0 +1,27 @@
+-- Attachments on a context_item. Shape: an array of file descriptors
+-- pointing at objects in the per-account S3 bucket. Kept as jsonb on the
+-- item (not a separate table) because:
+--   * Attachments are only ever accessed alongside their parent item —
+--     zero cross-item aggregation needs other than "all attachments in
+--     this account" which the Data Room view does via a single jsonb
+--     path query
+--   * Per-item history + re-embedding care about "this item's payload"
+--     as a single unit
+--   * Number of attachments per item is always small (<10 in practice)
+--
+-- Object shape per entry:
+--   {
+--     "id": "att_<uuid>",          -- stable id for deep-links
+--     "filename": "board-deck.pdf",
+--     "contentType": "application/pdf",
+--     "byteSize": 1842379,
+--     "storageKey": "ctx/acct_X/2026-04-23/att_abc/board-deck.pdf",
+--     "uploadedAt": "2026-04-23T19:00:00Z",
+--     "uploadedByEmail": "mike@york.ie"
+--   }
+--
+-- The S3 bucket + presigned-URL upload path lands in a follow-up
+-- (tracked as P4.2). This migration gets the column in place so ingest
+-- code and Data Room can start referencing it without a second schema
+-- round-trip later.
+ALTER TABLE "context_items" ADD COLUMN "attachments" jsonb;

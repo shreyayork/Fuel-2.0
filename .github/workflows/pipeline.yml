@@ -1,0 +1,350 @@
+name: Pipeline
+
+on:
+  push:
+    branches: [dev, stage]
+  workflow_dispatch:
+    # Manual trigger — run from main branch to deploy prod
+
+jobs:
+  # ── Lint & Typecheck ──────────────────────────────────────────────────────
+  # Runs on every push to dev/stage and manual workflow_dispatch
+  check:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+  # ── Deploy dev ───────────────────────────────────────────────────────────
+  # Auto-deploys when code is pushed/merged to the dev branch
+  deploy-dev:
+    name: Deploy → dev
+    needs: check
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Fetch Google OAuth secret
+        run: |
+          SECRET=$(
+            aws secretsmanager get-secret-value \
+              --secret-id GoogleOAuth \
+              --region us-east-2 \
+              --query 'SecretString' \
+              --output text \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["client_secret"], end="")'
+          )
+          echo "FUEL2_GOOGLE_CLIENT_SECRET=$SECRET" >> $GITHUB_ENV
+
+      - name: Build (OpenNext)
+        run: npm run build:opennext
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          FUEL2_SENTRY_DSN: ${{ secrets.FUEL2_SENTRY_DSN }}
+          FUEL2_SENTRY_RELEASE: ${{ github.sha }}
+
+      - name: CDK deploy
+        working-directory: packages/infrastructure
+        run: npx cdk deploy fuel2-dev fuel2-dev-peering --require-approval never --ci
+        env:
+          FUEL2_SENTRY_DSN: ${{ secrets.FUEL2_SENTRY_DSN }}
+          FUEL2_SENTRY_RELEASE: ${{ github.sha }}
+          FUEL2_MARKER_IO_PROJECT_ID: ${{ secrets.FUEL2_MARKER_IO_PROJECT_ID }}
+
+      - name: Run database migrations
+        run: |
+          set -euo pipefail
+
+          MIGRATION_FN=$(aws cloudformation describe-stacks \
+            --stack-name fuel2-dev \
+            --query "Stacks[0].Outputs[?OutputKey=='MigrationFnName'].OutputValue" \
+            --output text \
+            --region us-east-2)
+
+          if [ -z "$MIGRATION_FN" ] || [ "$MIGRATION_FN" = "None" ]; then
+            echo "::error::Could not resolve MigrationFnName from fuel2-dev stack outputs"
+            exit 1
+          fi
+
+          echo "Invoking migration Lambda: $MIGRATION_FN"
+
+          INVOKE_RESULT=$(aws lambda invoke \
+            --function-name "$MIGRATION_FN" \
+            --payload '{}' \
+            --cli-binary-format raw-in-base64-out \
+            --region us-east-2 \
+            /tmp/migration-out.json)
+
+          echo "--- Lambda invoke metadata ---"
+          echo "$INVOKE_RESULT"
+          echo "--- Migration Lambda response ---"
+          cat /tmp/migration-out.json
+          echo ""
+
+          if [ "$(echo "$INVOKE_RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("FunctionError") or "")')" != "" ]; then
+            echo "::error::Migration Lambda invocation failed (FunctionError in invoke metadata)"
+            exit 1
+          fi
+
+          python3 <<'PY'
+          import json
+          import sys
+
+          with open("/tmp/migration-out.json") as f:
+              response = json.load(f)
+
+          if response.get("errorMessage"):
+              print("::error::Migration Lambda returned an error payload")
+              sys.exit(1)
+
+          if not response.get("ok"):
+              print("::error::Migration Lambda returned a non-ok response")
+              sys.exit(1)
+
+          print("Migration completed successfully")
+          PY
+
+  # ── Deploy stage ─────────────────────────────────────────────────────────
+  # Auto-deploys when code is pushed/merged to the stage branch
+  deploy-stage:
+    name: Deploy → stage
+    needs: check
+    if: github.ref == 'refs/heads/stage' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: stage
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Fetch Google OAuth secret
+        run: |
+          SECRET=$(
+            aws secretsmanager get-secret-value \
+              --secret-id GoogleOAuth \
+              --region us-east-2 \
+              --query 'SecretString' \
+              --output text \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["client_secret"], end="")'
+          )
+          echo "FUEL2_GOOGLE_CLIENT_SECRET=$SECRET" >> $GITHUB_ENV
+
+      - name: Build (OpenNext)
+        run: npm run build:opennext
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          FUEL2_SENTRY_DSN: ${{ secrets.FUEL2_SENTRY_DSN }}
+          FUEL2_SENTRY_RELEASE: ${{ github.sha }}
+
+      - name: CDK deploy
+        working-directory: packages/infrastructure
+        run: npx cdk deploy fuel2-stage --require-approval never --ci
+        env:
+          FUEL2_SENTRY_DSN: ${{ secrets.FUEL2_SENTRY_DSN }}
+          FUEL2_SENTRY_RELEASE: ${{ github.sha }}
+
+      - name: Run database migrations
+        run: |
+          set -euo pipefail
+
+          MIGRATION_FN=$(aws cloudformation describe-stacks \
+            --stack-name fuel2-stage \
+            --query "Stacks[0].Outputs[?OutputKey=='MigrationFnName'].OutputValue" \
+            --output text \
+            --region us-east-2)
+
+          if [ -z "$MIGRATION_FN" ] || [ "$MIGRATION_FN" = "None" ]; then
+            echo "::error::Could not resolve MigrationFnName from fuel2-stage stack outputs"
+            exit 1
+          fi
+
+          echo "Invoking migration Lambda: $MIGRATION_FN"
+
+          INVOKE_RESULT=$(aws lambda invoke \
+            --function-name "$MIGRATION_FN" \
+            --payload '{}' \
+            --cli-binary-format raw-in-base64-out \
+            --region us-east-2 \
+            /tmp/migration-out.json)
+
+          echo "--- Lambda invoke metadata ---"
+          echo "$INVOKE_RESULT"
+          echo "--- Migration Lambda response ---"
+          cat /tmp/migration-out.json
+          echo ""
+
+          if [ "$(echo "$INVOKE_RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("FunctionError") or "")')" != "" ]; then
+            echo "::error::Migration Lambda invocation failed (FunctionError in invoke metadata)"
+            exit 1
+          fi
+
+          python3 <<'PY'
+          import json
+          import sys
+
+          with open("/tmp/migration-out.json") as f:
+              response = json.load(f)
+
+          if response.get("errorMessage"):
+              print("::error::Migration Lambda returned an error payload")
+              sys.exit(1)
+
+          if not response.get("ok"):
+              print("::error::Migration Lambda returned a non-ok response")
+              sys.exit(1)
+
+          print("Migration completed successfully")
+          PY
+
+  # ── Deploy prod ───────────────────────────────────────────────────────────
+  # Manual only — Actions → Pipeline → Run workflow from main.
+  # Uses existing GitHub Environment `prod` (deployment branch: main).
+  # Pause for environment protection rules (required reviewers, if configured).
+  deploy-prod:
+    name: Deploy → prod
+    needs: check
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Fetch Google OAuth secret
+        run: |
+          SECRET=$(
+            aws secretsmanager get-secret-value \
+              --secret-id GoogleOAuth \
+              --region us-east-2 \
+              --query 'SecretString' \
+              --output text \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["client_secret"], end="")'
+          )
+          echo "FUEL2_GOOGLE_CLIENT_SECRET=$SECRET" >> $GITHUB_ENV
+
+      - name: Build (OpenNext)
+        run: npm run build:opennext
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          FUEL2_SENTRY_DSN: ${{ secrets.FUEL2_SENTRY_DSN }}
+          FUEL2_SENTRY_RELEASE: ${{ github.sha }}
+
+      - name: CDK deploy
+        working-directory: packages/infrastructure
+        # Peering included to match packages/infrastructure `deploy:prod` (fuel-data
+        # Neptune/OpenSearch). Stage CI still omits peering — pre-existing gap, not fixed here.
+        run: npx cdk deploy fuel2-prod fuel2-prod-peering --require-approval never --ci
+        env:
+          FUEL2_SENTRY_DSN: ${{ secrets.FUEL2_SENTRY_DSN }}
+          FUEL2_SENTRY_RELEASE: ${{ github.sha }}
+
+      - name: Run database migrations
+        run: |
+          set -euo pipefail
+
+          MIGRATION_FN=$(aws cloudformation describe-stacks \
+            --stack-name fuel2-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='MigrationFnName'].OutputValue" \
+            --output text \
+            --region us-east-2)
+
+          if [ -z "$MIGRATION_FN" ] || [ "$MIGRATION_FN" = "None" ]; then
+            echo "::error::Could not resolve MigrationFnName from fuel2-prod stack outputs"
+            exit 1
+          fi
+
+          echo "Invoking migration Lambda: $MIGRATION_FN"
+
+          INVOKE_RESULT=$(aws lambda invoke \
+            --function-name "$MIGRATION_FN" \
+            --payload '{}' \
+            --cli-binary-format raw-in-base64-out \
+            --region us-east-2 \
+            /tmp/migration-out.json)
+
+          echo "--- Lambda invoke metadata ---"
+          echo "$INVOKE_RESULT"
+          echo "--- Migration Lambda response ---"
+          cat /tmp/migration-out.json
+          echo ""
+
+          if [ "$(echo "$INVOKE_RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("FunctionError") or "")')" != "" ]; then
+            echo "::error::Migration Lambda invocation failed (FunctionError in invoke metadata)"
+            exit 1
+          fi
+
+          python3 <<'PY'
+          import json
+          import sys
+
+          with open("/tmp/migration-out.json") as f:
+              response = json.load(f)
+
+          if response.get("errorMessage"):
+              print("::error::Migration Lambda returned an error payload")
+              sys.exit(1)
+
+          if not response.get("ok"):
+              print("::error::Migration Lambda returned a non-ok response")
+              sys.exit(1)
+
+          print("Migration completed successfully")
+          PY

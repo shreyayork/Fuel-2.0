@@ -1,0 +1,28 @@
+{
+  "name": "fuel-2.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "docker compose up -d && npm run dev --workspace=apps/web",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:migrate": "npm run db:migrate --workspace=apps/web",
+    "db:seed": "npm run db:seed --workspace=apps/web",
+    "db:reset": "npm run db:reset --workspace=apps/web",
+    "build": "npm run build --workspace=apps/web",
+    "build:opennext": "npm run build:opennext --workspace=apps/web",
+    "lint": "npm run lint --workspace=apps/web",
+    "typecheck": "npm run typecheck --workspace=apps/web",
+    "cdk:synth": "npm run synth --workspace=packages/infrastructure",
+    "cdk:deploy:dev": "npm run build:opennext && npm run deploy:dev --workspace=packages/infrastructure",
+    "cdk:deploy:stage": "npm run build:opennext && npm run deploy:stage --workspace=packages/infrastructure",
+    "cdk:deploy:prod": "npm run build:opennext && npm run deploy:prod --workspace=packages/infrastructure"
+  }
+}

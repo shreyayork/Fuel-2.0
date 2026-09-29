@@ -1,0 +1,31 @@
+{
+  "uid": "fuel2_hubspot_webhooks",
+  "type": "webhooks",
+  "config": {
+    "settings": {
+      "targetUrl": "https://stage.v2.fuel.york.ie/api/integrations/hubspot/webhook",
+      "maxConcurrentRequests": 10
+    },
+    "subscriptions": {
+      "legacyCrmObjects": [
+        { "subscriptionType": "deal.creation", "active": true },
+        { "subscriptionType": "deal.deletion", "active": true },
+        { "subscriptionType": "deal.propertyChange", "propertyName": "dealstage", "active": true },
+        { "subscriptionType": "deal.propertyChange", "propertyName": "pipeline", "active": true },
+        { "subscriptionType": "deal.propertyChange", "propertyName": "dealname", "active": true },
+        { "subscriptionType": "deal.propertyChange", "propertyName": "amount", "active": true },
+        { "subscriptionType": "deal.propertyChange", "propertyName": "closedate", "active": true },
+        { "subscriptionType": "company.propertyChange", "propertyName": "name", "active": true },
+        { "subscriptionType": "company.propertyChange", "propertyName": "domain", "active": true }
+      ],
+      "crmObjects": [
+        { "subscriptionType": "object.creation", "objectType": "note", "active": true },
+        { "subscriptionType": "object.deletion", "objectType": "note", "active": true },
+        { "subscriptionType": "object.propertyChange", "objectType": "note", "propertyName": "hs_note_body", "active": true },
+        { "subscriptionType": "object.creation", "objectType": "email", "active": true },
+        { "subscriptionType": "object.deletion", "objectType": "email", "active": true },
+        { "subscriptionType": "object.propertyChange", "objectType": "email", "propertyName": "hs_email_text", "active": true }
+      ]
+    }
+  }
+}

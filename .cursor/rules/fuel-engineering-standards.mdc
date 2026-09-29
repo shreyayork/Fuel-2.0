@@ -1,0 +1,90 @@
+---
+description: Repo-wide engineering bar — theme tokens, dead-code policy, file discipline, quality, production readiness
+alwaysApply: true
+---
+
+# Fuel engineering standards
+
+**Canonical guide:** `CLAUDE.md`. **Theme tokens:** `.cursor/skills/fuel-theme-tokens/SKILL.md` and `apps/web/src/lib/theme.ts`.
+
+Scoped rules (read when touching those areas): `fuel-auth-api.mdc`, `fuel-database.mdc`, `nextjs-web.mdc`, `sentry-monitoring.mdc`.
+
+## 1. Theme-first (strict)
+
+Never introduce hardcoded design values when tokens or helpers already exist.
+
+Do **not** add:
+
+- York palette hex (`#284256`, `#00B48A`, `#ECD67F`, etc.)
+- Font stacks (`"Inter"`, `"JetBrains Mono"`) — use `t.sans`, `t.mono`, or `fontFamily: "inherit"` under a themed container
+- Ad-hoc spacing, radius, shadows, or z-index when a token or existing helper covers the case
+
+**Use instead:**
+
+| Surface | Theme | Style helpers |
+|---------|--------|----------------|
+| In-app PM/CM views | `THEMES[themeMode]` via `t: Theme` on atoms | `components/atoms.tsx` |
+| Dark full-bleed flows (auth, onboard, agent) | `SIGNAL` | `components/auth/styles.ts`, `components/onboard/styles.ts` |
+| Motion / light panels (onboard right rail, marketing) | `THEMES.editorial` via `motionColors()` | `components/onboard/styles.ts` |
+
+Helpers: `accentGradient(t)`, `onAccentText(t)`, `panelCardSurface(t)`. Alpha on 6-digit tokens: `` `${t.accent}14` ``.
+
+**Allowed exceptions:** third-party brand colors (HubSpot, Slack, Google OAuth), and values with explicit design evidence — not convenience copies of York palette.
+
+## 2. Remove obsolete code (strict)
+
+Delete after verifying no references:
+
+- Dead / unreachable code, unused state, hooks, props, imports, types
+- Obsolete helpers, duplicate logic, abandoned feature remnants, stale TODOs
+- Orphan tests or assets tied to removed code
+
+Do not keep code "just in case". Remove associated types and imports in the same change.
+
+## 3. Avoid unnecessary files (strict)
+
+Before creating a file, confirm:
+
+1. Logic is reused in more than one place, **or**
+2. Complexity justifies separation, **and**
+3. Maintainability improves meaningfully
+
+Avoid: one-hook files, one-function files, empty wrappers, redundant constants modules, premature component splits.
+
+Prefer: colocate with the feature, extend existing modules, reuse shared primitives. Create files only when genuinely required.
+
+## 4. Implementation quality (strict)
+
+**State:** prefer derived state; no duplicate stored state; avoid redundant `useEffect`.
+
+**React:** match existing Server/Client boundaries (`CLAUDE.md`); no unnecessary memoization; no duplicated JSX patterns.
+
+**Types:** strict TypeScript; no `any`; no duplicated domain types — search before defining.
+
+**API / lib:** business logic in `src/lib/` and route handlers, not presentation components; filter writes by `ctx.accountId`; no debug `console.log` in shipped paths.
+
+**Monorepo:** `apps/web` for product code; `packages/infrastructure` for CDK — keep concerns separated.
+
+## 5. Production readiness (strict)
+
+**Errors & monitoring** (see `sentry-monitoring.mdc`):
+
+- Unexpected failures → `captureIntegrationException` / `captureException`, then rethrow or return 5xx
+- Expected 4xx (validation, auth) → structured JSON; do **not** capture
+- Run Sentry impact review after every change
+
+**UI:** loading, empty, and error states on async work; validation on user input; avoid layout shift where feasible; labels and keyboard focus for interactive controls.
+
+**Auth & data** (see `fuel-auth-api.mdc`, `fuel-database.mdc`):
+
+- Identity from session / Cognito — never trust client for email, domain, or account scope
+- Account-scoped reads and writes by convention
+
+**Ship bar:** `npm run typecheck` and `npm run lint` clean for touched packages; meaningful naming; no commented-out code.
+
+## After every change
+
+1. Theme impact — any new hardcoded visual values?
+2. Dead code removed?
+3. Sentry impact review (state if none required)
+4. Typecheck / lint for affected workspaces

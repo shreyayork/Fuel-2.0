@@ -1,0 +1,24 @@
+---
+description: Next.js web app — UI, data flow, design system (from CLAUDE.md)
+globs: apps/web/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# apps/web — Next.js & UI
+
+## Routing & data
+- App Router under `src/app/` — route groups `(app)`, `(auth)`, `(public)`, `(super-admin)`; onboarding at `/onboard` (no AppShell)
+- Prefer **async Server Components** + `server-only` DB access; `"use client"` only for interactivity
+- Legacy: `/dashboard` still mounts `<FuelApp data={loadDataset()}>`; most features use `(app)/` pages + `AppShell`
+- `loadDataset()` in `src/db/queries.ts` — cached, full fixture dataset; filter writes by `ctx.accountId`
+
+## Design system (`CLAUDE.md`)
+- Themes: `editorial` (light) / `signal` (dark) in `src/lib/theme.ts` — York navy/teal/gold
+- **Atoms** (`src/components/atoms.tsx`): every primitive takes `t: Theme` + **inline styles** (1:1 port of `ds.jsx`)
+- Do **not** mix Tailwind into ported atoms without reason; newer surfaces may use Tailwind — don't blend both on the same atom
+- Onboarding/agent surfaces: `components/ai/*`, `AI_TOKENS`; views: `components/views/*.tsx` with `{ t, data, onOpenCo? }`
+- PM vs CM workspaces: `viewMode` in `Shell.tsx`; keys persist via `localStorage` (`fuel:theme`, `fuel:viewMode`, `fuel:page`)
+
+## Components & quality
+- Search existing primitives before new Button/Card/Modal; preserve a11y (labels, keyboard, focus)
+- API/business logic in `src/lib/` and `app/api/**/route.ts`, not in presentation components

@@ -1,0 +1,1 @@
+ALTER TABLE "workspace_credit_ledger" ADD COLUMN "cancel_at_period_end" boolean DEFAULT false NOT NULL;

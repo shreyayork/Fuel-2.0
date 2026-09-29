@@ -1,0 +1,20 @@
+{
+  "fuel2-stage": {
+    "AccountMigrationFnName": "fuel2-stage-AccountMigrationFn1C56EDB8-BuoHa0KQObpF",
+    "HostedUiDomain": "https://fuel2-stage.auth.us-east-2.amazoncognito.com",
+    "MigrationFnName": "fuel2-stage-MigrationsFn5B971CE3-ASaFOQvpLbY7",
+    "ExportsOutputRefVpcegressSubnet2RouteTableBE1FD5672D83C068": "rtb-057f09dd225fa1f5e",
+    "ExportsOutputFnGetAttVpc8378EB38CidrBlock14DD2396": "10.20.0.0/16",
+    "WatchlistMigrationFnName": "fuel2-stage-WatchlistMigrationFn68D92C0A-vgALJu0S5WmI",
+    "GoogleRedirectUri": "https://fuel2-stage.auth.us-east-2.amazoncognito.com/oauth2/idpresponse",
+    "DbProxyEndpoint": "fuel2stagedatabaseproxyb8be950e.proxy-cefvgec5t8lr.us-east-2.rds.amazonaws.com",
+    "WebUrl": "https://stage.v2.fuel.york.ie",
+    "ExportsOutputFnGetAttWebWebSgF1AD02A8GroupId092EB9A2": "sg-05891bd4e3b54b533",
+    "ExportsOutputRefVpc8378EB38272D6E3A": "vpc-04bd6a4464a4a101f",
+    "ExportsOutputRefVpcisolatedSubnet1RouteTableE442650B7EC30545": "rtb-0f6030733154c20fd",
+    "UserPoolClientId": "7kptd0vkkbnv05qppenjb3k0pp",
+    "UserPoolId": "us-east-2_ly8sfvLQv",
+    "ExportsOutputRefVpcegressSubnet1RouteTable5DEFB688BF7A5711": "rtb-08b83dab79cab019e",
+    "ExportsOutputRefVpcisolatedSubnet2RouteTable334F9764D71901E6": "rtb-0a4dea8e840d88ca6"
+  }
+}

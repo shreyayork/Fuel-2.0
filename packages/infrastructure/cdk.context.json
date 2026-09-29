@@ -1,0 +1,15 @@
+{
+  "hosted-zone:account=292355514327:domainName=fuel.york.ie:region=us-east-1": {
+    "Id": "/hostedzone/Z0309984354O59LHTZTBO",
+    "Name": "fuel.york.ie."
+  },
+  "availability-zones:account=292355514327:region=us-east-2": [
+    "us-east-2a",
+    "us-east-2b",
+    "us-east-2c"
+  ],
+  "hosted-zone:account=292355514327:domainName=fuel.york.ie:region=us-east-2": {
+    "Id": "/hostedzone/Z0309984354O59LHTZTBO",
+    "Name": "fuel.york.ie."
+  }
+}

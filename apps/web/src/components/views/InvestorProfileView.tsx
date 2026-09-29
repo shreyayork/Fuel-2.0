@@ -1,0 +1,226 @@
+"use client";
+
+import Link from "next/link";
+import { useTransition } from "react";
+import type { Theme } from "@/lib/theme";
+import type { InvestorProfile } from "@/lib/fuel-data";
+import { Chip, Label, SectionHead } from "../atoms";
+import { useTheme } from "../ThemeContext";
+import {
+  bookmarkInvestorAction,
+  unbookmarkInvestorAction,
+} from "@/app/(app)/investors/actions";
+
+function button(t: Theme, variant: "primary" | "ghost" = "ghost"): React.CSSProperties {
+  return {
+    padding: "8px 14px",
+    background: variant === "primary" ? t.ink : "transparent",
+    color: variant === "primary" ? t.bg : t.inkSoft,
+    border: `1px solid ${variant === "primary" ? t.ink : t.rule}`,
+    borderRadius: 6,
+    fontFamily: t.sans,
+    fontSize: 12,
+    fontWeight: 500,
+    cursor: "pointer",
+  };
+}
+
+export function InvestorProfileView({
+  profile,
+  bookmarked,
+}: {
+  profile: InvestorProfile;
+  bookmarked: boolean;
+}) {
+  const t = useTheme();
+  const [isPending, startTransition] = useTransition();
+
+  const toggle = () =>
+    startTransition(() => {
+      const fd = new FormData();
+      fd.set("investorId", profile.id);
+      fd.set("investorName", profile.name);
+      if (bookmarked) return unbookmarkInvestorAction(fd);
+      return bookmarkInvestorAction(fd);
+    });
+
+  return (
+    <div>
+      <div style={{ marginBottom: 14 }}>
+        <Link href="/investors" style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, textDecoration: "none" }}>
+          ← All investors
+        </Link>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 20,
+          padding: 20,
+          background: t.panel,
+          border: `1px solid ${t.rule}`,
+          borderRadius: 6,
+        }}
+      >
+        {profile.logoUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={profile.logoUrl}
+            alt={profile.name}
+            referrerPolicy="no-referrer"
+            style={{ width: 64, height: 64, borderRadius: 8, objectFit: "contain", background: t.panelAlt }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 8,
+              background: t.panelAlt,
+              border: `1px solid ${t.rule}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: t.sans,
+              fontWeight: 700,
+              fontSize: 20,
+              color: t.muted,
+            }}
+          >
+            {profile.name.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 style={{ margin: 0, fontFamily: t.sans, fontSize: 22, fontWeight: 700, letterSpacing: "-0.015em", color: t.ink }}>
+            {profile.name}
+          </h1>
+          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+            {profile.type ? <Chip t={t} tone="ghost">{profile.type}</Chip> : null}
+            {profile.investmentCount != null ? (
+              <Chip t={t} tone="ghost">
+                {profile.investmentCount} known investment{profile.investmentCount === 1 ? "" : "s"}
+              </Chip>
+            ) : null}
+            {bookmarked ? <Chip t={t} tone="accent">Bookmarked</Chip> : null}
+          </div>
+          {profile.description ? (
+            <div style={{ marginTop: 10, fontFamily: t.sans, fontSize: 13, color: t.inkSoft, lineHeight: 1.55 }}>
+              {profile.description}
+            </div>
+          ) : null}
+          <div style={{ marginTop: 8, display: "flex", gap: 10, fontFamily: t.sans, fontSize: 12 }}>
+            {profile.website ? (
+              <a href={profile.website} target="_blank" rel="noreferrer" style={{ color: t.accent, textDecoration: "none" }}>
+                Website
+              </a>
+            ) : null}
+            {profile.linkedinUrl ? (
+              <a href={profile.linkedinUrl} target="_blank" rel="noreferrer" style={{ color: t.accent, textDecoration: "none" }}>
+                LinkedIn
+              </a>
+            ) : null}
+          </div>
+        </div>
+        <button onClick={toggle} disabled={isPending} style={button(t, bookmarked ? "ghost" : "primary")}>
+          {bookmarked ? "Remove bookmark" : "Bookmark"}
+        </button>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <SectionHead t={t} title="Backed companies" subtitle={`${profile.backedCompanies.length} known`} />
+        {profile.backedCompanies.length === 0 ? (
+          <div style={{ padding: 28, textAlign: "center", background: t.panel, border: `1px solid ${t.rule}`, fontFamily: t.sans, fontSize: 13, color: t.muted }}>
+            No backed companies in fuel-data. This investor may not have public Crunchbase data, or the Neptune edge shape differs from the default.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 220px), 1fr))", gap: 10 }}>
+            {profile.backedCompanies.map((c) => (
+              <Link
+                key={c.uuid}
+                href={`/company/${c.uuid}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: 12,
+                  background: t.panel,
+                  border: `1px solid ${t.rule}`,
+                  borderRadius: 6,
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                {c.logoUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={c.logoUrl}
+                    alt={c.name}
+                    referrerPolicy="no-referrer"
+                    style={{ width: 32, height: 32, borderRadius: 4, objectFit: "contain", background: t.panelAlt }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 4,
+                      background: t.panelAlt,
+                      border: `1px solid ${t.rule}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: t.sans,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: t.muted,
+                    }}
+                  >
+                    {c.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div
+                  style={{
+                    fontFamily: t.sans,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {c.name}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <details style={{ marginTop: 20, background: t.panel, border: `1px solid ${t.rule}`, padding: 16, borderRadius: 6 }}>
+        <summary style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, cursor: "pointer" }}>
+          Raw vertex properties ({Object.keys(profile.properties).length} fields)
+        </summary>
+        <pre
+          style={{
+            background: t.panelAlt,
+            border: `1px solid ${t.rule}`,
+            borderRadius: 6,
+            padding: 10,
+            fontFamily: t.mono,
+            fontSize: 11,
+            color: t.inkSoft,
+            maxHeight: 260,
+            overflow: "auto",
+            marginTop: 10,
+          }}
+        >
+          {JSON.stringify(profile.properties, null, 2)}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
+// Supress unused import warning (Label is used nowhere here, but kept to match other views' imports).
+void Label;

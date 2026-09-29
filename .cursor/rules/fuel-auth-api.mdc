@@ -1,0 +1,23 @@
+---
+description: Cognito auth, accounts, integrations, agent/MCP APIs (from CLAUDE.md)
+globs: apps/web/src/lib/auth/**,apps/web/src/lib/accounts.ts,apps/web/src/lib/integrations/**,apps/web/src/lib/agent/**,apps/web/src/app/api/**
+alwaysApply: false
+---
+
+# Auth, accounts & APIs
+
+## Auth (no users table)
+- Identity from Cognito `sub` + `email` at request time — `lib/auth/verify.ts` (JWKS/`jose`), `lib/auth/session.ts` (`fuel_id` / `fuel_refresh` cookies)
+- OAuth callback: `app/api/auth/callback/route.ts` · Env: `COGNITO_*`, `APP_URL`, `STAGE`
+
+## Accounts
+- `lib/accounts.ts` — `getActiveAccountForUser`, membership roles `owner | admin | member`
+- Never trust client for domain/identity on onboard/claim — derive from session email
+
+## Integrations
+- `lib/integrations.ts` — OAuth for hubspot/granola/slack/email; encrypted credentials in jsonb
+- HubSpot: webhook + `api/cron/reconcile-hubspot` → `pipeline_companies`
+
+## Agent + MCP
+- Skills: `lib/agent/skills/*` — Zod input, `execute(input, { userEmail, accountId })`; register in `skills/index.ts`
+- MCP: `app/api/mcp/route.ts` — bearer `fuel_…` tokens (sha256 in `mcp_api_tokens`); fresh server per request; **no auto rotation**

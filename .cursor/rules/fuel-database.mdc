@@ -1,0 +1,19 @@
+---
+description: Drizzle schema, migrations, and DB conventions (from CLAUDE.md)
+globs: apps/web/src/db/**,**/schema.ts
+alwaysApply: false
+---
+
+# Database (Drizzle + Postgres)
+
+- **Source of truth:** `apps/web/src/db/schema.ts` — enums at top; check for valid filter values
+- **Queries:** `src/db/queries.ts` is `server-only`; shared `Pool` on `globalThis` for dev HMR
+- **Local:** Docker Postgres `:5432` — `fuel`/`fuel`/`fuel`; `DATABASE_URL` in `apps/web/.env`
+
+## Commands (repo root)
+`npm run db:up` · `db:migrate` · `db:seed` · `db:reset` *(destructive)* · `db:generate --workspace=apps/web -- --name <name>` · `db:studio --workspace=apps/web`
+
+## Conventions
+- Fixture tables (`companies`, `people`, …) coexist with platform tables (`accounts`, `integration_connections`, `context_items`, `agent_runs`, …)
+- Most writes must scope by `accountId` — convention, not DB-enforced RLS
+- Seed: `fixture.ts` + `seed.ts` for local prototype data

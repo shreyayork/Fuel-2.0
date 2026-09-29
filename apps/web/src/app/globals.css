@@ -1,0 +1,406 @@
+@import "tailwindcss";
+
+:root {
+  --fuel-bp-xs: 360px;
+  --fuel-bp-sm: 480px;
+  --fuel-bp-md: 768px;
+  --fuel-bp-nav: 1024px;
+  --fuel-bp-lg: 1200px;
+  --fuel-bp-xl: 1366px;
+  --fuel-safe-top: env(safe-area-inset-top, 0px);
+  --fuel-safe-right: env(safe-area-inset-right, 0px);
+  --fuel-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --fuel-safe-left: env(safe-area-inset-left, 0px);
+  --fuel-touch-min: 44px;
+}
+
+html {
+  /* Prevent rubber-band horizontal scroll on iOS when a child briefly overflows. */
+  overflow-x: clip;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Default to the dark (signal) theme background so nav transitions —
+   * loading.tsx fallbacks, momentary unmounts, first paint before the
+   * theme-from-localStorage swap — never show a white flash. Editorial
+   * (light) users see a very brief dark frame on first page load; on
+   * subsequent client-side navigations their Shell's background paints
+   * immediately and this is irrelevant. */
+  background: #0e1a22;
+  color: #e6eef2;
+  max-width: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+video,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Wide tables / kanban: scroll inside the container, not the page. */
+.fuel-scroll-x {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.fuel-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+body.fuel-mobile-nav-open {
+  overflow: hidden;
+  touch-action: none;
+}
+
+button {
+  font: inherit;
+}
+
+::selection {
+  background: #00b48a33;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00000020;
+  border-radius: 99px;
+}
+
+/* Dark-theme dropdown lists (Playbook / Signal pickers). Light theme omits
+ * this class and keeps the global scrollbar above unchanged. Thumb colors
+ * come from Theme tokens via --fuel-scroll-* (fallback = SIGNAL mutedSoft/muted). */
+.fuel-dropdown-scroll-dark {
+  scrollbar-width: thin;
+}
+
+.fuel-dropdown-scroll-dark::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.fuel-dropdown-scroll-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fuel-dropdown-scroll-dark::-webkit-scrollbar-thumb {
+  background: var(--fuel-scroll-thumb, #596876);
+  border-radius: 99px;
+}
+
+.fuel-dropdown-scroll-dark::-webkit-scrollbar-thumb:hover {
+  background: var(--fuel-scroll-thumb-hover, #8a99a6);
+}
+
+@keyframes fuel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Onboarding chat — animations shared across chat + integration wizard */
+@keyframes fuel-onboard-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes fuel-onboard-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fuel-onboard-msg {
+  animation: fuel-onboard-fade-up 0.3s ease both;
+}
+
+.fuel-onboard-chip:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.fuel-onboard-send:hover {
+  opacity: 0.85;
+}
+
+.fuel-onboard-text-btn:hover {
+  color: #8a99a6 !important;
+}
+
+.fuel-onboard-progress-rail {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .fuel-onboard-progress-rail {
+    display: block !important;
+  }
+}
+
+/* Benchmark form — hide number spinners; border handled inline (none) */
+.fuel-benchmark-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.fuel-benchmark-input[type="number"]::-webkit-outer-spin-button,
+.fuel-benchmark-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fuel-benchmark-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Post-onboarding signals loading overlay */
+.fuel-signals-loading-page {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.fuel-signals-loading-card {
+  background: linear-gradient(135deg, rgb(23, 38, 50) 0%, rgb(31, 49, 64) 100%);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 16px;
+  max-width: 620px;
+  padding: 34px;
+  text-align: center;
+}
+
+.fuel-signals-loading-eyebrow {
+  color: rgb(0, 180, 138);
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-top: 18px;
+  text-transform: uppercase;
+}
+
+.fuel-signals-loading-title {
+  color: rgb(244, 246, 248);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 8px 0 8px;
+}
+
+.fuel-signals-loading-explanation {
+  color: rgb(203, 211, 219);
+  font-size: 13.5px;
+  line-height: 1.65;
+  margin: 0 auto;
+  max-width: 500px;
+}
+
+.fuel-signals-loading-orb {
+  align-items: center;
+  background: rgba(0, 180, 138, 0.08);
+  border: 1px solid rgba(0, 180, 138, 0.2);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 6px;
+  height: 64px;
+  justify-content: center;
+  width: 64px;
+}
+
+.fuel-signals-loading-orb span {
+  animation: fuel-signals-loading-pulse 1.2s ease-in-out infinite;
+  background: rgb(0, 180, 138);
+  border-radius: 999px;
+  display: block;
+  height: 8px;
+  width: 8px;
+}
+
+.fuel-signals-loading-orb span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.fuel-signals-loading-orb span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.fuel-signals-loading-steps {
+  display: grid;
+  gap: 8px;
+  margin: 22px auto 0;
+  max-width: 420px;
+  text-align: left;
+}
+
+.fuel-signals-loading-step {
+  align-items: center;
+  background: rgba(31, 49, 64, 0.72);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 8px;
+  color: rgb(203, 211, 219);
+  display: flex;
+  font-size: 12.5px;
+  gap: 9px;
+  padding: 10px 12px;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.fuel-signals-loading-step--done {
+  background: rgba(0, 180, 138, 0.08);
+  border-color: rgba(0, 180, 138, 0.25);
+  color: rgb(244, 246, 248);
+}
+
+.fuel-signals-loading-step i {
+  color: rgb(0, 180, 138);
+  display: block;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  text-align: center;
+  width: 14px;
+}
+
+@keyframes creditToastIn {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes creditToastOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+@keyframes fuelToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fuelToastOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes fuel-signals-loading-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/*
+ * Tour ring only — page dim is `.fuel-guided-tour-backdrop` clip-path hole
+ * (design-library GuidedTourOverlay). Accent matches theme `t.accent`.
+ */
+.fuel-tour-highlight {
+  animation: fuel-tour-spotlight-pulse 1.9s ease-in-out infinite;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--fuel-tour-accent, #00b48a) 90%, transparent),
+    0 0 0 8px color-mix(in srgb, var(--fuel-tour-accent, #00b48a) 18%, transparent);
+  isolation: isolate;
+  outline: none;
+  position: relative;
+  z-index: 90;
+}
+
+.fuel-tour-highlight,
+.fuel-tour-highlight * {
+  opacity: 1;
+}
+
+@keyframes fuel-tour-spotlight-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--fuel-tour-accent, #00b48a) 92%, transparent),
+      0 0 0 8px color-mix(in srgb, var(--fuel-tour-accent, #00b48a) 12%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--fuel-tour-accent, #00b48a) 95%, transparent),
+      0 0 0 10px color-mix(in srgb, var(--fuel-tour-accent, #00b48a) 20%, transparent);
+  }
+}

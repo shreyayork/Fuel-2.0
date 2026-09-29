@@ -1,0 +1,104 @@
+---
+description: Maintain Sentry instrumentation on every code change — capture, tags, tracing, no secrets
+alwaysApply: true
+---
+
+# Sentry — maintain on every change
+
+**Stack:** `@sentry/nextjs` in `apps/web`. Client → `src/instrumentation-client.ts`. Server → `src/sentry.server.config.ts`. Edge → `src/sentry.edge.config.ts`. Hook → `src/instrumentation.ts`. Shared options → `src/lib/sentry/options.ts`. Examples → `src/lib/sentry/monitoring-examples.ts`. User context → `src/components/SentryUserContext.tsx` (wired in `(app)/layout.tsx`). Global boundary → `src/app/global-error.tsx`. Build → `next.config.mjs` (`withSentryConfig`). Env → `apps/web/.env.example`.
+
+After **every** create / modify / refactor / delete, run a **Sentry impact review** (below). Apply minimal Sentry changes when needed. If none: state **"No Sentry-related changes required."**
+
+## What to watch for
+
+New or changed: error paths, `catch` blocks, async work, Server Actions, API routes (`src/app/api/**`), middleware, webhooks, cron, integrations (`lib/integrations/**`), agent skills, DB calls, S3/Bedrock/external APIs, background jobs.
+
+## Capture rules
+
+**Unexpected failures** — always capture, then rethrow unless intentionally handled:
+
+```ts
+import * as Sentry from "@sentry/nextjs";
+
+try {
+  await action();
+} catch (error) {
+  Sentry.captureException(error);
+  throw error;
+}
+```
+
+**Important non-fatal events:**
+
+```ts
+Sentry.captureMessage("description", "warning");
+```
+
+**Metadata** (no secrets — see below):
+
+```ts
+Sentry.setUser({ id: sub, email });           // client: use SentryUserContext pattern
+Sentry.setTag("integration", "hubspot");
+Sentry.setContext("operation", { name: "syncDeals" });
+```
+
+Prefer tags for filterable dimensions (`integration`, `provider`, `account_id`, `skill`). Prefer context for structured detail.
+
+## API routes & Server Actions
+
+- Wrap unexpected failures: `captureException` → rethrow (or return error response after capture).
+- Do **not** capture expected validation/auth failures (4xx the app handles by design).
+- Do capture 5xx, unhandled rejections, and integration timeouts.
+
+## Integrations & external calls
+
+On failure from DB, payments, AI (Bedrock), storage (S3), queues, webhooks, third-party APIs:
+
+```ts
+Sentry.setTag("integration", "hubspot");
+Sentry.captureException(error);
+```
+
+Tag the provider; never attach credentials, tokens, or raw request/response bodies with secrets.
+
+## Performance / tracing
+
+For long-running ops, heavy DB queries, external API calls, or expensive render paths — evaluate `Sentry.startSpan`:
+
+```ts
+return Sentry.startSpan({ name: "hubspot.reconcile", op: "http.client" }, async () => {
+  // ...
+});
+```
+
+Do not add spans to hot paths that are already auto-instrumented unless extra granularity helps debugging.
+
+## Never log or expose in Sentry
+
+Passwords, auth tokens, refresh tokens, `SENTRY_AUTH_TOKEN`, API keys, payment details, full PII beyond `sub` + `email` for user context. `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are public-safe; auth token is **build-time only** — never in client code or Lambda env.
+
+## Client vs server
+
+| Runtime | Import | Notes |
+|---------|--------|-------|
+| Client (`"use client"`) | `@sentry/nextjs` | No server secrets; user via `SentryUserContext` |
+| Server (RSC, actions, API) | `@sentry/nextjs` | `process.env.SENTRY_DSN` |
+| Edge (middleware) | `@sentry/nextjs` | Same as server |
+
+Unhandled React render errors → `global-error.tsx` already captures. Do not duplicate unless adding route-level `error.tsx`.
+
+## Config changes
+
+Only touch Sentry config files when monitoring behavior changes (sample rates, new runtime, tunnel, replay). Env placeholders live in `.env.example`; production DSN via CDK `FUEL2_SENTRY_DSN` in `packages/infrastructure/lib/web-app.ts`.
+
+## Impact review (run after every change)
+
+1. New failure path?
+2. Needs `captureException`?
+3. Needs tags or context?
+4. Needs tracing span?
+5. Affects monitoring config (`options.ts`, instrumentation, `next.config.mjs`, CDK env)?
+
+**Yes** → apply minimal Sentry change. **No** → **"No Sentry-related changes required."**
+
+Preserve existing conventions; smallest diff wins.

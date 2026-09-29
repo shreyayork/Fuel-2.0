@@ -1,0 +1,26 @@
+---
+description: Fuel 2.0 repo context, engineering standards, and AI workflow (see CLAUDE.md)
+alwaysApply: true
+---
+
+# Fuel 2.0 — General
+
+**Canonical repo guide:** `CLAUDE.md` at repo root. Read it for commands, architecture, auth, DB, and gaps.
+
+**Product:** York IE portfolio / pipeline / value-creation platform. Monorepo: `apps/web` (Next.js 15), `packages/infrastructure` (CDK). `apps/agents` (Go ADK) **not scaffolded yet**.
+
+## Engineering
+- Reusable composable components; business logic separate from UI; search before creating
+- Strict TypeScript; no `any`; `@/*` imports; remove unused imports
+- No dead code; small focused functions; comments only when non-obvious
+
+## Migration / design changes
+- Replicate UX; adapt to this repo; reuse `theme.ts` / atoms / existing patterns
+- Do not change York palette (`#284256`, `#00B48A`, `#ECD67F`) without design evidence
+- Design prototype is **not in repo** — see `CLAUDE.md` § Working with the design source
+
+## Before building (check CLAUDE.md § Things that don't exist yet)
+- No `apps/agents`, Playwright specs, users table, or MCP token rotation — see `techstack.md` for targets
+
+## AI workflow
+**Before:** read `CLAUDE.md` + search primitives · **During:** match conventions · **After:** typecheck/lint, remove dead code

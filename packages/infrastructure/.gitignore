@@ -1,0 +1,9 @@
+node_modules/
+cdk.out/
+*.d.ts
+*.js
+!bin/fuel2.js
+!jest.config.js
+!lambda/migration/server-only-stub.js
+.env
+.env.local
