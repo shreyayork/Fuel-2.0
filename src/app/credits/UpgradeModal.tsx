@@ -1,13 +1,23 @@
 import React, { useState } from "react";
 import {
-  PRO_INCLUDES,
-  PRO_PRICE_FRAME,
   PRO_TAGLINE,
   PRO_UPGRADE_HEADERS,
   TOP_UP_FOOTNOTE,
-  TOP_UP_OPTIONS,
 } from "./constants";
+import { getProIncludes, getProPlan, getProPriceFrame, getTopUpOptions, useCreditCatalog } from "./creditCatalog";
+import { LegalDocLink } from "../legal/LegalNavContext";
 import { useCredits } from "./CreditProvider";
+
+function UpgradeLegalFootnote() {
+  return (
+    <p className="credit-upgrade-footnote credit-upgrade-legal">
+      By continuing you agree to the{" "}
+      <LegalDocLink doc="payment">Payment &amp; Credit Terms</LegalDocLink>
+      {" "}and{" "}
+      <LegalDocLink doc="terms">Terms of Service</LegalDocLink>.
+    </p>
+  );
+}
 
 export function UpgradeModal() {
   const {
@@ -20,14 +30,22 @@ export function UpgradeModal() {
     completeProUpgrade,
     completeTopUp,
   } = useCredits();
+  useCreditCatalog();
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-  const [topUpId, setTopUpId] = useState("growth");
+  const topUps = getTopUpOptions();
+  const [topUpId, setTopUpId] = useState(() => topUps.find(pack => pack.popular)?.id ?? topUps[0]?.id ?? "");
 
   if (!upgradeOpen) return null;
 
-  const selectedTopUp = TOP_UP_OPTIONS.find(option => option.id === topUpId) ?? TOP_UP_OPTIONS[2];
+  const selectedTopUp = topUps.find(option => option.id === topUpId) ?? topUps[0];
   const isFree = snapshot.plan === "free";
+  const pro = getProPlan();
+  const feeMonthly = pro.feeMonthly ?? 30;
+  const feeYearly = pro.feeYearly ?? 300;
+  const yearlyMonthly = Math.round(feeYearly / 12);
+  const includes = getProIncludes();
+  const priceFrame = getProPriceFrame();
 
   return (
     <div className="credit-upgrade-overlay" onClick={closeUpgrade}>
@@ -45,9 +63,9 @@ export function UpgradeModal() {
           <>
             <p className="credit-upgrade-tagline">{PRO_TAGLINE}</p>
             <h3 className="credit-upgrade-title">{PRO_UPGRADE_HEADERS[upgradeReason]}</h3>
-            <p className="credit-upgrade-subtitle">{PRO_PRICE_FRAME}</p>
+            <p className="credit-upgrade-subtitle">{priceFrame}</p>
             <ul className="credit-upgrade-includes">
-              {PRO_INCLUDES.map(item => <li key={item}>{item}</li>)}
+              {includes.map(item => <li key={item}>{item}</li>)}
             </ul>
             <div className="credit-billing-grid">
               <button
@@ -56,7 +74,7 @@ export function UpgradeModal() {
                 onClick={() => setBillingCycle("monthly")}
               >
                 <div className="credit-billing-label">Monthly</div>
-                <strong className="credit-billing-price">$30</strong><span>/ mo</span>
+                <strong className="credit-billing-price">${feeMonthly}</strong><span>/ mo</span>
               </button>
               <button
                 type="button"
@@ -65,20 +83,21 @@ export function UpgradeModal() {
               >
                 <span className="credit-billing-recommended">Recommended</span>
                 <div className="credit-billing-label">Annual</div>
-                <strong className="credit-billing-price">$300</strong><span>/ yr</span>
-                <div className="credit-billing-sub">$25/mo · 2 months free</div>
+                <strong className="credit-billing-price">${feeYearly}</strong><span>/ yr</span>
+                <div className="credit-billing-sub">${yearlyMonthly}/mo · 2 months free</div>
               </button>
             </div>
             <button type="button" className="credit-btn-primary credit-upgrade-cta" onClick={completeProUpgrade}>
-              Start your AI advisor · {billingCycle === "annual" ? "$25/mo billed yearly" : "$30/mo"}
+              Start your AI advisor · {billingCycle === "annual" ? `$${yearlyMonthly}/mo billed yearly` : `$${feeMonthly}/mo`}
             </button>
             <p className="credit-upgrade-footnote">Powered by Stripe · cancel anytime · no equity, no advisory fees</p>
+            <UpgradeLegalFootnote />
           </>
         ) : (
           <>
             {isFree ? (
               <p className="credit-topup-gate">
-                Top-ups unlock on Pro — your always-on AI advisor, from $25/mo.{" "}
+                Top-ups unlock on Pro — your always-on AI advisor, from ${yearlyMonthly}/mo.{" "}
                 <button type="button" className="profile-usage-upgrade-link" onClick={() => setUpgradeTab("pro")}>
                   See Pro pricing
                 </button>
@@ -86,7 +105,7 @@ export function UpgradeModal() {
             ) : (
               <>
                 <div className="credit-topup-grid">
-                  {TOP_UP_OPTIONS.map(option => (
+                  {topUps.map(option => (
                     <button
                       key={option.id}
                       type="button"
@@ -115,11 +134,12 @@ export function UpgradeModal() {
                 <button
                   type="button"
                   className="credit-btn-primary credit-upgrade-cta"
-                  onClick={() => completeTopUp(selectedTopUp.credits)}
+                  onClick={() => selectedTopUp && completeTopUp(selectedTopUp.credits)}
                 >
-                  Top up · {selectedTopUp.label} · ${selectedTopUp.price}
+                  Top up · {selectedTopUp?.label} · ${selectedTopUp?.price}
                 </button>
                 <p className="credit-upgrade-footnote">{TOP_UP_FOOTNOTE}</p>
+                <UpgradeLegalFootnote />
               </>
             )}
           </>

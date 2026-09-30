@@ -34,6 +34,20 @@ export const PLAN_LIMITS: Record<CreditPlan, { monthly: number; daily: number; b
   pro: { monthly: 2000, daily: 200, blockMs: 6 * 60 * 60 * 1000 },
 };
 
+/** Investor pools are larger — credits cover a book of companies, not one. */
+export const INVESTOR_PLAN_LIMITS: Record<CreditPlan, { monthly: number; daily: number; blockMs: number }> = {
+  free: { monthly: 1000, daily: 200, blockMs: 24 * 60 * 60 * 1000 },
+  pro: { monthly: 8000, daily: 800, blockMs: 6 * 60 * 60 * 1000 },
+};
+
+export const INVESTOR_CREDIT_COSTS: CreditCosts = {
+  docUpload: 25,
+  aiChat: 5,
+  generateSource: 12,
+  playbookRun: 75,
+  crunchbaseEnrichment: 10,
+};
+
 export type TopUpPack = {
   id: string;
   credits: number;
@@ -76,6 +90,41 @@ export const TOP_UP_OPTIONS: TopUpPack[] = [
     label: "Scale",
     blurb: "A full fundraising sprint or due diligence cycle — maximum intelligence generation across many sources.",
     discount: "Save 20%",
+  },
+];
+
+export const INVESTOR_TOP_UP_OPTIONS: TopUpPack[] = [
+  {
+    id: "watchlist",
+    credits: 4000,
+    price: 35,
+    label: "Watchlist",
+    blurb: "Refresh a short list — enrich companies and run Ask Fuel across the names you are watching.",
+  },
+  {
+    id: "pipeline",
+    credits: 8000,
+    price: 60,
+    label: "Pipeline",
+    blurb: "A diligence week — decks, playbooks, and research on active deals.",
+    discount: "Save 14%",
+  },
+  {
+    id: "portfolio",
+    credits: 20000,
+    price: 140,
+    label: "Portfolio",
+    blurb: "A full month across the book — uploads, playbooks, and company research.",
+    discount: "Save 20%",
+    popular: true,
+  },
+  {
+    id: "fund",
+    credits: 40000,
+    price: 250,
+    label: "Fund",
+    blurb: "An IC or fundraising cycle — intelligence across the whole portfolio.",
+    discount: "Save 22%",
   },
 ];
 

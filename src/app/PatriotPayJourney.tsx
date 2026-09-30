@@ -38,6 +38,10 @@ import {
 import { AskFuelChatDrawer, ASK_FUEL_FLOW_VERSION } from "./AskFuelChat.tsx";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
 import { AccountSettings } from "./account/AccountSettings.tsx";
+import { FuelLegalPage } from "./legal/FuelLegalPage.tsx";
+import { LegalNavProvider } from "./legal/LegalNavContext.tsx";
+import { getLegalDocument, type LegalDocId } from "./legal/legalContent.ts";
+import { SuperAdminDashboard } from "./super-admin/SuperAdminDashboard.tsx";
 import {
   AccountSettingsNavProvider,
   accountTabLabel,
@@ -5736,7 +5740,7 @@ function FinishProfileWizard({ onBack, onSubmitBenchmark }: { onBack: () => void
     },
   ];
   const currentBenchmark = benchmarkSteps[benchmarkStep];
-  const businessModels = ["SaaS / Software product", "Services / Consultancy", "Investment firm", "Operating + investment firm", "Other"];
+  const businessModels = ["SaaS / Software product", "Investment firm", "Operating + investment firm", "Other"];
 
   if (stage === "profile") {
     return (
@@ -9002,10 +9006,14 @@ function SidebarMenuIcon({ children }: { children: React.ReactNode }) {
 function SidebarProfileFooter({
   onOpenAccountSettings,
   onOpenHelp,
+  onOpenSuperAdmin,
+  superAdminOpen = false,
   yorkUpsellReady = false,
 }: {
   onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
   onOpenHelp?: () => void;
+  onOpenSuperAdmin?: () => void;
+  superAdminOpen?: boolean;
   yorkUpsellReady?: boolean;
 }) {
   const { snapshot } = useCredits();
@@ -9138,25 +9146,36 @@ function SidebarProfileFooter({
             </div>
           </div>
         ) : null}
-        <button
-          type="button"
-          className={`sidebar-foot${menuOpen ? " open" : ""}`}
-          aria-label="Open user menu"
-          aria-expanded={menuOpen}
-          aria-haspopup="menu"
-          onClick={() => setMenuOpen(open => !open)}
-        >
-          <div className="sidebar-foot-avatar">SG</div>
-          <div className="sidebar-foot-copy">
-            <div className="sidebar-foot-name">
-              Shreya Gokani
-              {snapshot.plan === "free" ? <span className="credit-inline-badge">Free</span> : (
-                <span className="credit-plan-badge pro" style={{ marginLeft: 6, padding: "2px 6px" }}>Pro</span>
-              )}
+        <div className="sidebar-foot-row">
+          <button
+            type="button"
+            className={`sidebar-foot${menuOpen ? " open" : ""}`}
+            aria-label="Open user menu"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMenuOpen(open => !open)}
+          >
+            <div className="sidebar-foot-avatar">SG</div>
+            <div className="sidebar-foot-copy">
+              <div className="sidebar-foot-name">
+                Shreya Gokani
+                {snapshot.plan === "free" ? <span className="credit-inline-badge">Free</span> : (
+                  <span className="credit-plan-badge pro" style={{ marginLeft: 6, padding: "2px 6px" }}>Pro</span>
+                )}
+              </div>
+              <div className="sidebar-foot-email">shreya.g@york.ie</div>
             </div>
-            <div className="sidebar-foot-email">shreya.g@york.ie</div>
-          </div>
-        </button>
+          </button>
+          <button
+            type="button"
+            className={`sidebar-foot-gear${superAdminOpen ? " is-active" : ""}`}
+            aria-label="Open Super Admin"
+            title="Super Admin"
+            onClick={() => onOpenSuperAdmin?.()}
+          >
+            <FuelIcon name="gear" size={15} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -9174,14 +9193,13 @@ export default function PatriotPayJourney({
   persona?: "founder" | "investor";
 }) {
   return (
-    <CreditProvider>
+    <CreditProvider audience={persona === "investor" ? "investor" : "founder"}>
       <PatriotPayJourneyInner
         initialPage={initialPage}
         initialBenchmark={initialBenchmark}
         initialOnboardingAnswers={initialOnboardingAnswers}
         persona={persona}
       />
-      <UpgradeModal />
       <CreditToastHost />
     </CreditProvider>
   );
@@ -9281,12 +9299,23 @@ function PatriotPayJourneyInner({
   );
   const [benchmarkBlinkIds, setBenchmarkBlinkIds] = useState<string[]>([]);
   const [askFuelOpen, setAskFuelOpen] = useState(false);
+  const [superAdminOpen, setSuperAdminOpen] = useState(false);
   const [askFuelBenchmarkSubmitSignal, setAskFuelBenchmarkSubmitSignal] = useState(0);
   const [elevateDetailsDrawer, setElevateDetailsDrawer] = useState(false);
   const askFuelAwaitingBenchmarkRef = useRef(false);
   const openAccountSettings = useCallback((tab: AccountSettingsTab = "profile") => {
     setAccountTab(tab);
     setActivePage("account");
+  }, []);
+  const legalReturnRef = useRef("scorecard-v2");
+  const [legalDocId, setLegalDocId] = useState<LegalDocId>("terms");
+  const openLegal = useCallback((doc: LegalDocId) => {
+    legalReturnRef.current = activePage;
+    setLegalDocId(doc);
+    setActivePage("legal");
+  }, [activePage]);
+  const closeLegal = useCallback(() => {
+    setActivePage(legalReturnRef.current);
   }, []);
   const dismissProfileCompletionPrompt = useCallback(() => {
     markProfileCompletionPromptDismissed(selectedCompany.id);
@@ -9319,8 +9348,9 @@ function PatriotPayJourneyInner({
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
   const { tryAction, syncFreeEarnedAllowance } = useCredits();
   useLayoutEffect(() => {
+    if (isInvestorPersona) return;
     syncFreeEarnedAllowance(computeEarnedCredits(earnedProfileCredits));
-  }, [earnedProfileCredits, syncFreeEarnedAllowance]);
+  }, [earnedProfileCredits, isInvestorPersona, syncFreeEarnedAllowance]);
   const isOnCompanyWorkspace = activePage !== "investor-home"
     && activePage !== "investor-portfolios"
     && activePage !== "investor-pipeline"
@@ -10092,6 +10122,7 @@ function PatriotPayJourneyInner({
 
   const isAccountPage = activePage === "account";
   const isHelpPage = activePage === "help";
+  const isLegalPage = activePage === "legal";
   const isInvestorShellPage = activePage === "investor-home"
     || activePage === "investor-portfolios"
     || activePage === "investor-pipeline"
@@ -10102,6 +10133,8 @@ function PatriotPayJourneyInner({
         : "portfolios"; // home dashboard hidden — portfolios is the investor landing
   const breadcrumbLabel = isAccountPage
     ? `Account · ${accountTabLabel(accountTab)}`
+    : isLegalPage
+      ? `Legal · ${getLegalDocument(legalDocId).shortTitle}`
     : isHelpPage
       ? "Help & FAQ"
     : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
@@ -10133,6 +10166,7 @@ function PatriotPayJourneyInner({
   );
 
   return (
+    <LegalNavProvider openLegal={openLegal}>
     <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
     <div className={`app${profilePromptBlocking ? " is-profile-prompt-gated" : ""}`}>
       <aside className="sidebar">
@@ -10240,6 +10274,8 @@ function PatriotPayJourneyInner({
         <SidebarProfileFooter
           onOpenAccountSettings={openAccountSettings}
           onOpenHelp={() => setActivePage("help")}
+          onOpenSuperAdmin={() => setSuperAdminOpen(true)}
+          superAdminOpen={superAdminOpen}
           yorkUpsellReady={overviewBuildPhase == null || overviewBuildPhase === "ready"}
         />
       </aside>
@@ -10262,7 +10298,7 @@ function PatriotPayJourneyInner({
               </div>
             </div>
             <div className="content">
-              <AccountSettings tab={accountTab} onTabChange={setAccountTab} />
+              <AccountSettings tab={accountTab} onTabChange={setAccountTab} onOpenLegal={openLegal} />
             </div>
           </>
         ) : activePage === "help" ? (
@@ -10281,6 +10317,8 @@ function PatriotPayJourneyInner({
             </div>
             <div className="content">
               <FuelHelpFaqPage
+                audience={isInvestorPersona ? "investor" : "founder"}
+                onOpenLegal={openLegal}
                 onBack={() => setActivePage(isInvestorPersona ? "investor-portfolios" : "scorecard-v2")}
                 onGoTo={dest => {
                   switch (dest) {
@@ -10320,6 +10358,28 @@ function PatriotPayJourneyInner({
                       return;
                   }
                 }}
+              />
+            </div>
+          </>
+        ) : activePage === "legal" ? (
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content">
+              <FuelLegalPage
+                doc={legalDocId}
+                onDocChange={setLegalDocId}
+                onBack={closeLegal}
               />
             </div>
           </>
@@ -10997,6 +11057,11 @@ function PatriotPayJourneyInner({
         onContinue={dismissProfileCompletionPrompt}
       />
     </div>
+    {superAdminOpen ? (
+      <SuperAdminDashboard onClose={() => setSuperAdminOpen(false)} />
+    ) : null}
+      <UpgradeModal />
     </AccountSettingsNavProvider>
+    </LegalNavProvider>
   );
 }

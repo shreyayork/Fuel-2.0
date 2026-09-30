@@ -1,26 +1,36 @@
-import React from "react";
-import { useAccountSettingsNavOptional } from "../account/AccountSettingsNav";
-import { PLAN_LIMITS } from "./constants";
+import React, { useEffect, useRef } from "react";
+import { getPlanLimits } from "./creditCatalog";
 import { useCredits } from "./CreditProvider";
 import { totalRemaining, dailyRemaining } from "./creditLogic";
 import { CreditPopover } from "./CreditPopover";
 
 export function CreditIndicator() {
-  const { snapshot, barTone, barFill, popoverOpen, setPopoverOpen } = useCredits();
-  const accountNav = useAccountSettingsNavOptional();
+  const { snapshot, barTone, barFill, popoverOpen, togglePopover, setPopoverOpen } = useCredits();
+  const wrapRef = useRef<HTMLDivElement>(null);
   const planLabel = snapshot.plan === "pro" ? "Pro" : "Free";
   const remaining = totalRemaining(snapshot);
   const dailyLeft = dailyRemaining(snapshot);
   const totalCap = snapshot.monthlyLimit + snapshot.topUpBalance;
-  const canEarnMore = snapshot.plan === "free" && snapshot.monthlyLimit < PLAN_LIMITS.free.monthly;
+  const canEarnMore = snapshot.plan === "free" && snapshot.monthlyLimit < getPlanLimits().free.monthly;
 
-  const openUsage = () => {
-    setPopoverOpen(false);
-    accountNav?.openAccountSettings("usage");
-  };
+  useEffect(() => {
+    if (!popoverOpen) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) setPopoverOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPopoverOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [popoverOpen, setPopoverOpen]);
 
   return (
-    <div className="credit-indicator-wrap">
+    <div className="credit-indicator-wrap" ref={wrapRef}>
       {popoverOpen ? <CreditPopover /> : null}
       <button
         type="button"
@@ -32,7 +42,7 @@ export function CreditIndicator() {
             ? `${remaining.toLocaleString()} / ${totalCap.toLocaleString()} credits · complete profile to earn more`
             : `${remaining.toLocaleString()} / ${totalCap.toLocaleString()} credits · resets ${snapshot.monthlyResetLabel} · ${dailyLeft} daily left`
         }
-        onClick={openUsage}
+        onClick={togglePopover}
       >
         <div className="credit-indicator-summary">
           <span className={`credit-plan-badge ${snapshot.plan}`}>{planLabel}</span>

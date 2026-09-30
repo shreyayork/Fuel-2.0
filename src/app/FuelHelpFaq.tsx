@@ -1,5 +1,9 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { FuelIcon } from "./icons";
+import { LegalDocLink } from "./legal/LegalNavContext";
+import { FuelLegalFooterLinks } from "./legal/FuelLegalPage";
+import type { LegalDocId } from "./legal/legalContent";
+import { getPublishedHelpFaqForAudience } from "./super-admin/faqAdminStore";
 
 export const FUEL_SUPPORT_EMAIL = "support@york.ie";
 
@@ -54,8 +58,10 @@ function SupportEmailLink() {
   );
 }
 
-/** Platform FAQ generated from current Fuel founder / investor UI surfaces. */
-export const FUEL_HELP_FAQ: HelpFaqItem[] = [
+export type HelpFaqAudience = "founder" | "investor";
+
+/** Founder company workspace — scorecard, tracks, initiatives, data room uploads. */
+export const FUEL_FOUNDER_HELP_FAQ: HelpFaqItem[] = [
   {
     id: "what-is-fuel",
     question: "What is Fuel?",
@@ -85,9 +91,9 @@ export const FUEL_HELP_FAQ: HelpFaqItem[] = [
     question: "How do I get started?",
     answer: "Onboarding takes a few minutes and asks for enough context to build your first benchmark.",
     points: [
-      { label: "Everyone", body: "Your org type (Product, Service / Agency, or Investment), your role, and company context." },
-      { label: "Product companies", body: "Also walk Development, GTM, RevOps, and benchmarking." },
-      { label: "Investment firms", body: "Cover portfolio preferences instead." },
+      { label: "Profile", body: "Company context, funding, and what you build." },
+      { label: "Operating tracks", body: "Development, GTM, and G&A — enough detail for Fuel to score each area." },
+      { label: "Benchmarking", body: "Headline metrics compared to your peer cohort (optional but recommended)." },
     ],
     footnote: <>Every section you finish adds credits and sharpens your scores on <Shortcut to="overview">Overview</Shortcut>.</>,
   },
@@ -220,7 +226,6 @@ export const FUEL_HELP_FAQ: HelpFaqItem[] = [
     points: [
       { label: "Available now", body: "HubSpot, Slack, and Granola." },
       { label: "What we fetch", body: "Messages, emails, and notes from those places — meeting summaries from Granola, channel context from Slack, emails and CRM activity from HubSpot." },
-      { label: "If you’re an investor", body: <>HubSpot also brings in deal pipelines so you can manage stages, next steps, and coverage in <Shortcut to="investor-pipeline">Pipeline</Shortcut> instead of jumping back to the CRM.</> },
       { label: "What happens next", body: <>Each note lands in Sources on <Shortcut to="intelligence">Intelligence</Shortcut>. Fuel turns it into Intelligence, then suggests new work on <Shortcut to="initiatives">Initiatives</Shortcut>.</> },
     ],
     footnote: <>A broader catalog covers tools across product and engineering, marketing, revenue operations, and finance operations as you grow. Open <Shortcut to="account-integrations">Account → Integrations</Shortcut>.</>,
@@ -236,14 +241,19 @@ export const FUEL_HELP_FAQ: HelpFaqItem[] = [
     ],
   },
   {
-    id: "investor-vs-founder",
-    question: "How does investor mode differ from founder mode?",
-    answer: "Choosing Investment during onboarding changes where you land and what you can see.",
+    id: "legal-policies",
+    question: "Where are Terms, Privacy, and payment terms?",
+    answer: (
+      <>
+        These policies govern your workspace, how we handle company data, and how Pro subscriptions and credit top-ups are billed.
+      </>
+    ),
     points: [
-      { label: "Where you land", body: <><Shortcut to="investor-portfolios">Portfolios</Shortcut>, <Shortcut to="investor-pipeline">Pipeline</Shortcut>, and <Shortcut to="investor-watchlists">Watchlists</Shortcut> instead of the founder <Shortcut to="overview">Overview</Shortcut>.</> },
-      { label: "What you can open", body: <>Company workspaces, and you can request <Shortcut to="data-room">Data Room</Shortcut> access.</> },
-      { label: "What stays private", body: "Founder-uploaded files are gated until access is granted." },
+      { label: "Terms of Service", body: <LegalDocLink doc="terms">Open Terms of Service</LegalDocLink> },
+      { label: "Privacy Policy", body: <LegalDocLink doc="privacy">Open Privacy Policy</LegalDocLink> },
+      { label: "Payment & Credit Terms", body: <LegalDocLink doc="payment">Open Payment &amp; Credit Terms</LegalDocLink> },
     ],
+    footnote: <>You can also open them from <Shortcut to="account-billing">Account → Billing</Shortcut>.</>,
   },
   {
     id: "contact-team",
@@ -256,14 +266,200 @@ export const FUEL_HELP_FAQ: HelpFaqItem[] = [
   },
 ];
 
+/** Investment firm workspace — portfolios, pipeline, watchlists, company drill-ins. */
+export const FUEL_INVESTOR_HELP_FAQ: HelpFaqItem[] = [
+  {
+    id: "what-is-fuel-investor",
+    question: "What is Fuel for investment teams?",
+    answer:
+      "Fuel is York IE’s operating layer for funds and firms that need a clear read on portfolio companies and deal flow — without living in five spreadsheets.",
+    points: [
+      { label: <Shortcut to="investor-portfolios">Portfolios</Shortcut>, body: "Holdings grouped the way you work, with benchmark context per company." },
+      { label: <Shortcut to="investor-pipeline">Pipeline</Shortcut>, body: "Active deals, stages, and next steps synced from your CRM when HubSpot is connected." },
+      { label: <Shortcut to="investor-watchlists">Watchlists</Shortcut>, body: "Companies you’re tracking before they’re in the portfolio or the pipeline." },
+      { label: <Shortcut to="ask-fuel">Ask Fuel</Shortcut>, body: "An AI advisor that reasons over the company or deal you have in context." },
+    ],
+  },
+  {
+    id: "investor-getting-started",
+    question: "How do I get started as an investor?",
+    answer: "Onboarding is built for investment firms — thesis, geography, and how you run pipeline.",
+    points: [
+      { label: "Firm profile", body: "Org type Investment firm, fund context, and how you describe the practice." },
+      { label: "Investment preferences", body: "Check size, stages, sectors, and geography so Fuel filters the right peers and deals." },
+      { label: "Pipeline source", body: "Optional HubSpot connect during onboarding to populate Pipeline on day one." },
+    ],
+    footnote: <>When onboarding finishes, you land on <Shortcut to="investor-portfolios">Portfolios</Shortcut> — not the founder scorecard.</>,
+  },
+  {
+    id: "investor-portfolios",
+    question: "How do Portfolios work?",
+    answer: <>Portfolios are where you monitor companies you’ve backed or manage on behalf of LPs. Open <Shortcut to="investor-portfolios">Portfolios</Shortcut>.</>,
+    points: [
+      { label: "What you see", body: "Company cards with stage, sector, and headline operating signals Fuel already knows." },
+      { label: "Drill in", body: "Open a company workspace to see its Overview-style read, intelligence, and benchmarks where data is shared." },
+      { label: "Benchmarks", body: "Compare growth, retention, and efficiency metrics to cohort percentiles when the company has submitted private benchmarks or public context." },
+    ],
+  },
+  {
+    id: "investor-pipeline",
+    question: "What is Pipeline?",
+    answer: <>Pipeline is your live deal board — stages, owners, and momentum without re-keying HubSpot. Open <Shortcut to="investor-pipeline">Pipeline</Shortcut>.</>,
+    points: [
+      { label: "Requires HubSpot", body: <>Connect HubSpot under <Shortcut to="account-integrations">Account → Integrations</Shortcut> (or during onboarding) to pull deals in.</> },
+      { label: "What you do here", body: "Scan stage distribution, spot stalled deals, and jump into company context when a name is ready for diligence." },
+      { label: "Ask Fuel", body: <>Use <Shortcut to="ask-fuel">Ask Fuel</Shortcut> on a deal or company when you want a structured read before a partner meeting.</> },
+    ],
+  },
+  {
+    id: "investor-watchlists",
+    question: "What are Watchlists?",
+    answer: <>Watchlists track companies you’re not ready to wire into Pipeline or a portfolio yet. Open <Shortcut to="investor-watchlists">Watchlists</Shortcut>.</>,
+    points: [
+      { label: "Use them for", body: "Thesis-fit names, re-engagement targets, and co-investor referrals you want on one list." },
+      { label: "Move forward", body: "When a company graduates, add it to Pipeline or open a full workspace as your process allows." },
+    ],
+  },
+  {
+    id: "investor-company-workspace",
+    question: "What can I see inside a portfolio company workspace?",
+    answer: "Each company opens a dedicated workspace — the same operating surfaces founders use, scoped to what they’ve shared with you.",
+    points: [
+      { label: "Overview & tracks", body: "R&D, GTM, and G&A scores and recommended actions when profile and benchmark data exist." },
+      { label: "Intelligence", body: <>Timeline of metrics and sources — benchmark submissions, integrations, and uploaded documents the founder approved.</> },
+      { label: "Initiatives", body: "Work the company is running against gaps Fuel surfaced (read-only unless your process says otherwise)." },
+    ],
+    footnote: "You never see founder-private files until Data Room access is granted.",
+  },
+  {
+    id: "investor-data-room",
+    question: "How do Data Room requests work?",
+    answer: "Founders control their Data Room. You request access; they approve when they’re ready to share decks, models, or diligence files.",
+    points: [
+      { label: "Request access", body: "From the company workspace when Fuel shows the gated Data Room state." },
+      { label: "After approval", body: <>Files appear in the company <Shortcut to="data-room">Data Room</Shortcut> tab and can feed Intelligence for that workspace.</> },
+      { label: "Your responsibility", body: "Treat shared materials as confidential — Fuel gates access but your firm’s policy still applies." },
+    ],
+  },
+  {
+    id: "investor-ask-fuel",
+    question: "What can Ask Fuel do for investors?",
+    answer: <>Ask Fuel runs against the company or deal you have in focus — not a generic chatbot. Open <Shortcut to="ask-fuel">Ask Fuel</Shortcut>.</>,
+    points: [
+      { label: "Portfolio questions", body: "Summarize how a company benchmarks, where scores slipped, and what initiatives are in flight." },
+      { label: "Pipeline questions", body: "Pressure-test stage, fit vs thesis, and what diligence to run next." },
+      { label: "Playbooks", body: "Run York IE playbooks (briefs, benchmark reviews, fundraising readiness) on shared company context." },
+    ],
+    footnote: <>Uploads you add in chat follow the same Data Room and permissions rules as founder uploads.</>,
+  },
+  {
+    id: "investor-integrations",
+    question: "Which integrations matter for investors?",
+    answer: (
+      <>
+        HubSpot is the primary integration for investment teams — it powers <Shortcut to="investor-pipeline">Pipeline</Shortcut>. Connect it from <Shortcut to="account-integrations">Account → Integrations</Shortcut>.
+      </>
+    ),
+    points: [
+      { label: "HubSpot", body: "Deals, stages, and company records flow into Fuel so Pipeline stays current." },
+      { label: "Slack & Granola", body: "Optional — meeting and channel context can enrich Intelligence when founders connect them on their side." },
+    ],
+  },
+  {
+    id: "investor-credits",
+    question: "How do credits work on an investor account?",
+    answer: "Credits meter AI usage — Ask Fuel, document processing, and playbook runs — the same unit founders use.",
+    points: [
+      { label: "Balance", body: "Check the credit chip in the sidebar next to your name." },
+      { label: "Plan & top-ups", body: <>Usage history, Pro upgrade, and credit packs live under <Shortcut to="account-billing">Account → Billing</Shortcut>.</> },
+      { label: "Daily limits", body: "Free and Pro plans include daily allowances; top-ups add capacity when you’re running heavy diligence sprints." },
+    ],
+  },
+  {
+    id: "investor-account",
+    question: "Where do I manage account and billing?",
+    answer: <>Open <Shortcut to="account">Account settings</Shortcut> from the sidebar profile menu.</>,
+    points: [
+      { label: "Workspace", body: <>Profile, users, teams, and <Shortcut to="account-integrations">integrations</Shortcut>.</> },
+      { label: "Usage & billing", body: <>Credit usage, plan, and invoices — start at <Shortcut to="account-billing">Billing</Shortcut>.</> },
+      { label: "Legal", body: "Terms, Privacy, and Payment & Credit Terms are linked from Billing." },
+    ],
+  },
+  {
+    id: "investor-legal",
+    question: "Where are Terms, Privacy, and payment terms?",
+    answer: (
+      <>
+        The same York IE policies apply to investment firm workspaces — including AI usage, portfolio data you upload, and billing for Pro and credit packs.
+      </>
+    ),
+    points: [
+      { label: "Terms of Service", body: <LegalDocLink doc="terms">Open Terms of Service</LegalDocLink> },
+      { label: "Privacy Policy", body: <LegalDocLink doc="privacy">Open Privacy Policy</LegalDocLink> },
+      { label: "Payment & Credit Terms", body: <LegalDocLink doc="payment">Open Payment &amp; Credit Terms</LegalDocLink> },
+    ],
+    footnote: <>Also linked from <Shortcut to="account-billing">Account → Billing</Shortcut>.</>,
+  },
+  {
+    id: "investor-contact",
+    question: "How do I reach the Fuel team?",
+    answer: (
+      <>
+        Email <SupportEmailLink /> for access, HubSpot setup, billing, or product questions. Someone on the York IE team will follow up.
+      </>
+    ),
+  },
+];
+
+/** @deprecated Use `FUEL_FOUNDER_HELP_FAQ` or `getHelpFaqForAudience`. */
+export const FUEL_HELP_FAQ = FUEL_FOUNDER_HELP_FAQ;
+
+export function getHelpFaqForAudience(audience: HelpFaqAudience): HelpFaqItem[] {
+  const fromAdmin = getPublishedHelpFaqForAudience(audience);
+  if (fromAdmin.length) return fromAdmin;
+  return audience === "investor" ? FUEL_INVESTOR_HELP_FAQ : FUEL_FOUNDER_HELP_FAQ;
+}
+
+const HELP_PAGE_INTRO: Record<HelpFaqAudience, { title: string; subtitle: string }> = {
+  founder: {
+    title: "Help & FAQ",
+    subtitle: "Quick answers about your company workspace — Overview, benchmarks, Intelligence, and Ask Fuel.",
+  },
+  investor: {
+    title: "Help & FAQ · Investors",
+    subtitle: "Quick answers about Portfolios, Pipeline, Watchlists, company workspaces, and investor billing.",
+  },
+};
+
 export function FuelHelpFaqPage({
+  audience = "founder",
   onBack,
   onGoTo,
+  onOpenLegal,
 }: {
+  audience?: HelpFaqAudience;
   onBack?: () => void;
   onGoTo?: HelpFaqNav;
+  onOpenLegal?: (doc: LegalDocId) => void;
 }) {
-  const [openId, setOpenId] = useState<string | null>(FUEL_HELP_FAQ[0]?.id ?? null);
+  const [faqRevision, setFaqRevision] = useState(0);
+  const items = React.useMemo(
+    () => getHelpFaqForAudience(audience),
+    [audience, faqRevision],
+  );
+  const intro = HELP_PAGE_INTRO[audience];
+  const [openId, setOpenId] = useState<string | null>(() => items[0]?.id ?? null);
+
+  useEffect(() => {
+    const onUpdate = () => setFaqRevision(n => n + 1);
+    window.addEventListener("fuel-help-faq-admin-updated", onUpdate);
+    return () => window.removeEventListener("fuel-help-faq-admin-updated", onUpdate);
+  }, []);
+
+  useEffect(() => {
+    const next = getHelpFaqForAudience(audience);
+    setOpenId(next[0]?.id ?? null);
+  }, [audience, faqRevision]);
 
   return (
     <HelpFaqNavContext.Provider value={onGoTo ?? null}>
@@ -278,12 +474,12 @@ export function FuelHelpFaqPage({
 
         <header className="fuel-help-page-head">
           <span className="fuel-help-eyebrow">Support</span>
-          <h1 id="fuel-help-page-title">Help &amp; FAQ</h1>
-          <p>Quick answers about Fuel’s workspace, AI, benchmarks, and account tools.</p>
+          <h1 id="fuel-help-page-title">{intro.title}</h1>
+          <p>{intro.subtitle}</p>
         </header>
 
         <div className="fuel-help-page-grid">
-          {FUEL_HELP_FAQ.map(item => {
+          {items.map(item => {
             const expanded = openId === item.id;
             return (
               <div key={item.id} className={`fuel-help-item${expanded ? " is-open" : ""}`}>
@@ -319,7 +515,12 @@ export function FuelHelpFaqPage({
         </div>
 
         <footer className="fuel-help-page-foot">
-          Still stuck? Email the team at <SupportEmailLink />.
+          <p>
+            Still stuck? Email the team at <SupportEmailLink />.
+          </p>
+          {onOpenLegal ? (
+            <FuelLegalFooterLinks onOpen={onOpenLegal} className="fuel-help-legal-links" />
+          ) : null}
         </footer>
       </section>
     </HelpFaqNavContext.Provider>

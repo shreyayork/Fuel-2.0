@@ -14,7 +14,8 @@ import {
   totalRemaining,
 } from "./creditLogic";
 import { createDemoProSnapshot, isDemoCreditMode } from "./demoFlow";
-import { PLAN_LIMITS, PRO_TAGLINE } from "./constants";
+import { PRO_TAGLINE } from "./constants";
+import { getActiveCreditAudience, getPlanLimits, setActiveCreditAudience, subscribeCreditCatalog, type CreditAudience } from "./creditCatalog";
 import type { CreditActionType, CreditSnapshot, UpgradeReason } from "./types";
 import { computeEarnedCredits, loadEarnedProfileCredits } from "../profileCredits";
 
@@ -26,6 +27,7 @@ export type CreditToast = {
 type UpgradeModalTab = "pro" | "topup";
 
 type CreditContextValue = {
+  audience: CreditAudience;
   snapshot: CreditSnapshot;
   now: number;
   barTone: "teal" | "amber" | "red";
@@ -48,7 +50,7 @@ type CreditContextValue = {
   dismissToast: () => void;
   completeProUpgrade: () => void;
   completeTopUp: (credits: number) => void;
-  /** Free plan: monthly limit is the credits earned from profile / benchmark (0–250). */
+  /** Founder Free: monthly limit is credits earned from profile. Investor Free: full Super Admin pool. */
   syncFreeEarnedAllowance: (earnedCredits: number) => void;
   clearJustUnblocked: () => void;
 };
@@ -57,10 +59,17 @@ const CreditContext = createContext<CreditContextValue | null>(null);
 
 let toastSeq = 0;
 
-export function CreditProvider({ children }: { children: React.ReactNode }) {
-  const [snapshot, setSnapshot] = useState<CreditSnapshot>(() =>
-    createDefaultSnapshot("free", computeEarnedCredits(loadEarnedProfileCredits("patriotpay"))),
-  );
+export function CreditProvider({
+  children,
+  audience = "founder",
+}: {
+  children: React.ReactNode;
+  audience?: CreditAudience;
+}) {
+  const [snapshot, setSnapshot] = useState<CreditSnapshot>(() => {
+    setActiveCreditAudience(audience);
+    return createDefaultSnapshot("free", computeEarnedCredits(loadEarnedProfileCredits("patriotpay")));
+  });
   const [now, setNow] = useState(() => Date.now());
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -68,11 +77,34 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   const [upgradeReason, setUpgradeReason] = useState<UpgradeReason>("healthy");
   const [toast, setToast] = useState<CreditToast | null>(null);
   const prevBlockedRef = useRef(isGenerationBlocked(snapshot));
+  const audienceReadyRef = useRef(false);
+
+  useEffect(() => {
+    setActiveCreditAudience(audience);
+    if (!audienceReadyRef.current) {
+      audienceReadyRef.current = true;
+      return;
+    }
+    setSnapshot(createDefaultSnapshot("free", computeEarnedCredits(loadEarnedProfileCredits("patriotpay"))));
+  }, [audience]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => subscribeCreditCatalog(() => {
+    const limits = getPlanLimits();
+    setSnapshot(current => {
+      if (current.plan === "pro") {
+        return { ...current, monthlyLimit: limits.pro.monthly, dailyLimit: limits.pro.daily };
+      }
+      if (getActiveCreditAudience() === "investor") {
+        return { ...current, monthlyLimit: limits.free.monthly, dailyLimit: limits.free.daily };
+      }
+      return { ...current, dailyLimit: limits.free.daily };
+    });
+  }), []);
 
   useEffect(() => {
     const wasBlocked = prevBlockedRef.current;
@@ -150,9 +182,9 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
       : {
         plan: "pro" as const,
         monthlyUsed: 0,
-        monthlyLimit: PLAN_LIMITS.pro.monthly,
+        monthlyLimit: getPlanLimits().pro.monthly,
         dailyUsed: 0,
-        dailyLimit: PLAN_LIMITS.pro.daily,
+        dailyLimit: getPlanLimits().pro.daily,
         topUpBalance: 0,
         blockUntil: null,
         monthlyResetLabel: "Apr 1",
@@ -173,6 +205,11 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   const syncFreeEarnedAllowance = useCallback((earnedCredits: number) => {
     setSnapshot(current => {
       if (current.plan !== "free") return current;
+      if (getActiveCreditAudience() === "investor") {
+        const pool = getPlanLimits().free.monthly;
+        if (current.monthlyLimit === pool) return current;
+        return { ...current, monthlyLimit: pool };
+      }
       const nextLimit = freeMonthlyLimitFromEarned(earnedCredits);
       if (current.monthlyLimit === nextLimit) return current;
       return { ...current, monthlyLimit: nextLimit };
@@ -205,6 +242,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<CreditContextValue>(() => ({
+    audience,
     snapshot,
     now,
     barTone,
@@ -230,6 +268,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
     syncFreeEarnedAllowance,
     clearJustUnblocked: () => setSnapshot(current => ({ ...current, justUnblocked: false })),
   }), [
+    audience,
     barFill,
     barTone,
     blockCountdownMs,

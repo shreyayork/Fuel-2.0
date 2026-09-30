@@ -1,0 +1,271 @@
+.fuel-legal-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 8px 48px;
+}
+
+.fuel-legal-page--marketing {
+  max-width: 1120px;
+  padding: 24px 24px 64px;
+}
+
+.fuel-legal-toolbar {
+  margin-bottom: 16px;
+}
+
+.fuel-legal-back {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.fuel-legal-back:hover {
+  color: var(--text-1);
+}
+
+.fuel-legal-head {
+  margin-bottom: 24px;
+}
+
+.fuel-legal-eyebrow {
+  color: var(--text-3);
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.fuel-legal-head h1 {
+  color: var(--text-1);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+
+.fuel-legal-head p {
+  color: rgb(203, 211, 219);
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 640px;
+}
+
+.fuel-legal-updated {
+  color: var(--text-3) !important;
+  font-size: 12px !important;
+  margin-top: 10px !important;
+}
+
+.fuel-legal-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+}
+
+@media (max-width: 860px) {
+  .fuel-legal-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fuel-legal-nav {
+  align-self: start;
+  padding: 16px 14px;
+  position: sticky;
+  top: 16px;
+}
+
+.fuel-legal-nav-label,
+.fuel-legal-toc-label {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+.fuel-legal-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fuel-legal-nav li + li {
+  margin-top: 6px;
+}
+
+.fuel-legal-nav button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: block;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.fuel-legal-nav button:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.fuel-legal-nav button.is-active {
+  background: rgba(0, 180, 138, 0.1);
+  border-color: rgba(0, 180, 138, 0.28);
+  color: var(--text-1);
+}
+
+.fuel-legal-nav-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fuel-legal-nav-desc {
+  color: var(--text-3);
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.fuel-legal-body {
+  padding: 22px 24px 28px;
+}
+
+.fuel-legal-toc {
+  border-bottom: 1px solid rgb(38, 57, 71);
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+}
+
+.fuel-legal-toc ol {
+  columns: 2;
+  column-gap: 24px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 640px) {
+  .fuel-legal-toc ol {
+    columns: 1;
+  }
+}
+
+.fuel-legal-toc li {
+  margin: 0 0 6px;
+}
+
+.fuel-legal-toc a {
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.fuel-legal-toc a:hover {
+  color: var(--status-good, #12b886);
+}
+
+.fuel-legal-section + .fuel-legal-section {
+  margin-top: 28px;
+  padding-top: 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fuel-legal-section h2 {
+  color: var(--text-1);
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0 0 12px;
+}
+
+.fuel-legal-section p {
+  color: rgb(203, 211, 219);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0 0 12px;
+}
+
+.fuel-legal-section ul {
+  color: rgb(203, 211, 219);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.fuel-legal-section li + li {
+  margin-top: 6px;
+}
+
+.fuel-legal-foot {
+  border-top: 1px solid rgb(38, 57, 71);
+  color: var(--text-3);
+  font-size: 13px;
+  margin-top: 32px;
+  padding-top: 16px;
+}
+
+.fuel-legal-foot a {
+  color: var(--status-good, #12b886);
+  text-decoration: none;
+}
+
+.fuel-legal-footer-links {
+  align-items: center;
+  color: var(--text-3);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 6px 8px;
+  justify-content: center;
+  line-height: 1.4;
+}
+
+.fuel-legal-footer-links button {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.fuel-legal-footer-links button:hover {
+  color: var(--text-1);
+}
+
+.fuel-legal-inline-link {
+  background: none;
+  border: none;
+  color: var(--status-good, #12b886);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.credit-upgrade-legal {
+  margin-top: 10px;
+}
+
+.acct-billing-legal {
+  margin-top: 20px;
+}

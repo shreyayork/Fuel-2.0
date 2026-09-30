@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { useCredits } from "../credits/CreditProvider";
 import { totalRemaining } from "../credits/creditLogic";
-import { ACTION_LABELS, CREDIT_COSTS, TOP_UP_OPTIONS } from "../credits/constants";
+import { getActionLabels, getCreditCosts, getTopUpOptions } from "../credits/creditCatalog";
 import type { CreditActionType, CreditSnapshot } from "../credits/types";
 import {
   ACCOUNT_SETTINGS_TABS,
   type AccountSettingsTab,
 } from "./AccountSettingsNav";
+import { FuelLegalFooterLinks } from "../legal/FuelLegalPage";
+import type { LegalDocId } from "../legal/legalContent";
 import "./accountSettings.css";
 
 type UsageUserRow = {
@@ -71,11 +73,13 @@ function formatCurrency(value: number): string {
 }
 
 function buildActionBreakdown(totalCredits: number): ActionUsageRow[] {
+  const labels = getActionLabels();
+  const costs = getCreditCosts();
   if (totalCredits <= 0) {
     return USAGE_ACTION_MIX.map(entry => ({
       action: entry.action,
-      label: ACTION_LABELS[entry.action],
-      unitCost: CREDIT_COSTS[entry.action],
+      label: labels[entry.action],
+      unitCost: costs[entry.action],
       credits: 0,
       count: 0,
     }));
@@ -83,7 +87,7 @@ function buildActionBreakdown(totalCredits: number): ActionUsageRow[] {
 
   let allocated = 0;
   return USAGE_ACTION_MIX.map((entry, index) => {
-    const unitCost = CREDIT_COSTS[entry.action];
+    const unitCost = costs[entry.action];
     const remaining = Math.max(0, totalCredits - allocated);
     const raw = index === USAGE_ACTION_MIX.length - 1
       ? remaining
@@ -93,7 +97,7 @@ function buildActionBreakdown(totalCredits: number): ActionUsageRow[] {
     const count = unitCost > 0 ? Math.max(credits > 0 ? 1 : 0, Math.round(credits / unitCost)) : 0;
     return {
       action: entry.action,
-      label: ACTION_LABELS[entry.action],
+      label: labels[entry.action],
       unitCost,
       credits,
       count,
@@ -186,10 +190,11 @@ function buildUsageRows(snapshot: CreditSnapshot, scale = 1, userFilter = "all")
 
 function buildTopUpPurchases(snapshot: CreditSnapshot): TopUpPurchaseRow[] {
   const purchases: TopUpPurchaseRow[] = [];
-  const growthPack = TOP_UP_OPTIONS.find(p => p.id === "growth") ?? TOP_UP_OPTIONS[2];
-  const builderPack = TOP_UP_OPTIONS.find(p => p.id === "builder") ?? TOP_UP_OPTIONS[1];
+  const packs = getTopUpOptions();
+  const growthPack = packs.find(p => p.id === "growth") ?? packs[0];
+  const builderPack = packs.find(p => p.id === "builder") ?? packs[1] ?? packs[0];
 
-  if (snapshot.topUpBalance > 0) {
+  if (snapshot.topUpBalance > 0 && growthPack) {
     purchases.push({
       date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       pack: growthPack.label,
@@ -198,7 +203,7 @@ function buildTopUpPurchases(snapshot: CreditSnapshot): TopUpPurchaseRow[] {
     });
   }
 
-  if (snapshot.plan === "pro" && snapshot.monthlyUsed > snapshot.monthlyLimit * 0.6) {
+  if (builderPack && snapshot.plan === "pro" && snapshot.monthlyUsed > snapshot.monthlyLimit * 0.6) {
     purchases.push({
       date: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       pack: builderPack.label,
@@ -399,12 +404,31 @@ function AccountUsageTab({ snapshot }: { snapshot: CreditSnapshot }) {
   );
 }
 
-function AccountSettingsPlaceholder({ tab }: { tab: AccountSettingsTab }) {
+function AccountSettingsPlaceholder({
+  tab,
+  onOpenLegal,
+}: {
+  tab: AccountSettingsTab;
+  onOpenLegal?: (doc: LegalDocId) => void;
+}) {
   const label = ACCOUNT_SETTINGS_TABS.find(t => t.id === tab)?.label ?? "Section";
   return (
     <div className="acct-settings-placeholder">
       <h2 className="acct-settings-placeholder-title">{label}</h2>
-      <p className="acct-settings-placeholder-copy">This section is coming soon.</p>
+      <p className="acct-settings-placeholder-copy">
+        {tab === "billing"
+          ? "Manage Pro subscription, invoices, and credit top-ups. Payment is processed securely through Stripe."
+          : "This section is coming soon."}
+      </p>
+      {tab === "billing" && onOpenLegal ? (
+        <section className="overview-panel acct-billing-legal">
+          <h3 className="acct-profile-card-title">Legal</h3>
+          <p className="acct-profile-card-copy">
+            Review terms that apply to your plan, credits, and use of Fuel.
+          </p>
+          <FuelLegalFooterLinks onOpen={onOpenLegal} className="fuel-legal-footer-links acct-billing-legal-links" />
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -560,9 +584,11 @@ function AccountProfileTab({
 export function AccountSettings({
   tab,
   onTabChange,
+  onOpenLegal,
 }: {
   tab: AccountSettingsTab;
   onTabChange: (tab: AccountSettingsTab) => void;
+  onOpenLegal?: (doc: LegalDocId) => void;
 }) {
   const { snapshot } = useCredits();
   const isProfile = tab === "profile";
@@ -607,7 +633,7 @@ export function AccountSettings({
         ) : tab === "usage" ? (
           <AccountUsageTab snapshot={snapshot} />
         ) : (
-          <AccountSettingsPlaceholder tab={tab} />
+          <AccountSettingsPlaceholder tab={tab} onOpenLegal={onOpenLegal} />
         )}
       </div>
     </div>

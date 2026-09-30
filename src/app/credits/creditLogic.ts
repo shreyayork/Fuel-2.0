@@ -1,13 +1,16 @@
-import { ACTION_LABELS, CREDIT_COSTS, PLAN_LIMITS } from "./constants";
+import { getActiveCreditAudience, getCreditCosts, getPlanLimits, getPublicActions } from "./creditCatalog";
 import { createDemoFreeSnapshot, getDemoBlockMs, isDemoCreditMode } from "./demoFlow";
 import type { CreditActionType, CreditPlan, CreditSnapshot, PopoverState, UpgradeReason } from "./types";
 
 export function freeMonthlyLimitFromEarned(earnedCredits: number): number {
-  return Math.max(0, Math.min(PLAN_LIMITS.free.monthly, Math.round(earnedCredits)));
+  const cap = getPlanLimits().free.monthly;
+  if (getActiveCreditAudience() === "investor") return cap;
+  return Math.max(0, Math.min(cap, Math.round(earnedCredits)));
 }
 
 /** Free plan with nothing earned yet — not the same as spending the pool down to zero. */
 export function isAwaitingEarnedCredits(snapshot: CreditSnapshot): boolean {
+  if (getActiveCreditAudience() === "investor") return false;
   return snapshot.plan === "free"
     && snapshot.monthlyLimit <= 0
     && snapshot.topUpBalance <= 0
@@ -83,7 +86,7 @@ export function formatCountdown(ms: number): string {
 }
 
 export function actionsRemaining(snapshot: CreditSnapshot, action: CreditActionType): number {
-  const cost = CREDIT_COSTS[action];
+  const cost = getCreditCosts()[action];
   if (cost <= 0) return 0;
   return Math.floor(totalRemaining(snapshot) / cost);
 }
@@ -107,16 +110,16 @@ export function willRunOutBeforeReset(snapshot: CreditSnapshot): boolean {
 }
 
 export function minCostForAction(action: CreditActionType): number {
-  return CREDIT_COSTS[action];
+  return getCreditCosts()[action];
 }
 
 export function canAfford(snapshot: CreditSnapshot, action: CreditActionType, now = Date.now()): boolean {
   if (isGenerationBlocked(snapshot, now)) return false;
-  return totalRemaining(snapshot) >= CREDIT_COSTS[action];
+  return totalRemaining(snapshot) >= getCreditCosts()[action];
 }
 
 export function applyDeduction(snapshot: CreditSnapshot, action: CreditActionType, now = Date.now()): CreditSnapshot {
-  const cost = CREDIT_COSTS[action];
+  const cost = getCreditCosts()[action];
   let next = { ...snapshot, justUnblocked: false };
   let remainingCost = cost;
 
@@ -135,7 +138,7 @@ export function applyDeduction(snapshot: CreditSnapshot, action: CreditActionTyp
   if (action === "aiChat") next.stats = { ...next.stats, messages: next.stats.messages + 1 };
   if (action === "generateSource") next.stats = { ...next.stats, signals: next.stats.signals + 1 };
 
-  const limits = PLAN_LIMITS[next.plan];
+  const limits = getPlanLimits()[next.plan];
   if (next.dailyUsed >= next.dailyLimit) {
     const blockMs = isDemoCreditMode() ? getDemoBlockMs(next.plan) : limits.blockMs;
     next.blockUntil = now + blockMs;
@@ -152,7 +155,7 @@ export function createDefaultSnapshot(plan: CreditPlan = "free", earnedCredits =
   if (isDemoCreditMode() && plan === "free") {
     return createDemoFreeSnapshot(earnedCredits);
   }
-  const limits = PLAN_LIMITS[plan];
+  const limits = getPlanLimits()[plan];
   return {
     plan,
     monthlyUsed: 0,
@@ -168,10 +171,21 @@ export function createDefaultSnapshot(plan: CreditPlan = "free", earnedCredits =
   };
 }
 
+const POPOVER_ACTION_ORDER: CreditActionType[] = [
+  "aiChat",
+  "docUpload",
+  "generateSource",
+  "playbookRun",
+];
+
 export function creditCostRows() {
-  return (Object.keys(CREDIT_COSTS) as CreditActionType[]).map(key => ({
-    action: key,
-    label: ACTION_LABELS[key],
-    cost: CREDIT_COSTS[key],
+  const rows = getPublicActions().map(action => ({
+    action: action.id,
+    label: action.label,
+    cost: action.cost,
   }));
+  const ordered = POPOVER_ACTION_ORDER
+    .map(id => rows.find(row => row.action === id))
+    .filter((row): row is NonNullable<typeof row> => Boolean(row));
+  return ordered.length ? ordered : rows;
 }

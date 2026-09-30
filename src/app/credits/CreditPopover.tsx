@@ -8,7 +8,8 @@ import {
   willRunOutBeforeReset,
   daysUntilMonthlyEmpty,
 } from "./creditLogic";
-import { PRO_PRICE_FRAME, PRO_TAGLINE } from "./constants";
+import { PRO_TAGLINE } from "./constants";
+import { getAdvisorFromPrice, getProPriceFrame, useCreditCatalog } from "./creditCatalog";
 import { useCredits } from "./CreditProvider";
 
 export function CreditPopover() {
@@ -20,6 +21,7 @@ export function CreditPopover() {
     clearJustUnblocked,
     setPopoverOpen,
   } = useCredits();
+  useCreditCatalog();
 
   useEffect(() => {
     if (popoverState === "justUnblocked") {
@@ -31,6 +33,8 @@ export function CreditPopover() {
   const remaining = totalRemaining(snapshot);
   const dailyLeft = dailyRemaining(snapshot);
   const isFree = snapshot.plan === "free";
+  const fromPrice = `from $${getAdvisorFromPrice()}/mo`;
+  const advisorCta = `Get your AI advisor · ${fromPrice}`;
 
   const renderActions = (primary: React.ReactNode, secondary?: React.ReactNode) => (
     <div className="credit-popover-actions">
@@ -63,14 +67,14 @@ export function CreditPopover() {
           <h4>{isFree ? "Free limit reached" : "Pro daily pause"}</h4>
           <p>
             {isFree
-              ? "Your free advisor allowance is paused for today. Pro keeps you moving — from $25/mo, not equity."
+              ? `Your free advisor allowance is paused for today. Pro keeps you moving — ${fromPrice}, not equity.`
               : "You've used today's Pro allowance. Top up for more, or wait 6 hours for daily credits to reset."}
           </p>
           <div className="credit-countdown">{formatCountdown(blockCountdownMs)}</div>
           <p>{remaining.toLocaleString()} monthly credits remain on your account.</p>
           {renderActions(
             <button type="button" className="credit-btn-primary" onClick={() => openUpgrade(isFree ? "pro" : "topup", "dailyBlocked")}>
-              {isFree ? "Get your AI advisor · from $25/mo" : "Top up credits"}
+              {isFree ? advisorCta : "Top up credits"}
             </button>,
             <button type="button" className="credit-btn-ghost" onClick={() => setPopoverOpen(false)}>
               Wait · {formatCountdown(blockCountdownMs)}
@@ -92,10 +96,10 @@ export function CreditPopover() {
           {isFree ? (
             <>
               <p>{PRO_TAGLINE}</p>
-              <p>{PRO_PRICE_FRAME}</p>
+              <p>{getProPriceFrame()}</p>
               {renderActions(
                 <button type="button" className="credit-btn-primary" onClick={() => openUpgrade("pro", "monthlyEmpty")}>
-                  Go Pro · from $25/mo
+                  Go Pro · {fromPrice}
                 </button>,
                 <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "monthlyEmpty")}>
                   See top-up packs
@@ -125,10 +129,10 @@ export function CreditPopover() {
             {snapshot.plan === "pro" ? ` · ~${actionsRemaining(snapshot, "playbookRun")} playbook runs` : ""}
           </p>
           <p>{dailyLeft} daily credits left today.</p>
-          {isFree ? <p>{PRO_PRICE_FRAME}</p> : null}
+          {isFree ? <p>{getProPriceFrame()}</p> : null}
           {renderActions(
             <button type="button" className="credit-btn-primary" onClick={() => openUpgrade(isFree ? "pro" : "topup", "runningLow")}>
-              {isFree ? "Go Pro · from $25/mo" : "Top up credits"}
+              {isFree ? `Go Pro · ${fromPrice}` : "Top up credits"}
             </button>,
             isFree ? (
               <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "runningLow")}>
@@ -146,11 +150,11 @@ export function CreditPopover() {
           <p>Daily credits are available again — {dailyLeft} of {snapshot.dailyLimit} today.</p>
           <p>{remaining.toLocaleString()} monthly credits remaining.</p>
           {isFree ? (
-            <p style={{ marginTop: 8 }}>Pro keeps your AI advisor available — daily resets in 6 hours, from $25/mo.</p>
+            <p style={{ marginTop: 8 }}>Pro keeps your AI advisor available — daily resets in 6 hours, {fromPrice}.</p>
           ) : null}
           {isFree ? renderActions(
             <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("pro", "healthy")}>
-              See Pro · from $25/mo
+              See Pro · {fromPrice}
             </button>,
           ) : null}
         </>
@@ -171,7 +175,7 @@ export function CreditPopover() {
           </div>
           {isFree ? renderActions(
             <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("pro", "healthy")}>
-              Get your AI advisor · from $25/mo
+              {advisorCta}
             </button>,
           ) : renderActions(
             <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "healthy")}>

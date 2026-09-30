@@ -208,11 +208,6 @@ const BUSINESS_MODEL_OPTIONS = [
     desc: "Recurring software revenue with ARR, NRR, customer logos.",
   },
   {
-    id: "services",
-    label: "Services / Consultancy",
-    desc: "Hands-on services, agencies, consultancies, or revenue per engagement.",
-  },
-  {
     id: "investment",
     label: "Investment firm",
     desc: "Fund or holding company with AUM, portfolio companies, and returns.",
@@ -1190,18 +1185,7 @@ function BenchmarkPercentileHint() {
 }
 
 function estimateValuePercentile(value: number, field: BenchmarkWizardField): number {
-  const { p25, p50, p75, p90 } = field;
-  const lerp = (val: number, lo: number, hi: number, pctLo: number, pctHi: number) => {
-    if (hi === lo) return Math.round((pctLo + pctHi) / 2);
-    const t = Math.min(1, Math.max(0, (val - lo) / (hi - lo)));
-    return Math.round(pctLo + t * (pctHi - pctLo));
-  };
-
-  if (value <= p25) return Math.max(1, lerp(value, Math.max(0, p25 * 0.35), p25, 1, 25));
-  if (value <= p50) return lerp(value, p25, p50, 25, 50);
-  if (value <= p75) return lerp(value, p50, p75, 50, 75);
-  if (value <= p90) return lerp(value, p75, p90, 75, 90);
-  return Math.min(99, lerp(value, p90, p90 * 1.2, 90, 99));
+  return Math.round(valueToMarkerPercent(value, field));
 }
 
 function percentileMeaningSuffix(pct: number): string {
@@ -1396,30 +1380,31 @@ function interpolateTrackPosition(
   return posLo + Math.min(1, Math.max(0, t)) * (posHi - posLo);
 }
 
-export function valueToMarkerPercent(value: number, field: BenchmarkWizardField) {
-  const { p25, p50, p75, p90, bandStart, bandEnd, lowerIsBetter } = field;
-  const useLog = field.unit === "usd" || field.unit === "count";
-  const leftEdge = 2;
-  const rightEdge = 98;
-  const cohortSpan = bandEnd - bandStart;
-  const p50Pos = bandStart + cohortSpan / 3;
-  const p75Pos = bandStart + (2 * cohortSpan) / 3;
-  const floor = useLog ? Math.max(1, p25 * 0.02) : Math.max(0, p25 * 0.35);
-  const ceiling = useLog ? p90 * 2.5 : p90 * 1.2;
+export function valueToMarkerPercent(
+  value: number,
+  field: Pick<BenchmarkWizardField, "p25" | "p50" | "p75" | "p90">,
+) {
+  const { p25, p50, p75, p90 } = field;
+  const lerp = (val: number, lo: number, hi: number, pctLo: number, pctHi: number) => {
+    if (hi === lo) return (pctLo + pctHi) / 2;
+    return pctLo + ((val - lo) / (hi - lo)) * (pctHi - pctLo);
+  };
 
-  if (lowerIsBetter) {
-    if (value <= p25) return interpolateTrackPosition(value, floor, p25, leftEdge, bandStart, useLog);
-    if (value <= p50) return interpolateTrackPosition(value, p25, p50, bandStart, p50Pos, useLog);
-    if (value <= p75) return interpolateTrackPosition(value, p50, p75, p50Pos, p75Pos, useLog);
-    if (value <= p90) return interpolateTrackPosition(value, p75, p90, p75Pos, bandEnd, useLog);
-    return interpolateTrackPosition(value, p90, ceiling, bandEnd, rightEdge, useLog);
+  let pct: number;
+  if (value <= p25) {
+    const floor = p25 > 0 ? p25 * 0.2 : 0;
+    pct = lerp(value, floor, p25, 0, 25);
+  } else if (value <= p50) {
+    pct = lerp(value, p25, p50, 25, 50);
+  } else if (value <= p75) {
+    pct = lerp(value, p50, p75, 50, 75);
+  } else if (value <= p90) {
+    pct = lerp(value, p75, p90, 75, 90);
+  } else {
+    const ceiling = p90 + Math.max(p90 - p75, p90 * 0.2);
+    pct = lerp(value, p90, ceiling, 90, 100);
   }
-
-  if (value <= p25) return interpolateTrackPosition(value, floor, p25, leftEdge, bandStart, useLog);
-  if (value <= p50) return interpolateTrackPosition(value, p25, p50, bandStart, p50Pos, useLog);
-  if (value <= p75) return interpolateTrackPosition(value, p50, p75, p50Pos, p75Pos, useLog);
-  if (value <= p90) return interpolateTrackPosition(value, p75, p90, p75Pos, bandEnd, useLog);
-  return interpolateTrackPosition(value, p90, ceiling, bandEnd, rightEdge, useLog);
+  return Math.min(100, Math.max(0, pct));
 }
 
 export function getBenchmarkTier(value: number, field: BenchmarkWizardField) {

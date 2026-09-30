@@ -75,6 +75,7 @@ export const fuelIcons = {
   gtm: Megaphone,
   finance: Landmark,
   account: Settings,
+  gear: Settings,
   appearanceLight: Sun,
   appearanceDark: Moon,
   logout: LogOut,

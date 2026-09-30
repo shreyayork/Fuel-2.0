@@ -6,6 +6,14 @@ import {
 } from "./OnboardingMotionGraphics.tsx";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney.tsx";
 import {
+  BENCHMARK_WIZARD_FIELDS,
+  formatBenchmarkDisplay,
+  getBenchmarkTier,
+  getBenchmarkTierStyle,
+  valueToMarkerPercent,
+  type BenchmarkWizardField,
+} from "./FuelOnboardingChat.tsx";
+import {
   ONBOARDING_TRACK_FIELDS,
   emptyOnboardingTrackAnswers,
   mapOnboardingToDetailAnswers as mapTrackOnboardingToDetailAnswers,
@@ -57,7 +65,7 @@ const STEPS_INVESTOR_WITH_HUBSPOT: StepId[] = ["profile", "investment", "hubspot
 function investorActiveSteps(investPipeline: string): StepId[] {
   return investPipeline === "HubSpot" ? STEPS_INVESTOR_WITH_HUBSPOT : STEPS_INVESTOR_BASE;
 }
-export const INVESTOR_MODELS = ["Investment firm", "Services or agency"];
+export const INVESTOR_MODELS = ["Investment firm"];
 
 import {
   INVEST_GEOGRAPHY_OPTIONS,
@@ -79,44 +87,66 @@ const LEGACY_BUSINESS_MODELS: Record<string, string> = {
   "Software / SaaS": "Product company",
   "SaaS / Software product": "Product company",
   "Venture / PE fund": "Investment firm",
-  "Agency": "Services or agency",
-  "Consultancy": "Services or agency",
-  "Services / Agency": "Services or agency",
-  "Advisory / Consultancy": "Services or agency",
+  "Agency": "Product company",
+  "Consultancy": "Product company",
+  "Services / Agency": "Product company",
+  "Services or agency": "Product company",
+  "Advisory / Consultancy": "Product company",
   "Operating + investment firm": "Investment firm",
   "Other": "Product company",
 };
 
 const BUSINESS_MODELS = [
   { id: "product",   label: "Product company",             desc: "SaaS, marketplace, or app with recurring or transactional revenue." },
-  { id: "services",  label: "Services or agency",          desc: "Project, retainer, or advisory-based revenue." },
   { id: "invest",    label: "Investment firm",             desc: "Fund or holding company managing a portfolio." },
 ];
 
-const ONBOARDING_BENCHMARK_FIELDS: {
-  label: string;
-  key: keyof OnboardingBenchmarkInput;
-  ph: string;
-  p25: number;
-  p50: number;
-  p75: number;
-  p90: number;
-  unit: "%" | "usd" | "" | "mo" | "x";
-  lowerIsBetter?: boolean;
-}[] = [
-  { label: "ARR", key: "arr", ph: "e.g. $1,200,000", p25: 150_000, p50: 500_000, p75: 1_200_000, p90: 2_500_000, unit: "usd" },
-  { label: "ARR growth (YoY)", key: "arrGrowth", ph: "e.g. 85%", p25: 18, p50: 42, p75: 80, p90: 140, unit: "%" },
-  { label: "Net revenue retention", key: "nrr", ph: "e.g. 108%", p25: 88, p50: 104, p75: 118, p90: 130, unit: "%" },
-  { label: "Gross margin", key: "grossMargin", ph: "e.g. 72%", p25: 48, p50: 62, p75: 74, p90: 82, unit: "%" },
-  { label: "CAC payback", key: "cacPayback", ph: "e.g. 16 mo", p25: 10, p50: 16, p75: 26, p90: 42, unit: "mo", lowerIsBetter: true },
-  { label: "Burn multiple", key: "burnMultiple", ph: "e.g. 2.1x", p25: 1.3, p50: 2.1, p75: 3.4, p90: 5.5, unit: "x", lowerIsBetter: true },
-  { label: "Rule of 40", key: "ruleOf40", ph: "e.g. 28", p25: 15, p50: 28, p75: 40, p90: 55, unit: "%" },
-  { label: "Logo retention", key: "logoRetention", ph: "e.g. 92%", p25: 72, p50: 84, p75: 91, p90: 96, unit: "%" },
-  { label: "Monthly net burn", key: "monthlyBurn", ph: "e.g. $85,000", p25: 40000, p50: 85000, p75: 160000, p90: 280000, unit: "usd", lowerIsBetter: true },
-  { label: "Cash on hand", key: "cashOnHand", ph: "e.g. $3,200,000", p25: 800000, p50: 2000000, p75: 4000000, p90: 8000000, unit: "usd" },
-  { label: "Headcount (FTE)", key: "headcount", ph: "e.g. 18", p25: 8, p50: 15, p75: 28, p90: 50, unit: "" },
-  { label: "Paying customers", key: "payingCustomers", ph: "e.g. 40", p25: 18, p50: 45, p75: 90, p90: 180, unit: "" },
+const WIZARD_FIELD_BY_KEY = Object.fromEntries(
+  BENCHMARK_WIZARD_FIELDS.map(f => [f.key, f]),
+) as Record<keyof OnboardingBenchmarkInput, BenchmarkWizardField>;
+
+/** Onboarding field order (cohort p-values + green band come from `BENCHMARK_WIZARD_FIELDS`). */
+const ONBOARDING_BENCHMARK_FIELD_ORDER: (keyof OnboardingBenchmarkInput)[] = [
+  "arr",
+  "arrGrowth",
+  "nrr",
+  "grossMargin",
+  "cacPayback",
+  "burnMultiple",
+  "ruleOf40",
+  "logoRetention",
+  "monthlyBurn",
+  "cashOnHand",
+  "headcount",
+  "payingCustomers",
 ];
+
+const ONBOARDING_BENCHMARK_PLACEHOLDERS: Partial<Record<keyof OnboardingBenchmarkInput, string>> = {
+  arr: "e.g. $1,200,000",
+  arrGrowth: "e.g. 85%",
+  nrr: "e.g. 108%",
+  grossMargin: "e.g. 72%",
+  cacPayback: "e.g. 16 mo",
+  burnMultiple: "e.g. 2.1x",
+  ruleOf40: "e.g. 28",
+  logoRetention: "e.g. 92%",
+  monthlyBurn: "e.g. $85,000",
+  cashOnHand: "e.g. $3,200,000",
+  headcount: "e.g. 18",
+  payingCustomers: "e.g. 40",
+};
+
+export type OnboardingBenchmarkFieldDef = BenchmarkWizardField & {
+  ph: string;
+};
+
+const ONBOARDING_BENCHMARK_FIELDS: OnboardingBenchmarkFieldDef[] = ONBOARDING_BENCHMARK_FIELD_ORDER.map(key => {
+  const field = WIZARD_FIELD_BY_KEY[key];
+  return {
+    ...field,
+    ph: ONBOARDING_BENCHMARK_PLACEHOLDERS[key] ?? field.placeholder,
+  };
+});
 
 export { ONBOARDING_BENCHMARK_FIELDS };
 
@@ -994,18 +1024,6 @@ function FigmaMultiSelect({
 }
 
 // ─── Benchmark helpers ───────────────────────────────────────────────────────
-function formatUsd(n: number): string {
-  return `$${Math.round(n).toLocaleString("en-US")}`;
-}
-
-function formatBenchmarkP(v: number, unit: string): string {
-  if (unit === "%") return `${v}%`;
-  if (unit === "usd") return formatUsd(v);
-  if (unit === "mo") return `${v} mo`;
-  if (unit === "x") return `${v}x`;
-  return String(v);
-}
-
 function parseVal(s: string): number | null {
   if (!s.trim()) return null;
   const c = s.replace(/[$,\s]/g, "").replace(/mo(nths?)?$/i, "").replace(/x$/i, "");
@@ -1015,28 +1033,141 @@ function parseVal(s: string): number | null {
   return null;
 }
 
-function dotColor(val: number, p25: number, p50: number, p75: number, lowerIsBetter = false): string {
-  if (lowerIsBetter) {
-    if (val > p75) return "#E56B6B";
-    if (val > p50) return "#D4924A";
-    return "#3DD68C";
-  }
-  if (val < p25) return "#E56B6B";
-  if (val < p50) return "#D4924A";
-  return "#3DD68C";
+type BenchPercentile = "p25" | "p50" | "p75" | "p90" | "above";
+
+const BENCH_PERCENTILE_POS: Record<Exclude<BenchPercentile, "above">, number> = {
+  p25: 25,
+  p50: 50,
+  p75: 75,
+  p90: 90,
+};
+
+const BENCH_PERCENTILE_SPOTS = [25, 50, 75, 90] as const;
+
+function snapBarPctToPercentileSpot(pct: number): number {
+  return BENCH_PERCENTILE_SPOTS.reduce((best, spot) => (
+    Math.abs(spot - pct) < Math.abs(best - pct) ? spot : best
+  ));
 }
 
-function dotGlow(val: number, p25: number, p50: number, p75: number, lowerIsBetter = false): string {
-  if (lowerIsBetter) {
-    if (val > p75) return "0 0 10px rgba(229,107,107,0.7)";
-    if (val > p50) return "0 0 10px rgba(212,146,74,0.6)";
-    if (val <= p25) return "0 0 14px rgba(61,214,140,0.8)";
-    return "0 0 10px rgba(61,214,140,0.55)";
+function nearestPercentileFromBarPct(pct: number): BenchPercentile {
+  if (pct >= 96) return "above";
+  const entries = Object.entries(BENCH_PERCENTILE_POS) as [Exclude<BenchPercentile, "above">, number][];
+  return entries.reduce((best, entry) => (
+    Math.abs(entry[1] - pct) < Math.abs(best[1] - pct) ? entry : best
+  ))[0];
+}
+
+function benchPercentileCopy(
+  mark: BenchPercentile,
+  valueLabel: string,
+  lowerIsBetter: boolean,
+): { title: string; body: string } {
+  if (mark === "above") {
+    return {
+      title: "Above p90",
+      body: lowerIsBetter
+        ? `${valueLabel} sits past the top of this peer set. On this metric, lower is better — almost every peer is lighter than this.`
+        : `${valueLabel} sits past the top of this peer set — stronger than almost every company Fuel is comparing you with.`,
+    };
   }
-  if (val < p25) return "0 0 10px rgba(229,107,107,0.7)";
-  if (val < p50) return "0 0 10px rgba(212,146,74,0.6)";
-  if (val >= p75) return "0 0 14px rgba(61,214,140,0.8)";
-  return "0 0 10px rgba(61,214,140,0.55)";
+  const labels: Record<Exclude<BenchPercentile, "above">, string> = {
+    p25: "p25",
+    p50: "p50 · median",
+    p75: "p75",
+    p90: "p90",
+  };
+  const bodies: Record<Exclude<BenchPercentile, "above">, string> = lowerIsBetter
+    ? {
+      p25: `${valueLabel} — 25% of peers are at or below this. On this metric, lower is better, so this is the stronger end of the set.`,
+      p50: `${valueLabel} — the middle of the peer set. Half of companies sit below this number.`,
+      p75: `${valueLabel} — 75% of peers are at or below this. Most of the cohort is doing better on this metric.`,
+      p90: `${valueLabel} — only the heaviest 10% of peers sit above this.`,
+    }
+    : {
+      p25: `${valueLabel} — 25% of peers are at or below this. Most of the cohort sits above this number.`,
+      p50: `${valueLabel} — the middle of the peer set. Half of companies are below this, half are above.`,
+      p75: `${valueLabel} — 75% of peers are at or below this. This is ahead of most of the cohort.`,
+      p90: `${valueLabel} — only the strongest 10% of peers sit above this.`,
+    };
+  return { title: labels[mark], body: bodies[mark] };
+}
+
+function OnboardingBenchmarkBar({
+  field,
+  dotPct,
+  dotColorValue,
+  glow,
+}: {
+  field: BenchmarkWizardField;
+  dotPct: number | null;
+  dotColorValue: string;
+  glow: string;
+}) {
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<{ pct: number; mark: BenchPercentile } | null>(null);
+  const { p25, p50, p75, p90, bandStart, bandEnd, lowerIsBetter = false, unit } = field;
+  const bandWidth = Math.max(4, bandEnd - bandStart);
+
+  function updateHover(clientX: number) {
+    const node = barRef.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    const rawPct = Math.min(100, Math.max(0, ((clientX - rect.left) / Math.max(rect.width, 1)) * 100));
+    if (rawPct >= 96) {
+      setHover({ pct: rawPct, mark: "above" });
+      return;
+    }
+    const pct = snapBarPctToPercentileSpot(rawPct);
+    setHover({
+      pct,
+      mark: nearestPercentileFromBarPct(pct),
+    });
+  }
+
+  const tip = hover
+    ? benchPercentileCopy(hover.mark, formatBenchmarkDisplay(
+      hover.mark === "p25" ? p25
+        : hover.mark === "p50" ? p50
+          : hover.mark === "p75" ? p75
+            : hover.mark === "p90" ? p90
+              : p90,
+      unit,
+    ), lowerIsBetter)
+    : null;
+
+  return (
+    <div
+      className="ob-bench-bar-hit"
+      onMouseMove={event => updateHover(event.clientX)}
+      onMouseLeave={() => setHover(null)}
+    >
+      <div className="ob-bench-bar" ref={barRef}>
+        <div className="ob-bench-bar-range" style={{ left: `${bandStart}%`, width: `${bandWidth}%` }} />
+        {dotPct !== null ? (
+          <div
+            className="ob-bench-bar-dot"
+            style={{
+              left: `calc(${dotPct}% - 8px)`,
+              background: dotColorValue,
+              boxShadow: glow,
+            }}
+          />
+        ) : null}
+        {hover ? <div className="ob-bench-bar-cursor" style={{ left: `${hover.pct}%` }} /> : null}
+      </div>
+      {hover && tip ? (
+        <div
+          className="ob-bench-tip"
+          style={{ left: `${Math.min(88, Math.max(12, hover.pct))}%` }}
+          role="tooltip"
+        >
+          <strong>{tip.title}</strong>
+          <p>{tip.body}</p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function OnboardingBenchmarkFieldList({
@@ -1054,12 +1185,9 @@ export function OnboardingBenchmarkFieldList({
         const raw = values[m.key] ?? "";
         const val = parseVal(raw);
         const hasVal = val !== null;
-        const lowerIsBetter = m.lowerIsBetter === true;
-        const displayMax = m.p90 * 1.3;
-        const p25pct = (m.p25 / displayMax) * 100;
-        const p75pct = (m.p75 / displayMax) * 100;
-        const dotPct = hasVal ? Math.min(Math.max((val! / displayMax) * 100, 1), 99) : null;
-        const dc = hasVal ? dotColor(val!, m.p25, m.p50, m.p75, lowerIsBetter) : "#3A4F5E";
+        const dotPct = hasVal ? valueToMarkerPercent(val!, m) : null;
+        const tierStyle = hasVal ? getBenchmarkTierStyle(getBenchmarkTier(val!, m)) : null;
+        const dc = tierStyle?.marker ?? "#3A4F5E";
         return (
           <div key={m.key} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
@@ -1072,24 +1200,20 @@ export function OnboardingBenchmarkFieldList({
               placeholder={m.ph}
               style={{ ...inp, padding: "8px 12px", fontSize: 13, marginBottom: 7, borderColor: hasVal ? `${dc}55` : undefined, transition: "border-color 0.3s" }}
             />
-            <div className="ob-bench-bar">
-              <div className="ob-bench-bar-range" style={{ left: `${p25pct}%`, width: `${p75pct - p25pct}%` }} />
-              <div className="ob-bench-bar-tick" style={{ left: `${p25pct}%` }} />
-              <div className="ob-bench-bar-tick" style={{ left: `${p75pct}%` }} />
-              {dotPct !== null ? (
-                <div
-                  className="ob-bench-bar-dot"
-                  style={{
-                    left: `calc(${dotPct}% - 8px)`,
-                    background: dc,
-                    boxShadow: dotGlow(val!, m.p25, m.p50, m.p75, lowerIsBetter),
-                  }}
-                />
-              ) : null}
-            </div>
-            <div className="ob-bench-bar-labels">
-              {[{ l: "P25", v: m.p25 }, { l: "P75", v: m.p75 }, { l: "P90", v: m.p90 }].map(p => (
-                <span key={p.l}>{p.l} {formatBenchmarkP(p.v, m.unit)}</span>
+            <OnboardingBenchmarkBar
+              field={m}
+              dotPct={dotPct}
+              dotColorValue={dc}
+              glow={tierStyle ? `0 0 10px ${tierStyle.glow}` : "none"}
+            />
+            <div className="ob-bench-bar-labels ob-bench-bar-labels--equal">
+              {([
+                { l: "P25", v: m.p25 },
+                { l: "P50", v: m.p50 },
+                { l: "P75", v: m.p75 },
+                { l: "P90", v: m.p90 },
+              ] as const).map(p => (
+                <span key={p.l}>{p.l} {formatBenchmarkDisplay(p.v, m.unit)}</span>
               ))}
             </div>
           </div>
@@ -1214,7 +1338,12 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   );
 
   const stepId = activeSteps[stepIndex];
-  const isLast = stepIndex === activeSteps.length - 1;
+  const lastSubQ = (SUB_Q_COUNT[stepId] ?? 1) - 1;
+  const onLastSubQ = stepId !== "investment" || investQ >= lastSubQ;
+  const isLast =
+    stepIndex === activeSteps.length - 1 &&
+    onLastSubQ &&
+    !(stepId === "profile" && searchState === "idle");
   const showConnectLater = stepId === "hubspot" && hubspotStatus !== "connected";
 
   useEffect(() => {
