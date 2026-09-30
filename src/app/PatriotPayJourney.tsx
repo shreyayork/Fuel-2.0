@@ -37,6 +37,15 @@ import {
 } from "./profileCredits";
 import { AskFuelChatDrawer, ASK_FUEL_FLOW_VERSION } from "./AskFuelChat.tsx";
 import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrief";
+import {
+  briefToResearchBody,
+  createResearchArtifact,
+  ensureDemoResearchSeed,
+  formatResearchDisplayDate,
+  loadResearchArtifacts,
+  saveResearchArtifacts,
+  type ResearchArtifact,
+} from "./researchStore";
 import { AccountSettings } from "./account/AccountSettings.tsx";
 import { FuelLegalPage } from "./legal/FuelLegalPage.tsx";
 import { LegalNavProvider } from "./legal/LegalNavContext.tsx";
@@ -4469,6 +4478,108 @@ function isInvestorOwnedIntelligence(item: IntelligenceItem) {
   return item.id.startsWith("intel-investor-");
 }
 
+function ResearchPage({
+  artifacts,
+  onGenerateBrief,
+  onBrowsePlaybooks,
+  onOpenArtifact,
+  activeTourTarget,
+}: {
+  artifacts: ResearchArtifact[];
+  onGenerateBrief: () => void;
+  onBrowsePlaybooks: () => void;
+  onOpenArtifact: (artifact: ResearchArtifact) => void;
+  activeTourTarget?: string;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(() => artifacts[0]?.id ?? null);
+
+  useEffect(() => {
+    if (!artifacts.length) {
+      setExpandedId(null);
+      return;
+    }
+    if (!expandedId || !artifacts.some(item => item.id === expandedId)) {
+      setExpandedId(artifacts[0].id);
+    }
+  }, [artifacts, expandedId]);
+
+  return (
+    <section className="data-room-page research-page">
+      <div className="data-room-head">
+        <div>
+          <h2>Research</h2>
+          <p>
+            Playbook runs, intelligence briefs, and other AI research artifacts — account-wide and visible to every member.
+          </p>
+        </div>
+        <div className="data-room-head-actions">
+          <button type="button" className="initiatives-secondary-btn" onClick={onBrowsePlaybooks}>
+            Browse playbooks
+          </button>
+          <button
+            type="button"
+            className={`initiatives-primary-btn${activeTourTarget === "research-generate-brief" ? " tour-highlight" : ""}`}
+            data-tour-target={activeTourTarget === "research-generate-brief" ? "research-generate-brief" : undefined}
+            onClick={onGenerateBrief}
+          >
+            Generate brief
+          </button>
+        </div>
+      </div>
+
+      {artifacts.length === 0 ? (
+        <div className="data-room-empty">
+          <strong>No research yet</strong>
+          <p>
+            Click <span>Generate brief</span> above to produce a signal-driven briefing. Playbook runs, diligence reports, and other AI research artifacts also land here — they&apos;re account-wide and visible to every member.
+          </p>
+        </div>
+      ) : (
+        <ul className="research-list">
+          {artifacts.map(artifact => {
+            const expanded = expandedId === artifact.id;
+            return (
+              <li key={artifact.id} className={`research-card${expanded ? " is-expanded" : ""}`}>
+                <div className="research-card-top">
+                  <div className="research-card-meta">
+                    <span className="research-type-badge">{artifact.typeLabel}</span>
+                    <span className="research-byline">
+                      {artifact.authorEmail} · {formatResearchDisplayDate(artifact.createdAt)}
+                    </span>
+                  </div>
+                  <div className="research-card-actions">
+                    <button type="button" className="research-link-btn" onClick={() => onOpenArtifact(artifact)}>
+                      Open ↗
+                    </button>
+                    <button
+                      type="button"
+                      className="research-link-btn"
+                      onClick={() => setExpandedId(expanded ? null : artifact.id)}
+                    >
+                      {expanded ? "Collapse" : "Expand"}
+                    </button>
+                  </div>
+                </div>
+                <h3 className="research-card-title">{artifact.title}</h3>
+                {expanded ? (
+                  <div className="research-card-body">
+                    {artifact.body.split("\n").map((line, index) => (
+                      line.trim() ? <p key={index}>{line}</p> : <br key={index} />
+                    ))}
+                  </div>
+                ) : null}
+                {artifact.subject ? (
+                  <p className="research-card-subject">Subject: {artifact.subject}</p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function DataRoomInvestorGate({
   companyName,
   requested,
@@ -6011,7 +6122,7 @@ function TourPromptBanner({
         <p>
           {building
             ? "Overview scores, Intelligence, and Initiatives are being prepared from your onboarding. Explore the product now — you do not need to wait."
-            : "See how Overview, Intelligence, Initiatives, and Data Room work together now that your profile is set up."}
+            : "See how Overview, Intelligence, Initiatives, Research, and Data Room work together now that your profile is set up."}
         </p>
       </div>
       <div className="tour-prompt-actions">
@@ -9342,10 +9453,12 @@ function PatriotPayJourneyInner({
     else openMyCompanyProfile();
   }, [isInvestorPersona, openInvestorPortfolios, openMyCompanyProfile]);
   const [generatedBrief, setGeneratedBrief] = useState<Brief | null>(null);
+  const [researchArtifacts, setResearchArtifacts] = useState<ResearchArtifact[]>(() => loadResearchArtifacts());
   const [lastPlaybook, setLastPlaybook] = useState<{ name: string; kind: string; description: string; category: string } | null>(null);
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
+  const [openPlaybooksSignal, setOpenPlaybooksSignal] = useState(0);
   const { tryAction, syncFreeEarnedAllowance } = useCredits();
   useLayoutEffect(() => {
     if (isInvestorPersona) return;
@@ -9792,6 +9905,39 @@ function PatriotPayJourneyInner({
     setBenchmarkBlinkIds(submission.intelligenceIds);
     window.setTimeout(() => setBenchmarkBlinkIds([]), 900);
   };
+  const recordResearchArtifact = useCallback((
+    typeLabel: string,
+    body: string,
+    companyName = selectedCompany.displayName,
+  ) => {
+    if (!body.trim()) return;
+    const entry = createResearchArtifact({ typeLabel, companyName, body });
+    setResearchArtifacts(previous => {
+      const next = [entry, ...previous];
+      saveResearchArtifacts(next);
+      return next;
+    });
+  }, [selectedCompany.displayName]);
+
+  const openGenerateBrief = useCallback(() => {
+    setBriefFocusSignal(signal => signal + 1);
+    setAskFuelOpen(true);
+  }, []);
+
+  const openBrowsePlaybooks = useCallback(() => {
+    setPendingPlaybook(null);
+    setOpenPlaybooksSignal(signal => signal + 1);
+    setAskFuelOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (activePage !== "research" || !usesPerCompanyWorkspace) return;
+    setResearchArtifacts(previous => {
+      if (previous.length) return previous;
+      return ensureDemoResearchSeed(selectedCompany.displayName);
+    });
+  }, [activePage, selectedCompany.displayName, usesPerCompanyWorkspace]);
+
   const reciprocateAskFuelBenchmarkSubmit = useCallback(() => {
     if (!askFuelAwaitingBenchmarkRef.current) return;
     askFuelAwaitingBenchmarkRef.current = false;
@@ -9879,6 +10025,12 @@ function PatriotPayJourneyInner({
       text: "Turn insights into active work. Suggested initiatives from each track can be added here, tracked with milestones, and linked to progress intelligence.",
     },
     {
+      page: "research",
+      target: "research",
+      title: "Research",
+      text: "Every playbook run and intelligence brief is saved here for your whole account. Use Generate brief or Browse playbooks to start a new artifact.",
+    },
+    {
       page: "data-room",
       target: "data-room",
       title: "Data Room",
@@ -9897,10 +10049,10 @@ function PatriotPayJourneyInner({
       text: "Open ✦ then Playbooks for structured runbooks — diligence, pricing, audits, and planning frameworks run against this company’s context.",
     },
     {
-      page: "scorecard-v2",
-      target: "ai-actions-brief",
+      page: "research",
+      target: "research-generate-brief",
       title: "Generate brief",
-      text: "Generate brief opens Ask Fuel AI and drafts your company overview in chat so you can read it, ask follow-ups, and refine it there.",
+      text: "Generate brief runs against live benchmarks and signals, then saves the read here for your team. You can open any run in Ask Fuel to follow up.",
     },
   ] as const;
   const tourSteps = profileComplete
@@ -10497,15 +10649,12 @@ function PatriotPayJourneyInner({
                 companyName={selectedCompany.displayName}
                 tourActive={
                   tourOpen
-                  && (tourSteps[tourStep].target === "ai-actions-playbooks"
-                    || tourSteps[tourStep].target === "ai-actions-brief")
+                  && tourSteps[tourStep].target === "ai-actions-playbooks"
                 }
                 tourHighlightItem={
                   tourOpen && tourSteps[tourStep].target === "ai-actions-playbooks"
                     ? "playbooks"
-                    : tourOpen && tourSteps[tourStep].target === "ai-actions-brief"
-                      ? "brief"
-                      : undefined
+                    : undefined
                 }
                 onRunPlaybook={(pb) => {
                   setLastPlaybook({ name: pb.name, kind: pb.kind, description: pb.description, category: pb.category });
@@ -10534,6 +10683,16 @@ function PatriotPayJourneyInner({
             }}
           >
             Initiatives <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>2</span>
+          </div>
+          <div
+            className={`tab ${activePage === "research" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "research" ? " tour-highlight" : ""}`}
+            data-tour-target={tourOpen && tourSteps[tourStep].target === "research" ? "research" : undefined}
+            onClick={() => setActivePage("research")}
+          >
+            Research
+            {researchArtifacts.length > 0 ? (
+              <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{researchArtifacts.length}</span>
+            ) : null}
           </div>
           <div
             className={`tab ${activePage === "data-room" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "data-room" ? "tour-highlight" : ""}`}
@@ -10743,6 +10902,16 @@ function PatriotPayJourneyInner({
                 }
                 if (focusInitiativeId === id) setFocusInitiativeId(null);
               }}
+            />
+          ) : activePage === "research" ? (
+            <ResearchPage
+              artifacts={researchArtifacts}
+              onGenerateBrief={openGenerateBrief}
+              onBrowsePlaybooks={openBrowsePlaybooks}
+              onOpenArtifact={() => {
+                setAskFuelOpen(true);
+              }}
+              activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
             />
           ) : activePage === "data-room" ? (
             <DataRoomPage
@@ -11037,9 +11206,14 @@ function PatriotPayJourneyInner({
           setAskFuelOpen(false);
           setActivePage("data-room");
         }}
-        onBriefGenerated={setGeneratedBrief}
+        onBriefGenerated={brief => {
+          setGeneratedBrief(brief);
+          recordResearchArtifact("Generate Intelligence Brief", briefToResearchBody(brief));
+        }}
+        onRecordResearch={({ typeLabel, body }) => recordResearchArtifact(typeLabel, body)}
         onViewInitiatives={() => { setAskFuelOpen(false); setActivePage("initiatives"); }}
         focusBriefSignal={briefFocusSignal}
+        openPlaybooksSignal={openPlaybooksSignal}
         focusPlaybook={pendingPlaybook}
         focusPlaybookSignal={playbookFocusSignal}
         benchmarkSubmitSignal={askFuelBenchmarkSubmitSignal}

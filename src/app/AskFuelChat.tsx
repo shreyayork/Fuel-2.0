@@ -6,6 +6,10 @@ import {
   generateBrief, PLAYBOOKS, PLAYBOOK_COUNT,
   type Brief, type BriefFlag, type Playbook,
 } from "./fuelBrief";
+import {
+  kpiBenchmarkResearchBody,
+  PITCH_DECK_MISSING_RESEARCH_BODY,
+} from "./researchStore";
 
 import { briefFlagToColor } from "./statusSystem";
 import { FuelIcon } from "./icons";
@@ -596,8 +600,10 @@ export function AskFuelChatDrawer({
   onOpenDataRoom,
   onGeneratePitchDeckIntelligence,
   onBriefGenerated,
+  onRecordResearch,
   onViewInitiatives,
   focusBriefSignal,
+  openPlaybooksSignal = 0,
   focusPlaybook,
   focusPlaybookSignal,
   benchmarkSubmitSignal = 0,
@@ -616,8 +622,10 @@ export function AskFuelChatDrawer({
   /** Same Data Room / sources path — extract intelligence from the linked pitch deck. */
   onGeneratePitchDeckIntelligence?: () => void;
   onBriefGenerated: (brief: Brief) => void;
+  onRecordResearch?: (payload: { typeLabel: string; body: string }) => void;
   onViewInitiatives: () => void;
   focusBriefSignal: number;
+  openPlaybooksSignal?: number;
   focusPlaybook?: Playbook | null;
   focusPlaybookSignal?: number;
   /** Bumped after benchmark metrics are submitted while Ask Fuel is open. */
@@ -632,6 +640,7 @@ export function AskFuelChatDrawer({
   const dialogRef = useRef<HTMLElement>(null);
   const lastFocus = useRef(0);
   const lastPbFocus = useRef(0);
+  const lastOpenPlaybooks = useRef(0);
   const lastBenchSubmit = useRef(0);
   const busyRef = useRef(false);
   const benchmarkReady = hasBenchmark || hasBenchmarkMetrics(benchmark);
@@ -655,6 +664,26 @@ export function AskFuelChatDrawer({
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, pitchDeck, pitchDeckUploading, benchmarkReady]);
 
+  const recordPlaybookRun = (pb: Playbook) => {
+    if (isPitchDeckEvalPlaybook(pb) && !pitchDeck) {
+      onRecordResearch?.({ typeLabel: pb.name, body: PITCH_DECK_MISSING_RESEARCH_BODY });
+      return;
+    }
+    if (isKpiBenchmarkPlaybook(pb)) {
+      onRecordResearch?.({ typeLabel: pb.name, body: kpiBenchmarkResearchBody(companyName) });
+      return;
+    }
+    const text = playbookResponse(pb);
+    if (text) onRecordResearch?.({ typeLabel: pb.name, body: text });
+  };
+
+  useEffect(() => {
+    if (open && openPlaybooksSignal && openPlaybooksSignal !== lastOpenPlaybooks.current) {
+      lastOpenPlaybooks.current = openPlaybooksSignal;
+      setPlaybooksOpen(true);
+    }
+  }, [open, openPlaybooksSignal]);
+
   useEffect(() => {
     if (open && focusBriefSignal && focusBriefSignal !== lastFocus.current) {
       lastFocus.current = focusBriefSignal;
@@ -663,6 +692,7 @@ export function AskFuelChatDrawer({
         { id: mid(), role: "user", text: "Generate intelligence brief" },
         { id: mid(), role: "ai", kind: "brief", brief },
       ]);
+      onBriefGenerated(brief);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, focusBriefSignal]);
@@ -680,6 +710,7 @@ export function AskFuelChatDrawer({
         onBriefGenerated(brief);
       } else {
         setMessages(playbookFlowThread(pb, companyName));
+        recordPlaybookRun(pb);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -748,6 +779,10 @@ export function AskFuelChatDrawer({
           ? { id: thinkId, role: "ai", kind: "pitch-deck-eval", deckName: deck.name, evaluation }
           : m
       )));
+      onRecordResearch?.({
+        typeLabel: "Pitch Deck Evaluation",
+        body: `${evaluation.summary}\n\nInvestor-ready score: ${evaluation.overall}/100`,
+      });
       setBusy(false);
     }, 1600);
   };
@@ -771,8 +806,8 @@ export function AskFuelChatDrawer({
     setPlaybooksOpen(false);
     setSearch("");
     if (pb.marquee) { runBrief(); return; }
-    // KPI Benchmark + Pitch Deck Evaluation render CTA cards, not canned copy.
     setMessages(playbookFlowThread(pb, companyName));
+    recordPlaybookRun(pb);
   };
 
   const sendCustom = () => {

@@ -7546,6 +7546,100 @@ html[data-theme="light"] .fuel-help-item {
   padding: 2px 8px;
 }
 
+.research-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.research-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px 14px;
+}
+
+.research-card-top {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.research-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.research-type-badge {
+  background: rgba(0, 180, 138, 0.14);
+  border-radius: 6px;
+  color: #00b48a;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  width: fit-content;
+}
+
+.research-byline {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.research-card-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.research-link-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-2);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+.research-link-btn:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--text-1);
+}
+
+.research-card-title {
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 12px 0 0;
+}
+
+.research-card-body {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 12px;
+}
+
+.research-card-body p {
+  margin: 0 0 8px;
+}
+
+.research-card-subject {
+  color: var(--text-3);
+  font-size: 12px;
+  margin: 12px 0 0;
+}
+
 .data-room-page {
   display: flex;
   flex-direction: column;
