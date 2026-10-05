@@ -107,6 +107,7 @@ export function CompanyOverviewPage({
   signalCatalog = [],
   recentObservations = [],
   allowAdvisorLinking = true,
+  initialOverview = null,
 }: {
   companyUuid: string;
   companyName: string;
@@ -117,6 +118,8 @@ export function CompanyOverviewPage({
   signalCatalog?: SignalCatalogEntry[];
   recentObservations?: CompanySignalObservation[];
   allowAdvisorLinking?: boolean;
+  /** Server-prefetched overview — avoids the build/loading shell on first paint. */
+  initialOverview?: OverviewApiResponse | null;
 }) {
   const t = useOverviewTheme();
   const credits = useCreditsOptional();
@@ -130,8 +133,8 @@ export function CompanyOverviewPage({
   const hadInitialBuildRef = useRef(false);
   const agentWasOpenRef = useRef(false);
   const benchmarkQueryHandledRef = useRef(false);
-  const [data, setData] = useState<OverviewApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<OverviewApiResponse | null>(initialOverview);
+  const [loading, setLoading] = useState(!initialOverview);
   const [error, setError] = useState<string | null>(null);
   const [generationTimedOut, setGenerationTimedOut] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>(() => {
@@ -141,6 +144,10 @@ export function CompanyOverviewPage({
   const [detailScrollTarget, setDetailScrollTarget] =
     useState<CategoryDetailScrollTarget | null>(null);
   const [advisorOpen, setAdvisorOpen] = useState(true);
+  /** Track rows stay expanded on load; each can still be collapsed. */
+  const [expandedTracks, setExpandedTracks] = useState<OverviewCategoryId[]>(
+    () => [...CATEGORY_IDS],
+  );
   const [fullSummaryOpen, setFullSummaryOpen] = useState(false);
   const [fullSummaryHighlightRefId, setFullSummaryHighlightRefId] = useState<
     number | null
@@ -148,7 +155,9 @@ export function CompanyOverviewPage({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerStep, setDrawerStep] = useState<DetailDrawerStep>("profile");
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [promptOpen, setPromptOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(
+    () => searchParams.get("profilePrompt") === "1",
+  );
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
   const [openInitiativeId, setOpenInitiativeId] = useState<string | null>(
     () => searchParams.get("initiativeId"),
@@ -195,13 +204,20 @@ export function CompanyOverviewPage({
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setData(null);
-    invalidateOverviewClientCache(companyUuid, { includeForms: true });
+    if (initialOverview) {
+      setData(initialOverview);
+      setLoading(false);
+      setError(null);
+      seedOverviewFormCaches(companyUuid, initialOverview);
+    } else {
+      setLoading(true);
+      setError(null);
+      setData(null);
+      invalidateOverviewClientCache(companyUuid, { includeForms: true });
+    }
     void refreshOverview()
       .catch(() => {
-        if (!cancelled) setError("Could not load overview.");
+        if (!cancelled && !initialOverview) setError("Could not load overview.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -209,7 +225,7 @@ export function CompanyOverviewPage({
     return () => {
       cancelled = true;
     };
-  }, [companyUuid, refreshOverview]);
+  }, [companyUuid, initialOverview, refreshOverview]);
 
   // Fuel AI can save benchmark numbers while this page stays mounted; refetch
   // so the drawers open with what was just written.
@@ -319,6 +335,11 @@ export function CompanyOverviewPage({
   }, [activeTarget, returnToOverviewLanding]);
 
   useEffect(() => {
+    setExpandedTracks([...CATEGORY_IDS]);
+    setAdvisorOpen(true);
+  }, [companyUuid]);
+
+  useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
     let changed = false;
     if (next.has("profileReward")) {
@@ -339,7 +360,10 @@ export function CompanyOverviewPage({
     } else {
       const fromUrl = next.get("profilePrompt") === "1";
       const pending = readSessionFlag(profilePromptOpenKey(companyUuid));
-      if ((fromUrl || pending) && credits?.snapshot?.setupIncomplete) {
+      // `profilePrompt=1` is explicit claim/design intent — open even before
+      // the credits snapshot hydrates or setupIncomplete is patched.
+      const incomplete = credits?.snapshot?.setupIncomplete === true;
+      if (fromUrl || pending || incomplete) {
         writeSessionFlag(profilePromptOpenKey(companyUuid), true);
         setPromptOpen(true);
         if (fromUrl) {
@@ -713,7 +737,12 @@ export function CompanyOverviewPage({
               onUnlockProfile={() => openDrawer("profile")}
               onOpen={() => openCategory(id)}
               onOpenDrawer={() => openDrawer(id)}
-              onOpenSection={(section) => openCategory(id, section)}
+              expanded={expandedTracks.includes(id)}
+              onToggleExpanded={() =>
+                setExpandedTracks((prev) =>
+                  prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+                )
+              }
             />
           );
         })}

@@ -8,9 +8,17 @@ import {
   revokeInviteAction,
   setRoleAction,
 } from "@/app/(app)/account/actions";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 import { Chip, Avatar } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import type { AccountMember } from "@/db/schema";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdActionsStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 
 export interface PendingInviteSummary {
   tokenHash: string;
@@ -49,104 +57,88 @@ export function AccountUsers({
   const t = useTheme();
   const [, startTransition] = useTransition();
 
-  const thStyle: CSSProperties = {
-    padding: "10px 14px",
-    textAlign: "left",
+  const fieldStyle: CSSProperties = {
+    background: t.panelAlt,
+    border: `1px solid ${t.rule}`,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: t.ink,
     fontFamily: t.sans,
-    fontSize: 11,
-    fontWeight: 500,
-    color: t.muted,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    borderBottom: `1px solid ${t.rule}`,
-  };
-  const tdStyle: CSSProperties = {
-    padding: "12px 14px",
-    borderBottom: `1px solid ${t.ruleSoft}`,
+    fontSize: 16,
+    minHeight: TOUCH_TARGET_MIN,
+    minWidth: 0,
+    padding: "10px 12px",
+    width: "100%",
   };
 
   return (
-    <div>
+    <div className="fuel-account-users">
       {canManage ? (
         <form
+          className="fuel-account-invite"
           action={(fd) => startTransition(() => inviteMemberAction(fd))}
           style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            padding: 14,
             background: t.panel,
             border: `1px solid ${t.rule}`,
+            borderRadius: 12,
             marginBottom: 14,
+            padding: 14,
           }}
         >
           <input type="hidden" name="accountId" value={accountId} />
           <input
+            className="fuel-account-invite__email"
             name="email"
             type="email"
             placeholder="teammate@company.com"
             required
-            style={{
-              flex: 1,
-              padding: "8px 10px",
-              background: t.panelAlt,
-              color: t.ink,
-              border: `1px solid ${t.rule}`,
-              borderRadius: 6,
-              fontFamily: t.sans,
-              fontSize: 13,
-            }}
+            aria-label="Teammate email"
+            style={fieldStyle}
           />
-          <select
-            name="role"
-            defaultValue="member"
-            style={{
-              padding: "8px 10px",
-              background: t.panelAlt,
-              color: t.ink,
-              border: `1px solid ${t.rule}`,
-              borderRadius: 6,
-              fontFamily: t.sans,
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-          >
-            <option value="member">Member</option>
-            <option value="admin">Admin</option>
-            <option value="owner">Owner</option>
-          </select>
-          <button
-            type="submit"
-            style={{
-              padding: "8px 14px",
-              background: t.ink,
-              color: t.bg,
-              border: `1px solid ${t.ink}`,
-              borderRadius: 8,
-              fontFamily: t.sans,
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            Invite
-          </button>
+          <div className="fuel-account-invite__actions">
+            <select
+              className="fuel-account-invite__role"
+              name="role"
+              defaultValue="member"
+              aria-label="Role"
+              style={{ ...fieldStyle, cursor: "pointer" }}
+            >
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+              <option value="owner">Owner</option>
+            </select>
+            <button
+              className="fuel-account-invite__submit"
+              type="submit"
+              style={{
+                alignItems: "center",
+                background: t.ink,
+                border: `1px solid ${t.ink}`,
+                borderRadius: 8,
+                boxSizing: "border-box",
+                color: t.bg,
+                cursor: "pointer",
+                display: "inline-flex",
+                fontFamily: t.sans,
+                fontSize: 14,
+                fontWeight: 600,
+                justifyContent: "center",
+                minHeight: TOUCH_TARGET_MIN,
+                padding: "10px 16px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Invite
+            </button>
+          </div>
         </form>
       ) : null}
 
       {pendingInvites.length > 0 ? (
-        <div
-          style={{
-            background: t.panel,
-            border: `1px solid ${t.rule}`,
-            marginBottom: 14,
-            overflow: "hidden",
-          }}
-        >
+        <div style={{ marginBottom: 14 }}>
           <div
             style={{
               padding: "10px 14px",
-              borderBottom: `1px solid ${t.rule}`,
               fontFamily: t.mono,
               fontSize: 10,
               textTransform: "uppercase",
@@ -156,107 +148,109 @@ export function AccountUsers({
           >
             Pending invites · {pendingInvites.length}
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Email</th>
-                <th style={thStyle}>Role</th>
-                <th style={thStyle}>Sent</th>
-                <th style={thStyle}>Expires</th>
-                <th style={{ ...thStyle, textAlign: "right" }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingInvites.map((p) => (
-                <tr key={p.tokenHash}>
-                  <td style={tdStyle}>
-                    <div style={{ fontFamily: t.sans, fontSize: 13 }}>{p.email}</div>
-                    <div style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
-                      invited by {p.invitedByEmail}
-                    </div>
-                  </td>
-                  <td style={tdStyle}>
-                    <Chip t={t} tone={roleTone(p.role)}>
-                      {p.role}
-                    </Chip>
-                  </td>
-                  <td style={{ ...tdStyle, fontFamily: t.mono, fontSize: 11, color: t.muted }}>
-                    {new Date(p.createdAt).toLocaleDateString()}
-                  </td>
-                  <td style={{ ...tdStyle, fontFamily: t.mono, fontSize: 11, color: t.muted }}>
-                    {new Date(p.expiresAt).toLocaleDateString()}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>
-                    {canManage ? (
-                      <div style={{ display: "inline-flex", gap: 6 }}>
-                        <form
-                          action={(fd) => startTransition(() => resendInviteAction(fd))}
-                          style={{ display: "inline" }}
-                        >
-                          <input type="hidden" name="accountId" value={accountId} />
-                          <input type="hidden" name="tokenHash" value={p.tokenHash} />
-                          <button
-                            type="submit"
-                            style={{
-                              background: "transparent",
-                              border: `1px solid ${t.rule}`,
-                              color: t.inkSoft,
-                              padding: "4px 10px",
-                              borderRadius: 4,
-                              fontFamily: t.sans,
-                              fontSize: 11,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Resend
-                          </button>
-                        </form>
-                        <form
-                          action={(fd) => startTransition(() => revokeInviteAction(fd))}
-                          style={{ display: "inline" }}
-                        >
-                          <input type="hidden" name="accountId" value={accountId} />
-                          <input type="hidden" name="tokenHash" value={p.tokenHash} />
-                          <button
-                            type="submit"
-                            style={{
-                              background: "transparent",
-                              border: `1px solid ${t.rule}`,
-                              color: t.muted,
-                              padding: "4px 10px",
-                              borderRadius: 4,
-                              fontFamily: t.sans,
-                              fontSize: 11,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Revoke
-                          </button>
-                        </form>
-                      </div>
-                    ) : null}
-                  </td>
+          <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
+            <table className="fuel-data-table" style={dataTableStyle()}>
+              <thead>
+                <tr>
+                  <th style={dataThStyle(t)}>Email</th>
+                  <th style={dataThStyle(t)}>Role</th>
+                  <th style={dataThStyle(t)}>Sent</th>
+                  <th style={dataThStyle(t)}>Expires</th>
+                  <th style={dataThStyle(t, { align: "right" })}></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pendingInvites.map((p) => (
+                  <tr key={p.tokenHash}>
+                    <td style={dataTdStyle(t, { top: false })}>
+                      <div style={{ fontFamily: t.sans, fontSize: 13 }}>{p.email}</div>
+                      <div style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
+                        invited by {p.invitedByEmail}
+                      </div>
+                    </td>
+                    <td style={dataTdStyle(t, { top: false })}>
+                      <Chip t={t} tone={roleTone(p.role)}>
+                        {p.role}
+                      </Chip>
+                    </td>
+                    <td style={dataTdStyle(t, { mono: true, top: false })}>
+                      {new Date(p.createdAt).toLocaleDateString()}
+                    </td>
+                    <td style={dataTdStyle(t, { mono: true, top: false })}>
+                      {new Date(p.expiresAt).toLocaleDateString()}
+                    </td>
+                    <td style={dataTdActionsStyle(t)}>
+                      {canManage ? (
+                        <div style={{ display: "inline-flex", gap: 6 }}>
+                          <form
+                            action={(fd) => startTransition(() => resendInviteAction(fd))}
+                            style={{ display: "inline" }}
+                          >
+                            <input type="hidden" name="accountId" value={accountId} />
+                            <input type="hidden" name="tokenHash" value={p.tokenHash} />
+                            <button
+                              type="submit"
+                              style={{
+                                background: "transparent",
+                                border: `1px solid ${t.rule}`,
+                                color: t.inkSoft,
+                                padding: "4px 10px",
+                                borderRadius: 4,
+                                fontFamily: t.sans,
+                                fontSize: 11,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Resend
+                            </button>
+                          </form>
+                          <form
+                            action={(fd) => startTransition(() => revokeInviteAction(fd))}
+                            style={{ display: "inline" }}
+                          >
+                            <input type="hidden" name="accountId" value={accountId} />
+                            <input type="hidden" name="tokenHash" value={p.tokenHash} />
+                            <button
+                              type="submit"
+                              style={{
+                                background: "transparent",
+                                border: `1px solid ${t.rule}`,
+                                color: t.muted,
+                                padding: "4px 10px",
+                                borderRadius: 4,
+                                fontFamily: t.sans,
+                                fontSize: 11,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Revoke
+                            </button>
+                          </form>
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
 
-      <div style={{ background: t.panel, border: `1px solid ${t.rule}`, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
+        <table className="fuel-data-table" style={dataTableStyle()}>
           <thead>
             <tr>
-              <th style={thStyle}>Member</th>
-              <th style={thStyle}>Role</th>
-              <th style={thStyle}>Joined</th>
-              <th style={{ ...thStyle, textAlign: "right" }}></th>
+              <th style={dataThStyle(t)}>Member</th>
+              <th style={dataThStyle(t)}>Role</th>
+              <th style={dataThStyle(t)}>Joined</th>
+              <th style={dataThStyle(t, { align: "right" })}></th>
             </tr>
           </thead>
           <tbody>
             {members.map((m) => (
               <tr key={m.userEmail}>
-                <td style={tdStyle}>
+                <td style={dataTdStyle(t, { top: false })}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Avatar
                       t={t}
@@ -275,7 +269,7 @@ export function AccountUsers({
                     </div>
                   </div>
                 </td>
-                <td style={tdStyle}>
+                <td style={dataTdStyle(t, { top: false })}>
                   {canManage && m.userEmail !== currentEmail ? (
                     <form
                       action={(fd) => startTransition(() => setRoleAction(fd))}
@@ -313,7 +307,7 @@ export function AccountUsers({
                     <Chip t={t} tone={roleTone(m.role)}>{m.role}</Chip>
                   )}
                 </td>
-                <td style={{ ...tdStyle, fontFamily: t.mono, fontSize: 11, color: t.muted }}>
+                <td style={dataTdStyle(t, { mono: true, top: false })}>
                   {m.createdAt
                     ? new Date(m.createdAt).toLocaleDateString("en-US", {
                         month: "short",
@@ -321,7 +315,7 @@ export function AccountUsers({
                       })
                     : "—"}
                 </td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>
+                <td style={dataTdActionsStyle(t)}>
                   {canManage && m.userEmail !== currentEmail ? (
                     <form
                       action={(fd) => startTransition(() => removeMemberAction(fd))}

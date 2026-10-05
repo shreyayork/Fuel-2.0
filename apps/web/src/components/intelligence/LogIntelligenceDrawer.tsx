@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Theme } from "@/lib/theme";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, mqMax, useMediaQuery } from "@/lib/responsive";
 import {
   drawerPanelMotionStyle,
   drawerScrimMotionStyle,
   useDrawerPresence,
 } from "@/components/drawer/motion";
+import { drawerCloseBtnStyle } from "@/components/drawer/styles";
 import {
   manualObservationValuePlaceholder,
   parseManualObservationValue,
@@ -26,7 +28,12 @@ import {
   benchActionsStyle,
 } from "@/components/company/overview/drawerStyles";
 import { SignalCatalogPicker } from "./SignalCatalogPicker";
-import { ghostButtonStyle, drawerFormInputStyle, drawerFormControlStyle, INTELLIGENCE_DRAWER_INPUT_CLASS, intelligenceDrawerInputCss } from "./styles";
+import {
+  drawerFormInputStyle,
+  drawerFormControlStyle,
+  INTELLIGENCE_DRAWER_INPUT_CLASS,
+  intelligenceDrawerInputCss,
+} from "./styles";
 
 function fieldLabelStyle(t: Theme): CSSProperties {
   return {
@@ -36,6 +43,19 @@ function fieldLabelStyle(t: Theme): CSSProperties {
     fontWeight: 600,
     marginBottom: 6,
   };
+}
+
+function CloseIcon() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M3 3l8 8M11 3L3 11"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 export function LogIntelligenceDrawer({
@@ -55,6 +75,7 @@ export function LogIntelligenceDrawer({
   onClose: () => void;
   onLogged: () => void;
 }) {
+  const sheet = useMediaQuery(mqMax(BREAKPOINTS.md), false);
   const [signalId, setSignalId] = useState("");
   const [value, setValue] = useState("");
   const [period, setPeriod] = useState(() =>
@@ -140,6 +161,49 @@ export function LogIntelligenceDrawer({
 
   if (!mounted) return null;
 
+  const valueControl =
+    selected?.kind === "boolean" ? (
+      <select
+        aria-label="Value"
+        value={value || "true"}
+        onChange={(e) => setValue(e.target.value)}
+        className={INTELLIGENCE_DRAWER_INPUT_CLASS}
+        style={{ ...drawerFormControlStyle(t), width: "100%" }}
+      >
+        <option value="true">true</option>
+        <option value="false">false</option>
+      </select>
+    ) : selected?.kind === "quantitative" && selected.unit !== "usd" ? (
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={valuePlaceholder}
+        type="number"
+        step="any"
+        inputMode="decimal"
+        className={INTELLIGENCE_DRAWER_INPUT_CLASS}
+        style={{
+          ...drawerFormControlStyle(t),
+          width: "100%",
+          ...(valueInvalid ? { borderColor: t.negative } : null),
+        }}
+      />
+    ) : (
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={valuePlaceholder}
+        disabled={!selected}
+        inputMode={selected?.kind === "quantitative" ? "decimal" : undefined}
+        className={INTELLIGENCE_DRAWER_INPUT_CLASS}
+        style={{
+          ...drawerFormControlStyle(t),
+          width: "100%",
+          ...(valueInvalid ? { borderColor: t.negative } : null),
+        }}
+      />
+    );
+
   return (
     <>
       <button
@@ -165,31 +229,63 @@ export function LogIntelligenceDrawer({
         aria-label="Log intelligence"
         style={{
           background: t.panel,
-          borderLeft: `1px solid ${t.rule}`,
-          bottom: 0,
-          boxShadow: `-24px 0 60px ${t.overlay}`,
+          ...(sheet
+            ? {
+                borderRadius: "16px 16px 0 0",
+                borderTop: `1px solid ${t.rule}`,
+                bottom: 0,
+                boxShadow: `0 -16px 48px ${t.overlay}`,
+                left: 0,
+                maxHeight: "min(92vh, 720px)",
+                right: 0,
+                top: "auto",
+                width: "100%",
+              }
+            : {
+                borderLeft: `1px solid ${t.rule}`,
+                bottom: 0,
+                boxShadow: `-24px 0 60px ${t.overlay}`,
+                maxWidth: 520,
+                right: 0,
+                top: 0,
+                width: "min(100vw, 520px)",
+              }),
           display: "flex",
           flexDirection: "column",
-          maxWidth: 520,
           position: "fixed",
-          right: 0,
-          top: 0,
-          width: "min(100vw, 520px)",
           zIndex: 71,
-          ...drawerPanelMotionStyle(visible, durationMs),
+          ...drawerPanelMotionStyle(visible, durationMs, {
+            from: sheet ? "bottom" : "right",
+          }),
         }}
       >
+        {sheet ? (
+          <div
+            aria-hidden
+            style={{
+              alignSelf: "center",
+              background: t.rule,
+              borderRadius: 999,
+              flexShrink: 0,
+              height: 4,
+              marginTop: 8,
+              width: 36,
+            }}
+          />
+        ) : null}
+
         <header
           style={{
+            alignItems: "flex-start",
+            background: sheet ? t.panel : t.panelAlt,
             borderBottom: `1px solid ${t.ruleSoft}`,
             display: "flex",
             gap: 12,
             justifyContent: "space-between",
-            padding: "16px 18px",
-            background: t.panelAlt,
+            padding: sheet ? "10px 16px 12px" : "16px 18px",
           }}
         >
-          <div>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <h2
               style={{
                 color: t.ink,
@@ -206,86 +302,59 @@ export function LogIntelligenceDrawer({
                 color: t.muted,
                 fontFamily: t.sans,
                 fontSize: 12,
-                lineHeight: 1.45,
-                margin: "6px 0 0",
+                lineHeight: 1.4,
+                margin: "4px 0 0",
               }}
             >
-              Record a metric value against a catalog signal. Select the signal and enter the
-              value — it will appear in your intelligence timeline.
+              {sheet
+                ? "Pick a signal, enter the value, and it lands on the timeline."
+                : "Record a metric value against a catalog signal. Select the signal and enter the value — it will appear in your intelligence timeline."}
             </p>
           </div>
           <button
             type="button"
+            className="fuel-drawer-close"
             aria-label="Close"
             onClick={onClose}
-            style={ghostButtonStyle(t)}
+            style={drawerCloseBtnStyle(t)}
           >
-            ✕
+            <CloseIcon />
           </button>
         </header>
 
-        <div style={{ flex: 1, overflow: "auto", padding: 18 }}>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            padding: sheet ? "14px 16px" : 18,
+          }}
+        >
           <style dangerouslySetInnerHTML={{ __html: intelligenceDrawerInputCss(t) }} />
+
           <div
             style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 10,
-              alignItems: "flex-end",
+              display: "grid",
+              gap: sheet ? 12 : 10,
+              gridTemplateColumns: sheet
+                ? "minmax(0, 1fr)"
+                : "minmax(0, 1fr) minmax(120px, 140px)",
             }}
           >
-            <label style={{ flex: "1 1 180px", minWidth: 160 }}>
+            <label style={{ display: "block", minWidth: 0 }}>
               <div style={fieldLabelStyle(t)}>Signal</div>
               <SignalCatalogPicker
                 t={t}
                 value={signalId}
                 onChange={handleSignalChange}
                 signals={signalCatalog}
-                triggerStyle={drawerFormControlStyle(t)}
+                triggerStyle={{ ...drawerFormControlStyle(t), width: "100%" }}
               />
             </label>
 
-            <label style={{ flex: "0 1 140px", width: 140 }}>
+            <label style={{ display: "block", minWidth: 0 }}>
               <div style={fieldLabelStyle(t)}>Value</div>
-              {selected?.kind === "boolean" ? (
-                <select
-                  aria-label="Value"
-                  value={value || "true"}
-                  onChange={(e) => setValue(e.target.value)}
-                  className={INTELLIGENCE_DRAWER_INPUT_CLASS}
-                  style={drawerFormControlStyle(t)}
-                >
-                  <option value="true">true</option>
-                  <option value="false">false</option>
-                </select>
-              ) : selected?.kind === "quantitative" && selected.unit !== "usd" ? (
-                <input
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  placeholder={valuePlaceholder}
-                  type="number"
-                  step="any"
-                  inputMode="decimal"
-                  className={INTELLIGENCE_DRAWER_INPUT_CLASS}
-                  style={{
-                    ...drawerFormControlStyle(t),
-                    ...(valueInvalid ? { borderColor: t.negative } : null),
-                  }}
-                />
-              ) : (
-                <input
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  placeholder={valuePlaceholder}
-                  disabled={!selected}
-                  inputMode={selected?.kind === "quantitative" ? "decimal" : undefined}
-                  className={INTELLIGENCE_DRAWER_INPUT_CLASS}
-                  style={{
-                    ...drawerFormControlStyle(t),
-                    ...(valueInvalid ? { borderColor: t.negative } : null),
-                  }}
-                />
-              )}
+              {valueControl}
               {valueInvalid ? (
                 <div
                   style={{
@@ -303,51 +372,59 @@ export function LogIntelligenceDrawer({
                 </div>
               ) : null}
             </label>
+          </div>
 
-            <div style={{ flex: "0 1 168px", width: 168 }}>
-              <div style={fieldLabelStyle(t)}>Period</div>
-              <div style={{ display: "grid", gap: 6, gridTemplateColumns: "1fr 1fr" }}>
-                <select
-                  aria-label="Quarter"
-                  value={periodParts.quarter}
-                  onChange={(e) => {
-                    const q = e.target.value;
-                    const y = periodParts.year || String(new Date().getFullYear());
-                    if (q) setPeriod(formatIntelligencePeriod(q, y));
-                  }}
-                  className={INTELLIGENCE_DRAWER_INPUT_CLASS}
-                  style={drawerFormControlStyle(t)}
-                >
-                  <option value="">Q</option>
-                  {INTELLIGENCE_QUARTERS.map((q) => (
-                    <option key={q} value={q}>
-                      {q}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Year"
-                  value={periodParts.year}
-                  onChange={(e) => {
-                    const y = e.target.value;
-                    const q = periodParts.quarter || "Q1";
-                    if (y) setPeriod(formatIntelligencePeriod(q, y));
-                  }}
-                  className={INTELLIGENCE_DRAWER_INPUT_CLASS}
-                  style={drawerFormControlStyle(t)}
-                >
-                  <option value="">Year</option>
-                  {yearOptions.map((y) => (
-                    <option key={y} value={String(y)}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div style={{ marginTop: sheet ? 12 : 14 }}>
+            <div style={fieldLabelStyle(t)}>Period</div>
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                gridTemplateColumns: "1fr 1fr",
+                maxWidth: sheet ? undefined : 200,
+                width: "100%",
+              }}
+            >
+              <select
+                aria-label="Quarter"
+                value={periodParts.quarter}
+                onChange={(e) => {
+                  const q = e.target.value;
+                  const y = periodParts.year || String(new Date().getFullYear());
+                  if (q) setPeriod(formatIntelligencePeriod(q, y));
+                }}
+                className={INTELLIGENCE_DRAWER_INPUT_CLASS}
+                style={{ ...drawerFormControlStyle(t), width: "100%" }}
+              >
+                <option value="">Q</option>
+                {INTELLIGENCE_QUARTERS.map((q) => (
+                  <option key={q} value={q}>
+                    {q}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Year"
+                value={periodParts.year}
+                onChange={(e) => {
+                  const y = e.target.value;
+                  const q = periodParts.quarter || "Q1";
+                  if (y) setPeriod(formatIntelligencePeriod(q, y));
+                }}
+                className={INTELLIGENCE_DRAWER_INPUT_CLASS}
+                style={{ ...drawerFormControlStyle(t), width: "100%" }}
+              >
+                <option value="">Year</option>
+                {yearOptions.map((y) => (
+                  <option key={y} value={String(y)}>
+                    {y}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <label style={{ display: "block", marginTop: 14 }}>
+          <label style={{ display: "block", marginTop: sheet ? 12 : 14 }}>
             <div style={fieldLabelStyle(t)}>
               Note <span style={{ color: t.mutedSoft, fontWeight: 400 }}>(optional)</span>
             </div>
@@ -355,17 +432,42 @@ export function LogIntelligenceDrawer({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Context or commentary…"
-              rows={3}
+              rows={sheet ? 2 : 3}
               className={INTELLIGENCE_DRAWER_INPUT_CLASS}
-              style={{ ...drawerFormInputStyle(t), resize: "vertical" }}
+              style={{ ...drawerFormInputStyle(t), resize: "vertical", width: "100%" }}
             />
           </label>
         </div>
 
-        <footer style={benchActionsStyle(t)}>
+        <footer
+          style={{
+            ...benchActionsStyle(t),
+            gap: sheet ? 10 : 8,
+            padding: sheet
+              ? "12px 16px calc(12px + env(safe-area-inset-bottom, 0px))"
+              : "14px 18px",
+            ...(sheet
+              ? {
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1.4fr",
+                }
+              : null),
+          }}
+        >
           <HoverBtn
             type="button"
-            styleFor={(hovered) => benchActionBtnStyle(t, "cancel", { hovered })}
+            styleFor={(hovered) => ({
+              ...benchActionBtnStyle(t, "cancel", { hovered }),
+              ...(sheet
+                ? {
+                    alignItems: "center",
+                    display: "inline-flex",
+                    justifyContent: "center",
+                    minHeight: TOUCH_TARGET_MIN,
+                    width: "100%",
+                  }
+                : null),
+            })}
             onClick={onClose}
           >
             Cancel
@@ -373,12 +475,21 @@ export function LogIntelligenceDrawer({
           <HoverBtn
             type="button"
             disabled={!canSubmit || pending}
-            styleFor={(hovered) =>
-              benchActionBtnStyle(t, "save", {
+            styleFor={(hovered) => ({
+              ...benchActionBtnStyle(t, "save", {
                 hovered,
                 disabled: !canSubmit || pending,
-              })
-            }
+              }),
+              ...(sheet
+                ? {
+                    alignItems: "center",
+                    display: "inline-flex",
+                    justifyContent: "center",
+                    minHeight: TOUCH_TARGET_MIN,
+                    width: "100%",
+                  }
+                : null),
+            })}
             onClick={() => void submit()}
           >
             {pending ? "Logging…" : "Log intelligence"}

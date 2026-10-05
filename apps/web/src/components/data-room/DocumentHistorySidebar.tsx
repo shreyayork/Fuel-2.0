@@ -48,6 +48,7 @@ export function DocumentHistorySidebar({
         role="dialog"
         aria-modal="true"
         aria-label={`Document history for ${slot.typeLabel}`}
+        className="fuel-side-sheet"
         style={{
           ...documentHistorySidebarStyle(t),
           ...drawerPanelMotionStyle(visible, durationMs),

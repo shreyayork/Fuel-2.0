@@ -80,17 +80,28 @@ export function AuthSurface({
   nextPath,
   initialEmail = null,
   error,
+  designPreview = false,
 }: {
   googleUrl: string | null;
   initialMode: "signin" | "signup";
   nextPath: string | null;
   initialEmail?: string | null;
   error: string | null;
+  /** Skip Cognito + field validation — design/local preview folder. */
+  designPreview?: boolean;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [pending, startTransition] = useTransition();
   const inviteFlow = Boolean(nextPath?.startsWith("/invite/"));
+  /**
+   * Design preview: always enter onboarding after auth — Product vs Investment
+   * path first. Prefer explore CTA so claim still lands on Overview when done.
+   */
+  const designNext =
+    nextPath?.startsWith("/onboard") || nextPath?.startsWith("/invite/")
+      ? nextPath
+      : "/onboard?cta=explore";
 
   const [givenName, setGivenName] = useState("");
   const [familyName, setFamilyName] = useState("");
@@ -107,7 +118,8 @@ export function AuthSurface({
   const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  const genericProviderHint = email.includes("@") && isGenericEmailClient(email);
+  const genericProviderHint =
+    !designPreview && email.includes("@") && isGenericEmailClient(email);
 
   // Reset error/info when switching modes so stale copy doesn't bleed
   useEffect(() => {
@@ -116,8 +128,16 @@ export function AuthSurface({
     setInfo(null);
   }, [mode]);
 
+  const continueDesignPreview = () => {
+    router.push(designNext);
+  };
+
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
+    if (designPreview) {
+      continueDesignPreview();
+      return;
+    }
     setErrorKey(null);
     setErrorRaw(null);
     startTransition(async () => {
@@ -137,6 +157,10 @@ export function AuthSurface({
 
   const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
+    if (designPreview) {
+      continueDesignPreview();
+      return;
+    }
     setErrorKey(null);
     setErrorRaw(null);
     startTransition(async () => {
@@ -156,6 +180,10 @@ export function AuthSurface({
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
+    if (designPreview) {
+      continueDesignPreview();
+      return;
+    }
     setErrorKey(null);
     setErrorRaw(null);
     startTransition(async () => {
@@ -197,22 +225,27 @@ export function AuthSurface({
 
       {mode !== "verify" ? (
         <>
-          <GoogleButton url={googleUrl} mode={mode} />
+          <GoogleButton
+            url={googleUrl}
+            mode={mode}
+            designPreview={designPreview}
+            designHref={designNext}
+          />
           <OrDivider />
         </>
       ) : null}
 
       {mode === "signin" ? (
-        <form onSubmit={handleSignIn} autoComplete="on">
+        <form onSubmit={handleSignIn} autoComplete="on" noValidate>
           <Field
             id="signin-email"
             label="Email"
-            type="email"
+            type={designPreview ? "text" : "email"}
             value={email}
             onChange={setEmail}
             autoComplete="email"
             placeholder="you@yourcompany.com"
-            required
+            required={!designPreview}
           />
           <Field
             id="signin-password"
@@ -221,7 +254,7 @@ export function AuthSurface({
             value={password}
             onChange={setPassword}
             autoComplete="current-password"
-            required
+            required={!designPreview}
           />
           <div
             style={{
@@ -247,16 +280,22 @@ export function AuthSurface({
               Forgot password?
             </Link>
           </div>
-          <ErrorRow errorKey={errorKey} errorRaw={errorRaw} />
-          <PrimaryButton pending={pending} disabled={!email || !password}>
+          {!designPreview ? (
+            <ErrorRow errorKey={errorKey} errorRaw={errorRaw} />
+          ) : null}
+          <PrimaryButton
+            pending={pending}
+            disabled={designPreview ? false : !email || !password}
+            onClick={designPreview ? continueDesignPreview : undefined}
+          >
             {pending ? "Signing in…" : "Sign in"}
           </PrimaryButton>
         </form>
       ) : null}
 
       {mode === "signup" ? (
-        <form onSubmit={handleSignUp} autoComplete="on">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <form onSubmit={handleSignUp} autoComplete="on" noValidate>
+          <div className="auth-name-row">
             <Field
               id="signup-given"
               label="First name"
@@ -264,7 +303,7 @@ export function AuthSurface({
               value={givenName}
               onChange={setGivenName}
               autoComplete="given-name"
-              required
+              required={!designPreview}
             />
             <Field
               id="signup-family"
@@ -273,18 +312,18 @@ export function AuthSurface({
               value={familyName}
               onChange={setFamilyName}
               autoComplete="family-name"
-              required
+              required={!designPreview}
             />
           </div>
           <Field
             id="signup-email"
             label="Work email"
-            type="email"
+            type={designPreview ? "text" : "email"}
             value={email}
             onChange={setEmail}
             autoComplete="email"
             placeholder="you@yourcompany.com"
-            required
+            required={!designPreview}
             hint={
               genericProviderHint
                 ? "Personal email is fine to try Fuel, but verified company-domain emails are what count toward our global benchmark dataset."
@@ -298,13 +337,20 @@ export function AuthSurface({
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
-            required
-            hint="12+ characters with uppercase, lowercase, number, and symbol."
+            required={!designPreview}
+            hint={
+              designPreview
+                ? undefined
+                : "12+ characters with uppercase, lowercase, number, and symbol."
+            }
           />
-          <ErrorRow errorKey={errorKey} errorRaw={errorRaw} />
+          {!designPreview ? (
+            <ErrorRow errorKey={errorKey} errorRaw={errorRaw} />
+          ) : null}
           <PrimaryButton
             pending={pending}
-            disabled={!email || !password || !givenName || !familyName}
+            disabled={false}
+            onClick={designPreview ? continueDesignPreview : undefined}
           >
             {pending ? "Creating account…" : "Create account"}
           </PrimaryButton>
@@ -312,7 +358,7 @@ export function AuthSurface({
       ) : null}
 
       {mode === "verify" ? (
-        <form onSubmit={handleVerify} autoComplete="off">
+        <form onSubmit={handleVerify} autoComplete="off" noValidate>
           <Field
             id="verify-code"
             label="6-digit code"
@@ -321,12 +367,18 @@ export function AuthSurface({
             onChange={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
             inputMode="numeric"
             placeholder="123456"
-            required
+            required={!designPreview}
             mono
           />
-          <ErrorRow errorKey={errorKey} errorRaw={errorRaw} />
+          {!designPreview ? (
+            <ErrorRow errorKey={errorKey} errorRaw={errorRaw} />
+          ) : null}
           {info ? <InfoRow text={info} /> : null}
-          <PrimaryButton pending={pending} disabled={code.length < 6}>
+          <PrimaryButton
+            pending={pending}
+            disabled={designPreview ? false : code.length < 6}
+            onClick={designPreview ? continueDesignPreview : undefined}
+          >
             {pending ? "Verifying…" : "Verify & continue"}
           </PrimaryButton>
           <div
@@ -440,7 +492,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 600,
         letterSpacing: 1.6,
         textTransform: "uppercase",
@@ -485,26 +537,24 @@ function SubCopy({ children }: { children: React.ReactNode }) {
   );
 }
 
-function GoogleButton({ url, mode }: { url: string | null; mode: Mode }) {
-  if (!url) {
-    return (
-      <div
-        style={{
-          padding: 10,
-          borderRadius: 6,
-          background: "#3A1A1A",
-          color: "#FF6B5B",
-          fontSize: 12,
-          marginBottom: 12,
-        }}
-      >
-        Google sign-in not configured. Set COGNITO_HOSTED_UI + COGNITO_USER_POOL_CLIENT_ID + APP_URL.
-      </div>
-    );
+function GoogleButton({
+  url,
+  mode,
+  designPreview = false,
+  designHref = "/onboard",
+}: {
+  url: string | null;
+  mode: Mode;
+  designPreview?: boolean;
+  designHref?: string;
+}) {
+  const href = url ?? (designPreview ? designHref : null);
+  if (!href) {
+    return null;
   }
   return (
     <a
-      href={url}
+      href={href}
       style={{
         display: "flex",
         alignItems: "center",
@@ -512,13 +562,14 @@ function GoogleButton({ url, mode }: { url: string | null; mode: Mode }) {
         gap: 12,
         width: "100%",
         padding: "12px 16px",
+        minHeight: 44,
         background: "#FFFFFF",
         color: "#1F1F1F",
         border: "1px solid #DADCE0",
         borderRadius: 10,
         fontWeight: 500,
         textDecoration: "none",
-        fontSize: 14.5,
+        fontSize: 15,
         boxSizing: "border-box",
       }}
     >
@@ -560,7 +611,7 @@ function OrDivider() {
         gap: 12,
         margin: "20px 0",
         color: "#596876",
-        fontSize: 11,
+        fontSize: 12,
         letterSpacing: 1.5,
         textTransform: "uppercase",
         fontWeight: 600,
@@ -604,7 +655,7 @@ function Field({
         htmlFor={id}
         style={{
           display: "block",
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 600,
           letterSpacing: 0.8,
           textTransform: "uppercase",
@@ -625,7 +676,8 @@ function Field({
         required={required}
         style={{
           width: "100%",
-          padding: "11px 13px",
+          padding: "12px 13px",
+          minHeight: 44,
           background: "#0B141C",
           border: "1px solid #263947",
           borderRadius: 8,
@@ -633,7 +685,7 @@ function Field({
           fontFamily: mono
             ? "JetBrains Mono, ui-monospace, monospace"
             : "inherit",
-          fontSize: mono ? 18 : 14,
+          fontSize: mono ? 18 : 16,
           letterSpacing: mono ? 6 : 0,
           textAlign: mono ? "center" : "left",
           boxSizing: "border-box",
@@ -669,19 +721,24 @@ function PrimaryButton({
   pending,
   disabled,
   children,
+  onClick,
 }: {
   pending: boolean;
   disabled?: boolean;
   children: React.ReactNode;
+  /** Design preview: navigate without form validation / Cognito. */
+  onClick?: () => void;
 }) {
   return (
     <button
-      type="submit"
+      type={onClick ? "button" : "submit"}
       disabled={disabled || pending}
+      onClick={onClick}
       style={{
         marginTop: 10,
         width: "100%",
         padding: "13px 18px",
+        minHeight: 44,
         borderRadius: 10,
         background:
           disabled || pending
@@ -689,7 +746,7 @@ function PrimaryButton({
             : "linear-gradient(135deg, #00B48A 0%, #00A07B 100%)",
         color: "#0F1A24",
         fontWeight: 600,
-        fontSize: 14.5,
+        fontSize: 15,
         border: "1px solid #00B48A",
         boxShadow:
           disabled || pending
@@ -701,6 +758,7 @@ function PrimaryButton({
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
+        boxSizing: "border-box",
       }}
     >
       {pending ? (

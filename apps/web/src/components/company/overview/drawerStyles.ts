@@ -83,7 +83,7 @@ export function detailPanelStyle(t: Theme = OVERVIEW_THEME): CSSProperties {
     bottom: 0,
     display: "flex",
     flexDirection: "column",
-    maxWidth: "92vw",
+    maxWidth: "100vw",
     pointerEvents: "auto",
     position: "fixed",
     right: 0,
@@ -101,7 +101,7 @@ export function detailPanelStyle(t: Theme = OVERVIEW_THEME): CSSProperties {
 export function benchPanelStyle(t: Theme = OVERVIEW_THEME): CSSProperties {
   return {
     width: OVERVIEW_DRAWER_WIDTH,
-    maxWidth: "92vw",
+    maxWidth: "100vw",
     height: "100%",
     maxHeight: "100dvh",
     background: isLight(t) ? t.panel : t.bg,

@@ -7,10 +7,13 @@ import {
   providerInitials,
 } from "@/lib/service-provider-links";
 import type { Theme } from "@/lib/theme";
+import { framedPanelPadStyle, framedPanelStyle } from "@/lib/theme";
 import type { ServiceProvider } from "@/db/schema";
 import { Chip, Label, SectionHead } from "../atoms";
 import { Popover, PopoverAnchor, PopoverContent } from "../ui/popover";
+import { FilterMenu, PageToolbar } from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 import {
   SERVICE_PROVIDER_CATEGORIES,
   categoryLabel,
@@ -52,88 +55,100 @@ export function ServiceProviderDirectory({
   }, [filtered]);
 
   return (
-    <div>
+    <div className="fuel-page">
       <SectionHead
         t={t}
         title="Service providers"
         subtitle="Hand-curated directory of vendors, service firms, and partners York IE works with."
         right={
-          superAdmin ? (
-            <Link
-              href="/super-admin/service-providers"
-              style={{
-                padding: "8px 14px",
-                border: `1px solid ${t.rule}`,
-                borderRadius: 6,
-                fontFamily: t.sans,
-                fontSize: 12,
-                color: t.inkSoft,
-                textDecoration: "none",
-              }}
-            >
-              Manage (super admin)
-            </Link>
-          ) : undefined
+          <PageToolbar
+            t={t}
+            extra={
+              superAdmin ? (
+                <Link
+                  href="/super-admin/service-providers"
+                  style={{
+                    alignItems: "center",
+                    boxSizing: "border-box",
+                    display: "inline-flex",
+                    minHeight: TOUCH_TARGET_MIN,
+                    padding: "8px 14px",
+                    border: `1px solid ${t.rule}`,
+                    borderRadius: 6,
+                    fontFamily: t.sans,
+                    fontSize: 12,
+                    color: t.inkSoft,
+                    textDecoration: "none",
+                  }}
+                >
+                  Manage
+                </Link>
+              ) : undefined
+            }
+            filter={
+              <FilterMenu
+                t={t}
+                activeCount={(category !== "all" ? 1 : 0) + (query.trim() ? 1 : 0)}
+              >
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search providers…"
+                  aria-label="Search providers"
+                  style={{
+                    padding: "10px 12px",
+                    background: t.panelAlt,
+                    color: t.ink,
+                    border: `1px solid ${t.rule}`,
+                    borderRadius: 8,
+                    fontFamily: t.sans,
+                    fontSize: 16,
+                    boxSizing: "border-box",
+                    minHeight: TOUCH_TARGET_MIN,
+                    width: "100%",
+                  }}
+                />
+                <select
+                  value={category}
+                  onChange={(e) =>
+                    setCategory(e.target.value as ServiceProviderCategory | "all")
+                  }
+                  aria-label="Category"
+                  style={{
+                    padding: "10px 12px",
+                    background: t.panelAlt,
+                    color: t.ink,
+                    border: `1px solid ${t.rule}`,
+                    borderRadius: 8,
+                    fontFamily: t.sans,
+                    fontSize: 16,
+                    boxSizing: "border-box",
+                    minHeight: TOUCH_TARGET_MIN,
+                    width: "100%",
+                  }}
+                >
+                  <option value="all">All categories</option>
+                  {SERVICE_PROVIDER_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {categoryLabel(c)}
+                    </option>
+                  ))}
+                </select>
+              </FilterMenu>
+            }
+          />
         }
       />
-
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          marginBottom: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search providers…"
-          style={{
-            padding: "8px 12px",
-            background: t.panelAlt,
-            color: t.ink,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            fontFamily: t.sans,
-            fontSize: 13,
-            flex: "1 1 260px",
-            minWidth: 200,
-          }}
-        />
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value as ServiceProviderCategory | "all")}
-          style={{
-            padding: "8px 12px",
-            background: t.panelAlt,
-            color: t.ink,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            fontFamily: t.sans,
-            fontSize: 13,
-            minWidth: 180,
-          }}
-        >
-          <option value="all">All categories</option>
-          {SERVICE_PROVIDER_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {categoryLabel(c)}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {filtered.length === 0 ? (
         <div
           style={{
-            padding: 40,
-            textAlign: "center",
-            background: t.panel,
-            border: `1px solid ${t.rule}`,
+            ...framedPanelStyle(t),
+            color: t.muted,
             fontFamily: t.sans,
             fontSize: 13,
-            color: t.muted,
+            padding: 40,
+            textAlign: "center",
           }}
         >
           No providers match. Try a broader search.
@@ -146,8 +161,8 @@ export function ServiceProviderDirectory({
                 {categoryLabel(g.category)} · {g.items.length}
               </Label>
               <div
+                className="fuel-network-grid"
                 style={{
-                  display: "grid",
                   gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))",
                   gap: 10,
                 }}
@@ -179,15 +194,13 @@ function ProviderCard({ t, provider }: { t: Theme; provider: ServiceProvider }) 
   return (
     <div
       style={{
-        padding: 14,
-        background: t.panel,
+        ...framedPanelPadStyle(t, { padding: 14 }),
         border: `1px solid ${provider.visibility === "internal" ? t.accent : t.rule}`,
-        borderRadius: 6,
         display: "flex",
         flexDirection: "column",
         gap: 8,
         height: "100%",
-        boxSizing: "border-box",
+        minWidth: 0,
       }}
     >
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
@@ -196,17 +209,15 @@ function ProviderCard({ t, provider }: { t: Theme; provider: ServiceProvider }) 
           <div
             style={{
               fontFamily: t.sans,
-              fontSize: 14,
-              fontWeight: 600,
+              fontSize: 15,
+              fontWeight: 650,
               color: t.ink,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              overflowWrap: "anywhere",
             }}
           >
             {provider.name}
           </div>
-          <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted }}>
+          <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, marginTop: 2 }}>
             {categoryLabel(provider.category)}
             {provider.visibility === "internal" ? " · Internal" : ""}
           </div>
@@ -218,8 +229,7 @@ function ProviderCard({ t, provider }: { t: Theme; provider: ServiceProvider }) 
           style={{
             display: "flex",
             gap: 4,
-            flexWrap: "nowrap",
-            overflow: "hidden",
+            flexWrap: "wrap",
             flexShrink: 0,
             alignItems: "center",
           }}
@@ -234,19 +244,42 @@ function ProviderCard({ t, provider }: { t: Theme; provider: ServiceProvider }) 
       <div
         style={{
           display: "flex",
-          gap: 10,
+          gap: 14,
           fontFamily: t.sans,
-          fontSize: 12,
+          fontSize: 14,
           flexShrink: 0,
+          flexWrap: "wrap",
         }}
       >
         {websiteHref ? (
-          <a href={websiteHref} target="_blank" rel="noreferrer" style={{ color: t.accent, textDecoration: "none" }}>
+          <a
+            href={websiteHref}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              alignItems: "center",
+              color: t.accent,
+              display: "inline-flex",
+              minHeight: 44,
+              textDecoration: "none",
+            }}
+          >
             Website
           </a>
         ) : null}
         {linkedinHref ? (
-          <a href={linkedinHref} target="_blank" rel="noreferrer" style={{ color: t.accent, textDecoration: "none" }}>
+          <a
+            href={linkedinHref}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              alignItems: "center",
+              color: t.accent,
+              display: "inline-flex",
+              minHeight: 44,
+              textDecoration: "none",
+            }}
+          >
             LinkedIn
           </a>
         ) : null}

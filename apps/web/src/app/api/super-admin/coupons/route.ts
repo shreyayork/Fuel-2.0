@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import { listCouponCampaigns } from "@/lib/credits/coupon-campaigns";
 import { captureIntegrationException } from "@/lib/sentry/capture";
 
@@ -14,8 +14,7 @@ function notFound(): NextResponse {
 /** Active/inactive campaigns for Users Admin coupon send picker. */
 export async function GET(): Promise<Response> {
   const session = await getSession();
-  const devEmail = process.env.COGNITO_USER_POOL_ID ? null : "mike@york.ie";
-  if (!isSuperAdmin(session, devEmail)) return notFound();
+  if (!isSuperAdmin(session, superAdminDevEmail())) return notFound();
 
   try {
     const rows = await listCouponCampaigns();

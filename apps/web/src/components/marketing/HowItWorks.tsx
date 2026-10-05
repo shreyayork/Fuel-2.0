@@ -1,22 +1,27 @@
 "use client";
 
 import { motion } from "framer-motion";
+import {
+  marketingEyebrow,
+  marketingPanel,
+  marketingTheme as t,
+} from "./styles";
 
 const STEPS = [
   {
     n: "01",
     title: "Sign up with your work email",
-    body: "We verify the domain instantly so your KPI submissions count toward the global benchmark dataset. No demo call, no sales motion.",
+    body: "Domain verification is instant. Your KPIs count toward the global benchmark dataset — no demo call, no sales theater.",
   },
   {
     n: "02",
     title: "Watch the AI profile your company",
-    body: "Live agent runs against your domain — scrapes the homepage, detects your stack, identifies your peer cohort. You confirm or correct in under a minute.",
+    body: "The agent scrapes your footprint, detects stack and stage, and slots you into a peer cohort. Confirm or correct in under a minute.",
   },
   {
     n: "03",
-    title: "Run your first playbook in the same session",
-    body: "Benchmark your metrics, evaluate your deck, or pick from the library. Every artifact lives in your workspace forever, retrievable next quarter.",
+    title: "Run your first playbook same session",
+    body: "Benchmark metrics, evaluate a deck, or pick from the library. Every artifact stays in your workspace for next quarter.",
   },
 ];
 
@@ -24,18 +29,16 @@ export function HowItWorks() {
   return (
     <section
       style={{
-        padding: "0 32px 120px",
-        maxWidth: 1180,
+        padding: "0 var(--gutter) var(--section-y)",
+        maxWidth: 1200,
         margin: "0 auto",
+        width: "100%",
+        boxSizing: "border-box",
       }}
     >
       <div
         style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: 2,
-          textTransform: "uppercase",
-          color: "#00B48A",
+          ...marketingEyebrow(),
           marginBottom: 14,
           textAlign: "center",
         }}
@@ -46,88 +49,99 @@ export function HowItWorks() {
         style={{
           margin: 0,
           textAlign: "center",
-          fontSize: 34,
-          letterSpacing: -0.4,
+          fontSize: "var(--fs-h2)",
+          letterSpacing: -0.5,
           fontWeight: 600,
-          color: "#F4F6F8",
-          marginBottom: 56,
-          maxWidth: 760,
+          color: t.ink,
+          marginBottom: "clamp(32px, 6vw, 52px)",
+          maxWidth: 680,
           marginInline: "auto",
-          lineHeight: 1.15,
+          lineHeight: 1.18,
         }}
       >
-        From cold sign-up to your first benchmarked insight in about a minute.
+        Cold sign-up to benchmarked insight in about a minute.
       </h2>
+
       <div
+        className="mkt-how-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
-          gap: 20,
+          gap: 16,
+          position: "relative",
         }}
       >
         {STEPS.map((s, i) => (
           <motion.div
             key={s.n}
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 28 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-80px" }}
-            transition={{ delay: i * 0.12, duration: 0.55, ease: [0.22, 0.61, 0.36, 1] }}
-            style={{
-              position: "relative",
-              background:
-                "linear-gradient(180deg, rgba(23,38,50,0.85) 0%, rgba(15,26,36,0.85) 100%)",
-              border: "1px solid rgba(38,57,71,0.95)",
-              borderRadius: 16,
-              padding: 28,
-              overflow: "hidden",
+            transition={{
+              delay: i * 0.1,
+              duration: 0.55,
+              ease: [0.22, 0.61, 0.36, 1],
             }}
+            style={marketingPanel({
+              padding: "clamp(24px, 4vw, 30px)",
+              minWidth: 0,
+              background: `
+                radial-gradient(120% 80% at 0% 0%, ${t.accent}18 0%, transparent 55%),
+                linear-gradient(165deg, ${t.panel}F5 0%, ${t.panelInner} 100%)
+              `,
+            })}
           >
-            {/* Top-edge accent line */}
-            <span
-              aria-hidden
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 1,
-                background:
-                  "linear-gradient(90deg, transparent, rgba(0,180,138,0.5), transparent)",
-              }}
-            />
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
-                marginBottom: 16,
+                justifyContent: "space-between",
+                marginBottom: 18,
               }}
             >
               <span
                 style={{
-                  fontFamily: "JetBrains Mono, ui-monospace, monospace",
-                  color: "#00B48A",
-                  fontSize: 13,
-                  letterSpacing: 1,
+                  fontFamily: t.mono,
+                  fontSize: "clamp(42px, 7vw, 56px)",
                   fontWeight: 600,
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  background: "rgba(0,180,138,0.10)",
-                  border: "1px solid rgba(0,180,138,0.25)",
+                  letterSpacing: -2.5,
+                  lineHeight: 1,
+                  background: `linear-gradient(180deg, ${t.accent}66, ${t.accent}14)`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
                 }}
               >
-                STEP {s.n}
+                {s.n}
+              </span>
+              <span
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  border: `1px solid ${t.accent}55`,
+                  background: t.accentSoft,
+                  color: t.accent,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: t.mono,
+                  fontSize: 14,
+                  fontWeight: 600,
+                }}
+              >
+                {i + 1}
               </span>
             </div>
             <h3
               style={{
                 margin: 0,
                 marginBottom: 10,
-                fontSize: 19,
-                color: "#F4F6F8",
+                fontSize: "var(--fs-h3)",
+                color: t.ink,
                 fontWeight: 600,
-                letterSpacing: -0.2,
-                lineHeight: 1.3,
+                letterSpacing: -0.25,
+                lineHeight: 1.28,
               }}
             >
               {s.title}
@@ -135,8 +149,8 @@ export function HowItWorks() {
             <p
               style={{
                 margin: 0,
-                fontSize: 14.5,
-                color: "#CBD3DB",
+                fontSize: 15,
+                color: t.inkSoft,
                 lineHeight: 1.6,
               }}
             >

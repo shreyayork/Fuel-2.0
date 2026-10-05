@@ -18,10 +18,11 @@ export const dynamic = "force-dynamic";
  */
 export default async function RootPage() {
   const requireAuth = process.env.COGNITO_USER_POOL_ID != null;
+
+  // Without Cognito (local/dev), `/` is the public marketing landing —
+  // matching "← Back to home" from sign-in. App chrome stays at /dashboard.
   if (!requireAuth) {
-    // Dev mode with no Cognito wired: skip session checks and forward to
-    // the authenticated dashboard, matching the previous bare-/ behavior.
-    redirect("/dashboard");
+    return <MarketingLanding />;
   }
 
   const session = await getSession();

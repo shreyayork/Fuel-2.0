@@ -1,0 +1,54 @@
+{
+  "buildPath": "code",
+  "detector": {
+    "ignoreRules": [
+      "layout-transition"
+    ],
+    "ignoreFiles": [
+      "apps/web/src/components/onboard/v2/OnboardingFlow.tsx"
+    ],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "apps/web/src/components/views/WatchlistDetail.tsx"
+        ],
+        "createdAt": "2026-09-30T07:06:34.517Z",
+        "reason": "pre-existing PortfolioScorecard left accent strip; not part of data-table chrome work"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "apps/web/src/components/views/CompanyPublicView.tsx"
+        ],
+        "createdAt": "2026-09-30T07:09:34.019Z",
+        "reason": "pre-existing accent-left card chrome in company public view; unrelated to data-table migration"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "apps/web/src/components/company/overview/scorecardCss.ts"
+        ],
+        "createdAt": "2026-09-30T08:25:01.479Z",
+        "reason": "Agent: pre-existing overview scorecard accents; not introduced by hiding focus tracks on mobile"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "apps/web/src/components/company/overview/scorecardCss.ts"
+        ],
+        "createdAt": "2026-09-30T08:25:01.525Z",
+        "reason": "Agent: pre-existing scorecard motion; not introduced by hiding focus tracks on mobile"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "createdAt": "2026-10-01T06:17:17.398Z"
+      }
+    ]
+  }
+}

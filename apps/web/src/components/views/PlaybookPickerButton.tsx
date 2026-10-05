@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
 import { useAgentDrawer } from "../AgentDrawer";
 import { useTheme } from "../ThemeContext";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import { dropdownScrollProps, type Theme } from "@/lib/theme";
 import {
   buildExtractDeckPromptBlock,
@@ -302,6 +310,10 @@ export function PlaybookPickerButton({
           runPlaybook={runPlaybook}
           subject={subject}
           totalCount={kindFiltered.length}
+          onClose={() => {
+            setOpen(false);
+            setQuery("");
+          }}
         />
       ) : null}
     </div>
@@ -342,6 +354,7 @@ export function PlaybookPickerPanel({
   runPlaybook,
   subject,
   totalCount,
+  onClose,
 }: {
   t: Theme;
   query: string;
@@ -352,154 +365,392 @@ export function PlaybookPickerPanel({
   runPlaybook: (pb: PlaybookPickerEntry) => void;
   subject: PlaybookSubject;
   totalCount: number;
+  /** Required for mobile bottom-sheet dismiss (scrim / Escape / close). */
+  onClose?: () => void;
 }) {
+  // Phone + short landscape: bottom sheet. Tablet+ : anchored popover.
+  const sheet = useNarrow(BREAKPOINTS.md);
+  const titleId = useId();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sheet || !onClose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [sheet, onClose]);
+
+  const subjectLabel =
+    subject.kind === "company" ? subject.name : `portfolio "${subject.name}"`;
+
+  const searchField = (
+    <input
+      autoFocus
+      aria-label={`Search ${totalCount} playbooks`}
+      placeholder={`Search ${totalCount} playbook${totalCount === 1 ? "" : "s"}…`}
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      className="fuel-playbook-picker__search"
+      style={{
+        width: "100%",
+        boxSizing: "border-box",
+        padding: sheet ? "12px 14px" : "8px 10px",
+        background: t.panelAlt,
+        color: t.ink,
+        border: `1px solid ${t.rule}`,
+        borderRadius: 8,
+        fontFamily: t.sans,
+        fontSize: sheet ? 16 : 13,
+        minHeight: sheet ? TOUCH_TARGET_MIN : undefined,
+      }}
+    />
+  );
+
+  const list = (
+    <div
+      {...dropdownScrollProps(t, {
+        padding: sheet ? "4px 8px 12px" : "4px 6px 6px",
+        flex: 1,
+        minHeight: 0,
+        WebkitOverflowScrolling: "touch",
+      })}
+    >
+      {filtered.length === 0 ? (
+        <div
+          style={{
+            padding: "16px 12px",
+            fontFamily: t.sans,
+            fontSize: 14,
+            color: t.muted,
+            lineHeight: 1.45,
+          }}
+        >
+          No playbooks match &quot;{query}&quot;.
+        </div>
+      ) : (
+        categories.map((cat) => (
+          <div key={cat}>
+            <div
+              style={{
+                padding: sheet ? "12px 12px 6px" : "10px 10px 4px",
+                fontFamily: t.mono,
+                fontSize: 10.5,
+                color: t.mutedSoft,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              {cat}
+            </div>
+            {byCategory.get(cat)!.map((pb) => (
+              <PlaybookPickerRow
+                key={pb.id}
+                t={t}
+                pb={pb}
+                sheet={sheet}
+                onPick={() => runPlaybook(pb)}
+              />
+            ))}
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  const footer = (
+    <div
+      className="fuel-playbook-picker__footer"
+      style={{
+        padding: sheet
+          ? "10px 14px max(12px, var(--fuel-safe-bottom, 0px))"
+          : "8px 10px",
+        borderTop: `1px solid ${t.rule}`,
+        fontFamily: t.sans,
+        fontSize: sheet ? 13 : 11,
+        color: t.muted,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 12,
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          minWidth: 0,
+          lineHeight: 1.35,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {sheet ? `Runs on ${subjectLabel}` : `Click to run against ${subjectLabel}`}
+      </span>
+      <Link
+        href="/playbooks"
+        onClick={onClose}
+        style={{
+          color: t.accent,
+          textDecoration: "none",
+          flexShrink: 0,
+          fontWeight: 600,
+          minHeight: sheet ? TOUCH_TARGET_MIN : undefined,
+          display: "inline-flex",
+          alignItems: "center",
+        }}
+      >
+        Full catalog →
+      </Link>
+    </div>
+  );
+
+  if (sheet) {
+    if (!mounted || typeof document === "undefined") return null;
+    return createPortal(
+      <div className="fuel-playbook-sheet" style={sheetRootStyle(t)}>
+        <button
+          type="button"
+          aria-label="Close playbooks"
+          className="fuel-playbook-sheet__scrim"
+          onClick={onClose}
+          style={{
+            ...sheetScrimStyle(t),
+            border: 0,
+            padding: 0,
+            cursor: "pointer",
+          }}
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          className="fuel-playbook-sheet__panel"
+          style={sheetPanelStyle(t)}
+        >
+          <div className="fuel-playbook-sheet__handle-wrap" aria-hidden>
+            <div
+              className="fuel-playbook-sheet__handle"
+              style={{ background: t.rule }}
+            />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              padding: "0 14px 10px",
+              flexShrink: 0,
+            }}
+          >
+            <h2
+              id={titleId}
+              style={{
+                margin: 0,
+                fontFamily: t.sans,
+                fontSize: 17,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                color: t.ink,
+              }}
+            >
+              Playbooks
+            </h2>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              style={{
+                ...sheetCloseBtnStyle(t),
+              }}
+            >
+              <SheetCloseIcon />
+            </button>
+          </div>
+          <div style={{ padding: "0 14px 10px", flexShrink: 0 }}>{searchField}</div>
+          {list}
+          {footer}
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
   return (
     <div
+      className="fuel-playbook-picker"
       style={{
         position: "absolute",
         top: "calc(100% + 6px)",
         right: 0,
-        width: 420,
-        maxHeight: 520,
+        width: "min(420px, calc(100vw - 24px))",
+        maxHeight: "min(520px, 70dvh)",
         background: t.panel,
         border: `1px solid ${t.rule}`,
-        borderRadius: 8,
-        boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+        borderRadius: 10,
+        boxShadow: `0 12px 32px ${t.overlay}`,
         zIndex: 200,
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
       }}
     >
-      <div style={{ padding: 10, borderBottom: `1px solid ${t.rule}` }}>
-        <input
-          autoFocus
-          placeholder={`Search ${totalCount} playbook${totalCount === 1 ? "" : "s"}…`}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "6px 10px",
-            background: t.panelAlt,
-            color: t.ink,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            fontFamily: t.sans,
-            fontSize: 12.5,
-          }}
-        />
+      <div style={{ padding: 10, borderBottom: `1px solid ${t.rule}`, flexShrink: 0 }}>
+        {searchField}
       </div>
-      <div {...dropdownScrollProps(t, { padding: "4px 6px 6px" })}>
-        {filtered.length === 0 ? (
-          <div
+      {list}
+      {footer}
+    </div>
+  );
+}
+
+function PlaybookPickerRow({
+  t,
+  pb,
+  sheet,
+  onPick,
+}: {
+  t: Theme;
+  pb: PlaybookPickerEntry;
+  sheet: boolean;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className="fuel-playbook-picker__row"
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        background: "transparent",
+        border: "none",
+        padding: sheet ? "12px 12px" : "8px 10px",
+        borderRadius: 8,
+        cursor: "pointer",
+        color: "inherit",
+        minHeight: sheet ? TOUCH_TARGET_MIN : undefined,
+      }}
+    >
+      <div
+        style={{
+          fontFamily: t.sans,
+          fontSize: sheet ? 15 : 13,
+          fontWeight: 600,
+          color: t.ink,
+          letterSpacing: "-0.01em",
+        }}
+      >
+        {pb.title}
+        {pb.subcategory ? (
+          <span
             style={{
-              padding: "12px 10px",
-              fontFamily: t.sans,
-              fontSize: 12,
-              color: t.muted,
+              color: t.mutedSoft,
+              fontWeight: 400,
+              fontSize: sheet ? 13 : 11,
+              marginLeft: 6,
             }}
           >
-            No playbooks match &quot;{query}&quot;.
-          </div>
-        ) : (
-          categories.map((cat) => (
-            <div key={cat}>
-              <div
-                style={{
-                  padding: "10px 10px 4px",
-                  fontFamily: t.mono,
-                  fontSize: 10,
-                  color: t.mutedSoft,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                }}
-              >
-                {cat}
-              </div>
-              {byCategory.get(cat)!.map((pb) => (
-                <button
-                  key={pb.id}
-                  type="button"
-                  onClick={() => runPlaybook(pb)}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    background: "transparent",
-                    border: "none",
-                    padding: "8px 10px",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    color: "inherit",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = t.panelAlt)
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                >
-                  <div
-                    style={{
-                      fontFamily: t.sans,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: t.ink,
-                    }}
-                  >
-                    {pb.title}
-                    {pb.subcategory ? (
-                      <span
-                        style={{
-                          color: t.mutedSoft,
-                          fontWeight: 400,
-                          fontSize: 11,
-                          marginLeft: 6,
-                        }}
-                      >
-                        · {pb.subcategory}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: t.sans,
-                      fontSize: 11.5,
-                      color: t.muted,
-                      marginTop: 2,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {pb.description}
-                  </div>
-                </button>
-              ))}
-            </div>
-          ))
-        )}
+            · {pb.subcategory}
+          </span>
+        ) : null}
       </div>
       <div
         style={{
-          padding: "8px 10px",
-          borderTop: `1px solid ${t.rule}`,
           fontFamily: t.sans,
-          fontSize: 11,
+          fontSize: sheet ? 13 : 12,
           color: t.muted,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          marginTop: 3,
+          lineHeight: 1.4,
         }}
       >
-        <span>
-          Click to run against{" "}
-          {subject.kind === "company" ? subject.name : `portfolio "${subject.name}"`}
-        </span>
-        <Link
-          href="/playbooks"
-          style={{ color: t.accent, textDecoration: "none" }}
-        >
-          Full catalog →
-        </Link>
+        {pb.description}
       </div>
-    </div>
+    </button>
   );
+}
+
+function SheetCloseIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M4.5 4.5 13.5 13.5M13.5 4.5 4.5 13.5"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function sheetRootStyle(t: Theme): CSSProperties {
+  return {
+    position: "fixed",
+    inset: 0,
+    // Above Shell menus (~2050) and Next.js floating badge.
+    zIndex: 10050,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-end",
+    fontFamily: t.sans,
+    paddingLeft: "var(--fuel-safe-left, 0px)",
+    paddingRight: "var(--fuel-safe-right, 0px)",
+  };
+}
+
+function sheetScrimStyle(t: Theme): CSSProperties {
+  return {
+    position: "absolute",
+    inset: 0,
+    background: t.overlay,
+  };
+}
+
+function sheetPanelStyle(t: Theme): CSSProperties {
+  return {
+    position: "relative",
+    zIndex: 1,
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    maxHeight: "min(90dvh, 100%)",
+    background: t.panel,
+    borderTop: `1px solid ${t.rule}`,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    boxShadow: `0 -12px 40px ${t.overlay}`,
+    overflow: "hidden",
+  };
+}
+
+function sheetCloseBtnStyle(t: Theme): CSSProperties {
+  return {
+    alignItems: "center",
+    background: t.panelAlt,
+    border: `1px solid ${t.rule}`,
+    borderRadius: 10,
+    color: t.inkSoft,
+    cursor: "pointer",
+    display: "inline-flex",
+    flexShrink: 0,
+    height: TOUCH_TARGET_MIN,
+    justifyContent: "center",
+    width: TOUCH_TARGET_MIN,
+  };
 }

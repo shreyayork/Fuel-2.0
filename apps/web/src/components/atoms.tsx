@@ -271,7 +271,10 @@ export function Tabs({
   onTourAnchorElChange?: (el: HTMLButtonElement | null) => void;
 }) {
   return (
-    <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${t.rule}` }}>
+    <div
+      className="fuel-tabs-scroll"
+      style={{ borderBottom: `1px solid ${t.rule}` }}
+    >
       {items.map((it) => (
         <button
           key={it.key}
@@ -323,16 +326,8 @@ export function SectionHead({
   right?: ReactNode;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 24,
-        marginBottom: 20,
-      }}
-    >
-      <div>
+    <div className="fuel-section-head">
+      <div className="fuel-section-head__copy" style={{ minWidth: 0, flex: "1 1 auto" }}>
         <h1
           style={{
             margin: 0,
@@ -341,25 +336,29 @@ export function SectionHead({
             fontWeight: 600,
             color: t.ink,
             letterSpacing: "-0.01em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
           {title ?? eyebrow}
         </h1>
         {subtitle ? (
           <div
+            className="fuel-section-head__sub"
             style={{
-              marginTop: 4,
+              marginTop: 2,
               fontFamily: t.sans,
               fontSize: 13,
               color: t.muted,
-              lineHeight: 1.4,
+              lineHeight: 1.35,
             }}
           >
             {subtitle}
           </div>
         ) : null}
       </div>
-      {right ? <div>{right}</div> : null}
+      {right ? <div className="fuel-section-head__right">{right}</div> : null}
     </div>
   );
 }

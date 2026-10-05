@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
-import type { Theme } from "@/lib/theme";
+import { createPortal } from "react-dom";
+import {
+  accentChipBg,
+  accentChipBorder,
+  accentChipFg,
+  panelCardSurface,
+  type Theme,
+} from "@/lib/theme";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, mqMax, useMediaQuery } from "@/lib/responsive";
 import {
   drawerPanelMotionStyle,
   drawerScrimMotionStyle,
@@ -18,16 +26,34 @@ import {
 } from "@/lib/intelligence/source-label";
 import { formatPeriodDisplay } from "./format";
 
-/** Typography aligned with Design `.provenance-*` (PatriotPayJourney.css). */
-function categoryStyle(t: Theme): CSSProperties {
+/** Section eyebrows — muted meta, not accent (COLOR_SYSTEM / provenance). */
+function sectionLabelStyle(t: Theme): CSSProperties {
   return {
-    color: t.accent,
+    color: t.mutedSoft,
     display: "block",
-    fontFamily: t.sans,
+    fontFamily: t.mono,
     fontSize: 10,
     fontWeight: 700,
-    letterSpacing: "0.08em",
+    letterSpacing: "0.06em",
+    margin: 0,
+    textTransform: "uppercase",
+  };
+}
+
+function categoryChipStyle(t: Theme): CSSProperties {
+  return {
+    alignSelf: "flex-start",
+    background: accentChipBg(t),
+    border: `1px solid ${accentChipBorder(t)}`,
+    borderRadius: 4,
+    color: accentChipFg(t),
+    display: "inline-block",
+    fontFamily: t.mono,
+    fontSize: 9,
+    fontWeight: 800,
+    letterSpacing: "0.06em",
     lineHeight: 1.2,
+    padding: "3px 7px",
     textTransform: "uppercase",
   };
 }
@@ -36,58 +62,33 @@ function signalNameStyle(t: Theme): CSSProperties {
   return {
     color: t.ink,
     fontFamily: t.sans,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 700,
-    letterSpacing: 0,
-    lineHeight: 1.35,
+    letterSpacing: "-0.01em",
+    lineHeight: 1.3,
     margin: 0,
   };
 }
 
 function valueStyle(t: Theme): CSSProperties {
   return {
-    color: t.ink,
+    color: t.inkSoft,
     fontFamily: t.sans,
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: 500,
     letterSpacing: 0,
     lineHeight: 1.4,
-    margin: "2px 0 0",
+    margin: 0,
   };
 }
 
-function sectionTitleStyle(t: Theme): CSSProperties {
+function nestedWellStyle(t: Theme): CSSProperties {
   return {
-    color: t.accent,
-    display: "block",
-    fontFamily: t.sans,
-    fontSize: 10.5,
-    fontWeight: 800,
-    letterSpacing: "0.08em",
-    margin: 0,
-    textTransform: "uppercase",
-  };
-}
-
-function factLabelStyle(t: Theme): CSSProperties {
-  return {
-    color: t.accent,
-    fontFamily: t.sans,
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    margin: 0,
-    textTransform: "uppercase",
-  };
-}
-
-function factValueStyle(t: Theme): CSSProperties {
-  return {
-    color: t.ink,
-    fontFamily: t.sans,
-    fontSize: 12.5,
-    fontWeight: 500,
-    margin: 0,
+    background: t.panelInner,
+    border: `1px solid ${t.rule}`,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    width: "100%",
   };
 }
 
@@ -103,9 +104,15 @@ export function SignalDetailDrawer({
   onClose: () => void;
 }) {
   const open = Boolean(item);
+  const sheet = useMediaQuery(mqMax(BREAKPOINTS.md), false);
   const { mounted, visible, durationMs } = useDrawerPresence(open);
   const [displayItem, setDisplayItem] = useState(item);
   const [displaySiblings, setDisplaySiblings] = useState(siblings);
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (item) {
@@ -123,7 +130,7 @@ export function SignalDetailDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!mounted || !displayItem) return null;
+  if (!mounted || !displayItem || !portalReady) return null;
 
   const hasHistory = displaySiblings.length > 1;
   const sourceCount = displayItem.sources.length;
@@ -135,7 +142,26 @@ export function SignalDetailDrawer({
     ? "This value came from the profile or benchmark."
     : "No linked sources.";
 
-  return (
+  const closeBtnStyle: CSSProperties = {
+    alignItems: "center",
+    background: t.panel,
+    border: `1px solid ${t.rule}`,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: t.muted,
+    cursor: "pointer",
+    display: "inline-flex",
+    flexShrink: 0,
+    fontFamily: t.sans,
+    fontSize: sheet ? 12 : 11,
+    fontWeight: 600,
+    justifyContent: "center",
+    minHeight: sheet ? TOUCH_TARGET_MIN : undefined,
+    minWidth: sheet ? TOUCH_TARGET_MIN : undefined,
+    padding: sheet ? "0 12px" : "6px 10px",
+  };
+
+  return createPortal(
     <>
       <button
         type="button"
@@ -150,20 +176,58 @@ export function SignalDetailDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Signal detail"
+        className="fuel-side-sheet"
         style={{
-          ...documentHistorySidebarStyle(t),
-          ...drawerPanelMotionStyle(visible, durationMs),
+          ...(sheet
+            ? {
+                background: t.panel,
+                borderRadius: "16px 16px 0 0",
+                borderTop: `1px solid ${t.rule}`,
+                bottom: 0,
+                boxShadow: `0 -16px 48px ${t.overlay}`,
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                left: 0,
+                maxHeight: "min(92vh, 720px)",
+                overflow: "hidden",
+                position: "fixed",
+                right: 0,
+                top: "auto",
+                width: "100%",
+                zIndex: 60,
+              }
+            : documentHistorySidebarStyle(t)),
+          ...drawerPanelMotionStyle(visible, durationMs, {
+            from: sheet ? "bottom" : "right",
+          }),
         }}
       >
+        {sheet ? (
+          <div
+            aria-hidden
+            style={{
+              alignSelf: "center",
+              background: t.rule,
+              borderRadius: 999,
+              flexShrink: 0,
+              height: 4,
+              marginTop: 8,
+              width: 36,
+            }}
+          />
+        ) : null}
+
         <div
           style={{
             alignItems: "center",
-            background: t.panelAlt,
-            borderBottom: `1px solid ${t.ruleSoft}`,
+            background: t.panel,
+            borderBottom: `1px solid ${t.rule}`,
             display: "flex",
             flexShrink: 0,
+            gap: 12,
             justifyContent: "space-between",
-            padding: "16px 18px",
+            padding: sheet ? "10px 16px 12px" : "14px 18px",
           }}
         >
           <strong
@@ -172,90 +236,96 @@ export function SignalDetailDrawer({
               fontFamily: t.sans,
               fontSize: 14,
               fontWeight: 650,
+              minWidth: 0,
             }}
           >
             Signal detail
           </strong>
           <button
             type="button"
+            className="fuel-side-sheet__close"
             onClick={onClose}
-            style={{
-              background: "transparent",
-              border: `1px solid ${t.rule}`,
-              borderRadius: 6,
-              color: t.inkSoft,
-              cursor: "pointer",
-              fontFamily: t.sans,
-              fontSize: 11,
-              padding: "4px 8px",
-            }}
+            style={closeBtnStyle}
           >
-            Close · Esc
+            {sheet ? "Close" : "Close · Esc"}
           </button>
         </div>
 
         <div
           style={{
-            background: `linear-gradient(180deg, ${t.accent}0A 0%, transparent 48px)`,
+            background: t.bg,
+            boxSizing: "border-box",
             display: "flex",
             flexDirection: "column",
             flex: 1,
-            gap: 18,
+            gap: sheet ? 14 : 16,
+            minHeight: 0,
+            minWidth: 0,
             overflow: "auto",
-            padding: 18,
+            padding: sheet
+              ? "14px 16px calc(16px + env(safe-area-inset-bottom, 0px))"
+              : "16px 18px 20px",
+            width: "100%",
           }}
         >
           <section
             style={{
-              background: t.panelInner,
-              border: `1px solid ${t.ruleSoft}`,
-              borderLeft: `3px solid ${t.accent}`,
+              ...panelCardSurface(t),
               borderRadius: 10,
+              boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
-              gap: 4,
-              padding: "14px 14px 12px",
+              gap: 8,
+              padding: sheet ? "12px 14px" : "14px 16px",
+              width: "100%",
             }}
           >
-            <span style={categoryStyle(t)}>{displayItem.categoryLabel}</span>
+            <span style={categoryChipStyle(t)}>{displayItem.categoryLabel}</span>
             <h2 style={signalNameStyle(t)}>{displayItem.signalName}</h2>
             {displayItem.valueLabel ? <p style={valueStyle(t)}>{displayItem.valueLabel}</p> : null}
-            <dl
+            <div
               style={{
-                display: "grid",
-                gap: 8,
-                gridTemplateColumns: "minmax(0, 1fr)",
-                margin: "8px 0 0",
+                alignItems: "baseline",
+                alignSelf: "flex-start",
+                background: accentChipBg(t),
+                border: `1px solid ${accentChipBorder(t)}`,
+                borderRadius: 8,
+                display: "inline-flex",
+                flexWrap: "wrap",
+                gap: "2px 10px",
+                marginTop: 2,
+                padding: "6px 10px",
               }}
             >
-              <div
+              <span
                 style={{
-                  background: `${t.accent}0F`,
-                  border: `1px solid ${t.accent}2E`,
-                  borderRadius: 8,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 3,
-                  padding: "8px 10px",
+                  color: accentChipFg(t),
+                  fontFamily: t.mono,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
                 }}
               >
-                <dt style={factLabelStyle(t)}>Period</dt>
-                <dd style={factValueStyle(t)}>{formatPeriodDisplay(displayItem.period)}</dd>
-              </div>
-            </dl>
+                Period
+              </span>
+              <span
+                style={{
+                  color: t.ink,
+                  fontFamily: t.sans,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                }}
+              >
+                {formatPeriodDisplay(displayItem.period)}
+              </span>
+            </div>
           </section>
 
           {displayItem.summary ? (
-            <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <h3 style={sectionTitleStyle(t)}>Summary</h3>
-              <div
-                style={{
-                  background: t.panelInner,
-                  border: `1px solid ${t.ruleSoft}`,
-                  borderRadius: 10,
-                  padding: "12px 14px",
-                }}
-              >
+            <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+              <h3 style={sectionLabelStyle(t)}>Summary</h3>
+              <div style={{ ...nestedWellStyle(t), padding: "12px 14px" }}>
                 <p
                   style={{
                     color: t.inkSoft,
@@ -272,16 +342,9 @@ export function SignalDetailDrawer({
           ) : null}
 
           {displayItem.note ? (
-            <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <h3 style={sectionTitleStyle(t)}>Note</h3>
-              <div
-                style={{
-                  background: t.panelInner,
-                  border: `1px solid ${t.ruleSoft}`,
-                  borderRadius: 10,
-                  padding: "12px 14px",
-                }}
-              >
+            <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+              <h3 style={sectionLabelStyle(t)}>Note</h3>
+              <div style={{ ...nestedWellStyle(t), padding: "12px 14px" }}>
                 <p
                   style={{
                     color: t.inkSoft,
@@ -297,14 +360,14 @@ export function SignalDetailDrawer({
             </section>
           ) : null}
 
-          <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <h3 style={sectionTitleStyle(t)}>
+          <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+            <h3 style={sectionLabelStyle(t)}>
               {sourceCount > 0
                 ? `${sourceCount} source${sourceCount === 1 ? "" : "s"}`
                 : "Sources"}
             </h3>
             {sourceCount > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
                 {displayItem.sources.map((source) => {
                   const kindLabel = resolveFeedSourceKindLabel({
                     kind: source.kind,
@@ -314,9 +377,7 @@ export function SignalDetailDrawer({
                     <article
                       key={source.id}
                       style={{
-                        background: t.panelInner,
-                        border: `1px solid ${t.ruleSoft}`,
-                        borderRadius: 10,
+                        ...nestedWellStyle(t),
                         padding: "12px 14px",
                       }}
                     >
@@ -325,6 +386,7 @@ export function SignalDetailDrawer({
                           display: "flex",
                           gap: 8,
                           justifyContent: "space-between",
+                          minWidth: 0,
                         }}
                       >
                         <strong
@@ -333,6 +395,7 @@ export function SignalDetailDrawer({
                             fontFamily: t.sans,
                             fontSize: 12.5,
                             fontWeight: 600,
+                            minWidth: 0,
                           }}
                         >
                           {source.title}
@@ -341,6 +404,7 @@ export function SignalDetailDrawer({
                           <time
                             style={{
                               color: t.mutedSoft,
+                              flexShrink: 0,
                               fontFamily: t.sans,
                               fontSize: 11,
                             }}
@@ -380,10 +444,12 @@ export function SignalDetailDrawer({
             ) : (
               <div
                 style={{
-                  background: `${t.accent}0D`,
-                  border: `1px dashed ${t.accent}47`,
-                  borderRadius: 10,
+                  background: t.panelInner,
+                  border: `1px dashed ${t.rule}`,
+                  borderRadius: 8,
+                  boxSizing: "border-box",
                   padding: "12px 14px",
+                  width: "100%",
                 }}
               >
                 <p
@@ -402,28 +468,20 @@ export function SignalDetailDrawer({
           </section>
 
           {hasHistory ? (
-            <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <h3 style={sectionTitleStyle(t)}>History · {displaySiblings.length}</h3>
-              <div
-                style={{
-                  background: t.panelInner,
-                  border: `1px solid ${t.ruleSoft}`,
-                  borderRadius: 10,
-                  overflow: "hidden",
-                }}
-              >
+            <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+              <h3 style={sectionLabelStyle(t)}>History · {displaySiblings.length}</h3>
+              <div style={{ ...nestedWellStyle(t), overflow: "hidden" }}>
                 {displaySiblings.map((entry) => {
                   const isSelected = entry.id === displayItem.id;
                   return (
                     <div
                       key={entry.id}
                       style={{
-                        background: isSelected ? `${t.accent}14` : "transparent",
+                        background: isSelected ? t.accentTint : "transparent",
                         borderBottom: `1px solid ${t.ruleSoft}`,
-                        borderLeft: isSelected
-                          ? `3px solid ${t.accent}`
-                          : "3px solid transparent",
+                        boxSizing: "border-box",
                         padding: "10px 12px",
+                        width: "100%",
                       }}
                     >
                       <p
@@ -431,7 +489,7 @@ export function SignalDetailDrawer({
                           color: t.ink,
                           fontFamily: t.sans,
                           fontSize: 12.5,
-                          fontWeight: 500,
+                          fontWeight: isSelected ? 600 : 500,
                           lineHeight: 1.4,
                           margin: 0,
                         }}
@@ -457,6 +515,7 @@ export function SignalDetailDrawer({
           ) : null}
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

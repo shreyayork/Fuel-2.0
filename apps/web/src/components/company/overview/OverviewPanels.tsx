@@ -18,40 +18,54 @@ function focusTrackMeta(
   return `${category.label} · ${category.statusLabel}`;
 }
 
-function FocusTrackRing({ score }: { score: number }) {
-  const size = 44;
-  const stroke = 4.5;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const clamped = Math.min(100, Math.max(0, score));
-  const offset = circumference - (clamped / 100) * circumference;
-
+function FocusTrackBar({ score }: { score: number }) {
+  const clamped = Math.min(100, Math.max(0, Math.round(score)));
   return (
-    <div className="sc-adv-focus-ring" aria-hidden="true">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle
-          className="sc-adv-focus-ring-track"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          strokeWidth={stroke}
-        />
-        <circle
-          className="sc-adv-focus-ring-progress"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
+    <>
+      <span className="sc-adv-focus-bar-track" aria-hidden="true">
+        <span className="sc-adv-focus-bar-fill" style={{ width: `${clamped}%` }} />
+      </span>
+      <strong className="sc-adv-focus-bar-pct">{clamped}%</strong>
+    </>
+  );
+}
+
+function RecCheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path
+        d="M2.5 7.2 5.4 10.2 11.5 3.8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function RecTypeIcon({ type }: { type: "benchmark" | "sources" | "details" }) {
+  if (type === "benchmark") {
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <path d="M2.5 11.5V7.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M7 11.5V3.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M11.5 11.5V6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       </svg>
-      <strong className="sc-adv-focus-ring-label">{clamped}%</strong>
-    </div>
+    );
+  }
+  if (type === "sources") {
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <rect x="3" y="2.5" width="8" height="9" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M5 5.5h4M5 8h2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M3 4h8M3 7h8M3 10h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -85,6 +99,8 @@ export function OverviewAdvisorPanel({
   detailsDisabled?: boolean;
 }) {
   const actions = advisor.recommendedActions ?? [];
+  const openCount = actions.filter((action) => !action.done).length;
+  const nextType = actions.find((action) => !action.done)?.action_type;
   const tagsById = new Map((advisor.signalTags ?? []).map((tag) => [tag.category_id, tag]));
 
   const handlerForAction = (actionType: string) => {
@@ -127,6 +143,11 @@ export function OverviewAdvisorPanel({
         <span className="sc-adv-featured-chev" aria-hidden="true">
           ▾
         </span>
+        {!open ? (
+          <p className="sc-adv-featured-collapsed-hint">
+            Tap to open summary and recommended actions
+          </p>
+        ) : null}
       </div>
       {open ? (
         <div className="sc-adv-featured sc-adv-featured-split">
@@ -151,10 +172,17 @@ export function OverviewAdvisorPanel({
                         aria-label={`${category.fullLabel}, ${category.score} percent, ${meta}. Scroll to track.`}
                       >
                         <span className="sc-adv-focus-card-copy">
-                          <strong className="sc-adv-focus-card-title">{category.fullLabel}</strong>
+                          <strong className="sc-adv-focus-card-title">
+                            <span className="sc-adv-focus-card-title-full">
+                              {category.fullLabel}
+                            </span>
+                            <span className="sc-adv-focus-card-title-short">
+                              {category.label}
+                            </span>
+                          </strong>
                           <span className="sc-adv-focus-card-meta">{meta}</span>
                         </span>
-                        <FocusTrackRing score={category.score} />
+                        <FocusTrackBar score={category.score} />
                       </button>
                     );
                   })}
@@ -187,27 +215,75 @@ export function OverviewAdvisorPanel({
               className={`sc-adv-rec-spotlight${tourHighlightRecommended ? " fuel-tour-highlight" : ""}`}
               data-tour-target="recommended-actions"
             >
-              <div className="sc-adv-rec-title">Recommended Actions</div>
-              <ol className="sc-adv-rec-list">
-                {actions.map((action, i) => (
-                  <li key={`${action.action_type}-${i}`} className="sc-adv-rec-item">
-                    <span className={`sc-adv-rec-num${action.done ? " is-done" : ""}`}>{i + 1}</span>
-                    <div className="sc-adv-rec-body">
-                      <strong className="sc-adv-rec-name">{action.title}</strong>
-                      <p className="sc-adv-rec-sub">{action.sub}</p>
-                    </div>
-                    <button
-                      type="button"
-                      className={`sc-adv-rec-cta${ctaDisabled(action.action_type) ? " is-disabled" : ""}`}
-                      disabled={ctaDisabled(action.action_type)}
-                      aria-disabled={ctaDisabled(action.action_type)}
-                      onClick={() => handlerForAction(action.action_type)?.()}
-                    >
-                      {action.cta} <span aria-hidden="true">→</span>
-                    </button>
-                  </li>
-                ))}
-              </ol>
+              <div className="sc-adv-rec-title-row">
+                <div className="sc-adv-rec-title">Recommended Actions</div>
+                {actions.length > 0 ? (
+                  <span className="sc-adv-rec-count">
+                    {openCount === 0 ? "All current" : `${openCount} open`}
+                  </span>
+                ) : null}
+              </div>
+              {actions.length === 0 ? (
+                <p className="sc-adv-rec-empty">No recommended actions right now.</p>
+              ) : (
+                <ul className="sc-adv-rec-list">
+                  {actions.map((action, i) => {
+                    const disabled = ctaDisabled(action.action_type);
+                    const isNext = !action.done && action.action_type === nextType;
+                    const filled = action.progressFilled;
+                    const total = action.progressTotal;
+                    const showMeter =
+                      typeof filled === "number" &&
+                      typeof total === "number" &&
+                      total > 0 &&
+                      filled < total;
+                    const pct = showMeter
+                      ? Math.min(100, Math.round((filled / total) * 100))
+                      : 0;
+                    return (
+                      <li key={`${action.action_type}-${i}`}>
+                        <button
+                          type="button"
+                          className={`sc-adv-rec-item${isNext ? " is-next" : ""}${action.done ? " is-done" : ""}${disabled ? " is-disabled" : ""}`}
+                          disabled={disabled}
+                          aria-label={`${action.title}. ${action.cta}`}
+                          onClick={() => handlerForAction(action.action_type)?.()}
+                        >
+                          <span className="sc-adv-rec-mark" aria-hidden="true">
+                            {action.done ? <RecCheckIcon /> : <RecTypeIcon type={action.action_type} />}
+                          </span>
+                          <span className="sc-adv-rec-body">
+                            <strong className="sc-adv-rec-name">{action.title}</strong>
+                            <span className="sc-adv-rec-sub">{action.sub}</span>
+                            {showMeter ? (
+                              <span className="sc-adv-rec-meter-row">
+                                <span
+                                  className="sc-adv-rec-meter"
+                                  role="meter"
+                                  aria-label={`${filled} of ${total}`}
+                                  aria-valuemin={0}
+                                  aria-valuemax={total}
+                                  aria-valuenow={filled}
+                                >
+                                  <span
+                                    className="sc-adv-rec-meter-fill"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </span>
+                                <span className="sc-adv-rec-meter-count">
+                                  {filled}/{total}
+                                </span>
+                              </span>
+                            ) : null}
+                            <span className="sc-adv-rec-cta">{action.cta}</span>
+                          </span>
+                          <span className="sc-adv-rec-chev" aria-hidden="true" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           </div>
         </div>

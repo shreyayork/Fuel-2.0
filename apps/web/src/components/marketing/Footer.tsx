@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { BrandMark } from "./BrandMark";
+import { marketingTheme as t } from "./styles";
 
 export function MarketingFooter() {
   return (
     <footer
       style={{
-        borderTop: "1px solid rgba(31,49,64,0.95)",
-        padding: "32px",
-        background:
-          "linear-gradient(180deg, rgba(15,26,36,0) 0%, rgba(11,20,28,0.6) 100%)",
+        borderTop: `1px solid ${t.borderSubtle}`,
+        padding: "28px var(--gutter)",
+        paddingBottom: "calc(28px + var(--safe-bottom))",
+        background: `linear-gradient(180deg, transparent 0%, ${t.panelInner} 100%)`,
       }}
     >
       <div
@@ -21,28 +22,47 @@ export function MarketingFooter() {
           flexWrap: "wrap",
           gap: 16,
           fontSize: 13,
-          color: "#8A99A6",
+          color: t.muted,
+          fontFamily: t.sans,
+          rowGap: 14,
         }}
       >
-        <BrandMark size={22} />
-        <div style={{ display: "flex", gap: 22, alignItems: "center" }}>
+        <BrandMark
+          size={22}
+          color={t.accent}
+          ink={t.ink}
+          muted={t.mutedSoft}
+          fontFamily={t.sans}
+        />
+        <div style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
           <Link
-            href="/sign-in"
-            style={{ color: "#CBD3DB", textDecoration: "none" }}
+            href={`/sign-in?next=${encodeURIComponent("/onboard")}`}
+            style={{ color: t.inkSoft, textDecoration: "none" }}
           >
             Sign in
           </Link>
+          <Link
+            href={`/sign-in?mode=signup&next=${encodeURIComponent("/onboard?cta=benchmark")}`}
+            style={{ color: t.inkSoft, textDecoration: "none" }}
+          >
+            Pricing
+          </Link>
           <a
-            href="https://york.ie"
+            href="https://york.ie/privacy"
             target="_blank"
             rel="noreferrer"
-            style={{ color: "#CBD3DB", textDecoration: "none" }}
+            style={{ color: t.inkSoft, textDecoration: "none" }}
           >
-            York IE
+            Privacy
           </a>
-          <span style={{ color: "#596876" }}>
-            © {new Date().getFullYear()}
-          </span>
+          <a
+            href="https://york.ie/terms"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: t.inkSoft, textDecoration: "none" }}
+          >
+            Terms
+          </a>
         </div>
       </div>
     </footer>

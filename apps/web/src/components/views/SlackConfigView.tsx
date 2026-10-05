@@ -5,6 +5,13 @@ import { useState, useTransition } from "react";
 import { Chip, SectionHead } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import { toggleSlackChannelAction } from "@/app/(app)/account/integrations/slack/actions";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdActionsStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 
 interface ConnectionSummary {
   id: string;
@@ -165,32 +172,19 @@ export function SlackConfigView({
             </div>
           </div>
 
-          <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 6 }}>
+          <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
             {filtered.length === 0 ? (
               <div style={{ padding: 24, textAlign: "center", color: t.muted, fontFamily: t.sans, fontSize: 13 }}>
                 No channels match this filter.
               </div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="fuel-data-table" style={dataTableStyle()}>
                 <thead>
                   <tr>
-                    {["Channel", "Members", "Last event", ""].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          textAlign: "left",
-                          padding: "10px 12px",
-                          fontFamily: t.sans,
-                          fontSize: 10,
-                          color: t.muted,
-                          borderBottom: `1px solid ${t.rule}`,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.04em",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                    <th style={dataThStyle(t)}>Channel</th>
+                    <th style={dataThStyle(t)}>Members</th>
+                    <th style={dataThStyle(t)}>Last event</th>
+                    <th style={dataThStyle(t, { align: "right" })}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -219,7 +213,7 @@ function ChannelRow({
   const [pending, startTransition] = useTransition();
   return (
     <tr>
-      <td style={{ padding: "10px 12px", fontFamily: t.sans, fontSize: 13, color: t.ink, borderBottom: `1px solid ${t.ruleSoft}` }}>
+      <td style={dataTdStyle(t, { top: false })}>
         <span style={{ color: t.muted, marginRight: 4 }}>{channel.isPrivate ? "🔒" : "#"}</span>
         {channel.name}
         {channel.isPrivate ? (
@@ -229,13 +223,13 @@ function ChannelRow({
           <span style={{ marginLeft: 8, color: t.mutedSoft, fontSize: 11 }}>bot not joined</span>
         ) : null}
       </td>
-      <td style={{ padding: "10px 12px", fontFamily: t.mono, fontSize: 11, color: t.muted, borderBottom: `1px solid ${t.ruleSoft}` }}>
+      <td style={dataTdStyle(t, { mono: true, top: false })}>
         {channel.numMembers ?? "—"}
       </td>
-      <td style={{ padding: "10px 12px", fontFamily: t.mono, fontSize: 11, color: t.muted, borderBottom: `1px solid ${t.ruleSoft}` }}>
+      <td style={dataTdStyle(t, { mono: true, top: false })}>
         {fmtRelative(channel.lastEventAt)}
       </td>
-      <td style={{ padding: "10px 12px", textAlign: "right", borderBottom: `1px solid ${t.ruleSoft}` }}>
+      <td style={dataTdActionsStyle(t)}>
         {canManage ? (
           <form
             action={(fd) => {

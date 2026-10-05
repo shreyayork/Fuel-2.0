@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Legacy authenticated landing and bookmark target. New sessions route
- * directly to the workspace home; this page forwards there for old links.
+ * directly to the workspace home (`/overview` for PMs); this page forwards
+ * there for old links.
  *
  * Legacy `?page=` and `?openCoId=` URLs continue to render the in-page
  * FuelApp client component so old bookmarks keep working.

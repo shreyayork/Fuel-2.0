@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import {
   listInvoicesForUserEmail,
   reconcileInvoicesForUserEmail,
@@ -18,8 +18,7 @@ function notFound(): NextResponse {
 /** Sync Stripe → billing_invoices for all accounts linked to this email. */
 export async function POST(req: Request): Promise<Response> {
   const session = await getSession();
-  const devEmail = process.env.COGNITO_USER_POOL_ID ? null : "mike@york.ie";
-  if (!isSuperAdmin(session, devEmail)) return notFound();
+  if (!isSuperAdmin(session, superAdminDevEmail())) return notFound();
 
   if (!isStripeConfigured()) {
     return NextResponse.json({ error: "stripe_not_configured" }, { status: 503 });

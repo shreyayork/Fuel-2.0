@@ -28,6 +28,10 @@ import { INTELLIGENCE_HEAD_ACTION_LABELS } from "@/lib/intelligence/head-actions
 import { formatCategoryLabel, formatPeriodDisplay } from "./format";
 import {
   FEED_ROW_GRID_COLUMNS,
+  companyTabPrimaryBtnStyle,
+  companyTabSecondaryBtnStyle,
+  feedSearchFieldStyle,
+  feedSearchIconStyle,
   focusBannerStyle,
   ghostButtonStyle,
   inputStyle,
@@ -55,6 +59,12 @@ import {
 } from "@/components/ui/ListPagination";
 import { useWorkspaceTourOptional } from "@/components/workspace-tour/WorkspaceTourContext";
 import { useDrawerPresence } from "@/components/drawer/motion";
+import { useNarrow, TOUCH_TARGET_MIN } from "@/lib/responsive";
+import {
+  CreateIconButton,
+  FilterMenu,
+  PageToolbar,
+} from "@/components/ToolbarActions";
 
 const SEARCH_DEBOUNCE_MS = 300;
 /** Skeleton row count — enough to read as a list without a tall placeholder. */
@@ -81,37 +91,13 @@ type ObservationLike = {
   createdAt: string;
 };
 
-function headActionStyle(t: Theme): CSSProperties {
-  return {
-    background: "transparent",
-    border: `1px solid ${t.rule}`,
-    borderRadius: 8,
-    color: t.inkSoft,
-    cursor: "pointer",
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 700,
-    padding: "8px 12px",
-    whiteSpace: "nowrap",
-  };
-}
-
 /** Placeholder rows mirror `SignalRow` geometry so the feed never jumps on load. */
 function SignalFeedSkeleton({ t, rows }: { t: Theme; rows: number }) {
   return (
     <div role="status" aria-busy="true" aria-label="Loading intelligence">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} style={{ borderBottom: `1px solid ${t.ruleSoft}` }}>
-          <div
-            style={{
-              alignItems: "center",
-              display: "grid",
-              gap: "10px 16px",
-              gridTemplateColumns: FEED_ROW_GRID_COLUMNS,
-              minHeight: 44,
-              padding: "11px 18px",
-            }}
-          >
+        <div key={i} className="fuel-intel-feed-item" style={{ borderBottom: `1px solid ${t.ruleSoft}` }}>
+          <div className="fuel-intel-feed-row" style={{ cursor: "default" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
               <MagicShimmer theme={t} width="54%" height={9} rounded={3} />
               <MagicShimmer theme={t} width={i % 2 ? "72%" : "88%"} height={12} rounded={4} />
@@ -158,6 +144,7 @@ function SignalRow({
   return (
     <div
       data-feed-id={latest.id}
+      className="fuel-intel-feed-item"
       style={{
         animation: blinking ? "intelHighlight 1.6s ease-out 2" : undefined,
         borderBottom: `1px solid ${t.ruleSoft}`,
@@ -166,6 +153,7 @@ function SignalRow({
       <div
         role="button"
         tabIndex={0}
+        className="fuel-intel-feed-row"
         onClick={() => onSelect(latest)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -173,16 +161,11 @@ function SignalRow({
             onSelect(latest);
           }
         }}
-        style={{
-          alignItems: "center",
-          cursor: "pointer",
-          display: "grid",
-          gap: "10px 16px",
-          gridTemplateColumns: FEED_ROW_GRID_COLUMNS,
-          minHeight: 44,
-          padding: "11px 18px",
-          transition: "background 0.12s ease",
-        }}
+        style={
+          {
+            ["--fuel-row-accent" as string]: t.accent,
+          } as CSSProperties
+        }
         onMouseEnter={(e) => {
           e.currentTarget.style.background = t.mode === "signal" ? "rgba(255, 255, 255, 0.03)" : t.panelAlt;
         }}
@@ -190,7 +173,7 @@ function SignalRow({
           e.currentTarget.style.background = "transparent";
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
           <span
             style={{
               color: t.accent,
@@ -211,8 +194,9 @@ function SignalRow({
             style={{
               color: t.ink,
               fontFamily: t.sans,
-              fontSize: 12.5,
-              fontWeight: 500,
+              fontSize: 13.5,
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
               minWidth: 0,
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -226,9 +210,10 @@ function SignalRow({
           style={{
             color: t.ink,
             fontFamily: t.sans,
-            fontSize: 12.5,
-            fontWeight: 500,
+            fontSize: 15,
+            fontWeight: 700,
             fontVariantNumeric: "tabular-nums",
+            letterSpacing: "-0.02em",
             minWidth: 0,
             overflow: "hidden",
             textAlign: "left",
@@ -412,6 +397,8 @@ export function IntelligencePage({
 }) {
   const tour = useWorkspaceTourOptional();
   const router = useRouter();
+  /** Matches `.fuel-intel-tab` mobile breakpoint (max-width: 639px). */
+  const phone = useNarrow(640);
   const boardRef = useRef<HTMLDivElement>(null);
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -628,11 +615,15 @@ export function IntelligencePage({
   const filtersActive = Boolean(
     searchQuery.trim() ||
       categoryFilter !== "All" ||
-      datePreset !== "current-quarter",
+      datePreset !== "current-quarter" ||
+      customRange != null,
   );
 
   const boardLoading = feedLoading || timelineShimmer;
   const focusItemCount = feedItems.length;
+  /** Empty feed on phone: skip chips/search until the user has something to filter. */
+  const hideFeedChrome =
+    phone && !focusActive && !filtersActive && feedTotal === 0 && !feedError;
 
   // Hold the last rendered feed height while a refresh is pending so filter,
   // page-size, and page changes swap content for skeleton without collapsing.
@@ -649,7 +640,11 @@ export function IntelligencePage({
   );
 
   const board = (
-    <div ref={boardRef} style={{ ...timelinePanelStyle(t), padding: 0, gap: 0 }}>
+    <div
+      ref={boardRef}
+      className="fuel-company-tab__panel"
+      style={{ ...timelinePanelStyle(t), padding: 0, gap: 0 }}
+    >
       {focusActive ? (
         <div style={{ ...focusBannerStyle(t), margin: 12 }}>
           <span style={{ color: t.inkSoft, fontFamily: t.sans, fontSize: 13 }}>
@@ -673,17 +668,12 @@ export function IntelligencePage({
         </div>
       ) : null}
 
-      {!focusActive ? (
+      {!focusActive && !hideFeedChrome && !phone ? (
         <div
           role="tablist"
           aria-label="Intelligence categories"
-          style={{
-            borderBottom: `1px solid ${t.ruleSoft}`,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 6,
-            padding: "12px 14px",
-          }}
+          className="fuel-chip-scroll"
+          style={{ borderBottom: `1px solid ${t.ruleSoft}` }}
         >
           {tabKeys.map((key) => {
             const active = categoryFilter === key;
@@ -696,15 +686,15 @@ export function IntelligencePage({
                 aria-selected={active}
                 onClick={() => setCategoryFilter(key)}
                 style={{
-                  background: active ? t.ink : "transparent",
+                  background: active ? t.ink : t.mode === "editorial" ? t.bg : t.panelAlt,
                   border: `1px solid ${active ? t.ink : t.rule}`,
                   borderRadius: 999,
-                  color: active ? t.bg : t.inkSoft,
+                  color: active ? (t.mode === "editorial" ? t.panel : t.bg) : t.inkSoft,
                   cursor: "pointer",
                   fontFamily: t.sans,
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontWeight: active ? 700 : 500,
-                  padding: "5px 11px",
+                  padding: "6px 12px",
                 }}
               >
                 {label}
@@ -714,8 +704,9 @@ export function IntelligencePage({
         </div>
       ) : null}
 
-      {!focusActive ? (
+      {!focusActive && !hideFeedChrome && !phone ? (
         <div
+          className="fuel-intel-tab__toolbar"
           style={{
             alignItems: "center",
             borderBottom: `1px solid ${t.ruleSoft}`,
@@ -726,8 +717,16 @@ export function IntelligencePage({
             padding: "10px 14px",
           }}
         >
-          <label style={{ alignItems: "center", display: "flex", flex: 1, gap: 8, minWidth: 180 }}>
-            <span aria-hidden style={{ color: t.mutedSoft }}>
+          <label
+            className="fuel-intel-search"
+            style={{
+              display: "block",
+              flex: "1 1 220px",
+              minWidth: 0,
+              position: "relative",
+            }}
+          >
+            <span aria-hidden style={feedSearchIconStyle(t)}>
               ⌕
             </span>
             <input
@@ -736,10 +735,13 @@ export function IntelligencePage({
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search signals…"
               aria-label="Search intelligence"
-              style={{ ...inputStyle(t), flex: 1 }}
+              style={feedSearchFieldStyle(t)}
             />
           </label>
-          <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <div
+            className="fuel-intel-tab__toolbar-meta"
+            style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 8 }}
+          >
             <select
               aria-label="Date range"
               value={datePreset}
@@ -768,37 +770,40 @@ export function IntelligencePage({
                 numberOfMonths={2}
               />
             ) : null}
-            <button
-              type="button"
-              onClick={() => setShowSources(true)}
-              style={{
-                ...ghostButtonStyle(t),
-                alignItems: "center",
-                display: "inline-flex",
-                gap: 6,
-              }}
-            >
-              Sources
-              <span
+            {!phone ? (
+              <button
+                type="button"
+                onClick={() => setShowSources(true)}
                 style={{
-                  background: t.panelInner,
-                  borderRadius: 999,
-                  color: t.inkSoft,
-                  fontFamily: t.mono,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: "1px 6px",
+                  ...ghostButtonStyle(t),
+                  alignItems: "center",
+                  display: "inline-flex",
+                  gap: 6,
                 }}
               >
-                {sourcesTotal}
-              </span>
-            </button>
+                Sources
+                <span
+                  style={{
+                    background: t.panelInner,
+                    borderRadius: 999,
+                    color: t.inkSoft,
+                    fontFamily: t.mono,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                  }}
+                >
+                  {sourcesTotal}
+                </span>
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}
 
       <div
         ref={feedBodyRef}
+        className="fuel-intel-feed"
         style={{
           minHeight: boardLoading
             ? Math.max(FEED_BODY_MIN_HEIGHT, feedBodyHeight)
@@ -821,8 +826,35 @@ export function IntelligencePage({
             </button>
           </div>
         ) : feedTotal === 0 ? (
-          <div style={{ padding: "28px 18px", textAlign: "center" }}>
-            <p style={{ color: t.inkSoft, fontFamily: t.sans, fontSize: 14, margin: 0 }}>
+          <div
+            className="fuel-intel-tab__empty"
+            style={{
+              alignItems: "center",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              padding: phone ? "28px 20px" : "40px 24px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                alignItems: "center",
+                background: `${t.accent}14`,
+                borderRadius: 14,
+                color: t.accent,
+                display: "flex",
+                fontSize: 18,
+                fontWeight: 700,
+                height: 48,
+                justifyContent: "center",
+                width: 48,
+              }}
+            >
+              ⌕
+            </div>
+            <p style={{ color: t.ink, fontFamily: t.sans, fontSize: 15, fontWeight: 700, margin: 0 }}>
               {filtersActive
                 ? "No intelligence matches these filters"
                 : "No intelligence yet"}
@@ -831,14 +863,35 @@ export function IntelligencePage({
               style={{
                 color: t.muted,
                 fontFamily: t.sans,
-                fontSize: 12,
-                margin: "8px 0 0",
+                fontSize: 13,
+                lineHeight: 1.5,
+                margin: 0,
+                maxWidth: 360,
               }}
             >
               {filtersActive
                 ? "Widen the date range, clear search, or switch category."
-                : "Add a source or log intelligence to populate this feed."}
+                : "Add a source or log a signal to start the private intelligence feed for this company."}
             </p>
+            {/* Head already has Add/Log on phone — keep empty CTAs for desktop + focus mode */}
+            {!filtersActive && (focusActive || !phone) ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddSource(true)}
+                  style={companyTabSecondaryBtnStyle(t)}
+                >
+                  Add source
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLog(true)}
+                  style={companyTabPrimaryBtnStyle(t)}
+                >
+                  Log intelligence
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <>
@@ -875,69 +928,259 @@ export function IntelligencePage({
   );
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 20 }}>
-      <div
-        style={{
-          alignItems: "flex-start",
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          justifyContent: "space-between",
-        }}
-      >
-        <div>
-          <h2
-            style={{
-              color: t.ink,
-              fontFamily: t.sans,
-              fontSize: 22,
-              fontWeight: 700,
-              margin: 0,
-            }}
-          >
-            Intelligence
-          </h2>
-          <p
-            style={{
-              color: t.muted,
-              fontFamily: t.sans,
-              fontSize: 13,
-              lineHeight: 1.45,
-              margin: "6px 0 0",
-              maxWidth: 560,
-            }}
-          >
-            Metrics from benchmarks, sources, and logged context — private to your account.
-          </p>
+    <section className="fuel-company-tab fuel-intel-tab" style={{ fontFamily: t.sans }}>
+      <div className="fuel-company-tab__head fuel-intel-tab__head">
+        <div className="fuel-intel-tab__intro" style={{ minWidth: 0, flex: phone ? "1 1 auto" : "1 1 220px" }}>
+          {phone ? null : (
+            <p className="fuel-company-tab__eyebrow" style={{ color: t.accent }}>
+              Private signals
+            </p>
+          )}
+          <div className="fuel-intel-tab__title-row">
+            <h2 className="fuel-company-tab__title" style={{ color: t.ink }}>
+              Intelligence
+            </h2>
+            {phone ? (
+              <p className="fuel-intel-tab__meta" style={{ color: t.muted, margin: 0 }}>
+                <span>
+                  {feedLoading
+                    ? "Loading…"
+                    : `${feedTotal} signal${feedTotal === 1 ? "" : "s"}`}
+                </span>
+                <span aria-hidden>·</span>
+                <button
+                  type="button"
+                  className="fuel-intel-tab__meta-link"
+                  onClick={() => setShowSources(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: t.inkSoft,
+                    cursor: "pointer",
+                    font: "inherit",
+                    fontWeight: 600,
+                    padding: 0,
+                    textDecoration: "underline",
+                    textUnderlineOffset: 2,
+                  }}
+                >
+                  {sourcesTotal} source{sourcesTotal === 1 ? "" : "s"}
+                </button>
+              </p>
+            ) : (
+              <div className="fuel-company-tab__stats fuel-intel-tab__stats">
+                <span
+                  className="fuel-company-tab__stat"
+                  style={{
+                    background: t.mode === "editorial" ? t.bg : t.panelAlt,
+                    border: `1px solid ${t.rule}`,
+                    color: t.muted,
+                  }}
+                >
+                  Signals <strong style={{ color: t.ink }}>{feedLoading ? "…" : feedTotal}</strong>
+                </span>
+                <button
+                  type="button"
+                  className="fuel-company-tab__stat fuel-intel-tab__sources-stat"
+                  onClick={() => setShowSources(true)}
+                  aria-label={`Open sources (${sourcesTotal})`}
+                  style={{
+                    background: t.mode === "editorial" ? t.bg : t.panelAlt,
+                    border: `1px solid ${t.rule}`,
+                    color: t.muted,
+                    cursor: "pointer",
+                    font: "inherit",
+                    textAlign: "left",
+                  }}
+                >
+                  Sources <strong style={{ color: t.ink }}>{sourcesTotal}</strong>
+                </button>
+              </div>
+            )}
+          </div>
+          {phone ? null : (
+            <p className="fuel-company-tab__subtitle fuel-intel-tab__subtitle" style={{ color: t.muted }}>
+              Metrics from benchmarks, sources, and logged context — private to your account.
+            </p>
+          )}
         </div>
         {!focusActive ? (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            <button
-              type="button"
-              data-tour-target="add-source"
-              className={
-                tour?.activeTarget === "add-source" ? "fuel-tour-highlight" : undefined
+          phone ? (
+            <PageToolbar
+              t={t}
+              filter={
+                <FilterMenu t={t} activeCount={filtersActive ? 1 : 0}>
+                  <div
+                    role="tablist"
+                    aria-label="Intelligence categories"
+                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                  >
+                    {tabKeys.map((key) => {
+                      const active = categoryFilter === key;
+                      const label = key === "All" ? "All" : formatCategoryLabel(key);
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          onClick={() => setCategoryFilter(key)}
+                          style={{
+                            alignItems: "center",
+                            background: active ? t.accentTint : "transparent",
+                            border: `1px solid ${active ? `${t.accent}66` : t.rule}`,
+                            borderRadius: 8,
+                            color: active ? t.ink : t.muted,
+                            cursor: "pointer",
+                            display: "flex",
+                            fontFamily: t.sans,
+                            fontSize: 13,
+                            fontWeight: active ? 650 : 500,
+                            minHeight: TOUCH_TARGET_MIN,
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            width: "100%",
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label
+                    style={{
+                      display: "block",
+                      minWidth: 0,
+                      position: "relative",
+                    }}
+                  >
+                    <span aria-hidden style={feedSearchIconStyle(t)}>
+                      ⌕
+                    </span>
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search signals…"
+                      aria-label="Search intelligence"
+                      style={feedSearchFieldStyle(t)}
+                    />
+                  </label>
+                  <select
+                    aria-label="Date range"
+                    value={datePreset}
+                    onChange={(e) => setDatePreset(e.target.value as IntelligenceDatePreset)}
+                    style={{
+                      ...inputStyle(t),
+                      color: t.inkSoft,
+                      fontFamily: t.sans,
+                      fontWeight: 600,
+                      width: "100%",
+                    }}
+                  >
+                    {INTELLIGENCE_DATE_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  {datePreset === "custom" ? (
+                    <DateRangePicker
+                      t={t}
+                      value={customRange}
+                      onChange={setCustomRange}
+                      onClear={() => setCustomRange(null)}
+                      aria-label="Custom date range"
+                      numberOfMonths={1}
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    data-tour-target="add-source"
+                    className={
+                      tour?.activeTarget === "add-source" ? "fuel-tour-highlight" : undefined
+                    }
+                    onClick={() => setShowAddSource(true)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: t.inkSoft,
+                      cursor: "pointer",
+                      fontFamily: t.sans,
+                      fontSize: 13,
+                      fontWeight: 650,
+                      minHeight: TOUCH_TARGET_MIN,
+                      padding: "8px 2px",
+                      textAlign: "left",
+                    }}
+                  >
+                    {INTELLIGENCE_HEAD_ACTION_LABELS[0]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onUpdateBenchmark}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: t.inkSoft,
+                      cursor: "pointer",
+                      fontFamily: t.sans,
+                      fontSize: 13,
+                      fontWeight: 650,
+                      minHeight: TOUCH_TARGET_MIN,
+                      padding: "8px 2px",
+                      textAlign: "left",
+                    }}
+                  >
+                    {INTELLIGENCE_HEAD_ACTION_LABELS[2]}
+                  </button>
+                </FilterMenu>
               }
-              onClick={() => setShowAddSource(true)}
-              style={headActionStyle(t)}
-            >
-              {INTELLIGENCE_HEAD_ACTION_LABELS[0]}
-            </button>
-            <button
-              type="button"
-              data-tour-target="log-intelligence"
-              className={
-                tour?.activeTarget === "log-intelligence" ? "fuel-tour-highlight" : undefined
+              create={
+                <CreateIconButton
+                  t={t}
+                  label={INTELLIGENCE_HEAD_ACTION_LABELS[1]}
+                  data-tour-target="log-intelligence"
+                  className={
+                    tour?.activeTarget === "log-intelligence" ? "fuel-tour-highlight" : undefined
+                  }
+                  onClick={() => setShowLog(true)}
+                />
               }
-              onClick={() => setShowLog(true)}
-              style={headActionStyle(t)}
-            >
-              {INTELLIGENCE_HEAD_ACTION_LABELS[1]}
-            </button>
-            <button type="button" onClick={onUpdateBenchmark} style={headActionStyle(t)}>
-              {INTELLIGENCE_HEAD_ACTION_LABELS[2]}
-            </button>
-          </div>
+            />
+          ) : (
+            <div className="fuel-company-tab__actions fuel-intel-tab__actions">
+              <button
+                type="button"
+                data-tour-target="add-source"
+                className={
+                  tour?.activeTarget === "add-source" ? "fuel-tour-highlight" : undefined
+                }
+                onClick={() => setShowAddSource(true)}
+                style={companyTabSecondaryBtnStyle(t)}
+              >
+                {INTELLIGENCE_HEAD_ACTION_LABELS[0]}
+              </button>
+              <button
+                type="button"
+                data-tour-target="log-intelligence"
+                className={
+                  tour?.activeTarget === "log-intelligence" ? "fuel-tour-highlight" : undefined
+                }
+                onClick={() => setShowLog(true)}
+                style={companyTabPrimaryBtnStyle(t)}
+              >
+                {INTELLIGENCE_HEAD_ACTION_LABELS[1]}
+              </button>
+              <button
+                type="button"
+                onClick={onUpdateBenchmark}
+                style={companyTabSecondaryBtnStyle(t)}
+              >
+                {INTELLIGENCE_HEAD_ACTION_LABELS[2]}
+              </button>
+            </div>
+          )
         ) : null}
       </div>
 

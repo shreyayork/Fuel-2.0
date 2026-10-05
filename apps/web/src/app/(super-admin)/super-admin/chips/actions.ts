@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import {
   YORK_PARTNER_CATEGORIES,
   type YorkPartnerCategoryId,
@@ -25,8 +25,8 @@ export type ChipsActionResult =
 
 async function requireSuperAdminEmail(): Promise<string> {
   const session = await getSession();
-  if (!isSuperAdmin(session)) redirect("/");
-  return session?.email ?? "super-admin";
+  if (!isSuperAdmin(session, superAdminDevEmail())) redirect("/");
+  return session?.email ?? superAdminDevEmail() ?? "super-admin";
 }
 
 function parseCategory(raw: FormDataEntryValue | null): YorkPartnerCategoryId | null {

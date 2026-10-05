@@ -7,9 +7,19 @@ import type { Theme } from "@/lib/theme";
 import type { CouponCampaign, CouponRecipient } from "@/db/schema";
 import type { CampaignStats } from "@/lib/credits/coupon-campaigns";
 import { campaignBlocksModifications } from "@/lib/credits/coupon-campaign-status";
-import { Chip, SectionHead } from "../atoms";
+import { Chip } from "../atoms";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { useTheme } from "../ThemeContext";
 import { useToast } from "../toast/ToastProvider";
+import {
+  adminEmptyStyle,
+  adminTableFrameStyle,
+  adminTableScrollStyle,
+  adminTableStyle,
+  adminTdActionsStyle,
+  adminTdStyle,
+  adminThStyle,
+} from "./adminStyles";
 import {
   generateCouponCodesAction,
   sendCouponEmailsAction,
@@ -53,17 +63,6 @@ function input(t: Theme): CSSProperties {
     fontFamily: t.sans,
     fontSize: 13,
     width: "100%",
-  };
-}
-
-function cell(t: Theme): CSSProperties {
-  return {
-    padding: "8px 10px",
-    fontFamily: t.sans,
-    fontSize: 12,
-    color: t.inkSoft,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "middle",
   };
 }
 
@@ -273,21 +272,23 @@ export function CouponCampaignDetailView({
           flexWrap: "wrap",
         }}
       >
-        <SectionHead
+        <AdminPageHeader
           t={t}
           title={campaign.name}
-          subtitle={`${campaign.stripeCouponId} · ${campaign.audience} · prefix ${campaign.codePrefix} · ${campaign.status}`}
+          description={`${campaign.stripeCouponId} · ${campaign.audience} · prefix ${campaign.codePrefix} · ${campaign.status}`}
+          actions={
+            campaign.status !== "archived" && !modsBlocked ? (
+              <button
+                type="button"
+                style={button(t, "ghost")}
+                disabled={isPending}
+                onClick={onToggleActive}
+              >
+                {campaign.status === "active" ? "Deactivate" : "Activate"}
+              </button>
+            ) : undefined
+          }
         />
-        {campaign.status !== "archived" && !modsBlocked ? (
-          <button
-            type="button"
-            style={button(t, "ghost")}
-            disabled={isPending}
-            onClick={onToggleActive}
-          >
-            {campaign.status === "active" ? "Deactivate" : "Activate"}
-          </button>
-        ) : null}
       </div>
 
       {campaign.audience === "global" && campaign.globalPromotionCode ? (
@@ -505,84 +506,66 @@ export function CouponCampaignDetailView({
       ) : null}
 
       {recipients.length === 0 ? (
-        <div
-          style={{
-            padding: 20,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            color: t.muted,
-            fontFamily: t.sans,
-            fontSize: 13,
-          }}
-        >
-          No recipients yet.
-        </div>
+        <div style={adminEmptyStyle(t)}>No recipients yet.</div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["Email", "Code", "Send", "Redeemed", ""].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      ...cell(t),
-                      color: t.muted,
-                      fontSize: 11,
-                      textTransform: "uppercase",
-                      textAlign: "left",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {recipients.map((row) => (
-                <tr key={row.id}>
-                  <td style={cell(t)}>{row.email}</td>
-                  <td style={{ ...cell(t), fontFamily: t.mono }}>{row.promotionCode}</td>
-                  <td style={cell(t)}>
-                    <Chip t={t} tone={sendTone(row.sendStatus)}>
-                      {sendLabel(row.sendStatus)}
-                    </Chip>
-                    {row.sendError ? (
-                      <div style={{ fontSize: 10, color: t.warn, marginTop: 4 }}>
-                        {row.sendError}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td style={cell(t)}>
-                    {row.redeemedAt ? (
-                      <Chip t={t} tone="positive">
-                        {new Date(row.redeemedAt).toLocaleDateString()}
-                      </Chip>
-                    ) : (
-                      <span style={{ color: t.muted }}>—</span>
-                    )}
-                  </td>
-                  <td style={cell(t)}>
-                    <button
-                      type="button"
-                      style={button(t, "ghost", {
-                        disabled: isPending || modsBlocked,
-                      })}
-                      disabled={isPending || modsBlocked}
-                      title={
-                        modsBlocked
-                          ? "Archived or expired campaigns cannot resend email"
-                          : undefined
-                      }
-                      onClick={() => onResend(row.id)}
-                    >
-                      Resend
-                    </button>
-                  </td>
+        <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+          <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+            <table className="fuel-admin-table" style={adminTableStyle()}>
+              <thead>
+                <tr>
+                  {["Email", "Code", "Send", "Redeemed", ""].map((h) => (
+                    <th key={h} style={adminThStyle(t)}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recipients.map((row) => (
+                  <tr key={row.id}>
+                    <td style={adminTdStyle(t, { mono: true })}>{row.email}</td>
+                    <td style={adminTdStyle(t, { mono: true })}>{row.promotionCode}</td>
+                    <td style={adminTdStyle(t)}>
+                      <Chip t={t} tone={sendTone(row.sendStatus)}>
+                        {sendLabel(row.sendStatus)}
+                      </Chip>
+                      {row.sendError ? (
+                        <div style={{ fontSize: 10, color: t.warn, marginTop: 4 }}>
+                          {row.sendError}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td style={adminTdStyle(t)}>
+                      {row.redeemedAt ? (
+                        <Chip t={t} tone="positive">
+                          {new Date(row.redeemedAt).toLocaleDateString()}
+                        </Chip>
+                      ) : (
+                        <span style={{ color: t.muted }}>—</span>
+                      )}
+                    </td>
+                    <td style={adminTdActionsStyle(t)}>
+                      <button
+                        type="button"
+                        style={button(t, "ghost", {
+                          disabled: isPending || modsBlocked,
+                        })}
+                        disabled={isPending || modsBlocked}
+                        title={
+                          modsBlocked
+                            ? "Archived or expired campaigns cannot resend email"
+                            : undefined
+                        }
+                        onClick={() => onResend(row.id)}
+                      >
+                        Resend
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

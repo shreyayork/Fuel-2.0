@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import { listInvoicesForUserEmail } from "@/lib/super-admin/user-invoices";
 import { captureIntegrationException } from "@/lib/sentry/capture";
 
@@ -13,8 +13,7 @@ function notFound(): NextResponse {
 
 export async function GET(req: Request): Promise<Response> {
   const session = await getSession();
-  const devEmail = process.env.COGNITO_USER_POOL_ID ? null : "mike@york.ie";
-  if (!isSuperAdmin(session, devEmail)) return notFound();
+  if (!isSuperAdmin(session, superAdminDevEmail())) return notFound();
 
   const email = new URL(req.url).searchParams.get("email")?.trim() ?? "";
   if (!email) {

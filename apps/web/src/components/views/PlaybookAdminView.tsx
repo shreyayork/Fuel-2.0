@@ -7,64 +7,37 @@ import type { Playbook } from "@/db/schema";
 import {
   ADMIN_PLAYBOOK_CATEGORIES,
   PLAYBOOK_MODES,
-  PLAYBOOK_TARGET_KINDS,
-} from "@/lib/playbooks-constants";
-import { Chip, SectionHead, Tabs, type TabItem } from "../atoms";
+  PLAYBOOK_TARGET_KINDS} from "@/lib/playbooks-constants";
+import { Chip, Tabs, type TabItem } from "../atoms";
+import { AdminPageHeader } from "./AdminPageHeader";
+import { AdminStatsStrip } from "./AdminChrome";
 import { useTheme } from "../ThemeContext";
+import {
+  adminBtnStyle,
+  adminEmptyStyle,
+  adminInputStyle,
+  adminModalOverlayStyle,
+  adminModalPanelStyle,
+  adminModalTitleStyle,
+  adminPageStyle,
+  adminSectionLabelStyle,
+  adminTableFrameStyle,
+  adminTableScrollStyle,
+  adminTableStyle,
+  adminTdActionsStyle,
+  adminTdStyle,
+  adminThStyle,
+} from "./adminStyles";
 import {
   deletePlaybookAction,
   restorePlaybookAction,
-  upsertPlaybookAction,
-} from "@/app/(super-admin)/super-admin/playbooks/actions";
+  upsertPlaybookAction} from "@/app/(super-admin)/super-admin/playbooks/actions";
 
 const ALL_TAB = "all";
 const SYSTEM_TAB = "__system";
 
-function button(t: Theme, variant: "primary" | "ghost" | "danger" = "ghost"): React.CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-    danger: { bg: "transparent", color: t.warn, border: t.warn },
-  } as const;
-  const v = map[variant];
-  return {
-    padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: "pointer",
-  };
-}
 
-function input(t: Theme, multiline = false): React.CSSProperties {
-  return {
-    padding: "8px 10px",
-    background: t.panelAlt,
-    color: t.ink,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 13,
-    width: "100%",
-    minHeight: multiline ? 80 : undefined,
-    resize: multiline ? "vertical" : undefined,
-  };
-}
 
-function cellBase(t: Theme): React.CSSProperties {
-  return {
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.inkSoft,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "top",
-  };
-}
 
 type PlaybookAdminRow = Omit<Playbook, "embedding">;
 
@@ -114,8 +87,7 @@ export function PlaybookAdminView({ rows }: { rows: PlaybookAdminRow[] }) {
     {
       key: SYSTEM_TAB,
       label: "System prompts",
-      count: systemRows.length,
-    },
+      count: systemRows.length},
     ...categoryKeys.map((c) => ({ key: c, label: c, count: counts.get(c) ?? 0 })),
   ];
 
@@ -135,32 +107,33 @@ export function PlaybookAdminView({ rows }: { rows: PlaybookAdminRow[] }) {
         : catalogRows.filter((r) => r.category === resolvedTab);
 
   return (
-    <div>
-      <SectionHead
+    <div className="fuel-admin-page" style={adminPageStyle()}>
+      <AdminPageHeader
         t={t}
-        title="Playbooks · Admin"
-        subtitle="York IE global playbook library. Use the System prompts tab for LLM generation templates (hidden from the user catalog). Soft-deleted playbooks stay listed here but disappear from the catalog and agent search."
-        right={
-          <button onClick={openNew} style={button(t, "primary")}>
+        title="Playbooks"
+        description="York IE frameworks and system prompts. Soft-deleted rows leave the user catalog."
+        actions={
+          <button onClick={openNew} style={adminBtnStyle(t, "primary")}>
             + New playbook
           </button>
         }
       />
 
+      <AdminStatsStrip
+        t={t}
+        items={[
+          { label: "Catalog", value: catalogRows.length },
+          { label: "System", value: systemRows.length },
+          {
+            label: "Soft-deleted",
+            value: rows.filter((r) => r.deletedAt).length,
+          },
+          { label: "Categories", value: counts.size },
+        ]}
+      />
+
       {rows.length === 0 ? (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            background: t.panel,
-            border: `1px solid ${t.rule}`,
-            fontFamily: t.sans,
-            fontSize: 13,
-            color: t.muted,
-          }}
-        >
-          No global playbooks yet.
-        </div>
+        <div style={adminEmptyStyle(t)}>No global playbooks yet.</div>
       ) : (
         <>
           <div style={{ marginBottom: 16 }}>
@@ -168,110 +141,89 @@ export function PlaybookAdminView({ rows }: { rows: PlaybookAdminRow[] }) {
           </div>
 
           {visibleRows.length === 0 ? (
-            <div
-              style={{
-                padding: 32,
-                textAlign: "center",
-                background: t.panel,
-                border: `1px solid ${t.rule}`,
-                fontFamily: t.sans,
-                fontSize: 13,
-                color: t.muted,
-              }}
-            >
+            <div style={adminEmptyStyle(t)}>
               No playbooks in this category.
                 {resolvedTab === SYSTEM_TAB
                   ? " Run npm run db:seed:libs (or npm run db:seed) to upsert system prompts."
                   : ""}
             </div>
           ) : (
-            <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 6 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    {(resolvedTab === ALL_TAB
-                      ? ["Title", "Category", "Subcategory", "Mode", "Target", "Slug", "Status", ""]
-                      : ["Title", "Subcategory", "Mode", "Target", "Slug", "Status", ""]
-                    ).map((h) => (
-                      <th
-                        key={h || "actions"}
-                        style={{
-                          textAlign: "left",
-                          padding: "10px 12px",
-                          fontFamily: t.sans,
-                          fontSize: 10,
-                          color: t.muted,
-                          borderBottom: `1px solid ${t.rule}`,
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleRows.map((r) => {
-                    const deleted = !!r.deletedAt;
-                    return (
-                      <tr key={r.id} style={deleted ? { opacity: 0.55 } : undefined}>
-                        <td style={cellBase(t)}>
-                          <div
-                            style={{
-                              fontFamily: t.sans,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              color: t.ink,
-                              textDecoration: deleted ? "line-through" : undefined,
-                            }}
-                          >
-                            {r.title}
-                          </div>
-                          <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 2 }}>
-                            {r.description.slice(0, 100)}
-                            {r.description.length > 100 ? "…" : ""}
-                          </div>
-                        </td>
-                        {resolvedTab === ALL_TAB ? (
-                          <td style={cellBase(t)}>
-                            <Chip t={t} tone="ghost">{r.category}</Chip>
+            <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+              <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+                <table className="fuel-admin-table" style={adminTableStyle()}>
+                  <thead>
+                    <tr>
+                      {(resolvedTab === ALL_TAB
+                        ? ["Title", "Category", "Subcategory", "Mode", "Target", "Slug", "Status", ""]
+                        : ["Title", "Subcategory", "Mode", "Target", "Slug", "Status", ""]
+                      ).map((h) => (
+                        <th key={h || "actions"} style={adminThStyle(t)}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleRows.map((r) => {
+                      const deleted = !!r.deletedAt;
+                      return (
+                        <tr key={r.id} style={deleted ? { opacity: 0.55 } : undefined}>
+                          <td style={adminTdStyle(t)}>
+                            <div
+                              style={{
+                                fontFamily: t.sans,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: t.ink,
+                                textDecoration: deleted ? "line-through" : undefined}}
+                            >
+                              {r.title}
+                            </div>
+                            <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 2 }}>
+                              {r.description.slice(0, 100)}
+                              {r.description.length > 100 ? "…" : ""}
+                            </div>
                           </td>
-                        ) : null}
-                        <td style={cellBase(t)}>{r.subcategory ?? "—"}</td>
-                        <td style={cellBase(t)}>
-                          <Chip t={t} tone={r.mode === "guided" ? "accent" : "ghost"}>
-                            {r.mode}
-                          </Chip>
-                        </td>
-                        <td style={cellBase(t)}>{r.targetKind ?? "—"}</td>
-                        <td style={{ ...cellBase(t), fontFamily: t.mono, fontSize: 11 }}>{r.slug}</td>
-                        <td style={cellBase(t)}>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            <Chip t={t} tone={deleted ? "warn" : "ghost"}>
-                              {deleted ? "deleted" : "active"}
+                          {resolvedTab === ALL_TAB ? (
+                            <td style={adminTdStyle(t)}>
+                              <Chip t={t} tone="ghost">{r.category}</Chip>
+                            </td>
+                          ) : null}
+                          <td style={adminTdStyle(t)}>{r.subcategory ?? "—"}</td>
+                          <td style={adminTdStyle(t)}>
+                            <Chip t={t} tone={r.mode === "guided" ? "accent" : "ghost"}>
+                              {r.mode}
                             </Chip>
-                            {r.isSystem ? (
-                              <Chip t={t} tone="accent">system</Chip>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td style={{ ...cellBase(t), textAlign: "right" }}>
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                            {deleted ? (
-                              <RestoreButton t={t} row={r} />
-                            ) : (
-                              <button onClick={() => openEdit(r)} style={button(t, "ghost")}>
-                                Edit
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                          <td style={adminTdStyle(t)}>{r.targetKind ?? "—"}</td>
+                          <td style={adminTdStyle(t, { mono: true })}>{r.slug}</td>
+                          <td style={adminTdStyle(t)}>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <Chip t={t} tone={deleted ? "warn" : "ghost"}>
+                                {deleted ? "deleted" : "active"}
+                              </Chip>
+                              {r.isSystem ? (
+                                <Chip t={t} tone="accent">system</Chip>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td style={adminTdActionsStyle(t)}>
+                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                              {deleted ? (
+                                <RestoreButton t={t} row={r} />
+                              ) : (
+                                <button onClick={() => openEdit(r)} style={adminBtnStyle(t, "ghost")}>
+                                  Edit
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>
@@ -292,7 +244,7 @@ function RestoreButton({ t, row }: { t: Theme; row: PlaybookAdminRow }) {
       <button
         type="button"
         disabled={isPending}
-        style={button(t, "ghost")}
+        style={adminBtnStyle(t, "ghost")}
         onClick={() =>
           startTransition(async () => {
             setError(null);
@@ -320,8 +272,7 @@ function RestoreButton({ t, row }: { t: Theme; row: PlaybookAdminRow }) {
 function PlaybookModal({
   t,
   row,
-  onClose,
-}: {
+  onClose}: {
   t: Theme;
   row: PlaybookAdminRow | null;
   onClose: () => void;
@@ -348,8 +299,7 @@ function PlaybookModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 200,
-      }}
+        zIndex: 200}}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -360,21 +310,19 @@ function PlaybookModal({
           padding: 24,
           width: "min(820px, 94vw)",
           maxHeight: "90vh",
-          overflow: "auto",
-        }}
+          overflow: "auto"}}
       >
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "baseline",
-            marginBottom: 16,
-          }}
+            marginBottom: 16}}
         >
           <div style={{ fontFamily: t.sans, fontSize: 17, fontWeight: 600, color: t.ink }}>
             {row ? `Edit ${row.title}` : "New playbook"}
           </div>
-          <button onClick={onClose} style={button(t, "ghost")}>
+          <button onClick={onClose} style={adminBtnStyle(t, "ghost")}>
             Close
           </button>
         </div>
@@ -402,7 +350,7 @@ function PlaybookModal({
           ) : null}
 
           <Row t={t} label="Title *">
-            <input name="title" required defaultValue={row?.title ?? ""} style={input(t)} />
+            <input name="title" required defaultValue={row?.title ?? ""} style={adminInputStyle(t)} />
           </Row>
 
           {!row ? (
@@ -411,7 +359,7 @@ function PlaybookModal({
                 name="slug"
                 required
                 placeholder="kebab-case-slug"
-                style={{ ...input(t), fontFamily: t.mono }}
+                style={{ ...adminInputStyle(t), fontFamily: t.mono }}
               />
             </Row>
           ) : (
@@ -423,7 +371,7 @@ function PlaybookModal({
           )}
 
           <Row t={t} label="Category *">
-            <select name="category" required defaultValue={row?.category ?? ""} style={input(t)}>
+            <select name="category" required defaultValue={row?.category ?? ""} style={adminInputStyle(t)}>
               <option value="" disabled>
                 Pick a category…
               </option>
@@ -436,7 +384,7 @@ function PlaybookModal({
           </Row>
 
           <Row t={t} label="Subcategory">
-            <input name="subcategory" defaultValue={row?.subcategory ?? ""} style={input(t)} />
+            <input name="subcategory" defaultValue={row?.subcategory ?? ""} style={adminInputStyle(t)} />
           </Row>
 
           <Row t={t} label="Mode">
@@ -444,7 +392,7 @@ function PlaybookModal({
               name="mode"
               value={mode}
               onChange={(e) => setMode(e.target.value === "guided" ? "guided" : "chat")}
-              style={input(t)}
+              style={adminInputStyle(t)}
             >
               {PLAYBOOK_MODES.map((m) => (
                 <option key={m} value={m}>
@@ -455,7 +403,7 @@ function PlaybookModal({
           </Row>
 
           <Row t={t} label="Target kind">
-            <select name="targetKind" defaultValue={row?.targetKind ?? ""} style={input(t)}>
+            <select name="targetKind" defaultValue={row?.targetKind ?? ""} style={adminInputStyle(t)}>
               <option value="">None</option>
               {PLAYBOOK_TARGET_KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -466,7 +414,7 @@ function PlaybookModal({
           </Row>
 
           <Row t={t} label="Tags (comma-separated)">
-            <input name="tags" defaultValue={(row?.tags ?? []).join(", ")} style={input(t)} />
+            <input name="tags" defaultValue={(row?.tags ?? []).join(", ")} style={adminInputStyle(t)} />
           </Row>
 
           <Row t={t} label="Description *">
@@ -474,7 +422,7 @@ function PlaybookModal({
               name="description"
               required
               defaultValue={row?.description ?? ""}
-              style={input(t, true)}
+              style={adminInputStyle(t, { multiline: true })}
             />
           </Row>
 
@@ -483,7 +431,7 @@ function PlaybookModal({
               name="content"
               required
               defaultValue={row?.content ?? ""}
-              style={{ ...input(t, true), minHeight: 200, fontFamily: t.mono, fontSize: 12 }}
+              style={{ ...adminInputStyle(t, { multiline: true }), minHeight: 200, fontFamily: t.mono, fontSize: 12 }}
             />
           </Row>
 
@@ -494,7 +442,7 @@ function PlaybookModal({
                 required
                 defaultValue={stepsDefault}
                 placeholder='[{"id":"step-1","label":"…","fields":[…]}]'
-                style={{ ...input(t, true), minHeight: 160, fontFamily: t.mono, fontSize: 11 }}
+                style={{ ...adminInputStyle(t, { multiline: true }), minHeight: 160, fontFamily: t.mono, fontSize: 11 }}
               />
             </Row>
           ) : (
@@ -507,13 +455,12 @@ function PlaybookModal({
               justifyContent: "space-between",
               alignItems: "center",
               marginTop: 8,
-              gap: 12,
-            }}
+              gap: 12}}
           >
             {row && !row.deletedAt ? (
               <button
                 type="button"
-                style={button(t, "danger")}
+                style={adminBtnStyle(t, "danger")}
                 disabled={isPending}
                 onClick={() => {
                   if (!confirm(`Soft-delete ${row.title}? It will disappear from the catalog.`)) return;
@@ -537,7 +484,7 @@ function PlaybookModal({
             ) : (
               <span />
             )}
-            <button type="submit" disabled={isPending} style={button(t, "primary")}>
+            <button type="submit" disabled={isPending} style={adminBtnStyle(t, "primary")}>
               {isPending ? "Saving…" : row ? "Save changes" : "Create playbook"}
             </button>
           </div>
@@ -552,8 +499,7 @@ function PlaybookModal({
                 padding: "8px 10px",
                 background: `${t.warn}14`,
                 border: `1px solid ${t.warn}`,
-                borderRadius: 6,
-              }}
+                borderRadius: 6}}
             >
               {error}
             </div>
@@ -575,8 +521,7 @@ function Row({ t, label, children }: { t: Theme; label: string; children: React.
           paddingTop: 8,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
-          fontWeight: 500,
-        }}
+          fontWeight: 500}}
       >
         {label}
       </div>

@@ -2,6 +2,7 @@
 
 import { useTheme } from "../ThemeContext";
 import type { PlatformStats } from "@/lib/platform-stats";
+import type { Theme } from "@/lib/theme";
 
 function fmtNum(n: number): string {
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
@@ -16,35 +17,21 @@ export function PlatformStatsView({ stats }: { stats: PlatformStats }) {
   const priv = stats.private;
 
   return (
-    <div style={{ display: "grid", gap: 20 }}>
-      {/* Public — fuel-data snapshot */}
-      <div
+    <div className="fuel-platform-stats">
+      <section
+        className="fuel-platform-stats__panel"
         style={{
           background: t.panel,
           border: `1px solid ${t.rule}`,
-          borderRadius: 8,
-          padding: 20,
         }}
       >
         <div
-          style={{
-            fontFamily: t.mono,
-            fontSize: 10,
-            color: t.mutedSoft,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            marginBottom: 12,
-          }}
+          className="fuel-platform-stats__eyebrow"
+          style={{ color: t.mutedSoft, fontFamily: t.mono }}
         >
           Fuel Data · public snapshot
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 12,
-          }}
-        >
+        <div className="fuel-platform-stats__grid fuel-platform-stats__grid--public">
           <BigStat
             t={t}
             label="Total system data"
@@ -64,36 +51,22 @@ export function PlatformStatsView({ stats }: { stats: PlatformStats }) {
             sub="New + updated"
           />
         </div>
-      </div>
+      </section>
 
-      {/* Private — customer-accumulated */}
-      <div
+      <section
+        className="fuel-platform-stats__panel"
         style={{
           background: t.panel,
           border: `1px solid ${t.rule}`,
-          borderRadius: 8,
-          padding: 20,
         }}
       >
         <div
-          style={{
-            fontFamily: t.mono,
-            fontSize: 10,
-            color: t.mutedSoft,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            marginBottom: 12,
-          }}
+          className="fuel-platform-stats__eyebrow"
+          style={{ color: t.mutedSoft, fontFamily: t.mono }}
         >
           Fuel · private operating data
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 12,
-          }}
-        >
+        <div className="fuel-platform-stats__grid fuel-platform-stats__grid--private">
           <BigStat
             t={t}
             label="Context items"
@@ -120,14 +93,7 @@ export function PlatformStatsView({ stats }: { stats: PlatformStats }) {
           />
         </div>
 
-        <div
-          style={{
-            marginTop: 18,
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: 16,
-          }}
-        >
+        <div className="fuel-platform-stats__split">
           <SourceBreakdown
             t={t}
             title="Context by source"
@@ -148,7 +114,7 @@ export function PlatformStatsView({ stats }: { stats: PlatformStats }) {
             ]}
           />
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -159,45 +125,36 @@ function BigStat({
   value,
   sub,
 }: {
-  t: ReturnType<typeof useTheme>;
+  t: Theme;
   label: string;
   value: string;
   sub?: string;
 }) {
   return (
     <div
+      className="fuel-platform-stats__stat"
       style={{
-        padding: "14px 16px",
         background: t.panelAlt,
         border: `1px solid ${t.ruleSoft}`,
-        borderRadius: 6,
       }}
     >
       <div
-        style={{
-          fontFamily: t.mono,
-          fontSize: 9.5,
-          color: t.mutedSoft,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-        }}
+        className="fuel-platform-stats__stat-label"
+        style={{ color: t.mutedSoft, fontFamily: t.mono }}
       >
         {label}
       </div>
       <div
-        style={{
-          fontFamily: t.sans,
-          fontSize: 28,
-          fontWeight: 600,
-          color: t.accent,
-          marginTop: 4,
-          letterSpacing: "-0.02em",
-        }}
+        className="fuel-platform-stats__stat-value"
+        style={{ color: t.accent, fontFamily: t.sans }}
       >
         {value}
       </div>
       {sub ? (
-        <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 2 }}>
+        <div
+          className="fuel-platform-stats__stat-sub"
+          style={{ color: t.muted, fontFamily: t.sans }}
+        >
           {sub}
         </div>
       ) : null}
@@ -210,47 +167,43 @@ function SourceBreakdown({
   title,
   rows,
 }: {
-  t: ReturnType<typeof useTheme>;
+  t: Theme;
   title: string;
   rows: Array<{ label: string; value: number }>;
 }) {
   return (
-    <div>
+    <div className="fuel-platform-stats__breakdown">
       <div
-        style={{
-          fontFamily: t.mono,
-          fontSize: 10,
-          color: t.mutedSoft,
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          marginBottom: 6,
-        }}
+        className="fuel-platform-stats__breakdown-title"
+        style={{ color: t.mutedSoft, fontFamily: t.mono }}
       >
         {title}
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table style={{ borderCollapse: "collapse", width: "100%" }}>
         <tbody>
           {rows.map((r) => (
             <tr key={r.label}>
               <td
                 style={{
-                  padding: "5px 0",
+                  borderBottom: `1px solid ${t.ruleSoft}`,
+                  color: t.inkSoft,
                   fontFamily: t.sans,
                   fontSize: 12.5,
-                  color: t.inkSoft,
-                  borderBottom: `1px solid ${t.ruleSoft}`,
+                  padding: "8px 0",
                 }}
               >
                 {r.label}
               </td>
               <td
                 style={{
-                  padding: "5px 0",
+                  borderBottom: `1px solid ${t.ruleSoft}`,
+                  color: t.ink,
                   fontFamily: t.mono,
                   fontSize: 12.5,
-                  color: t.ink,
+                  fontFeatureSettings: '"tnum" 1',
+                  padding: "8px 0",
                   textAlign: "right",
-                  borderBottom: `1px solid ${t.ruleSoft}`,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {fmtNum(r.value)}

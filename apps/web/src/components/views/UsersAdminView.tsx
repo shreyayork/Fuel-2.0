@@ -2,21 +2,36 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import type { Theme } from "@/lib/theme";
-import { Chip, SectionHead, type ChipTone } from "../atoms";
+import { Chip, type ChipTone } from "../atoms";
 import { useTheme } from "../ThemeContext";
+import { AdminPageHeader } from "./AdminPageHeader";
+import {
+  adminBtnStyle,
+  adminEmptyStyle,
+  adminInputStyle,
+  adminModalOverlayStyle,
+  adminModalPanelStyle,
+  adminModalTitleStyle,
+  adminPageStyle,
+  adminSectionLabelStyle,
+  adminTableFrameStyle,
+  adminTableScrollStyle,
+  adminTableStyle,
+  adminTdActionsStyle,
+  adminTdStyle,
+  adminThStyle,
+} from "./adminStyles";
 import { MagicShimmer } from "../ai/MagicShimmer";
 import {
   DEFAULT_LIST_PAGE_SIZE,
   LIST_PAGE_SIZES,
-  type ListPageSize,
-} from "@/lib/list-pagination";
+  type ListPageSize} from "@/lib/list-pagination";
 import type {
   SuperAdminPlanKind,
   SuperAdminUserLifecycle,
   SuperAdminUserRow,
   SuperAdminUsersResponse,
-  SuperAdminUsersSortDir,
-} from "@/lib/super-admin/user-lifecycle";
+  SuperAdminUsersSortDir} from "@/lib/super-admin/user-lifecycle";
 import { sendCouponsToUsersAction } from "@/app/(super-admin)/super-admin/coupons/actions";
 import type { SuperAdminUserInvoiceRow } from "@/lib/super-admin/user-invoices";
 import { useToast } from "../toast/ToastProvider";
@@ -32,52 +47,11 @@ type CouponCampaignOption = {
   globalPromotionCode: string | null;
 };
 
-function button(t: Theme, variant: "primary" | "ghost" = "ghost"): CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-  } as const;
-  const v = map[variant];
-  return {
-    padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: "pointer",
-  };
-}
 
-function input(t: Theme): CSSProperties {
-  return {
-    padding: "8px 10px",
-    background: t.panelAlt,
-    color: t.ink,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 13,
-    width: "100%",
-    maxWidth: 360,
-  };
-}
 
 /** Keep table readable while scrolling; avoids squeezing 8 columns into a sliver. */
 const USERS_TABLE_MIN_WIDTH = 960;
 
-function cellBase(t: Theme): CSSProperties {
-  return {
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.inkSoft,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "middle",
-  };
-}
 
 /** Long values must not expand the page — ellipsis inside the scrollable table. */
 function truncateCell(
@@ -85,29 +59,15 @@ function truncateCell(
   opts?: { mono?: boolean; strong?: boolean; maxWidth?: number },
 ): CSSProperties {
   return {
-    ...cellBase(t),
+    ...adminTdStyle(t),
     ...(opts?.strong ? { color: t.ink, fontWeight: 500 } : null),
     ...(opts?.mono ? { fontFamily: t.mono, fontSize: 12 } : null),
     maxWidth: opts?.maxWidth ?? 220,
     overflow: "hidden",
     textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
+    whiteSpace: "nowrap"};
 }
 
-function th(t: Theme): CSSProperties {
-  return {
-    textAlign: "left",
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 10,
-    color: t.muted,
-    borderBottom: `1px solid ${t.rule}`,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    whiteSpace: "nowrap",
-  };
-}
 
 function lifecycleTone(key: SuperAdminUserLifecycle): ChipTone {
   switch (key) {
@@ -146,8 +106,7 @@ function formatDate(iso: string | null): string {
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
-    day: "numeric",
-  });
+    day: "numeric"});
 }
 
 function errorMessage(status: number, code: string | null): string {
@@ -217,8 +176,7 @@ export function UsersAdminView() {
     setError(null);
     const params = new URLSearchParams({
       limit: String(limit),
-      sort: sortDir,
-    });
+      sort: sortDir});
     if (debouncedSearch) {
       // Pre-encode so plus-addressed emails survive CloudFront `+` → space.
       params.set("q", encodeURIComponent(debouncedSearch));
@@ -316,8 +274,7 @@ export function UsersAdminView() {
         if (result.ok) {
           showToast({
             message: result.message ?? "Coupon emails sent.",
-            variant: "success",
-          });
+            variant: "success"});
           setSelectedEmails(new Set());
         } else {
           showToast({ message: result.error, variant: "error" });
@@ -327,11 +284,11 @@ export function UsersAdminView() {
   };
 
   return (
-    <div style={{ minWidth: 0, maxWidth: "100%" }}>
-      <SectionHead
+    <div className="fuel-admin-page" style={{ ...adminPageStyle(), maxWidth: "100%" }}>
+      <AdminPageHeader
         t={t}
         title="Users"
-        subtitle="Cognito signups reconciled with Fuel accounts, onboarding, and workspace plans."
+        description="Reconcile Cognito signups with accounts, onboarding, and plans."
       />
 
       <div
@@ -340,10 +297,8 @@ export function UsersAdminView() {
           flexWrap: "wrap",
           gap: 12,
           alignItems: "center",
-          marginBottom: 16,
           minWidth: 0,
-          maxWidth: "100%",
-        }}
+          maxWidth: "100%"}}
       >
         <input
           type="search"
@@ -352,7 +307,7 @@ export function UsersAdminView() {
           placeholder="Search name or email"
           autoComplete="off"
           aria-label="Search users by name or email"
-          style={{ ...input(t), minWidth: 0, flex: "1 1 220px" }}
+          style={{ ...adminInputStyle(t), minWidth: 0, flex: "1 1 220px" }}
         />
         {selectedEmails.size > 0 ? (
           <div
@@ -361,8 +316,7 @@ export function UsersAdminView() {
               flexWrap: "wrap",
               gap: 8,
               alignItems: "center",
-              flex: "1 1 320px",
-            }}
+              flex: "1 1 320px"}}
           >
             <span style={{ fontFamily: t.sans, fontSize: 12, color: t.muted }}>
               {selectedEmails.size} selected
@@ -371,7 +325,7 @@ export function UsersAdminView() {
               value={sendCampaignId}
               onChange={(e) => setSendCampaignId(e.target.value)}
               aria-label="Coupon campaign"
-              style={{ ...input(t), maxWidth: 280 }}
+              style={{ ...adminInputStyle(t), maxWidth: 280 }}
             >
               <option value="">Pick campaign…</option>
               {campaigns.map((c) => (
@@ -382,7 +336,7 @@ export function UsersAdminView() {
             </select>
             <button
               type="button"
-              style={button(t, "primary")}
+              style={adminBtnStyle(t, "primary")}
               disabled={!sendCampaignId || sendingCoupons}
               onClick={onSendCoupons}
             >
@@ -403,8 +357,7 @@ export function UsersAdminView() {
             color: t.warn,
             fontFamily: t.sans,
             fontSize: 12,
-            background: t.panel,
-          }}
+            background: t.panel}}
         >
           {warning}
         </div>
@@ -421,34 +374,26 @@ export function UsersAdminView() {
             borderRadius: 6,
             fontFamily: t.sans,
             fontSize: 13,
-            color: t.negative,
-          }}
+            color: t.negative}}
         >
           {error}
         </div>
       ) : (
-        <div
-          style={{
-            background: t.panel,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            maxWidth: "100%",
-            minWidth: 0,
-            overflow: "hidden",
-          }}
-        >
-          {/* Contain wide table scroll inside the panel (Billing / pipeline pattern). */}
-          <div style={{ overflowX: "auto", maxWidth: "100%" }} aria-busy={loading || undefined}>
+        <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+          <div
+            className="fuel-admin-table-wrap"
+            style={adminTableScrollStyle()}
+            aria-busy={loading || undefined}
+          >
             <table
+              className="fuel-admin-table"
               style={{
-                width: "100%",
-                minWidth: USERS_TABLE_MIN_WIDTH,
-                borderCollapse: "collapse",
-              }}
+                ...adminTableStyle(),
+                minWidth: USERS_TABLE_MIN_WIDTH}}
             >
               <thead>
                 <tr>
-                  <th scope="col" style={th(t)}>
+                  <th scope="col" style={adminThStyle(t)}>
                     <input
                       type="checkbox"
                       checked={allPageSelected}
@@ -459,14 +404,14 @@ export function UsersAdminView() {
                   </th>
                   {(["Name", "Email", "Lifecycle", "Workspace", "Role", "Plan"] as const).map(
                     (h) => (
-                      <th key={h} scope="col" style={th(t)}>
+                      <th key={h} scope="col" style={adminThStyle(t)}>
                         {h}
                       </th>
                     ),
                   )}
                   <th
                     scope="col"
-                    style={th(t)}
+                    style={adminThStyle(t)}
                     aria-sort={sortDir === "desc" ? "descending" : "ascending"}
                   >
                     <button
@@ -488,8 +433,7 @@ export function UsersAdminView() {
                         gap: 4,
                         letterSpacing: "inherit",
                         padding: 0,
-                        textTransform: "inherit",
-                      }}
+                        textTransform: "inherit"}}
                     >
                       Signed up
                       <span aria-hidden style={{ fontSize: 11, lineHeight: 1 }}>
@@ -497,7 +441,7 @@ export function UsersAdminView() {
                       </span>
                     </button>
                   </th>
-                  <th scope="col" style={th(t)}>
+                  <th scope="col" style={adminThStyle(t)}>
                     <span
                       style={{
                         border: 0,
@@ -508,8 +452,7 @@ export function UsersAdminView() {
                         padding: 0,
                         position: "absolute",
                         whiteSpace: "nowrap",
-                        width: 1,
-                      }}
+                        width: 1}}
                     >
                       Actions
                     </span>
@@ -521,7 +464,7 @@ export function UsersAdminView() {
                   <SkeletonRows t={t} />
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ ...cellBase(t), textAlign: "center", color: t.muted }}>
+                    <td colSpan={9} style={{ ...adminTdStyle(t), textAlign: "center", color: t.muted }}>
                       {debouncedSearch
                         ? "No users match that search."
                         : "No users in this pool yet."}
@@ -533,7 +476,7 @@ export function UsersAdminView() {
                     const workspace = user.workspace?.name ?? "—";
                     return (
                       <tr key={user.email}>
-                        <td style={cellBase(t)}>
+                        <td style={adminTdStyle(t)}>
                           <input
                             type="checkbox"
                             checked={selectedEmails.has(user.email)}
@@ -550,7 +493,7 @@ export function UsersAdminView() {
                         >
                           {user.email}
                         </td>
-                        <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
+                        <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>
                           <Chip t={t} tone={lifecycleTone(user.lifecycle.key)}>
                             {user.lifecycle.label}
                           </Chip>
@@ -558,22 +501,22 @@ export function UsersAdminView() {
                         <td style={truncateCell(t, { maxWidth: 140 })} title={workspace}>
                           {workspace}
                         </td>
-                        <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
+                        <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>
                           {user.workspace?.role ?? "—"}
                         </td>
-                        <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
+                        <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>
                           <Chip t={t} tone={planTone(user.plan.kind)}>
                             {user.plan.label}
                           </Chip>
                         </td>
-                        <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
+                        <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>
                           {formatDate(user.signedUpAt)}
                         </td>
-                        <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
+                        <td style={adminTdActionsStyle(t)}>
                           <button
                             type="button"
                             onClick={() => setSelected(user)}
-                            style={button(t, "ghost")}
+                            style={adminBtnStyle(t, "ghost")}
                           >
                             View
                           </button>
@@ -596,8 +539,7 @@ export function UsersAdminView() {
             flexWrap: "wrap",
             gap: 12,
             justifyContent: "space-between",
-            marginTop: 14,
-          }}
+            marginTop: 14}}
         >
           <span style={{ color: t.muted, fontFamily: t.sans, fontSize: 12 }}>
             {users.length} user{users.length === 1 ? "" : "s"} this page
@@ -610,8 +552,7 @@ export function UsersAdminView() {
                 display: "inline-flex",
                 fontFamily: t.sans,
                 fontSize: 12,
-                gap: 6,
-              }}
+                gap: 6}}
             >
               Per page
               <select
@@ -626,8 +567,7 @@ export function UsersAdminView() {
                   cursor: "pointer",
                   fontFamily: t.sans,
                   fontSize: 12,
-                  padding: "5px 8px",
-                }}
+                  padding: "5px 8px"}}
               >
                 {LIST_PAGE_SIZES.map((n) => (
                   <option key={n} value={n}>
@@ -640,10 +580,9 @@ export function UsersAdminView() {
               type="button"
               disabled={history.length === 0}
               style={{
-                ...button(t),
+                ...adminBtnStyle(t),
                 opacity: history.length === 0 ? 0.55 : 1,
-                cursor: history.length === 0 ? "not-allowed" : "pointer",
-              }}
+                cursor: history.length === 0 ? "not-allowed" : "pointer"}}
               onClick={onPrev}
             >
               Previous
@@ -652,10 +591,9 @@ export function UsersAdminView() {
               type="button"
               disabled={!nextCursor}
               style={{
-                ...button(t),
+                ...adminBtnStyle(t),
                 opacity: !nextCursor ? 0.55 : 1,
-                cursor: !nextCursor ? "not-allowed" : "pointer",
-              }}
+                cursor: !nextCursor ? "not-allowed" : "pointer"}}
               onClick={onNext}
             >
               Next
@@ -678,7 +616,7 @@ function SkeletonRows({ t }: { t: Theme }) {
       {Array.from({ length: SKELETON_ROW_COUNT }, (_, row) => (
         <tr key={`skel-${row}`} aria-hidden>
           {widths.map((width, col) => (
-            <td key={col} style={cellBase(t)}>
+            <td key={col} style={adminTdStyle(t)}>
               <MagicShimmer theme={t} width={width} height={14} rounded={4} />
             </td>
           ))}
@@ -691,8 +629,7 @@ function SkeletonRows({ t }: { t: Theme }) {
 function UserDetailModal({
   t,
   user,
-  onClose,
-}: {
+  onClose}: {
   t: Theme;
   user: SuperAdminUserRow;
   onClose: () => void;
@@ -717,8 +654,7 @@ function UserDetailModal({
     void fetch("/api/super-admin/users/invoices/sync", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: user.email }),
-    })
+      body: JSON.stringify({ email: user.email })})
       .then(async (res) => {
         const body = (await res.json().catch(() => null)) as {
           invoices?: SuperAdminUserInvoiceRow[];
@@ -763,8 +699,7 @@ function UserDetailModal({
     fontFamily: t.sans,
     fontSize: 12,
     fontWeight: 500,
-    cursor: "pointer",
-  });
+    cursor: "pointer"});
 
   return (
     <div
@@ -780,8 +715,7 @@ function UserDetailModal({
         alignItems: "flex-start",
         justifyContent: "center",
         padding: "48px 16px",
-        zIndex: 100,
-      }}
+        zIndex: 100}}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -795,8 +729,7 @@ function UserDetailModal({
           display: "grid",
           gap: 14,
           maxHeight: "calc(100vh - 96px)",
-          overflowY: "auto",
-        }}
+          overflowY: "auto"}}
       >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
           <div>
@@ -810,7 +743,7 @@ function UserDetailModal({
               {user.email}
             </div>
           </div>
-          <button type="button" onClick={onClose} style={button(t, "ghost")}>
+          <button type="button" onClick={onClose} style={adminBtnStyle(t, "ghost")}>
             Close
           </button>
         </div>
@@ -856,8 +789,7 @@ function UserDetailModal({
                 margin: 0,
                 fontFamily: t.sans,
                 fontSize: 13,
-                minWidth: 0,
-              }}
+                minWidth: 0}}
             >
               <Detail label="Cognito status" value={user.cognitoStatus ?? "—"} t={t} />
               <Detail
@@ -905,8 +837,7 @@ function UserDetailModal({
                   color: t.muted,
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
-                  marginBottom: 8,
-                }}
+                  marginBottom: 8}}
               >
                 Workspaces
               </div>
@@ -915,46 +846,47 @@ function UserDetailModal({
                   No Fuel account yet — user has not claimed a company.
                 </div>
               ) : (
-                <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-                  <table
-                    style={{
-                      width: "100%",
-                      minWidth: 480,
-                      borderCollapse: "collapse",
-                    }}
-                  >
-                    <thead>
-                      <tr>
-                        {["Workspace", "Role", "Type", "Company", "Plan"].map((h) => (
-                          <th key={h} scope="col" style={th(t)}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {user.workspaces.map((ws) => (
-                        <tr key={ws.accountId}>
-                          <td style={truncateCell(t, { maxWidth: 160 })} title={ws.name}>
-                            {ws.name}
-                          </td>
-                          <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>{ws.role}</td>
-                          <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
-                            {ws.type === "PERSONAL" ? "Personal" : "Organization"}
-                          </td>
-                          <td
-                            style={truncateCell(t, { maxWidth: 140 })}
-                            title={ws.companyName ?? "—"}
-                          >
-                            {ws.companyName ?? "—"}
-                          </td>
-                          <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
-                            {ws.plan.label}
-                          </td>
+                <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+                  <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+                    <table
+                      className="fuel-admin-table"
+                      style={{
+                        ...adminTableStyle(),
+                        minWidth: 480}}
+                    >
+                      <thead>
+                        <tr>
+                          {["Workspace", "Role", "Type", "Company", "Plan"].map((h) => (
+                            <th key={h} scope="col" style={adminThStyle(t)}>
+                              {h}
+                            </th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {user.workspaces.map((ws) => (
+                          <tr key={ws.accountId}>
+                            <td style={truncateCell(t, { maxWidth: 160 })} title={ws.name}>
+                              {ws.name}
+                            </td>
+                            <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>{ws.role}</td>
+                            <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>
+                              {ws.type === "PERSONAL" ? "Personal" : "Organization"}
+                            </td>
+                            <td
+                              style={truncateCell(t, { maxWidth: 140 })}
+                              title={ws.companyName ?? "—"}
+                            >
+                              {ws.companyName ?? "—"}
+                            </td>
+                            <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>
+                              {ws.plan.label}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -966,8 +898,7 @@ function UserDetailModal({
                 fontFamily: t.sans,
                 fontSize: 12,
                 color: t.muted,
-                marginBottom: 12,
-              }}
+                marginBottom: 12}}
             >
               Invoice history for this user&apos;s accounts.
             </div>
@@ -982,7 +913,7 @@ function UserDetailModal({
                 </div>
                 <button
                   type="button"
-                  style={{ ...button(t, "ghost"), justifySelf: "start" }}
+                  style={{ ...adminBtnStyle(t, "ghost"), justifySelf: "start" }}
                   onClick={() => syncInvoices()}
                 >
                   Retry
@@ -993,101 +924,103 @@ function UserDetailModal({
                 No invoices found for this user&apos;s accounts.
               </div>
             ) : (
-              <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    minWidth: 640,
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      {["Invoice", "Date", "Status", "Total", "Coupon", ""].map((h) => (
-                        <th key={h || "actions"} scope="col" style={th(t)}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.map((inv) => {
-                      const total = `${(inv.totalCents / 100).toFixed(2)} ${inv.currency.toUpperCase()}`;
-                      return (
-                        <tr key={inv.invoiceId}>
-                          <td style={truncateCell(t, { mono: true, maxWidth: 100 })}>
-                            #{inv.invoiceId}
-                            {inv.invoiceNumber ? (
-                              <div style={{ color: t.muted, fontSize: 11 }}>
-                                {inv.invoiceNumber}
-                              </div>
-                            ) : null}
-                          </td>
-                          <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
-                            {formatDate(inv.invoiceDate)}
-                          </td>
-                          <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
-                            {inv.invoiceStatus}
-                          </td>
-                          <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>{total}</td>
-                          <td style={cellBase(t)}>
-                            {inv.couponApplied ? (
-                              <div>
-                                <Chip t={t} tone="accent">
-                                  Coupon
-                                </Chip>
-                                {inv.couponCode ? (
-                                  <div
+              <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+                <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+                  <table
+                    className="fuel-admin-table"
+                    style={{
+                      ...adminTableStyle(),
+                      minWidth: 640}}
+                  >
+                    <thead>
+                      <tr>
+                        {["Invoice", "Date", "Status", "Total", "Coupon", ""].map((h) => (
+                          <th
+                            key={h || "actions"}
+                            scope="col"
+                            style={adminThStyle(t, h === "Total" ? { numeric: true } : undefined)}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((inv) => {
+                        const total = `${(inv.totalCents / 100).toFixed(2)} ${inv.currency.toUpperCase()}`;
+                        return (
+                          <tr key={inv.invoiceId}>
+                            <td style={truncateCell(t, { mono: true, maxWidth: 100 })}>
+                              #{inv.invoiceId}
+                              {inv.invoiceNumber ? (
+                                <div style={{ color: t.muted, fontSize: 11 }}>
+                                  {inv.invoiceNumber}
+                                </div>
+                              ) : null}
+                            </td>
+                            <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>
+                              {formatDate(inv.invoiceDate)}
+                            </td>
+                            <td style={{ ...adminTdStyle(t), whiteSpace: "nowrap" }}>
+                              {inv.invoiceStatus}
+                            </td>
+                            <td style={adminTdStyle(t, { numeric: true })}>{total}</td>
+                            <td style={adminTdStyle(t)}>
+                              {inv.couponApplied ? (
+                                <div>
+                                  <Chip t={t} tone="accent">
+                                    Coupon
+                                  </Chip>
+                                  {inv.couponCode ? (
+                                    <div
+                                      style={{
+                                        fontFamily: t.mono,
+                                        fontSize: 11,
+                                        color: t.muted,
+                                        marginTop: 4}}
+                                    >
+                                      {inv.couponCode}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <span style={{ color: t.muted }}>—</span>
+                              )}
+                            </td>
+                            <td style={adminTdActionsStyle(t)}>
+                              <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                {inv.fuelPdfViewPath ? (
+                                  <a
+                                    href={inv.fuelPdfViewPath}
+                                    target="_blank"
+                                    rel="noreferrer"
                                     style={{
-                                      fontFamily: t.mono,
-                                      fontSize: 11,
-                                      color: t.muted,
-                                      marginTop: 4,
-                                    }}
+                                      ...adminBtnStyle(t, "ghost"),
+                                      textDecoration: "none",
+                                      display: "inline-block"}}
                                   >
-                                    {inv.couponCode}
-                                  </div>
+                                    View
+                                  </a>
+                                ) : null}
+                                {inv.fuelPdfDownloadPath ? (
+                                  <a
+                                    href={inv.fuelPdfDownloadPath}
+                                    style={{
+                                      ...adminBtnStyle(t, "ghost"),
+                                      textDecoration: "none",
+                                      display: "inline-block"}}
+                                  >
+                                    Download
+                                  </a>
                                 ) : null}
                               </div>
-                            ) : (
-                              <span style={{ color: t.muted }}>—</span>
-                            )}
-                          </td>
-                          <td style={{ ...cellBase(t), whiteSpace: "nowrap" }}>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              {inv.fuelPdfViewPath ? (
-                                <a
-                                  href={inv.fuelPdfViewPath}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  style={{
-                                    ...button(t, "ghost"),
-                                    textDecoration: "none",
-                                    display: "inline-block",
-                                  }}
-                                >
-                                  View
-                                </a>
-                              ) : null}
-                              {inv.fuelPdfDownloadPath ? (
-                                <a
-                                  href={inv.fuelPdfDownloadPath}
-                                  style={{
-                                    ...button(t, "ghost"),
-                                    textDecoration: "none",
-                                    display: "inline-block",
-                                  }}
-                                >
-                                  Download
-                                </a>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -1100,8 +1033,7 @@ function UserDetailModal({
 function Detail({
   t,
   label,
-  value,
-}: {
+  value}: {
   t: Theme;
   label: string;
   value: string;

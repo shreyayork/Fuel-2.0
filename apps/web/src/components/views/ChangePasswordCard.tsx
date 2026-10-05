@@ -31,13 +31,14 @@ export function ChangePasswordCard() {
 
   const inputStyle = (invalid: boolean): React.CSSProperties => ({
     width: "100%",
-    padding: "8px 10px",
+    padding: "10px 12px",
     background: t.panelAlt,
     color: t.ink,
     border: `1px solid ${invalid ? t.negative : t.rule}`,
-    borderRadius: 6,
+    borderRadius: 8,
     fontFamily: t.sans,
-    fontSize: 13,
+    fontSize: 16,
+    minHeight: 44,
     boxSizing: "border-box",
   });
 

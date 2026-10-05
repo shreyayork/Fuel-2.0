@@ -15,7 +15,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
-import type { Theme, ThemeMode } from "@/lib/theme";
+import { THEMES, themeSurfaceCssVars, type Theme, type ThemeMode } from "@/lib/theme";
 import type { FuelDataset } from "@/lib/types";
 import { useBreadcrumbTrail } from "./BreadcrumbContext";
 import { useAgentDrawer } from "./AgentDrawer";
@@ -33,6 +33,7 @@ import { YorkPartnerStyleSheet } from "./york-partner/YorkPartnerStyleSheet";
 import { SidebarYorkPartnerSlot } from "./york-partner/SidebarYorkPartnerSlot";
 import { BrandMark } from "./marketing/BrandMark";
 import { TOUCH_TARGET_MIN, useMobileNav } from "@/lib/responsive";
+import { adminTableCssVars } from "./views/adminStyles";
 
 /** Flip to `true` to restore pin/hover collapse UI. */
 const SIDEBAR_COLLAPSE_ENABLED = false;
@@ -46,6 +47,7 @@ type NavGroup = { label?: string; items: NavItem[] };
 // Line-icon glyphs for collapsed-sidebar mode. Size-agnostic (16px viewbox
 // scaled via props) and inherit currentColor.
 const NAV_ICONS: Record<string, ReactElement> = {
+  overview: icon("M3 9l7-6 7 6v8H3z M8 17v-5h4v5"),
   watchlists: icon("M4 5h12M4 9h12M4 13h8"),
   pipeline: icon("M3 5h4v10H3zM9 5h4v10H9zM15 5h4v10h-4z"),
   portfolio: icon("M3 7h14v8H3zM7 7V5h6v2"),
@@ -97,6 +99,8 @@ export interface SidebarCounts {
   advisors?: number;
   serviceProviders?: number;
   investors?: number;
+  /** HubSpot / demo pipeline deals — Research → Pipeline badge. */
+  pipeline?: number;
 }
 
 export interface AccountOption {
@@ -126,6 +130,7 @@ export function Shell({
   accountList = [],
   activeAccountId = null,
   activeAccountName = null,
+  homePath = "/dashboard",
   portfolioManagerEnabled = false,
   navPending = false,
 }: {
@@ -153,7 +158,9 @@ export function Shell({
   accountList?: AccountOption[];
   activeAccountId?: string | null;
   activeAccountName?: string | null;
-  /** Account-wide setting — gates Pipeline + Portfolio nav items. */
+  /** Workspace home — company overview for founders, portfolio/watchlists for PMs. */
+  homePath?: string;
+  /** Account-wide setting — still used for PM-only chrome (e.g. Initiatives nav). */
   portfolioManagerEnabled?: boolean;
   /** True while AppShell is transitioning to a new route. */
   navPending?: boolean;
@@ -163,33 +170,45 @@ export function Shell({
   const tour = useWorkspaceTourOptional();
   const integrationsTourActive = tour?.activeTarget === "integrations";
   const sidebarCounts = useSidebarCounts();
-  const networkCounts =
-    counts.advisors != null ||
-    counts.investors != null ||
-    counts.serviceProviders != null
-      ? counts
-      : sidebarCounts;
+  // Prefer layout-resolved / streamed counts; fall back to the fixture dataset
+  // only for Pipeline when neither source has a number yet.
+  const networkCounts: SidebarCounts = {
+    advisors: counts.advisors ?? sidebarCounts.advisors,
+    investors: counts.investors ?? sidebarCounts.investors,
+    serviceProviders:
+      counts.serviceProviders ?? sidebarCounts.serviceProviders,
+    pipeline: counts.pipeline ?? sidebarCounts.pipeline,
+  };
 
-  // Pipeline + Portfolio are gated on the account's portfolio_manager_enabled
-  // flag (toggled in /account/settings). All other nav items are universal.
-  const researchItems: NavItem[] = [{ key: "watchlists", label: "Watchlists" }];
-  if (portfolioManagerEnabled) {
-    researchItems.push({
+  const pipelineCount =
+    networkCounts.pipeline ??
+    data.companies.filter((c) => c.list === "pipeline").length;
+  const researchItems: NavItem[] = [
+    { key: "watchlists", label: "Watchlists" },
+    {
       key: "pipeline",
       label: "Pipeline",
-      count: data.companies.filter((c) => c.list === "pipeline").length,
-    });
-  }
+      count: pipelineCount,
+    },
+  ];
+  // Overview home: company Overview tab for founders (CM), portfolio
+  // KPI overview for PMs. Hidden when home is only watchlists/onboard.
+  const showOverviewNav =
+    portfolioManagerEnabled || homePath.startsWith("/company/");
+
   const groups: NavGroup[] = [
-    { label: "Research", items: researchItems },
-    ...(portfolioManagerEnabled
+    ...(showOverviewNav
       ? [
           {
-            label: "Portfolio",
-            items: [{ key: "portfolio", label: "Portfolios" }],
+            items: [{ key: "overview", label: "Overview" }],
           } satisfies NavGroup,
         ]
       : []),
+    { label: "Research", items: researchItems },
+    {
+      label: "Portfolio",
+      items: [{ key: "portfolio", label: "Portfolios" }],
+    },
     {
       label: "Value creation",
       items: [
@@ -376,6 +395,8 @@ export function Shell({
   return (
     <div
       style={{
+        ...adminTableCssVars(t),
+        ...themeSurfaceCssVars(t),
         minHeight: "100dvh",
         background: appBackground,
         color: t.ink,
@@ -519,17 +540,17 @@ export function Shell({
             }}
           >
             <button
+              type="button"
               onClick={() => {
-                // One-account users: clicking the button takes them to
-                // their workspace home — for CM-mode founders that's the
-                // FounderOverview at /company/[uuid]; for PM-mode that's
-                // the dashboard. Either way `/` does the right routing.
-                // Multi-account users: open the switcher dropdown.
+                // Multi-account: open the switcher. Single-account: go to
+                // workspace home (company Overview for founders — never `/`,
+                // which is the marketing landing when Cognito is unset).
                 if (accountList.length > 1) {
                   setAccountPickerOpen((v) => !v);
-                } else {
-                  router.push("/");
+                  return;
                 }
+                if (mobileNav) closeMobileNav();
+                router.push(homePath);
               }}
               title={sidebarExpanded ? activeAccountName : activeAccountName}
               style={{
@@ -1237,10 +1258,14 @@ export function Shell({
       </aside>
 
       <main
+        className="fuel-app-main"
         style={{
-          padding: mobileNav
-            ? `calc(16px + var(--fuel-safe-top, 0px)) 16px calc(40px + var(--fuel-safe-bottom, 0px))`
-            : "28px 40px 64px",
+          paddingTop: mobileNav
+            ? "calc(16px + var(--fuel-safe-top, 0px))"
+            : 28,
+          paddingBottom: mobileNav
+            ? "calc(40px + var(--fuel-safe-bottom, 0px))"
+            : 64,
           maxWidth: "100%",
           width: "100%",
           // Flex items default to min-width: auto, which means "don't shrink
@@ -1253,10 +1278,10 @@ export function Shell({
           minHeight: "100dvh",
           display: "flex",
           flexDirection: "column",
-          overflowX: "clip",
-          opacity: navPending ? 0.55 : 1,
-          transition: "opacity 120ms ease",
-          pointerEvents: navPending ? "none" : "auto",
+          // Keep overflow visible here so company tabs can `position: sticky`.
+          // Horizontal containment lives on the children wrapper below.
+          // Do NOT pointer-events:none the whole main — that blocked the
+          // hamburger / search on the first click while RSC was in flight.
         }}
       >
         <CreditCancelBanner />
@@ -1264,74 +1289,67 @@ export function Shell({
         <div
           style={{
             display: "flex",
-            flexWrap: "wrap",
+            flexWrap: "nowrap",
             justifyContent: "space-between",
             alignItems: "center",
-            gap: mobileNav ? 12 : 14,
+            gap: mobileNav ? 8 : 14,
             marginBottom: mobileNav ? 18 : 28,
             paddingBottom: 16,
             borderBottom: `1px solid ${t.rule}`,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              minWidth: 0,
-              flex: mobileNav ? "1 1 auto" : undefined,
-            }}
-          >
-            {mobileNav ? (
-              <button
-                type="button"
-                aria-label="Open menu"
-                aria-expanded={mobileNavOpen}
-                aria-controls="fuel-app-nav"
-                onClick={() => setMobileNavOpen(true)}
-                style={{
-                  width: TOUCH_TARGET_MIN,
-                  height: TOUCH_TARGET_MIN,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: `1px solid ${t.rule}`,
-                  borderRadius: 8,
-                  background: t.panel,
-                  color: t.ink,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
+          {mobileNav ? (
+            <button
+              type="button"
+              aria-label="Open menu"
+              aria-expanded={mobileNavOpen}
+              aria-controls="fuel-app-nav"
+              onClick={() => setMobileNavOpen(true)}
+              style={{
+                width: TOUCH_TARGET_MIN,
+                height: TOUCH_TARGET_MIN,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: `1px solid ${t.rule}`,
+                borderRadius: 8,
+                background: t.panel,
+                color: t.ink,
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              <svg
+                width={18}
+                height={18}
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.6}
+                strokeLinecap="round"
               >
-                <svg
-                  width={18}
-                  height={18}
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                >
-                  <path d="M3 5h14M3 10h14M3 15h14" />
-                </svg>
-              </button>
-            ) : null}
-            <BreadcrumbTrail t={t} fallback={eyebrow ?? page} compact={mobileNav} />
-          </div>
+                <path d="M3 5h14M3 10h14M3 15h14" />
+              </svg>
+            </button>
+          ) : null}
+          {mobileNav ? null : (
+            <BreadcrumbTrail t={t} fallback={eyebrow ?? page} compact={false} />
+          )}
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: mobileNav ? 8 : 14,
               minWidth: 0,
-              flex: mobileNav ? "1 1 100%" : undefined,
-              justifyContent: mobileNav ? "stretch" : undefined,
+              flex: 1,
+              justifyContent: mobileNav ? "stretch" : "flex-end",
+              minHeight: TOUCH_TARGET_MIN,
             }}
           >
             <div style={{ flex: mobileNav ? 1 : undefined, minWidth: 0 }}>
               <CompanySearch t={t} fluid={mobileNav} />
             </div>
-            <TourHeaderButton />
+            <TourHeaderButton compact={mobileNav} />
             <AskAiButton t={t} compact={mobileNav} />
           </div>
         </div>
@@ -1342,6 +1360,13 @@ export function Shell({
             flexDirection: "column",
             minWidth: 0,
             width: "100%",
+            // Dim only page body during transitions — header/hamburger stay live.
+            opacity: navPending ? 0.55 : 1,
+            transition: "opacity 120ms ease",
+            pointerEvents: navPending ? "none" : "auto",
+            // No overflow-x here — it breaks `position: sticky` for company
+            // tabs. Page-level clip lives on html/body; wide tables use
+            // `.fuel-scroll-x` / `.fuel-table-wrap`.
           }}
         >
           {children}
@@ -1421,7 +1446,7 @@ function BreadcrumbTrail({
   );
 }
 
-function TourHeaderButton() {
+function TourHeaderButton({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
   const tour = useWorkspaceTourOptional();
   if (!(pathname ?? "").startsWith("/company/")) return null;
@@ -1430,6 +1455,7 @@ function TourHeaderButton() {
 
   return (
     <TourHeaderControl
+      compact={compact}
       pointed={tour.showTourCoachmark}
       coachmark={tour.showTourCoachmark}
       onStartTour={() => tour.startTour()}
@@ -1442,6 +1468,10 @@ function AskAiButton({ t, compact = false }: { t: Theme; compact?: boolean }) {
   const { openDrawer, busy } = useAgentDrawer();
   const tour = useWorkspaceTourOptional();
   const tourHighlight = tour?.activeTarget === "ask-fuel-ai";
+  // Navy ink on the teal→gold CTA — default FuelMark teal/gold vanishes on it.
+  const onGradInk = THEMES.editorial.ink;
+  // Keep bright brand gold endpoint (editorial `warn` is darkened for text AA).
+  const gradGold = THEMES.signal.warn;
   return (
     <button
       onClick={openDrawer}
@@ -1453,19 +1483,22 @@ function AskAiButton({ t, compact = false }: { t: Theme; compact?: boolean }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
+        boxSizing: "border-box",
         gap: 6,
-        padding: compact ? "0 12px" : "6px 10px 6px 8px",
-        minWidth: compact ? TOUCH_TARGET_MIN : undefined,
-        minHeight: TOUCH_TARGET_MIN,
+        // Match CompanySearch + Tour header CTA height (TOUCH_TARGET_MIN).
+        height: TOUCH_TARGET_MIN,
+        minWidth: TOUCH_TARGET_MIN,
+        padding: compact ? 0 : "0 12px",
+        width: compact ? TOUCH_TARGET_MIN : undefined,
         borderRadius: 8,
         fontFamily: t.sans,
         fontSize: 12,
         fontWeight: 600,
-        color: "#0B1116",
+        color: onGradInk,
         border: "none",
         cursor: "pointer",
-        background: "linear-gradient(135deg, #00B48A 0%, #ECD67F 100%)",
-        boxShadow: busy ? "0 0 0 2px rgba(0,180,138,0.35)" : "none",
+        background: `linear-gradient(135deg, ${t.accent} 0%, ${gradGold} 100%)`,
+        boxShadow: busy ? `0 0 0 2px ${t.accent}59` : "none",
         transition: "box-shadow 220ms ease, transform 120ms ease",
         flexShrink: 0,
       }}
@@ -1478,7 +1511,14 @@ function AskAiButton({ t, compact = false }: { t: Theme; compact?: boolean }) {
           "translateY(0)";
       }}
     >
-      <FuelMark size={16} busy={busy} />
+      <FuelMark
+        size={compact ? 18 : 16}
+        busy={busy}
+        solid
+        accent={onGradInk}
+        warm={onGradInk}
+        deep={onGradInk}
+      />
       {compact ? null : "Ask Fuel AI"}
     </button>
   );

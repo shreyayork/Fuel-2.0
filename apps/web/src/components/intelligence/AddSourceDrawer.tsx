@@ -11,8 +11,8 @@ import {
   drawerScrimMotionStyle,
   useDrawerPresence,
 } from "@/components/drawer/motion";
+import { drawerCloseBtnStyle } from "@/components/drawer/styles";
 import { IntelligenceSourcesPanel } from "./IntelligenceSourcesPanel";
-import { ghostButtonStyle } from "./styles";
 
 /**
  * Canonical Add Source drawer (Intelligence UI). Used from Intelligence and Overview.
@@ -126,6 +126,7 @@ export function AddSourceDrawer({
       >
         <header
           style={{
+            alignItems: "flex-start",
             background: t.panelAlt,
             borderBottom: `1px solid ${t.ruleSoft}`,
             display: "flex",
@@ -134,7 +135,7 @@ export function AddSourceDrawer({
             padding: "16px 18px",
           }}
         >
-          <div>
+          <div style={{ minWidth: 0, flex: "1 1 auto" }}>
             <h2
               style={{
                 color: t.ink,
@@ -160,11 +161,19 @@ export function AddSourceDrawer({
           </div>
           <button
             type="button"
+            className="fuel-drawer-close"
             aria-label="Close"
             onClick={onClose}
-            style={ghostButtonStyle(t)}
+            style={drawerCloseBtnStyle(t)}
           >
-            ✕
+            <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path
+                d="M4 4l8 8M12 4L4 12"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </header>
         <IntelligenceSourcesPanel

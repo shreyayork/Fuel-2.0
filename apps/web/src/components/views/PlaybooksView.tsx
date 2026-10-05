@@ -4,6 +4,11 @@ import { useState } from "react";
 import { useAgentDrawer } from "../AgentDrawer";
 import { Chip, SectionHead } from "../atoms";
 import { useTheme } from "../ThemeContext";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdStyle,
+} from "./adminStyles";
 
 export interface SkillSummary {
   name: string;
@@ -121,41 +126,31 @@ export function PlaybooksView({ skills }: { skills: SkillSummary[] }) {
                       >
                         Inputs
                       </div>
-                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <tbody>
-                          {s.inputs.map((i) => (
-                            <tr key={i.name}>
-                              <td
-                                style={{
-                                  padding: "4px 10px 4px 0",
-                                  fontFamily: t.mono,
-                                  fontSize: 12,
-                                  color: t.ink,
-                                  width: 180,
-                                  verticalAlign: "top",
-                                }}
-                              >
-                                {i.name}
-                                {i.required ? (
-                                  <span style={{ color: t.muted, marginLeft: 4 }}>*</span>
-                                ) : null}
-                                <span style={{ color: t.muted, marginLeft: 8 }}>{i.type}</span>
-                              </td>
-                              <td
-                                style={{
-                                  padding: "4px 0",
-                                  fontFamily: t.sans,
-                                  fontSize: 12,
-                                  color: t.muted,
-                                  verticalAlign: "top",
-                                }}
-                              >
-                                {i.description ?? "—"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
+                        <table className="fuel-data-table" style={dataTableStyle()}>
+                          <tbody>
+                            {s.inputs.map((i) => (
+                              <tr key={i.name}>
+                                <td
+                                  style={{
+                                    ...dataTdStyle(t, { mono: true, nowrap: true }),
+                                    width: 180,
+                                  }}
+                                >
+                                  {i.name}
+                                  {i.required ? (
+                                    <span style={{ color: t.muted, marginLeft: 4 }}>*</span>
+                                  ) : null}
+                                  <span style={{ color: t.muted, marginLeft: 8 }}>{i.type}</span>
+                                </td>
+                                <td style={dataTdStyle(t)}>
+                                  {i.description ?? "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ) : null}
 

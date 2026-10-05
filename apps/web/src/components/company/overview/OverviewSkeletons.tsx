@@ -67,20 +67,28 @@ function AdvisorPanelSkeleton({
             </div>
           </div>
         </div>
-        <div className="sc-adv-featured-rec-col">
-          <div className="sc-adv-rec-title">Recommended Actions</div>
-          <ol className="sc-adv-rec-list">
+          <div className="sc-adv-featured-rec-col">
+          <div className="sc-adv-rec-spotlight">
+          <div className="sc-adv-rec-title-row">
+            <div className="sc-adv-rec-title">Recommended Actions</div>
+            <span className="sc-adv-rec-count">
+              <Skel width={52} height={10} />
+            </span>
+          </div>
+          <ul className="sc-adv-rec-list">
             {[0, 1, 2].map((i) => (
-              <li key={i} className="sc-adv-rec-item sc-skel-rec-item">
-                <span className="sc-adv-rec-num sc-skel-rec-num">{i + 1}</span>
-                <div className="sc-adv-rec-body">
-                  <Skel height={13} width="78%" />
-                  <Skel height={11} width="92%" />
+              <li key={i}>
+                <div className="sc-adv-rec-item sc-skel-rec-item">
+                  <span className="sc-adv-rec-mark sc-skel-rec-num" />
+                  <div className="sc-adv-rec-body">
+                    <Skel height={13} width="78%" />
+                    <Skel height={11} width="92%" />
+                  </div>
                 </div>
-                <Skel width={72} height={28} rounded={8} />
               </li>
             ))}
-          </ol>
+          </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -94,13 +102,6 @@ function GlanceRowSkeleton({ label }: { label?: string }) {
       aria-hidden
     >
       <div className="sc-glance-header-bar">
-        <div className="sc-glance-header-bar-start">
-          <div className="sc-glance-meta-badges">
-            <Skel width={96} height={24} rounded={999} />
-            <Skel width={140} height={24} rounded={999} />
-            <Skel width={104} height={24} rounded={999} />
-          </div>
-        </div>
         <div className="sc-glance-header-bar-end">
           <Skel width={120} height={12} />
           <Skel width={148} height={12} />
@@ -276,13 +277,6 @@ export function CategoryDetailSkeleton({
 
       <article className="sc-glance-row sc-glance-row-detail sc-detail-hero-widget" aria-hidden>
         <div className="sc-glance-header-bar">
-          <div className="sc-glance-header-bar-start">
-            <div className="sc-glance-meta-badges">
-              <Skel width={96} height={24} rounded={999} />
-              <Skel width={140} height={24} rounded={999} />
-              <Skel width={104} height={24} rounded={999} />
-            </div>
-          </div>
           <div className="sc-glance-header-bar-end">
             <Skel width={120} height={12} />
             <Skel width={148} height={12} />

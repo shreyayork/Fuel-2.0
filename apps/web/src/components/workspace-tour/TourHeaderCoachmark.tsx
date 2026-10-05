@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 import { accentGradient, onAccentText, type Theme } from "@/lib/theme";
 import { useTheme } from "../ThemeContext";
 
@@ -28,11 +29,13 @@ export function TourHeaderControl({
   coachmark,
   onStartTour,
   onDismissCoachmark,
+  compact = false,
 }: {
   pointed: boolean;
   coachmark: boolean;
   onStartTour: () => void;
   onDismissCoachmark: () => void;
+  compact?: boolean;
 }) {
   const t = useTheme();
 
@@ -42,6 +45,7 @@ export function TourHeaderControl({
         position: "relative",
         zIndex: coachmark ? 130 : undefined,
         display: "inline-flex",
+        flexShrink: 0,
       }}
     >
       <button
@@ -49,12 +53,13 @@ export function TourHeaderControl({
         type="button"
         onClick={onStartTour}
         title="Take a workspace tour"
-        style={tourButtonStyle(t, pointed)}
+        aria-label="Tour"
+        style={tourButtonStyle(t, pointed, compact)}
       >
         <span style={{ color: t.accent, display: "inline-flex", flexShrink: 0 }} aria-hidden>
-          <TourCompassIcon size={16} />
+          <TourCompassIcon size={compact ? 18 : 16} />
         </span>
-        Tour
+        {compact ? null : "Tour"}
       </button>
       {coachmark ? <TourHeaderCoachmark t={t} onDismiss={onDismissCoachmark} /> : null}
     </div>
@@ -124,39 +129,39 @@ function CaretBorder({ t }: { t: Theme }) {
   );
 }
 
-function tourButtonStyle(t: Theme, pointed: boolean): CSSProperties {
-  // Vertical padding matches Ask Fuel AI (`6px`); −1px vs AI accounts for
-  // Tour's 1px border under border-box so total heights align at 28px.
+function tourButtonStyle(t: Theme, pointed: boolean, compact: boolean): CSSProperties {
+  // Same height as CompanySearch + Ask Fuel AI header CTAs.
+  const base: CSSProperties = {
+    alignItems: "center",
+    boxSizing: "border-box",
+    display: "inline-flex",
+    flexShrink: 0,
+    gap: compact ? 0 : 6,
+    height: TOUCH_TARGET_MIN,
+    justifyContent: "center",
+    minWidth: TOUCH_TARGET_MIN,
+    padding: compact ? 0 : "0 14px",
+    width: compact ? TOUCH_TARGET_MIN : undefined,
+    borderRadius: 8,
+    fontFamily: t.sans,
+    fontSize: 12.5,
+    fontWeight: 500,
+    cursor: "pointer",
+  };
   if (pointed) {
     return {
-      alignItems: "center",
-      display: "inline-flex",
-      gap: 6,
-      padding: "5px 14px",
-      borderRadius: 7,
-      fontFamily: t.sans,
-      fontSize: 12.5,
-      fontWeight: 500,
+      ...base,
       color: t.ink,
       border: `1px solid ${t.accent}8C`,
       background: `${t.accent}24`,
       boxShadow: `0 0 0 3px ${t.accent}47`,
-      cursor: "pointer",
     };
   }
   return {
-    alignItems: "center",
-    display: "inline-flex",
-    gap: 6,
-    padding: "5px 14px",
-    borderRadius: 7,
-    fontFamily: t.sans,
-    fontSize: 12.5,
-    fontWeight: 500,
+    ...base,
     color: t.inkSoft,
     border: `1px solid ${t.rule}`,
     background: t.panelAlt,
-    cursor: "pointer",
   };
 }
 

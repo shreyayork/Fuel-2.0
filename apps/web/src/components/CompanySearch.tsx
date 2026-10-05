@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 import type { Theme } from "@/lib/theme";
 import { Logo } from "./atoms";
 import {
@@ -131,9 +132,11 @@ export function CompanySearch({
           display: "flex",
           alignItems: "center",
           gap: 8,
+          boxSizing: "border-box",
           color: t.muted,
-          padding: fluid ? "10px 12px" : "7px 12px",
-          minHeight: fluid ? 44 : undefined,
+          // Match Tour + Ask Fuel AI header CTAs.
+          height: TOUCH_TARGET_MIN,
+          padding: "0 12px",
           border: `1px solid ${t.rule}`,
           borderRadius: 8,
           background: t.panel,
@@ -156,7 +159,7 @@ export function CompanySearch({
             background: "transparent",
             outline: "none",
             fontFamily: t.sans,
-            fontSize: 13,
+            fontSize: fluid ? 16 : 13,
             color: t.ink,
             width: fluid ? "100%" : 260,
             minWidth: 0,

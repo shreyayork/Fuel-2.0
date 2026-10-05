@@ -3,22 +3,29 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { Theme } from "@/lib/theme";
+import { framedPanelPadStyle } from "@/lib/theme";
 import type { AdvisorWithLinkedCount } from "@/lib/advisors";
 import { Chip, SectionHead } from "../atoms";
 import { useTheme } from "../ThemeContext";
+import { CreateIconButton, PageToolbar } from "../ToolbarActions";
 import { createAdvisorAction } from "@/app/(app)/advisors/actions";
 
 function button(t: Theme, variant: "primary" | "ghost" = "ghost"): React.CSSProperties {
   return {
-    padding: "8px 14px",
+    alignItems: "center",
     background: variant === "primary" ? t.ink : "transparent",
-    color: variant === "primary" ? t.bg : t.inkSoft,
     border: `1px solid ${variant === "primary" ? t.ink : t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: variant === "primary" ? t.bg : t.inkSoft,
     cursor: "pointer",
+    display: "inline-flex",
+    fontFamily: t.sans,
+    fontSize: 13,
+    fontWeight: 550,
+    justifyContent: "center",
+    minHeight: 44,
+    padding: "8px 14px",
   };
 }
 
@@ -30,8 +37,10 @@ function input(t: Theme): React.CSSProperties {
     border: `1px solid ${t.rule}`,
     borderRadius: 6,
     fontFamily: t.sans,
-    fontSize: 13,
+    fontSize: 16,
     width: "100%",
+    minHeight: 44,
+    boxSizing: "border-box",
   };
 }
 
@@ -105,28 +114,36 @@ export function AdvisorsView({
   })();
 
   return (
-    <div>
+    <div className="fuel-page">
       <SectionHead
         t={t}
         title="Advisors"
         subtitle={`${advisors.length} active`}
         right={
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={runEnhanceAll}
-              disabled={enhanceState.kind === "running"}
-              style={{
-                ...button(t, "ghost"),
-                opacity: enhanceState.kind === "running" ? 0.7 : 1,
-                cursor: enhanceState.kind === "running" ? "default" : "pointer",
-              }}
-            >
-              {enhanceLabel}
-            </button>
-            <button onClick={() => setModalOpen(true)} style={button(t, "primary")}>
-              + Add advisor
-            </button>
-          </div>
+          <PageToolbar
+            t={t}
+            extra={
+              <button
+                onClick={runEnhanceAll}
+                disabled={enhanceState.kind === "running"}
+                style={{
+                  ...button(t, "ghost"),
+                  minHeight: 44,
+                  opacity: enhanceState.kind === "running" ? 0.7 : 1,
+                  cursor: enhanceState.kind === "running" ? "default" : "pointer",
+                }}
+              >
+                {enhanceLabel}
+              </button>
+            }
+            create={
+              <CreateIconButton
+                t={t}
+                label="Add advisor"
+                onClick={() => setModalOpen(true)}
+              />
+            }
+          />
         }
       />
 
@@ -142,16 +159,10 @@ export function AdvisorsView({
             color: t.muted,
           }}
         >
-          No advisors yet. Click <strong>+ Add advisor</strong> to curate one.
+          No advisors yet. Use the + button to curate one.
         </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
-            gap: 12,
-          }}
-        >
+        <div className="fuel-network-grid">
           {advisors.map((a) => (
             <AdvisorCard key={a.id} t={t} advisor={a} />
           ))}
@@ -173,13 +184,11 @@ function AdvisorCard({ t, advisor }: { t: Theme; advisor: AdvisorWithLinkedCount
     <Link
       href={`/advisors/${advisor.id}`}
       style={{
-        display: "block",
-        background: t.panel,
-        border: `1px solid ${t.rule}`,
-        padding: 16,
-        textDecoration: "none",
+        ...framedPanelPadStyle(t),
         color: "inherit",
-        borderRadius: 6,
+        display: "block",
+        minWidth: 0,
+        textDecoration: "none",
       }}
     >
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -296,32 +305,35 @@ function AddAdvisorModal({ t, onClose }: { t: Theme; onClose: () => void }) {
 
   return (
     <div
+      className="fuel-network-modal-scrim"
       onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 200,
-      }}
+      style={{ background: t.overlay }}
     >
       <div
+        className="fuel-network-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add advisor"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: t.panel,
           border: `1px solid ${t.rule}`,
-          borderRadius: 8,
-          padding: 24,
-          width: "min(620px, 92vw)",
-          maxHeight: "85vh",
-          overflow: "auto",
+          boxShadow: `0 -12px 40px ${t.overlay}`,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
-          <div style={{ fontFamily: t.sans, fontSize: 17, fontWeight: 600, color: t.ink }}>Add advisor</div>
-          <button onClick={onClose} style={button(t, "ghost")}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ fontFamily: t.sans, fontSize: 17, fontWeight: 700, color: t.ink, letterSpacing: "-0.02em" }}>
+            Add advisor
+          </div>
+          <button type="button" onClick={onClose} style={button(t, "ghost")}>
             Close
           </button>
         </div>
@@ -387,11 +399,11 @@ function AdvisorForm({
 
 function Row({ t, label, children }: { t: Theme; label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 10, alignItems: "start" }}>
+    <div className="fuel-form-row">
       <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, paddingTop: 8, letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 500 }}>
         {label}
       </div>
-      <div>{children}</div>
+      <div style={{ minWidth: 0 }}>{children}</div>
     </div>
   );
 }

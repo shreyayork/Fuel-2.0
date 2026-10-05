@@ -116,7 +116,7 @@ export function ProfileStream({
             Continue to your workspace.
           </p>
           <Link
-            href="/"
+            href="/dashboard"
             style={{
               marginTop: 16,
               display: "inline-block",

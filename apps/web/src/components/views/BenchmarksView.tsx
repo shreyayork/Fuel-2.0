@@ -8,23 +8,25 @@ export function BenchmarksView({ t, data }: { t: Theme; data: FuelDataset }) {
   const bm = data.benchmarks;
 
   return (
-    <div>
+    <div style={{ fontFamily: t.sans }}>
       <SectionHead
         t={t}
         title="Benchmarking"
         subtitle="Datora vs. 142 Data Infrastructure peers · diamond = you, ticks = p25/p50/p75"
       />
-      <div style={{ background: t.panel, border: `1px solid ${t.rule}` }}>
+
+      <div
+        className="fuel-benchmarks-table"
+        style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 12 }}
+      >
         <div
+          className="fuel-benchmarks-table__head"
           style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr 1fr 1.4fr 2fr",
-            padding: "10px 20px",
             borderBottom: `1px solid ${t.rule}`,
-            fontFamily: t.sans,
-            fontSize: 11,
             color: t.muted,
-            fontWeight: 500,
+            fontSize: 11,
+            fontWeight: 600,
+            padding: "10px 16px",
           }}
         >
           <div>Metric</div>
@@ -37,80 +39,147 @@ export function BenchmarksView({ t, data }: { t: Theme; data: FuelDataset }) {
         {bm.map((v, i) => (
           <div
             key={v.metric}
+            className="fuel-benchmarks-table__row"
             style={{
-              display: "grid",
-              gridTemplateColumns: "2fr 1fr 1fr 1fr 1.4fr 2fr",
-              padding: "18px 20px",
               borderBottom: i === bm.length - 1 ? "none" : `1px solid ${t.ruleSoft}`,
-              alignItems: "center",
+              padding: "16px",
             }}
           >
             <div>
-              <div
-                style={{
-                  fontFamily: t.sans,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  letterSpacing: "-0.01em",
-                }}
-              >
+              <div style={{ color: t.ink, fontSize: 14, fontWeight: 650, letterSpacing: "-0.01em" }}>
                 {v.metric}
               </div>
-              <div style={{ fontFamily: t.sans, fontSize: 11, color: t.mutedSoft, marginTop: 2 }}>
+              <div style={{ color: t.mutedSoft, fontSize: 11, marginTop: 2 }}>
                 {v.invert ? "Lower is better" : "Higher is better"}
               </div>
             </div>
             <div
               style={{
-                textAlign: "right",
-                fontFamily: t.sans,
-                fontSize: 14,
                 color: t.muted,
                 fontFeatureSettings: '"tnum" 1',
+                fontSize: 14,
+                textAlign: "right",
               }}
             >
               {v.p25}
             </div>
             <div
               style={{
-                textAlign: "right",
-                fontFamily: t.sans,
-                fontSize: 14,
                 color: t.inkSoft,
                 fontFeatureSettings: '"tnum" 1',
+                fontSize: 14,
                 fontWeight: 500,
+                textAlign: "right",
               }}
             >
               {v.p50}
             </div>
             <div
               style={{
-                textAlign: "right",
-                fontFamily: t.sans,
-                fontSize: 14,
                 color: t.muted,
                 fontFeatureSettings: '"tnum" 1',
+                fontSize: 14,
+                textAlign: "right",
               }}
             >
               {v.p75}
             </div>
             <div
               style={{
-                textAlign: "right",
-                fontFamily: t.sans,
-                fontSize: 22,
                 color: t.accent,
-                fontWeight: 600,
-                letterSpacing: "-0.02em",
                 fontFeatureSettings: '"tnum" 1',
+                fontSize: 20,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                textAlign: "right",
               }}
             >
               {v.you}
             </div>
-            <div>
-              <PercentileBar t={t} bench={v} w={220} />
+            <div style={{ minWidth: 0 }}>
+              <PercentileBar t={t} bench={v} w={180} />
             </div>
           </div>
+        ))}
+      </div>
+
+      <div className="fuel-benchmarks-cards">
+        {bm.map((v) => (
+          <article
+            key={v.metric}
+            style={{
+              background: t.panel,
+              border: `1px solid ${t.rule}`,
+              borderRadius: 12,
+              padding: 14,
+            }}
+          >
+            <div
+              style={{
+                alignItems: "flex-start",
+                display: "flex",
+                gap: 10,
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: t.ink, fontSize: 14, fontWeight: 700 }}>{v.metric}</div>
+                <div style={{ color: t.mutedSoft, fontSize: 11, marginTop: 2 }}>
+                  {v.invert ? "Lower is better" : "Higher is better"}
+                </div>
+              </div>
+              <div
+                style={{
+                  color: t.accent,
+                  flexShrink: 0,
+                  fontFeatureSettings: '"tnum" 1',
+                  fontSize: 22,
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {v.you}
+              </div>
+            </div>
+            <div
+              className="fuel-benchmarks__pcts"
+              style={{ fontFeatureSettings: '"tnum" 1', marginTop: 12 }}
+            >
+              {(
+                [
+                  ["p25", v.p25],
+                  ["p50", v.p50],
+                  ["p75", v.p75],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label}>
+                  <div
+                    style={{
+                      color: t.muted,
+                      fontFamily: t.mono,
+                      fontSize: 10,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {label}
+                  </div>
+                  <div
+                    style={{
+                      color: label === "p50" ? t.ink : t.inkSoft,
+                      fontSize: 14,
+                      fontWeight: 650,
+                      marginTop: 2,
+                    }}
+                  >
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <PercentileBar t={t} bench={v} w={260} />
+            </div>
+          </article>
         ))}
       </div>
     </div>

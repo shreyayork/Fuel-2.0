@@ -111,19 +111,6 @@ export function CategoryDetailView({
   const trackLabel = CATEGORY_META[categoryId].label;
   const detailLoading = isCategoryDetailPayloadLoading({ detail, loadError });
 
-  const scrollToInitiatives = useCallback(
-    () => scrollToDetailSection(DETAIL_SECTION.initiatives),
-    [],
-  );
-  const scrollToIntelligence = useCallback(
-    () => scrollToDetailSection(DETAIL_SECTION.intelligence),
-    [],
-  );
-  const scrollToPlaybooks = useCallback(
-    () => scrollToDetailSection(DETAIL_SECTION.playbooks),
-    [],
-  );
-
   useEffect(() => {
     setLoadError(null);
     setDetail(null);
@@ -319,13 +306,7 @@ export function CategoryDetailView({
       />
 
       <article className="sc-glance-row sc-glance-row-detail sc-detail-hero-widget">
-        <CategoryGlanceHeaderBar
-          category={cat}
-          onUpdateDetails={onOpenDrawer}
-          onOpenIntelligence={scrollToIntelligence}
-          onOpenInitiatives={scrollToInitiatives}
-          onRunPlaybook={scrollToPlaybooks}
-        />
+        <CategoryGlanceHeaderBar category={cat} onUpdateDetails={onOpenDrawer} />
         <div className="sc-detail-hero">
           <div className="sc-detail-hero-main">
             <GlanceScoreRing

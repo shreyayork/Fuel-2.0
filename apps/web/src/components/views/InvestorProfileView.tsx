@@ -13,15 +13,20 @@ import {
 
 function button(t: Theme, variant: "primary" | "ghost" = "ghost"): React.CSSProperties {
   return {
-    padding: "8px 14px",
+    alignItems: "center",
     background: variant === "primary" ? t.ink : "transparent",
-    color: variant === "primary" ? t.bg : t.inkSoft,
     border: `1px solid ${variant === "primary" ? t.ink : t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: variant === "primary" ? t.bg : t.inkSoft,
     cursor: "pointer",
+    display: "inline-flex",
+    fontFamily: t.sans,
+    fontSize: 13,
+    fontWeight: 550,
+    justifyContent: "center",
+    minHeight: 44,
+    padding: "8px 14px",
   };
 }
 
@@ -45,38 +50,47 @@ export function InvestorProfileView({
     });
 
   return (
-    <div>
-      <div style={{ marginBottom: 14 }}>
-        <Link href="/investors" style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, textDecoration: "none" }}>
+    <div className="fuel-page">
+      <div>
+        <Link
+          href="/investors"
+          style={{
+            alignItems: "center",
+            color: t.muted,
+            display: "inline-flex",
+            fontFamily: t.sans,
+            fontSize: 13,
+            minHeight: 44,
+            textDecoration: "none",
+          }}
+        >
           ← All investors
         </Link>
       </div>
 
       <div
+        className="fuel-network-hero"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 20,
-          padding: 20,
           background: t.panel,
           border: `1px solid ${t.rule}`,
-          borderRadius: 6,
         }}
       >
         {profile.logoUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
+            className="fuel-network-hero__mark"
             src={profile.logoUrl}
             alt={profile.name}
             referrerPolicy="no-referrer"
-            style={{ width: 64, height: 64, borderRadius: 8, objectFit: "contain", background: t.panelAlt }}
+            style={{ width: 64, height: 64, borderRadius: 10, objectFit: "contain", background: t.panelAlt }}
           />
         ) : (
           <div
+            className="fuel-network-hero__mark"
             style={{
               width: 64,
               height: 64,
-              borderRadius: 8,
+              borderRadius: 10,
               background: t.panelAlt,
               border: `1px solid ${t.rule}`,
               display: "flex",
@@ -91,8 +105,18 @@ export function InvestorProfileView({
             {profile.name.slice(0, 2).toUpperCase()}
           </div>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontFamily: t.sans, fontSize: 22, fontWeight: 700, letterSpacing: "-0.015em", color: t.ink }}>
+        <div className="fuel-network-hero__body">
+          <h1
+            style={{
+              margin: 0,
+              fontFamily: t.sans,
+              fontSize: "clamp(1.25rem, 1.1rem + 0.8vw, 1.5rem)",
+              fontWeight: 700,
+              letterSpacing: "-0.015em",
+              color: t.ink,
+              overflowWrap: "anywhere",
+            }}
+          >
             {profile.name}
           </h1>
           <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
@@ -105,36 +129,56 @@ export function InvestorProfileView({
             {bookmarked ? <Chip t={t} tone="accent">Bookmarked</Chip> : null}
           </div>
           {profile.description ? (
-            <div style={{ marginTop: 10, fontFamily: t.sans, fontSize: 13, color: t.inkSoft, lineHeight: 1.55 }}>
+            <div
+              style={{
+                marginTop: 10,
+                fontFamily: t.sans,
+                fontSize: 14,
+                color: t.inkSoft,
+                lineHeight: 1.55,
+                overflowWrap: "anywhere",
+              }}
+            >
               {profile.description}
             </div>
           ) : null}
-          <div style={{ marginTop: 8, display: "flex", gap: 10, fontFamily: t.sans, fontSize: 12 }}>
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              gap: 14,
+              flexWrap: "wrap",
+              fontFamily: t.sans,
+              fontSize: 14,
+            }}
+          >
             {profile.website ? (
-              <a href={profile.website} target="_blank" rel="noreferrer" style={{ color: t.accent, textDecoration: "none" }}>
+              <a href={profile.website} target="_blank" rel="noreferrer" style={{ color: t.accent, textDecoration: "none", minHeight: 44, display: "inline-flex", alignItems: "center" }}>
                 Website
               </a>
             ) : null}
             {profile.linkedinUrl ? (
-              <a href={profile.linkedinUrl} target="_blank" rel="noreferrer" style={{ color: t.accent, textDecoration: "none" }}>
+              <a href={profile.linkedinUrl} target="_blank" rel="noreferrer" style={{ color: t.accent, textDecoration: "none", minHeight: 44, display: "inline-flex", alignItems: "center" }}>
                 LinkedIn
               </a>
             ) : null}
           </div>
         </div>
-        <button onClick={toggle} disabled={isPending} style={button(t, bookmarked ? "ghost" : "primary")}>
-          {bookmarked ? "Remove bookmark" : "Bookmark"}
-        </button>
+        <div className="fuel-network-hero__actions">
+          <button type="button" onClick={toggle} disabled={isPending} style={button(t, bookmarked ? "ghost" : "primary")}>
+            {bookmarked ? "Remove bookmark" : "Bookmark"}
+          </button>
+        </div>
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <div>
         <SectionHead t={t} title="Backed companies" subtitle={`${profile.backedCompanies.length} known`} />
         {profile.backedCompanies.length === 0 ? (
-          <div style={{ padding: 28, textAlign: "center", background: t.panel, border: `1px solid ${t.rule}`, fontFamily: t.sans, fontSize: 13, color: t.muted }}>
+          <div style={{ padding: 28, textAlign: "center", background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 10, fontFamily: t.sans, fontSize: 14, color: t.muted, lineHeight: 1.45 }}>
             No backed companies in fuel-data. This investor may not have public Crunchbase data, or the Neptune edge shape differs from the default.
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 220px), 1fr))", gap: 10 }}>
+          <div className="fuel-network-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 220px), 1fr))" }}>
             {profile.backedCompanies.map((c) => (
               <Link
                 key={c.uuid}

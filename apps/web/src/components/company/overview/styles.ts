@@ -11,10 +11,11 @@ import {
 } from "./overviewTokens";
 
 export function overviewPageStyle(t: Theme = OVERVIEW_THEME): CSSProperties {
+  // Vertical rhythm uses scorecardCss (`.fuel-overview.scorecard-v2` gap) so
+  // stacked/mobile breakpoints can densify without inline gap fighting MQ rules.
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 40,
     color: t.ink,
     fontFamily: t.sans,
   };
@@ -41,10 +42,10 @@ export function overviewPageLinkStyle(
 }
 
 export function overviewTracksStyle(): CSSProperties {
+  // Gap/padding live in scorecardCss (`.sc-overview-tracks-glance`) so mobile
+  // media queries can densify the stack without fighting inline styles.
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 20,
-    paddingTop: 4,
   };
 }

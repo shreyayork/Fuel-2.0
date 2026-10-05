@@ -19,7 +19,11 @@ export const G = {
   arrow: svg("M5 12h14M13 6l6 6-6 6"),
   back: svg("M19 12H5M11 6l-6 6 6 6", 14),
   bolt: svg("M13 2L3 14h7l-1 8 11-14h-7l0-6z"),
-  filter: svg("M3 6h18M6 12h12M10 18h4"),
+  filter: (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5h16l-6.2 7.4V18l-3.6 2v-7.6L4 5z" />
+    </svg>
+  ),
   mail: (
     <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
       <rect x={3} y={5} width={18} height={14} rx={1} />

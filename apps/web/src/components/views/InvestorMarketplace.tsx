@@ -1,11 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, use, useMemo, useState, useTransition } from "react";
+import {
+  Suspense,
+  use,
+  useMemo,
+  useState,
+  useTransition,
+  type CSSProperties,
+} from "react";
 import { useUrlSyncedTab } from "@/lib/use-url-synced-tab";
 import type { Theme } from "@/lib/theme";
+import { framedPanelPadStyle } from "@/lib/theme";
 import type { NetworkInvestor, InvestorBookmarkView } from "@/lib/investors";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import { Chip, Label, SectionHead } from "../atoms";
+import { FilterMenu, PageToolbar } from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
 import {
   bookmarkInvestorAction,
@@ -70,31 +80,95 @@ function InvestorLogo({ t, investor }: { t: Theme; investor: NetworkInvestor }) 
   );
 }
 
-function button(t: Theme, variant: "primary" | "ghost" = "ghost"): React.CSSProperties {
+function button(t: Theme, variant: "primary" | "ghost" = "ghost"): CSSProperties {
   return {
-    padding: "8px 14px",
+    alignItems: "center",
     background: variant === "primary" ? t.ink : "transparent",
-    color: variant === "primary" ? t.bg : t.inkSoft,
     border: `1px solid ${variant === "primary" ? t.ink : t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: variant === "primary" ? t.bg : t.inkSoft,
     cursor: "pointer",
+    display: "inline-flex",
+    fontFamily: t.sans,
+    fontSize: 13,
+    fontWeight: 550,
+    justifyContent: "center",
+    minHeight: 44,
+    padding: "8px 14px",
   };
 }
 
-function input(t: Theme): React.CSSProperties {
+function input(t: Theme): CSSProperties {
   return {
-    padding: "10px 12px",
     background: t.panelAlt,
-    color: t.ink,
     border: `1px solid ${t.rule}`,
-    borderRadius: 6,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: t.ink,
     fontFamily: t.sans,
-    fontSize: 14,
+    fontSize: 16,
+    minHeight: 44,
+    padding: "10px 12px",
     width: "100%",
   };
+}
+
+function investorInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase() || "?";
+}
+
+function BookmarkMark({ t, name }: { t: Theme; name: string }) {
+  return (
+    <div
+      className="fuel-investor-mark"
+      aria-hidden
+      style={{
+        alignItems: "center",
+        background: `${t.accent}14`,
+        border: `1px solid ${t.rule}`,
+        borderRadius: 10,
+        color: t.ink,
+        display: "flex",
+        flexShrink: 0,
+        fontFamily: t.sans,
+        fontSize: 13,
+        fontWeight: 700,
+        height: 44,
+        justifyContent: "center",
+        letterSpacing: "-0.02em",
+        width: 44,
+      }}
+    >
+      {investorInitials(name)}
+    </div>
+  );
+}
+
+function formatBookmarkDate(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function Chevron({ t }: { t: Theme }) {
+  return (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M6 3.5L10.5 8 6 12.5"
+        stroke={t.mutedSoft}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 const TAB_KEYS = ["network", "bookmarks"] as const;
@@ -111,6 +185,7 @@ export function InvestorMarketplace({
   networkPromise: Promise<NetworkInvestor[]>;
 }) {
   const t = useTheme();
+  const phone = useNarrow(BREAKPOINTS.md);
   const [tab, setTab] = useUrlSyncedTab<Tab>({
     paramName: "tab",
     validKeys: TAB_KEYS,
@@ -122,50 +197,78 @@ export function InvestorMarketplace({
   const bookmarkedIds = useMemo(() => new Set(bookmarks.map((b) => b.investorId)), [bookmarks]);
 
   return (
-    <div>
+    <div className="fuel-page fuel-investors-page">
       <SectionHead
         t={t}
         title="Investors"
-        subtitle="Co-investors in your portfolio companies, auto-curated from fuel-data"
+        subtitle={
+          phone
+            ? undefined
+            : "Co-investors in your portfolio companies, auto-curated from fuel-data"
+        }
+        right={
+          <PageToolbar
+            t={t}
+            filter={
+              <FilterMenu
+                t={t}
+                activeCount={(tab !== "network" ? 1 : 0) + (query.trim() ? 1 : 0)}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  {(
+                    [
+                      { k: "network", label: "Network" },
+                      {
+                        k: "bookmarks",
+                        label: `Bookmarked · ${bookmarks.length}`,
+                      },
+                    ] as const
+                  ).map((o) => (
+                    <button
+                      key={o.k}
+                      type="button"
+                      onClick={() => setTab(o.k)}
+                      style={{
+                        background: tab === o.k ? t.accentTint : t.panelAlt,
+                        border: `1px solid ${tab === o.k ? `${t.accent}66` : t.rule}`,
+                        borderRadius: 8,
+                        color: t.ink,
+                        cursor: "pointer",
+                        fontFamily: t.sans,
+                        fontSize: 13,
+                        fontWeight: tab === o.k ? 650 : 500,
+                        minHeight: TOUCH_TARGET_MIN,
+                        padding: "0 12px",
+                        textAlign: "left",
+                      }}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                {tab === "network" ? (
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Investor or company…"
+                    aria-label="Filter investors"
+                    style={{ ...input(t), width: "100%" }}
+                  />
+                ) : null}
+              </FilterMenu>
+            }
+          />
+        }
       />
-
-      <div style={{ display: "flex", gap: 4, marginBottom: 18, borderBottom: `1px solid ${t.rule}` }}>
-        {(
-          [
-            { k: "network", label: `Network` },
-            { k: "bookmarks", label: `Bookmarked · ${bookmarks.length}` },
-          ] as const
-        ).map((o) => (
-          <button
-            key={o.k}
-            onClick={() => setTab(o.k)}
-            style={{
-              background: "transparent",
-              border: "none",
-              padding: "10px 16px",
-              borderBottom: tab === o.k ? `2px solid ${t.accent}` : "2px solid transparent",
-              color: tab === o.k ? t.ink : t.muted,
-              fontFamily: t.sans,
-              fontSize: 13,
-              fontWeight: tab === o.k ? 600 : 500,
-              cursor: "pointer",
-            }}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
 
       {tab === "network" ? (
         <div>
-          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filter by investor or portfolio company name…"
-              style={input(t)}
-            />
-          </div>
           <Suspense fallback={<NetworkLoading t={t} />}>
             <NetworkGrid
               t={t}
@@ -187,60 +290,204 @@ export function InvestorMarketplace({
           </Suspense>
         </div>
       ) : (
-        <div>
-          {bookmarks.length === 0 ? (
-            <Empty t={t} text="No bookmarks yet. Switch to Network to find co-investors." />
-          ) : (
-            <Grid>
-              {bookmarks.map((b) => {
-                const cardStyle: React.CSSProperties = {
-                  display: "block",
-                  background: t.panel,
-                  border: `1px solid ${t.rule}`,
-                  borderRadius: 6,
-                  padding: 16,
-                  textDecoration: "none",
-                  color: "inherit",
-                };
-                const body = (
-                  <>
-                    <div
-                      style={{
-                        fontFamily: t.sans,
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: b.hasCompanyProfile ? t.accent : t.ink,
-                      }}
-                    >
-                      {b.investorName}
-                    </div>
-                    <div style={{ marginTop: 6, fontFamily: t.sans, fontSize: 11, color: t.muted }}>
-                      Bookmarked {b.addedAt.toLocaleDateString()} by {b.addedByEmail}
-                    </div>
-                  </>
-                );
-                if (b.hasCompanyProfile && b.companyUuid) {
-                  return (
-                    <Link
-                      key={b.investorId}
-                      href={`/company/${encodeURIComponent(b.companyUuid)}`}
-                      style={cardStyle}
-                    >
-                      {body}
-                    </Link>
-                  );
-                }
-                return (
-                  <div key={b.investorId} style={cardStyle}>
-                    {body}
-                  </div>
-                );
-              })}
-            </Grid>
-          )}
-        </div>
+        <BookmarksPanel t={t} bookmarks={bookmarks} phone={phone} />
       )}
     </div>
+  );
+}
+
+function BookmarksPanel({
+  t,
+  bookmarks,
+  phone,
+}: {
+  t: Theme;
+  bookmarks: InvestorBookmarkView[];
+  phone: boolean;
+}) {
+  if (bookmarks.length === 0) {
+    return (
+      <Empty
+        t={t}
+        title="No saved investors yet"
+        text="Switch to Network and bookmark co-investors you want to keep close."
+      />
+    );
+  }
+
+  return (
+    <div
+      className="fuel-investor-bookmark-panel"
+      style={{
+        background: t.panel,
+        border: `1px solid ${t.rule}`,
+        borderRadius: 12,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        className="fuel-investor-bookmark-panel__head"
+        style={{
+          alignItems: "baseline",
+          borderBottom: `1px solid ${t.ruleSoft}`,
+          display: "flex",
+          gap: 8,
+          justifyContent: "space-between",
+          padding: phone ? "12px 14px" : "12px 16px",
+        }}
+      >
+        <span
+          style={{
+            color: t.ink,
+            fontFamily: t.sans,
+            fontSize: 13,
+            fontWeight: 650,
+          }}
+        >
+          Saved investors
+        </span>
+        <span
+          style={{
+            color: t.muted,
+            fontFamily: t.mono,
+            fontSize: 11,
+            fontWeight: 600,
+          }}
+        >
+          {bookmarks.length}
+        </span>
+      </div>
+      <ul
+        className="fuel-investor-bookmark-list"
+        style={{ listStyle: "none", margin: 0, padding: 0 }}
+      >
+        {bookmarks.map((b, index) => (
+          <BookmarkRow
+            key={b.investorId}
+            t={t}
+            bookmark={b}
+            phone={phone}
+            divider={index > 0}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function BookmarkRow({
+  t,
+  bookmark: b,
+  phone,
+  divider,
+}: {
+  t: Theme;
+  bookmark: InvestorBookmarkView;
+  phone: boolean;
+  divider: boolean;
+}) {
+  const navigable = Boolean(b.hasCompanyProfile && b.companyUuid);
+  const rowStyle: CSSProperties = {
+    alignItems: "center",
+    borderTop: divider ? `1px solid ${t.ruleSoft}` : undefined,
+    color: "inherit",
+    display: "flex",
+    gap: 12,
+    minHeight: phone ? 64 : 60,
+    padding: phone ? "12px 14px" : "12px 16px",
+    textDecoration: "none",
+  };
+
+  const body = (
+    <>
+      <BookmarkMark t={t} name={b.investorName} />
+      <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+        <div
+          style={{
+            color: navigable ? t.accent : t.ink,
+            fontFamily: t.sans,
+            fontSize: phone ? 15 : 14,
+            fontWeight: 650,
+            letterSpacing: "-0.01em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {b.investorName}
+        </div>
+        <div
+          className="fuel-investor-bookmark-meta"
+          style={{
+            alignItems: "center",
+            color: t.muted,
+            display: "flex",
+            flexWrap: "wrap",
+            fontFamily: t.sans,
+            fontSize: 12,
+            gap: "2px 8px",
+            marginTop: 4,
+          }}
+        >
+          <span>{formatBookmarkDate(b.addedAt)}</span>
+          <span aria-hidden style={{ opacity: 0.55 }}>
+            ·
+          </span>
+          <span
+            title={b.addedByEmail}
+            style={{
+              maxWidth: phone ? "100%" : 220,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {b.addedByEmail}
+          </span>
+        </div>
+        {navigable ? (
+          <span
+            style={{
+              color: t.accent,
+              display: "inline-block",
+              fontFamily: t.sans,
+              fontSize: 11,
+              fontWeight: 650,
+              marginTop: 5,
+            }}
+          >
+            Open company profile
+          </span>
+        ) : null}
+      </div>
+      {navigable ? (
+        <span style={{ color: t.mutedSoft, display: "inline-flex", flexShrink: 0 }}>
+          <Chevron t={t} />
+        </span>
+      ) : null}
+    </>
+  );
+
+  if (navigable && b.companyUuid) {
+    return (
+      <li>
+        <Link
+          href={`/company/${encodeURIComponent(b.companyUuid)}`}
+          className="fuel-investor-bookmark-row fuel-investor-bookmark-row--link"
+          style={rowStyle}
+        >
+          {body}
+        </Link>
+      </li>
+    );
+  }
+
+  return (
+    <li>
+      <div className="fuel-investor-bookmark-row" style={rowStyle}>
+        {body}
+      </div>
+    </li>
   );
 }
 
@@ -315,21 +562,12 @@ function NetworkGrid({
 
 function NetworkLoading({ t }: { t: Theme }) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
-        gap: 12,
-      }}
-    >
+    <div className="fuel-network-grid">
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
           style={{
-            background: t.panel,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            padding: 16,
+            ...framedPanelPadStyle(t),
             height: 120,
             opacity: 0.55,
           }}
@@ -356,33 +594,69 @@ function NetworkLoading({ t }: { t: Theme }) {
 }
 
 function Grid({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
-        gap: 12,
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div className="fuel-network-grid">{children}</div>;
 }
 
-function Empty({ t, text }: { t: Theme; text: string }) {
+function Empty({
+  t,
+  text,
+  title,
+}: {
+  t: Theme;
+  text: string;
+  title?: string;
+}) {
   return (
     <div
+      className="fuel-investor-empty"
       style={{
-        padding: 40,
-        textAlign: "center",
         background: t.panel,
         border: `1px solid ${t.rule}`,
+        borderRadius: 12,
         fontFamily: t.sans,
-        fontSize: 13,
-        color: t.muted,
+        padding: "36px 22px",
+        textAlign: "center",
       }}
     >
-      {text}
+      <div
+        aria-hidden
+        style={{
+          alignItems: "center",
+          background: `${t.accent}14`,
+          borderRadius: 14,
+          color: t.accent,
+          display: "inline-flex",
+          height: 48,
+          justifyContent: "center",
+          marginBottom: 12,
+          width: 48,
+        }}
+      >
+        <svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+          <path
+            d="M10 2.8l1.9 4.1 4.5.5-3.4 3.1.9 4.4L10 12.8 5.9 14.9l.9-4.4-3.4-3.1 4.5-.5L10 2.8z"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+      {title ? (
+        <div
+          style={{
+            color: t.ink,
+            fontSize: 15,
+            fontWeight: 700,
+            letterSpacing: "-0.01em",
+            marginBottom: 6,
+          }}
+        >
+          {title}
+        </div>
+      ) : null}
+      <div style={{ color: t.muted, fontSize: 13, lineHeight: 1.5, margin: "0 auto", maxWidth: 34 * 16 }}>
+        {text}
+      </div>
     </div>
   );
 }
@@ -400,17 +674,20 @@ function NetworkCard({
 }) {
   return (
     <div
+      className="fuel-network-card"
       style={{
         background: t.panel,
         border: `1px solid ${bookmarked ? t.accent : t.rule}`,
-        borderRadius: 6,
-        padding: 16,
+        borderRadius: 12,
+        boxShadow: "none",
         display: "flex",
         flexDirection: "column",
         gap: 10,
+        minWidth: 0,
+        padding: 16,
       }}
     >
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
         <InvestorLogo t={t} investor={investor} />
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -423,10 +700,11 @@ function NetworkCard({
                 style={{
                   fontFamily: t.sans,
                   fontSize: 14,
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
+                  fontWeight: 650,
+                  letterSpacing: "-0.01em",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {investor.name}
@@ -435,19 +713,20 @@ function NetworkCard({
           ) : (
             <div
               style={{
+                color: t.ink,
                 fontFamily: t.sans,
                 fontSize: 14,
-                fontWeight: 600,
-                color: t.ink,
-                whiteSpace: "nowrap",
+                fontWeight: 650,
+                letterSpacing: "-0.01em",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
               {investor.name}
             </div>
           )}
-          <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted }}>
+          <div style={{ color: t.muted, fontFamily: t.sans, fontSize: 12, marginTop: 3 }}>
             Co-invested in {investor.coInvestmentCount} portfolio{" "}
             {investor.coInvestmentCount === 1 ? "company" : "companies"}
           </div>
@@ -455,7 +734,7 @@ function NetworkCard({
       </div>
 
       {investor.portfolioCompanies.length > 0 ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        <div className="fuel-network-card__chips" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {investor.portfolioCompanies.slice(0, 6).map((c) => (
             <Link
               key={c.uuid}
@@ -476,21 +755,14 @@ function NetworkCard({
         </div>
       ) : null}
 
-      <div
-        style={{
-          marginTop: "auto",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+      <div className="fuel-network-card-foot">
         {bookmarked ? (
-          <Chip t={t} tone="accent">Bookmarked</Chip>
+          <Chip t={t} tone="accent">Saved</Chip>
         ) : (
-          <Label t={t}>Not bookmarked</Label>
+          <Label t={t}>Not saved</Label>
         )}
-        <button onClick={onToggle} style={button(t, bookmarked ? "ghost" : "primary")}>
-          {bookmarked ? "Remove" : "Bookmark"}
+        <button type="button" onClick={onToggle} style={button(t, bookmarked ? "ghost" : "primary")}>
+          {bookmarked ? "Remove" : "Save"}
         </button>
       </div>
     </div>

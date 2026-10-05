@@ -30,15 +30,18 @@ export function OnboardingFlowExperience({
   cta,
   domain,
   initialCompanyBundle,
+  designPreview = false,
 }: {
   email: string;
   cta: OnboardCta;
   domain: string;
   initialCompanyBundle?: CompanyHintBundle;
+  /** Local design folder — skip long claim dwell / enrichment waits. */
+  designPreview?: boolean;
 }) {
   const isYorkClient = checkIsYorkClient(email);
   const { claiming, claimingCta, claimError, finishOnboarding, clearError } =
-    useOnboardClaim(cta);
+    useOnboardClaim(cta, { designPreview });
   const [companyCandidates, setCompanyCandidates] = useState<OnboardCompanyOption[]>(
     initialCompanyBundle?.candidates ?? [],
   );

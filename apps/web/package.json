@@ -15,6 +15,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts && tsx src/db/seed-libs.ts",
     "db:seed:libs": "tsx src/db/seed-libs.ts",
+    "db:seed:design": "tsx src/db/seed-pipeline-demo.ts && tsx src/db/seed-design-workspace.ts",
+    "db:seed:design:investor": "tsx src/db/seed-pipeline-demo.ts && tsx src/db/seed-design-workspace.ts --mode=investor",
     "db:seed:pipeline-demo": "tsx src/db/seed-pipeline-demo.ts",
     "db:unseed:pipeline-demo": "tsx src/db/unseed-pipeline-demo.ts",
     "db:reset": "tsx src/db/reset.ts",

@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import { CACHE_TAG_BENCHMARK_COHORTS } from "@/lib/cache/reference-data";
 import {
   deleteCohortRow,
@@ -13,7 +13,7 @@ import {
 
 async function requireSuperAdmin(): Promise<void> {
   const session = await getSession();
-  if (!isSuperAdmin(session)) redirect("/");
+  if (!isSuperAdmin(session, superAdminDevEmail())) redirect("/");
 }
 
 function parseNumOrNull(raw: string): number | null {

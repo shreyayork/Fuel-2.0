@@ -1788,6 +1788,7 @@ export default function OnboardingFlow({
   function canAdvance() {
     if (stepId === "profile") {
       if (searchState === "idle") {
+        if (!profileForm.businessModel) return false;
         return (
           !!findCompanyByQuery(companyQuery, companyOptions) ||
           companyOptions.some((c) => c.name === companyQuery.trim())
@@ -1858,6 +1859,7 @@ export default function OnboardingFlow({
 
   function next() {
     if (stepId === "profile" && searchState === "idle") {
+      if (!profileForm.businessModel) return;
       trySelectCompanyFromQuery();
       return;
     }
@@ -1902,6 +1904,11 @@ export default function OnboardingFlow({
         setSearchState("idle");
         return;
       }
+      if (searchState === "idle" && profileForm.businessModel) {
+        selectBusinessModel("");
+        setCompanyQuery("");
+        return;
+      }
     }
     if (stepId === "investment" && investQ > 0) {
       setInvestQ((q) => q - 1);
@@ -1917,7 +1924,8 @@ export default function OnboardingFlow({
     (stepId === "profile" &&
       (searchState === "review" ||
         searchState === "manual" ||
-        searchState === "searching"));
+        searchState === "searching" ||
+        (searchState === "idle" && !!profileForm.businessModel)));
 
   const countryOptions = useMemo(
     () => listCountries().map((c) => ({ value: c.name, label: c.name })),
@@ -2105,7 +2113,94 @@ export default function OnboardingFlow({
                   {/* PROFILE */}
                   {stepId === "profile" && (
                     <div>
-                      {searchState === "idle" && (
+                      {searchState === "idle" && !profileForm.businessModel ? (
+                        <div>
+                          <h2
+                            className="of-figma-q-title"
+                            style={{ marginBottom: 12 }}
+                          >
+                            How will you use Fuel?
+                          </h2>
+                          <p
+                            className="of-figma-q-sub"
+                            style={{ margin: "0 0 28px" }}
+                          >
+                            Pick your workspace — we tailor onboarding and the
+                            home experience to how you operate.
+                          </p>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 10,
+                            }}
+                          >
+                            {BUSINESS_MODELS.map((bm) => (
+                              <button
+                                key={bm.id}
+                                type="button"
+                                className="of-figma-opt"
+                                onClick={() => {
+                                  selectBusinessModel(bm.label);
+                                }}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "flex-start",
+                                  gap: 13,
+                                  padding: "16px 18px",
+                                  borderRadius: 12,
+                                  textAlign: "left",
+                                  background: "transparent",
+                                  border: "1.5px solid rgba(255,255,255,0.12)",
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                  minHeight: 72,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: "50%",
+                                    flexShrink: 0,
+                                    marginTop: 2,
+                                    border: "2px solid rgba(255,255,255,0.15)",
+                                    background: "transparent",
+                                  }}
+                                />
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: 15,
+                                      fontWeight: 700,
+                                      color: "#F2F5F2",
+                                      marginBottom: 4,
+                                      letterSpacing: "-0.01em",
+                                    }}
+                                  >
+                                    {bm.label === "Product"
+                                      ? "Company Manager"
+                                      : "Portfolio Manager"}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: 13,
+                                      color: "#8FA99A",
+                                      lineHeight: 1.5,
+                                    }}
+                                  >
+                                    {bm.label === "Product"
+                                      ? "Run one company — overview, intelligence, initiatives, and benchmarks."
+                                      : "Run a portfolio — pipeline, watchlists, and multi-company intelligence."}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {searchState === "idle" && profileForm.businessModel ? (
                         <div>
                           <h2
                             className="of-figma-q-title"
@@ -2154,8 +2249,23 @@ export default function OnboardingFlow({
                           >
                             {ONBOARD_CANT_FIND_COMPANY_LABEL}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              selectBusinessModel("");
+                              setCompanyQuery("");
+                            }}
+                            style={onboardTextButton({
+                              marginTop: 14,
+                              color: "#8FA99A",
+                              padding: 0,
+                              display: "block",
+                            })}
+                          >
+                            ← Change workspace type
+                          </button>
                         </div>
-                      )}
+                      ) : null}
 
                       {searchState === "manual" && (
                         <div>
@@ -4060,25 +4170,31 @@ export default function OnboardingFlow({
                     Connect later
                   </button>
                 )}
-                <button
-                  onClick={next}
-                  disabled={!canAdvance()}
-                  className={narrow ? "of-mobile-cta" : undefined}
-                  style={onboardV2PrimaryCta(
-                    canAdvance(),
-                    narrow
-                      ? {
-                          width: "100%",
-                          minHeight: 48,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }
-                      : undefined,
-                  )}
-                >
-                  {ctaLabel}
-                </button>
+                {!(
+                  stepId === "profile" &&
+                  searchState === "idle" &&
+                  !profileForm.businessModel
+                ) ? (
+                  <button
+                    onClick={next}
+                    disabled={!canAdvance()}
+                    className={narrow ? "of-mobile-cta" : undefined}
+                    style={onboardV2PrimaryCta(
+                      canAdvance(),
+                      narrow
+                        ? {
+                            width: "100%",
+                            minHeight: 48,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }
+                        : undefined,
+                    )}
+                  >
+                    {ctaLabel}
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { sanitizeAuthNextPath } from "@/lib/auth/next-path";
 
 /**
  * Default authenticated landing per workspace mode. Founders with a claimed
- * company land on the company Overview tab; PMs on /portfolio; everyone else
+ * company land on the company Overview tab; PMs on /overview; everyone else
  * on /watchlists.
  */
 export function resolveAuthenticatedHomePath(
@@ -17,7 +17,7 @@ export function resolveAuthenticatedHomePath(
     return `/company/${account.primaryCompanyUuid}?tab=overview`;
   }
 
-  if (account.portfolioManagerEnabled) return "/portfolio";
+  if (account.portfolioManagerEnabled) return "/overview";
   return "/watchlists";
 }
 

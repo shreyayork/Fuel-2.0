@@ -46,6 +46,9 @@ import {
 import type { DataRoomSnapshot } from "@/lib/data-room/types";
 import { listWatchlistMembershipsForCompany } from "@/lib/watchlists";
 import { DEFAULT_LIST_PAGE_SIZE } from "@/lib/list-pagination";
+import { loadOverviewCohortContext } from "@/lib/overview/cohort";
+import { loadOverviewApiResponse } from "@/lib/overview/queries";
+import type { OverviewApiResponse } from "@/lib/overview/types";
 
 import { normalizeCompanyTabParam, COMPANY_TAB_KEYS, type CompanyTabKey } from "@/lib/company-tabs";
 
@@ -123,6 +126,8 @@ export interface CompanyPageData {
   dataRoom: DataRoomSnapshot;
   companyIntelligence: CompanyIntelligenceRow[];
   creditBalance: number;
+  /** SSR overview payload so the founder Overview tab skips the client loading shell. */
+  overviewInitial: OverviewApiResponse | null;
 }
 
 export function resolveCompanyPageTab(tabParam: string | undefined): CompanyPageTab {
@@ -223,6 +228,7 @@ export async function loadCompanyPageData(opts: {
       dataRoom: { slots: [], activeCount: 0, sourcesTotal: 0, feedAttachments: [] },
       companyIntelligence: [],
       creditBalance: 0,
+      overviewInitial: null,
     };
   }
 
@@ -405,6 +411,23 @@ export async function loadCompanyPageData(opts: {
         })
       : null;
 
+  let overviewInitial: OverviewApiResponse | null = null;
+  if (isFounderHome && tab === "overview") {
+    try {
+      const { cohortKey, benchmarkRows: overviewBench, allCohorts } =
+        await loadOverviewCohortContext(uuid);
+      overviewInitial = await loadOverviewApiResponse({
+        accountId,
+        companyUuid: uuid,
+        cohortKey,
+        benchmarkRows: overviewBench,
+        allCohorts,
+      });
+    } catch {
+      overviewInitial = null;
+    }
+  }
+
   return {
     uuid,
     email,
@@ -447,6 +470,7 @@ export async function loadCompanyPageData(opts: {
     dataRoom,
     companyIntelligence,
     creditBalance,
+    overviewInitial,
   };
 }
 

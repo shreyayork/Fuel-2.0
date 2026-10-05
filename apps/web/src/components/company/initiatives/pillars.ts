@@ -61,6 +61,17 @@ export function displayDue(due: string | null | undefined): string {
   return due.trim();
 }
 
+/** Header / card meta — omit empty due so we never render a lone "· —". */
+export function initiativeHeaderMeta(
+  kind: "continuous" | "onetime" | "one-time",
+  pillar: InitiativePillar,
+  due?: string | null,
+): string {
+  const parts = [kindLabel(kind), pillarLabel(pillar)];
+  if (due?.trim()) parts.push(displayDue(due));
+  return parts.join(" · ");
+}
+
 /** Canonical store form: YYYY-QN */
 export function formatDueQuarter(year: number, quarter: number): string {
   return `${year}-Q${quarter}`;

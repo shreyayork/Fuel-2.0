@@ -8,63 +8,47 @@ import type { CampaignListRow } from "@/lib/credits/coupon-campaigns";
 import { campaignBlocksModifications } from "@/lib/credits/coupon-campaign-status";
 import {
   datetimeLocalToIsoUtc,
-  toDatetimeLocalValue,
-} from "@/lib/datetime-local";
-import { Chip, SectionHead } from "../atoms";
+  toDatetimeLocalValue} from "@/lib/datetime-local";
+import { Chip } from "../atoms";
+import { AdminPageHeader } from "./AdminPageHeader";
+import { AdminStatsStrip } from "./AdminChrome";
 import { useTheme } from "../ThemeContext";
+import {
+  adminBtnStyle,
+  adminEmptyStyle,
+  adminInputStyle,
+  adminModalOverlayStyle,
+  adminModalPanelStyle,
+  adminModalTitleStyle,
+  adminPageStyle,
+  adminSectionLabelStyle,
+  adminTableFrameStyle,
+  adminTableScrollStyle,
+  adminTableStyle,
+  adminTdActionsStyle,
+  adminTdStyle,
+  adminThStyle,
+} from "./adminStyles";
+
 import {
   archiveCouponCampaignAction,
   createCouponCampaignAction,
   setCouponCampaignActiveAction,
-  type CouponsActionResult,
-} from "@/app/(super-admin)/super-admin/coupons/actions";
+  type CouponsActionResult} from "@/app/(super-admin)/super-admin/coupons/actions";
 
-function button(
-  t: Theme,
-  variant: "primary" | "ghost" | "danger" = "ghost",
-): CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-    danger: { bg: "transparent", color: t.warn, border: t.warn },
-  } as const;
-  const v = map[variant];
+
+function inputReadonly(t: Theme): CSSProperties {
   return {
-    padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: "pointer",
+    ...adminInputStyle(t),
+    background: t.panel,
+    color: t.muted,
+    cursor: "default",
   };
 }
 
-function input(t: Theme): CSSProperties {
-  return {
-    padding: "8px 10px",
-    background: t.panelAlt,
-    color: t.ink,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 13,
-    width: "100%",
-  };
-}
 
-function cell(t: Theme): CSSProperties {
-  return {
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.inkSoft,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "middle",
-  };
-}
+
+
 
 function benefitLabel(row: CampaignListRow): string {
   if (row.benefitType === "percent_off" && row.percentOff != null) {
@@ -76,13 +60,6 @@ function benefitLabel(row: CampaignListRow): string {
   return row.duration;
 }
 
-function inputReadonly(t: Theme): CSSProperties {
-  return {
-    ...input(t),
-    opacity: 0.85,
-    cursor: "default",
-  };
-}
 
 function fieldValue(label: string, value: string, t: Theme): ReactNode {
   return (
@@ -94,8 +71,7 @@ function fieldValue(label: string, value: string, t: Theme): ReactNode {
           boxSizing: "border-box",
           minHeight: 36,
           display: "flex",
-          alignItems: "center",
-        }}
+          alignItems: "center"}}
       >
         {value || "—"}
       </div>
@@ -184,30 +160,48 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
   };
 
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <SectionHead
-          t={t}
-          title="Coupons"
-          subtitle="Create Stripe coupon campaigns, mint unique promotion codes, and email them to recipients."
-        />
-        <button
-          type="button"
-          style={button(t, "primary")}
-          disabled={isPending}
-          onClick={openCreate}
-        >
-          New campaign
-        </button>
-      </div>
+    <div className="fuel-admin-page" style={adminPageStyle()}>
+      <AdminPageHeader
+        t={t}
+        title="Coupons"
+        description="Stripe campaigns, promotion codes, and recipient email."
+        actions={
+          <button
+            type="button"
+            style={adminBtnStyle(t, "primary")}
+            disabled={isPending}
+            onClick={openCreate}
+          >
+            New campaign
+          </button>
+        }
+      />
+
+      <AdminStatsStrip
+        t={t}
+        items={[
+          {
+            label: "Active",
+            value: rows.filter((r) => r.status === "active").length,
+          },
+          {
+            label: "Archived",
+            value: rows.filter((r) => r.status === "archived").length,
+          },
+          {
+            label: "Issued",
+            value: rows.reduce((sum, r) => sum + (r.stats?.issued ?? 0), 0),
+          },
+          {
+            label: "Redeemed",
+            value: rows.reduce((sum, r) => sum + (r.stats?.redeemed ?? 0), 0),
+            footnote:
+              rows.reduce((sum, r) => sum + (r.stats?.pendingSend ?? 0), 0) > 0
+                ? `${rows.reduce((sum, r) => sum + (r.stats?.pendingSend ?? 0), 0)} pending send`
+                : undefined,
+          },
+        ]}
+      />
 
       {status ? (
         <p style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, marginBottom: 12 }}>
@@ -216,146 +210,140 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
       ) : null}
 
       {rows.length === 0 ? (
-        <div
-          style={{
-            padding: 24,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            background: t.panel,
-            color: t.muted,
-            fontFamily: t.sans,
-            fontSize: 13,
-          }}
-        >
+        <div style={adminEmptyStyle(t)}>
           No campaigns yet. Create one to mint Stripe Coupons + Promotion Codes from
           Super Admin (no Dashboard required for day-to-day issuance).
         </div>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              {["Name", "Audience", "Benefit", "Issued", "Sent", "Redeemed", "Status", ""].map(
-                (h) => (
-                  <th
-                    key={h}
-                    style={{
-                      ...cell(t),
-                      color: t.muted,
-                      fontSize: 11,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                      textAlign: "left",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const modsBlocked = campaignBlocksModifications(row);
-              const detailHref = `/super-admin/coupons/${row.id}`;
-              return (
-                <tr key={row.id}>
-                  <td style={cell(t)}>
-                    <Link
-                      href={detailHref}
-                      style={{
-                        color: t.accent,
-                        textDecoration: "none",
-                        fontWeight: 600,
-                      }}
+        <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+          <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+            <table className="fuel-admin-table" style={adminTableStyle()}>
+              <thead>
+                <tr>
+                  {(
+                    [
+                      { label: "Name" },
+                      { label: "Audience" },
+                      { label: "Benefit" },
+                      { label: "Issued", numeric: true },
+                      { label: "Sent", numeric: true },
+                      { label: "Redeemed", numeric: true },
+                      { label: "Status" },
+                      { label: "" },
+                    ] as const
+                  ).map((h) => (
+                    <th
+                      key={h.label || "actions"}
+                      style={adminThStyle(t, "numeric" in h && h.numeric ? { numeric: true } : undefined)}
                     >
-                      {row.name}
-                    </Link>
-                  </td>
-                  <td style={cell(t)}>
-                    <Chip
-                      t={t}
-                      tone={row.audience === "global" ? "accent" : "ghost"}
-                    >
-                      {row.audience}
-                    </Chip>
-                    {row.audience === "global" && row.globalPromotionCode ? (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: t.muted,
-                          marginTop: 4,
-                          fontFamily: t.mono,
-                        }}
-                      >
-                        {row.globalPromotionCode}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td style={cell(t)}>{benefitLabel(row)}</td>
-                  <td style={cell(t)}>{row.stats.issued}</td>
-                  <td style={cell(t)}>{row.stats.sent}</td>
-                  <td style={cell(t)}>{row.stats.redeemed}</td>
-                  <td style={cell(t)}>
-                    <Chip
-                      t={t}
-                      tone={
-                        row.status === "active"
-                          ? "positive"
-                          : row.status === "inactive"
-                            ? "warn"
-                            : "ghost"
-                      }
-                    >
-                      {row.status}
-                    </Chip>
-                  </td>
-                  <td style={cell(t)}>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        style={button(t, "ghost")}
-                        disabled={isPending}
-                        onClick={() => openViewPopup(row)}
-                      >
-                        View
-                      </button>
-                      {!modsBlocked && row.status === "active" ? (
-                        <button
-                          type="button"
-                          style={button(t, "ghost")}
-                          disabled={isPending}
-                          onClick={() => onSetActive(row.id, false)}
-                        >
-                          Deactivate
-                        </button>
-                      ) : null}
-                      {!modsBlocked && row.status === "inactive" ? (
-                        <button
-                          type="button"
-                          style={button(t, "ghost")}
-                          disabled={isPending}
-                          onClick={() => onSetActive(row.id, true)}
-                        >
-                          Activate
-                        </button>
-                      ) : null}
-                      {!modsBlocked ? (
-                        <button
-                          type="button"
-                          style={button(t, "danger")}
-                          disabled={isPending}
-                          onClick={() => onArchive(row.id)}
-                        >
-                          Archive
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
+                      {h.label}
+                    </th>
+                  ))}
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const modsBlocked = campaignBlocksModifications(row);
+                  const detailHref = `/super-admin/coupons/${row.id}`;
+                  return (
+                    <tr key={row.id}>
+                      <td style={adminTdStyle(t)}>
+                        <Link
+                          href={detailHref}
+                          style={{
+                            color: t.accent,
+                            textDecoration: "none",
+                            fontWeight: 600}}
+                        >
+                          {row.name}
+                        </Link>
+                      </td>
+                      <td style={adminTdStyle(t)}>
+                        <Chip
+                          t={t}
+                          tone={row.audience === "global" ? "accent" : "ghost"}
+                        >
+                          {row.audience}
+                        </Chip>
+                        {row.audience === "global" && row.globalPromotionCode ? (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: t.muted,
+                              marginTop: 4,
+                              fontFamily: t.mono}}
+                          >
+                            {row.globalPromotionCode}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td style={adminTdStyle(t)}>{benefitLabel(row)}</td>
+                      <td style={adminTdStyle(t, { numeric: true })}>{row.stats.issued}</td>
+                      <td style={adminTdStyle(t, { numeric: true })}>{row.stats.sent}</td>
+                      <td style={adminTdStyle(t, { numeric: true })}>{row.stats.redeemed}</td>
+                      <td style={adminTdStyle(t)}>
+                        <Chip
+                          t={t}
+                          tone={
+                            row.status === "active"
+                              ? "positive"
+                              : row.status === "inactive"
+                                ? "warn"
+                                : "ghost"
+                          }
+                        >
+                          {row.status}
+                        </Chip>
+                      </td>
+                      <td style={adminTdActionsStyle(t)}>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            style={adminBtnStyle(t, "ghost")}
+                            disabled={isPending}
+                            onClick={() => openViewPopup(row)}
+                          >
+                            View
+                          </button>
+                          {!modsBlocked && row.status === "active" ? (
+                            <button
+                              type="button"
+                              style={adminBtnStyle(t, "ghost")}
+                              disabled={isPending}
+                              onClick={() => onSetActive(row.id, false)}
+                            >
+                              Deactivate
+                            </button>
+                          ) : null}
+                          {!modsBlocked && row.status === "inactive" ? (
+                            <button
+                              type="button"
+                              style={adminBtnStyle(t, "ghost")}
+                              disabled={isPending}
+                              onClick={() => onSetActive(row.id, true)}
+                            >
+                              Activate
+                            </button>
+                          ) : null}
+                          {!modsBlocked ? (
+                            <button
+                              type="button"
+                              style={adminBtnStyle(t, "danger")}
+                              disabled={isPending}
+                              onClick={() => onArchive(row.id)}
+                            >
+                              Archive
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {creating ? (
@@ -368,8 +356,7 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 50,
-            padding: 16,
-          }}
+            padding: 16}}
           onClick={() => !isPending && setCreating(false)}
         >
           <form
@@ -384,23 +371,22 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
               borderRadius: 8,
               padding: 20,
               display: "grid",
-              gap: 12,
-            }}
+              gap: 12}}
           >
             <h3 style={{ margin: 0, fontFamily: t.sans, fontSize: 16, color: t.ink }}>
               New coupon campaign
             </h3>
             <label style={{ display: "grid", gap: 4, fontSize: 12, color: t.muted }}>
               Name
-              <input name="name" required style={input(t)} placeholder="Fuel 1.0 migrants 40%" />
+              <input name="name" required style={adminInputStyle(t)} placeholder="Fuel 1.0 migrants 40%" />
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, color: t.muted }}>
               Description (optional)
-              <input name="description" style={input(t)} />
+              <input name="description" style={adminInputStyle(t)} />
             </label>
             <label style={{ display: "grid", gap: 4, fontSize: 12, color: t.muted }}>
               Code prefix
-              <input name="codePrefix" defaultValue="FUEL1" style={input(t)} />
+              <input name="codePrefix" defaultValue="FUEL1" style={adminInputStyle(t)} />
             </label>
             <fieldset style={{ border: `1px solid ${t.rule}`, borderRadius: 6, padding: 12 }}>
               <legend style={{ fontSize: 12, color: t.muted, padding: "0 6px" }}>
@@ -436,7 +422,7 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
                     type="number"
                     min={1}
                     placeholder="Unlimited"
-                    style={input(t)}
+                    style={adminInputStyle(t)}
                   />
                 </label>
               ) : (
@@ -481,7 +467,7 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
                     max={100}
                     defaultValue={40}
                     required
-                    style={input(t)}
+                    style={adminInputStyle(t)}
                   />
                 </label>
               ) : (
@@ -494,7 +480,7 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
                     step={0.01}
                     defaultValue={10}
                     required
-                    style={input(t)}
+                    style={adminInputStyle(t)}
                   />
                 </label>
               )}
@@ -507,7 +493,7 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
                 onChange={(e) =>
                   setDuration(e.target.value as "once" | "repeating" | "forever")
                 }
-                style={input(t)}
+                style={adminInputStyle(t)}
               >
                 <option value="once">Once (first invoice)</option>
                 <option value="repeating">Repeating (N months)</option>
@@ -522,13 +508,13 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
                   type="number"
                   min={1}
                   defaultValue={3}
-                  style={input(t)}
+                  style={adminInputStyle(t)}
                 />
               </label>
             ) : null}
             <label style={{ display: "grid", gap: 4, fontSize: 12, color: t.muted }}>
               Redeem by (optional)
-              <input name="redeemBy" type="datetime-local" style={input(t)} />
+              <input name="redeemBy" type="datetime-local" style={adminInputStyle(t)} />
             </label>
             <fieldset style={{ border: `1px solid ${t.rule}`, borderRadius: 6, padding: 12 }}>
               <legend style={{ fontSize: 12, color: t.muted, padding: "0 6px" }}>
@@ -548,13 +534,13 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button
                 type="button"
-                style={button(t, "ghost")}
+                style={adminBtnStyle(t, "ghost")}
                 disabled={isPending}
                 onClick={() => setCreating(false)}
               >
                 Cancel
               </button>
-              <button type="submit" style={button(t, "primary")} disabled={isPending}>
+              <button type="submit" style={adminBtnStyle(t, "primary")} disabled={isPending}>
                 {isPending ? "Creating…" : "Create in Stripe"}
               </button>
             </div>
@@ -572,8 +558,7 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 50,
-            padding: 16,
-          }}
+            padding: 16}}
           onClick={() => setViewing(null)}
         >
           <div
@@ -589,8 +574,7 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
               borderRadius: 8,
               padding: 20,
               display: "grid",
-              gap: 12,
-            }}
+              gap: 12}}
           >
             <h3 style={{ margin: 0, fontFamily: t.sans, fontSize: 16, color: t.ink }}>
               Campaign details
@@ -642,17 +626,16 @@ export function CouponsAdminView({ rows }: { rows: CampaignListRow[] }) {
               <Link
                 href={`/super-admin/coupons/${viewing.id}`}
                 style={{
-                  ...button(t, "ghost"),
+                  ...adminBtnStyle(t, "ghost"),
                   display: "inline-flex",
                   alignItems: "center",
-                  textDecoration: "none",
-                }}
+                  textDecoration: "none"}}
               >
                 Open full page
               </Link>
               <button
                 type="button"
-                style={button(t, "primary")}
+                style={adminBtnStyle(t, "primary")}
                 onClick={() => setViewing(null)}
               >
                 Close

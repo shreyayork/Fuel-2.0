@@ -22,6 +22,15 @@ export interface RecommendedActionsContext {
  * `buildAdvisorRecommendedActions`. Titles/CTAs follow product rules; subs reflect
  * live benchmark, sources, and detail-answer state (not hardcoded in the UI).
  */
+function withProgress(
+  action: RecommendedAction,
+  filled: number,
+  total: number,
+): RecommendedAction {
+  if (total <= 0) return action;
+  return { ...action, progressFilled: filled, progressTotal: total };
+}
+
 export function buildAdvisorRecommendedActions(
   ctx: RecommendedActionsContext,
 ): RecommendedAction[] {
@@ -159,5 +168,9 @@ export function buildAdvisorRecommendedActions(
     };
   }
 
-  return [benchmarkAction, sourcesAction, detailsAction];
+  return [
+    withProgress(benchmarkAction, benchFilled, benchTotal),
+    sourcesAction,
+    withProgress(detailsAction, detailAnswered, detailTotal),
+  ];
 }

@@ -17,8 +17,7 @@ export function signalsLoadingMinDwellMs(isYorkClient: boolean): number {
   return signalsLoadingStepCount(isYorkClient) * SIGNALS_LOADING_STEP_INTERVAL_MS;
 }
 
-const LEGACY_WATCHLISTS_STEP =
-  "We're automatically fetching your watchlists from Fuel 1.0…";
+const LEGACY_WATCHLISTS_STEP = "Fetching your watchlists from Fuel 1.0…";
 
 const SIGNALS_STEPS_BASE = [
   "Company profile prepared",
@@ -131,7 +130,11 @@ export function OnboardingClaimingOverlay({
       style={{
         position: "fixed",
         inset: 0,
-        background: SIGNAL.shell,
+        zIndex: 1200,
+        width: "100%",
+        maxWidth: "100%",
+        height: "100%",
+        background: SIGNAL.bg,
         color: SIGNAL.ink,
         fontFamily: SIGNAL.sans,
       }}
@@ -154,7 +157,7 @@ export function OnboardingClaimingOverlay({
                 className={`fuel-signals-loading-step${done ? " fuel-signals-loading-step--done" : ""}`}
               >
                 <i aria-hidden>{done ? "✓" : "○"}</i>
-                {label}
+                <span>{label}</span>
               </div>
             );
           })}

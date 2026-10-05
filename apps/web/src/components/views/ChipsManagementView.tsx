@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import type { Theme } from "@/lib/theme";
-import { SectionHead } from "@/components/atoms";
 import { useTheme } from "@/components/ThemeContext";
+import { AdminPageHeader } from "./AdminPageHeader";
+import { AdminStatsStrip } from "./AdminChrome";
 import {
   YORK_CATEGORY_LABELS,
   YORK_PARTNER_CATEGORIES,
@@ -16,41 +17,18 @@ import {
   saveChipHeadlineAction,
   saveMarketingBannerDismissDaysAction,
 } from "@/app/(super-admin)/super-admin/chips/actions";
-import { DEFAULT_MARKETING_BANNER_DISMISS_DAYS } from "@/lib/york-partner/constants";
+import {
+  DEFAULT_MARKETING_BANNER_DISMISS_DAYS,
+} from "@/lib/york-partner/constants";
+import {
+  adminBtnStyle,
+  adminEmptyStyle,
+  adminInputStyle,
+  adminPageStyle,
+  adminPanelStyle,
+} from "./adminStyles";
 
 type ChipsTab = YorkPartnerCategoryId | "banner";
-
-function button(t: Theme, variant: "primary" | "ghost" = "ghost"): React.CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-  } as const;
-  const v = map[variant];
-  return {
-    padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: "pointer",
-  };
-}
-
-function inputStyle(t: Theme): React.CSSProperties {
-  return {
-    padding: "7px 9px",
-    background: t.panelAlt,
-    color: t.ink,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 13,
-    width: "100%",
-  };
-}
 
 export function ChipsManagementView({
   rows,
@@ -144,23 +122,38 @@ export function ChipsManagementView({
   };
 
   return (
-    <div>
-      <SectionHead
+    <div className="fuel-admin-page" style={adminPageStyle()}>
+      <AdminPageHeader
         t={t}
         title="Chips management"
-        subtitle="Marketing headlines for York IE partner rails. Defaults ship in code; Save stores Super Admin overrides."
-        right={
-          tab === "banner" ? null : (
+        description="Partner headlines for insight chips. Save stores Super Admin overrides."
+        actions={
+          tab === "banner" ? undefined : (
             <button
               type="button"
               onClick={resetCategory}
               disabled={pending}
-              style={button(t)}
+              style={adminBtnStyle(t)}
             >
               Reset {YORK_CATEGORY_LABELS[tab]} to defaults
             </button>
           )
         }
+      />
+
+      <AdminStatsStrip
+        t={t}
+        items={[
+          { label: "Chips", value: rows.length },
+          {
+            label: "Overrides",
+            value: rows.filter((r) => r.isOverride).length,
+          },
+          {
+            label: "Banner hide",
+            value: `${dismissHideDays}d`,
+          },
+        ]}
       />
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -172,7 +165,7 @@ export function ChipsManagementView({
               type="button"
               onClick={() => setTab(id)}
               style={{
-                ...button(t, active ? "primary" : "ghost"),
+                ...adminBtnStyle(t, active ? "primary" : "ghost"),
                 fontWeight: active ? 600 : 500,
               }}
             >
@@ -184,7 +177,7 @@ export function ChipsManagementView({
           type="button"
           onClick={() => setTab("banner")}
           style={{
-            ...button(t, tab === "banner" ? "primary" : "ghost"),
+            ...adminBtnStyle(t, tab === "banner" ? "primary" : "ghost"),
             fontWeight: tab === "banner" ? 600 : 500,
           }}
         >
@@ -249,7 +242,7 @@ export function ChipsManagementView({
               inputMode="numeric"
               value={bannerDaysDraft}
               onChange={(e) => setBannerDaysDraft(e.target.value)}
-              style={{ ...inputStyle(t), width: 96 }}
+              style={{ ...adminInputStyle(t), width: 96 }}
               aria-describedby="banner-dismiss-days-help"
             />
             <span
@@ -262,7 +255,7 @@ export function ChipsManagementView({
               type="button"
               disabled={pending}
               onClick={saveBannerDismissDays}
-              style={button(t, "primary")}
+              style={adminBtnStyle(t, "primary")}
             >
               Save
             </button>
@@ -270,7 +263,7 @@ export function ChipsManagementView({
               type="button"
               disabled={pending}
               onClick={resetBannerDismissDays}
-              style={button(t)}
+              style={adminBtnStyle(t)}
             >
               Reset to default
             </button>
@@ -338,7 +331,7 @@ export function ChipsManagementView({
                     [draftKey(row.category, row.chipLabel)]: e.target.value,
                   }))
                 }
-                style={inputStyle(t)}
+                style={adminInputStyle(t)}
                 aria-label={`Headline for ${row.chipLabel}`}
               />
               <div style={{ display: "flex", gap: 6 }}>
@@ -346,7 +339,7 @@ export function ChipsManagementView({
                   type="button"
                   disabled={pending}
                   onClick={() => saveRow(row)}
-                  style={button(t, "primary")}
+                  style={adminBtnStyle(t, "primary")}
                 >
                   Save
                 </button>
@@ -354,7 +347,7 @@ export function ChipsManagementView({
                   type="button"
                   disabled={pending || !row.isOverride}
                   onClick={() => resetRow(row)}
-                  style={button(t)}
+                  style={adminBtnStyle(t)}
                 >
                   Reset
                 </button>

@@ -21,6 +21,7 @@ import {
   pillarLabel,
 } from "./pillars";
 import {
+  drawerCloseBtnStyle,
   drawerEyebrowStyle,
   drawerMetaDdStyle,
   drawerMetaDtStyle,
@@ -247,12 +248,20 @@ export function SuggestedInitiativeReviewPanel({
         </div>
         <button
           type="button"
+          className="fuel-drawer-close"
           aria-label="Close"
           disabled={busy}
           onClick={onClose}
-          style={secondaryBtnStyle(t)}
+          style={drawerCloseBtnStyle(t)}
         >
-          ✕
+          <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path
+              d="M4 4l8 8M12 4L4 12"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+            />
+          </svg>
         </button>
       </header>
       <div style={{ flex: 1, overflow: "auto", padding: "16px 20px 20px" }}>
@@ -609,12 +618,20 @@ export function SuggestedInitiativeReviewDrawer({
               </div>
               <button
                 type="button"
+                className="fuel-drawer-close"
                 aria-label="Close"
                 disabled={busy}
                 onClick={onClose}
-                style={secondaryBtnStyle(t)}
+                style={drawerCloseBtnStyle(t)}
               >
-                ✕
+                <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path
+                    d="M4 4l8 8M12 4L4 12"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                  />
+                </svg>
               </button>
             </header>
             <div style={{ flex: 1, overflow: "auto", padding: "16px 20px 20px" }}>

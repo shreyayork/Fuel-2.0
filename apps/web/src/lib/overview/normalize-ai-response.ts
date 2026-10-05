@@ -216,12 +216,20 @@ function normalizeRecommendedActions(raw: unknown): Array<Record<string, unknown
       : actionRaw.includes("source")
         ? "sources"
         : "details";
+    const progressFilled = Number(row.progressFilled ?? row.progress_filled);
+    const progressTotal = Number(row.progressTotal ?? row.progress_total);
     return {
       title: asString(row.title, "Recommended action"),
       sub: asString(row.sub ?? row.subtitle ?? row.description, ""),
       cta: asString(row.cta ?? row.action, "Open"),
       done: asBool(row.done, false),
       action_type,
+      ...(Number.isFinite(progressFilled) && progressFilled >= 0
+        ? { progressFilled }
+        : {}),
+      ...(Number.isFinite(progressTotal) && progressTotal > 0
+        ? { progressTotal }
+        : {}),
     };
   });
 }

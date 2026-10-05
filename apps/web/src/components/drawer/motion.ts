@@ -104,12 +104,17 @@ export function drawerScrimMotionStyle(
 export function drawerPanelMotionStyle(
   visible: boolean,
   durationMs: number,
-  opts?: { from?: "right" | "left" },
+  opts?: { from?: "right" | "left" | "bottom" },
 ): CSSProperties {
+  const from = opts?.from ?? "right";
   const hidden =
-    (opts?.from ?? "right") === "right" ? "translateX(100%)" : "translateX(-100%)";
+    from === "bottom"
+      ? "translateY(100%)"
+      : from === "left"
+        ? "translateX(-100%)"
+        : "translateX(100%)";
   return {
-    transform: visible ? "translateX(0)" : hidden,
+    transform: visible ? (from === "bottom" ? "translateY(0)" : "translateX(0)") : hidden,
     opacity: visible ? 1 : 0,
     transition: `transform ${durationMs}ms ${DRAWER_EASE}, opacity ${durationMs}ms ${DRAWER_EASE}`,
     willChange: durationMs > 0 ? "transform, opacity" : undefined,

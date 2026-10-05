@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { Chip } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import { useCredits } from "../credits/CreditProvider";
@@ -33,6 +33,12 @@ import { creditGhostButton, creditPrimaryButton } from "../credits/styles";
 import { CreditButtonLabel } from "../credits/CreditButtonLabel";
 import { MagicShimmer } from "../ai/MagicShimmer";
 import type { Theme } from "@/lib/theme";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 
 type BillingPendingAction = "portal" | "cancel" | "resume" | null;
 
@@ -66,37 +72,12 @@ function statusTone(
   return "ghost";
 }
 
-function th(t: Theme): CSSProperties {
-  return {
-    textAlign: "left",
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 11,
-    fontWeight: 600,
-    color: t.muted,
-    borderBottom: `1px solid ${t.rule}`,
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
-  };
-}
-
-function td(t: Theme): CSSProperties {
-  return {
-    padding: "12px",
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.ink,
-    borderBottom: `1px solid ${t.rule}`,
-    verticalAlign: "middle",
-  };
-}
-
 function InvoiceTableHeader({ t }: { t: Theme }) {
   return (
     <thead>
       <tr>
         {INVOICE_TABLE_COLS.map((label) => (
-          <th key={label} style={th(t)}>
+          <th key={label} style={dataThStyle(t)}>
             {label}
           </th>
         ))}
@@ -112,7 +93,7 @@ function InvoiceTableSkeleton({ t }: { t: Theme }) {
       {Array.from({ length: SKELETON_ROW_COUNT }, (_, row) => (
         <tr key={`skel-${row}`} aria-hidden>
           {widths.map((width, col) => (
-            <td key={col} style={td(t)}>
+            <td key={col} style={dataTdStyle(t, { top: false })}>
               <MagicShimmer theme={t} width={width} height={14} rounded={4} />
             </td>
           ))}
@@ -240,7 +221,7 @@ function InvoiceHistorySection({ canView }: { canView: boolean }) {
   const showError = !loading && Boolean(error) && error !== "forbidden";
 
   return (
-    <div style={{ background: t.panel, border: `1px solid ${t.rule}`, padding: 20 }}>
+    <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 12, padding: 20 }}>
       <div
         style={{
           fontFamily: t.sans,
@@ -281,8 +262,12 @@ function InvoiceHistorySection({ canView }: { canView: boolean }) {
 
       {showTable ? (
         <>
-          <div style={{ overflowX: "auto" }} aria-busy={loading || undefined}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div
+            className="fuel-data-table-frame fuel-table-wrap"
+            style={dataTableFrameStyle(t)}
+            aria-busy={loading || undefined}
+          >
+            <table className="fuel-data-table" style={dataTableStyle()}>
               <InvoiceTableHeader t={t} />
               <tbody>
                 {loading ? (
@@ -297,24 +282,26 @@ function InvoiceHistorySection({ canView }: { canView: boolean }) {
                       viewingId !== null || downloadingId !== null;
                     return (
                       <tr key={`${inv.invoiceId}-${inv.invoiceNumber ?? "none"}`}>
-                        <td style={{ ...td(t), fontWeight: 600 }}>{inv.invoiceId}</td>
+                        <td style={dataTdStyle(t, { primary: true, mono: true })}>
+                          {inv.invoiceId}
+                        </td>
                         <td
                           style={{
-                            ...td(t),
-                            fontFamily: t.mono,
-                            fontSize: 12,
+                            ...dataTdStyle(t, { mono: true }),
                             color: inv.invoiceNumber ? t.ink : t.muted,
                           }}
                         >
                           {inv.invoiceNumber ?? "—"}
                         </td>
-                        <td style={td(t)}>{formatInvoiceDate(inv.invoiceDate)}</td>
-                        <td style={td(t)}>
+                        <td style={dataTdStyle(t, { nowrap: true })}>
+                          {formatInvoiceDate(inv.invoiceDate)}
+                        </td>
+                        <td style={dataTdStyle(t)}>
                           <Chip t={t} tone={statusTone(inv.invoiceStatus)}>
                             {inv.invoiceStatus}
                           </Chip>
                         </td>
-                        <td style={td(t)}>
+                        <td style={dataTdStyle(t)}>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             {canViewFuelPdf ? (
                               <button
@@ -532,8 +519,18 @@ export function BillingPlaceholder({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        <div style={{ background: t.panel, border: `1px solid ${t.rule}`, padding: 20 }}>
+      <div
+        className="fuel-billing-plan-grid"
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}
+      >
+        <div
+          style={{
+            background: t.panel,
+            border: `1px solid ${t.rule}`,
+            borderRadius: 12,
+            padding: 20,
+          }}
+        >
           <div
             style={{
               fontFamily: t.sans,
@@ -658,7 +655,14 @@ export function BillingPlaceholder({
             </p>
           ) : null}
         </div>
-        <div style={{ background: t.panel, border: `1px solid ${t.rule}`, padding: 20 }}>
+        <div
+          style={{
+            background: t.panel,
+            border: `1px solid ${t.rule}`,
+            borderRadius: 12,
+            padding: 20,
+          }}
+        >
           <div
             style={{
               fontFamily: t.sans,

@@ -12,6 +12,8 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { onAccentText, type Theme } from "@/lib/theme";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
+import { CreateIconButton, FilterMenu, PageToolbar } from "@/components/ToolbarActions";
 import { addManualObservationAction } from "@/app/(app)/company/[uuid]/actions";
 import { MagicShimmer } from "@/components/ai/MagicShimmer";
 import { IntelligenceItemPicker, intelligenceValuePreview } from "@/components/intelligence/IntelligenceItemPicker";
@@ -71,6 +73,7 @@ import {
   displayDue,
   dueYearOptions,
   formatDueQuarter,
+  initiativeHeaderMeta,
   kindLabel,
   normalizeListStatus,
   normalizeUiStatus,
@@ -84,24 +87,32 @@ import {
 } from "./pillars";
 import { dataRoomIntelligenceLinkStyle } from "@/components/data-room/styles";
 import {
+  drawerCloseBtnStyle,
   drawerDeleteBtnStyle,
+  drawerDeleteLinkStyle,
   drawerEditLinkStyle,
   drawerEyebrowStyle,
+  drawerHeaderActionsStyle,
+  drawerHeaderStyle,
+  drawerHeaderTitleBlockStyle,
   drawerMetaDdStyle,
   drawerMetaDtStyle,
   drawerMetaRowStyle,
+  drawerMetaStyle,
   drawerMiniBtnStyle,
   drawerScrimStyle,
   drawerSectionCardStyle,
   drawerSectionHeadStyle,
   drawerSectionLabelStyle,
   drawerStyle,
+  drawerTitleStyle,
   emptyCardStyle,
   fieldLabelStyle,
-  formCardStyle,
   formControlStyle,
   INITIATIVE_CARD_CLASS,
   INITIATIVE_CARD_OPEN_HINT_CLASS,
+  initiativeCardChipStyle,
+  initiativeCardMetaLineStyle,
   initiativeCardMetaStyle,
   initiativeCardStyle,
   initiativeCardTitleStyle,
@@ -110,10 +121,20 @@ import {
   initiativeStatusBadgeStyle,
   initiativesHeadActionsStyle,
   initiativesHeadStyle,
-  initiativesPageStyle,
   INITIATIVE_FORM_CONTROL_CLASS,
   panelCardStyle,
+  pillarRailColor,
   primaryBtnStyle,
+  progressCtaBtnStyle,
+  progressEmptyStateStyle,
+  progressFieldLabelStyle,
+  progressFormActionsStyle,
+  progressFormCardStyle,
+  progressLinkCardStyle,
+  progressRoleBadgeStyle,
+  progressSectionHeadStyle,
+  progressSectionSubtitleStyle,
+  progressSectionTitleStyle,
   secondaryBtnStyle,
   statusToggleBtnStyle,
   statusToggleStyle,
@@ -204,30 +225,22 @@ function InitiativeListSkeleton({ t, rows }: { t: Theme; rows: number }) {
       {Array.from({ length: rows }, (_, i) => (
         <article
           key={i}
+          className="fuel-init-card"
           style={{
             ...initiativeCardStyle(t),
-            alignItems: "center",
-            display: "flex",
-            gap: 12,
-            padding: "12px 14px",
+            minHeight: TOUCH_TARGET_MIN,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              flex: 1,
-              flexDirection: "column",
-              gap: 5,
-              minWidth: 0,
-            }}
-          >
-            <MagicShimmer theme={t} width={i % 2 ? "42%" : "56%"} height={13} rounded={4} />
-            <div style={{ alignItems: "center", display: "flex", gap: 10 }}>
-              <MagicShimmer theme={t} width={54} height={14} rounded={4} />
-              <MagicShimmer theme={t} width={i % 3 ? "38%" : "48%"} height={11} rounded={4} />
+          <div className="fuel-init-card__body" style={{ gap: 5 }}>
+            <div className="fuel-init-card__top">
+              <MagicShimmer theme={t} width={i % 2 ? "48%" : "62%"} height={13} rounded={4} />
+              <MagicShimmer theme={t} width={52} height={18} rounded={999} />
             </div>
+            <MagicShimmer theme={t} width={i % 3 ? "72%" : "58%"} height={11} rounded={4} />
           </div>
-          <MagicShimmer theme={t} width={38} height={11} rounded={4} />
+          <div className="fuel-init-card__side" aria-hidden>
+            <MagicShimmer theme={t} width={14} height={14} rounded={4} />
+          </div>
         </article>
       ))}
     </div>
@@ -263,6 +276,51 @@ function emptyLinkDraft(role: ProgressRole = "baseline") {
     intelligenceId: "",
     note: "",
   };
+}
+
+function ProgressSectionHead({
+  t,
+  logActive,
+  linkActive,
+  disabled,
+  onToggleLog,
+  onToggleLink,
+}: {
+  t: Theme;
+  logActive: boolean;
+  linkActive: boolean;
+  disabled?: boolean;
+  onToggleLog: () => void;
+  onToggleLink: () => void;
+}) {
+  return (
+    <div className="fuel-init-progress-head" style={progressSectionHeadStyle(t)}>
+      <div style={{ minWidth: 0 }}>
+        <h3 style={progressSectionTitleStyle(t)}>Progress</h3>
+        <p style={progressSectionSubtitleStyle(t)}>Baseline · current</p>
+      </div>
+      <div className="fuel-init-progress-actions">
+        <button
+          type="button"
+          disabled={disabled}
+          aria-pressed={logActive}
+          onClick={onToggleLog}
+          style={progressCtaBtnStyle(t, logActive)}
+        >
+          {logActive ? "Close log form" : "+ Log intelligence"}
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-pressed={linkActive}
+          onClick={onToggleLink}
+          style={progressCtaBtnStyle(t, linkActive)}
+        >
+          {linkActive ? "Close link form" : "+ Link intelligence"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /** Pick the first assignee that is a valid email — used to resolve `ownerEmail`. */
@@ -307,7 +365,7 @@ function AdvisorLinkPicker({
   const emptyLabel = pool.length === 0 ? "No advisors available" : "Pick an advisor…";
 
   return (
-    <div style={{ display: "grid", gap: 8, gridTemplateColumns: "minmax(0,1fr) auto" }}>
+    <div className="fuel-init-toolbar">
       <select
         value={advisorDraftId}
         disabled={disabled || pool.length === 0}
@@ -503,54 +561,38 @@ function CreateInitiativeDrawer({
           ...drawerPanelMotionStyle(visible, durationMs),
         }}
       >
-        <header
-          style={{
-            alignItems: "flex-start",
-            borderBottom: `1px solid ${t.rule}`,
-            display: "flex",
-            gap: 12,
-            justifyContent: "space-between",
-            padding: "18px 24px",
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div style={drawerEyebrowStyle(t)}>Initiative</div>
-            <h2
-              style={{
-                color: t.ink,
-                fontSize: 18,
-                fontWeight: 800,
-                letterSpacing: "-0.01em",
-                margin: 0,
-              }}
+        <header className="fuel-init-drawer-header" style={drawerHeaderStyle(t)}>
+          <div className="fuel-init-drawer-header__top">
+            <div className="fuel-init-drawer-header__title" style={drawerHeaderTitleBlockStyle()}>
+              <h2 style={drawerTitleStyle(t)}>New initiative</h2>
+              <p style={{ ...drawerMetaStyle(t), lineHeight: 1.45 }}>
+                Name the work, assign owners, and set milestones.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="fuel-drawer-close"
+              aria-label="Close"
+              disabled={saving}
+              onClick={onClose}
+              style={drawerCloseBtnStyle(t)}
             >
-              New initiative
-            </h2>
-            <p style={{ color: t.muted, fontSize: 12, lineHeight: 1.5, margin: "6px 0 0" }}>
-              Name the work, assign owners, link advisors, and set milestones before you create.
-            </p>
+              <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M4 4l8 8M12 4L4 12"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
           </div>
-          <div
-            style={{
-              alignItems: "center",
-              display: "flex",
-              flexShrink: 0,
-              flexWrap: "wrap",
-              gap: 8,
-              justifyContent: "flex-end",
-            }}
-          >
+          <div className="fuel-init-drawer-header__actions" style={drawerHeaderActionsStyle()}>
             <div
+              className="fuel-init-drawer-header__status"
               role="group"
               aria-label="Status"
-              style={{
-                background: isLight ? t.bg : t.panelAlt,
-                border: `1px solid ${t.rule}`,
-                borderRadius: 8,
-                display: "inline-flex",
-                gap: 2,
-                padding: 3,
-              }}
+              style={statusToggleStyle(t)}
             >
               {(["Active", "Completed"] as const).map((s) => {
                 const active = status === s;
@@ -561,65 +603,37 @@ function CreateInitiativeDrawer({
                     aria-pressed={active}
                     disabled={saving}
                     onClick={() => onStatusChange(s)}
-                    style={{
-                      background: active
-                        ? isLight
-                          ? t.panel
-                          : `${t.accent}29`
-                        : "transparent",
-                      border: 0,
-                      borderRadius: 6,
-                      boxShadow: active && isLight ? "0 1px 2px rgba(26, 35, 50, 0.06)" : undefined,
-                      color: active ? t.ink : t.muted,
-                      cursor: "pointer",
-                      fontFamily: t.sans,
-                      fontSize: 12,
-                      fontWeight: isLight ? 600 : 700,
-                      padding: "6px 10px",
-                    }}
+                    style={statusToggleBtnStyle(t, active)}
                   >
                     {s}
                   </button>
                 );
               })}
             </div>
-            <button
-              type="button"
-              aria-label="Close"
-              disabled={saving}
-              onClick={onClose}
-              style={{
-                ...secondaryBtnStyle(t),
-                background: t.panel,
-                padding: "7px 10px",
-              }}
-            >
-              ✕
-            </button>
           </div>
         </header>
 
-        <div style={{ borderBottom: `1px solid ${t.rule}`, padding: "14px 24px 16px" }}>
-          <div
-            style={{
-              alignItems: "baseline",
-              color: t.muted,
-              display: "flex",
-              fontSize: 11,
-              fontWeight: 700,
-              gap: 12,
-              justifyContent: "space-between",
-              letterSpacing: "0.06em",
-              marginBottom: 10,
-              textTransform: "uppercase",
-            }}
-          >
-            <span>Milestone progress</span>
-            <strong style={{ color: t.inkSoft, fontSize: 13, fontWeight: 700, letterSpacing: 0, textTransform: "none" }}>
+        <div
+          className="fuel-init-drawer-milestones"
+          style={{ borderBottom: `1px solid ${t.rule}`, padding: "12px 24px 14px" }}
+        >
+          <div className="fuel-init-drawer-milestones__row">
+            <span style={{ color: t.muted, fontFamily: t.sans, fontSize: 12, fontWeight: 600 }}>
+              Milestones
+            </span>
+            <span
+              style={{
+                color: t.inkSoft,
+                fontFamily: t.sans,
+                fontSize: 12.5,
+                fontVariantNumeric: "tabular-nums",
+                fontWeight: 650,
+              }}
+            >
               {milestonesTotal === 0
-                ? "No milestones yet"
-                : `${milestonesDone} of ${milestonesTotal} done`}
-            </strong>
+                ? "None yet"
+                : `${milestonesDone}/${milestonesTotal} done`}
+            </span>
           </div>
           <div
             role="progressbar"
@@ -630,7 +644,8 @@ function CreateInitiativeDrawer({
             style={{
               background: isLight ? t.bg : t.rule,
               borderRadius: 999,
-              height: 6,
+              height: 4,
+              marginTop: 8,
               overflow: "hidden",
             }}
           >
@@ -638,14 +653,17 @@ function CreateInitiativeDrawer({
               style={{
                 background: t.accent,
                 height: "100%",
-                transition: "width 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
-                width: `${milestonesPct}%`,
+                transform: `scaleX(${milestonesPct / 100})`,
+                transformOrigin: "left center",
+                transition: "transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+                width: "100%",
               }}
             />
           </div>
         </div>
 
         <div
+          className="fuel-init-drawer-body"
           style={{
             background: isLight ? t.bg : t.panel,
             display: "flex",
@@ -661,13 +679,7 @@ function CreateInitiativeDrawer({
               <span style={drawerSectionLabelStyle(t)}>Details</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div
-                style={{
-                  display: "grid",
-                  gap: 10,
-                  gridTemplateColumns: "minmax(0,1fr) 130px 110px",
-                }}
-              >
+              <div className="fuel-init-fields-3">
                 <input
                   value={title}
                   autoFocus
@@ -721,13 +733,7 @@ function CreateInitiativeDrawer({
                 className={INITIATIVE_FORM_CONTROL_CLASS}
                 style={{ ...formControlStyle(t), resize: "vertical", width: "100%" }}
               />
-              <div
-                style={{
-                  display: "grid",
-                  gap: 10,
-                  gridTemplateColumns: "minmax(0,1fr) minmax(200px,240px)",
-                }}
-              >
+              <div className="fuel-grid-2">
                 <MemberAssigneesField
                   t={t}
                   value={assignees}
@@ -949,44 +955,21 @@ function CreateInitiativeDrawer({
           </section>
           ) : null}
 
-          <section style={sectionCard}>
-            <div style={sectionHead}>
-              <span style={drawerSectionLabelStyle(t)}>Progress — baseline · current</span>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setIntelPanel(intelPanel === "log" ? null : "log")}
-                  style={miniBtn}
-                >
-                  + Log intelligence
-                </button>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setIntelPanel(intelPanel === "link" ? null : "link")}
-                  style={miniBtn}
-                >
-                  + Link intelligence
-                </button>
-              </div>
-            </div>
-            <div
-              style={{
-                border: `1px dashed ${t.rule}`,
-                borderRadius: 8,
-                color: t.muted,
-                fontSize: 12,
-                lineHeight: 1.5,
-                padding: "12px 14px",
-                textAlign: "center",
-              }}
-            >
+          <section className="fuel-init-progress" style={sectionCard}>
+            <ProgressSectionHead
+              t={t}
+              logActive={intelPanel === "log"}
+              linkActive={intelPanel === "link"}
+              disabled={saving}
+              onToggleLog={() => setIntelPanel(intelPanel === "log" ? null : "log")}
+              onToggleLink={() => setIntelPanel(intelPanel === "link" ? null : "link")}
+            />
+            <div style={progressEmptyStateStyle(t)}>
               No intelligence tracked yet. Log or link a baseline and a current reading so progress can be
               narrated from the timeline.
             </div>
             {intelPanel ? (
-              <p style={{ color: t.muted, fontSize: 12, margin: 0 }}>
+              <p style={{ color: t.muted, fontFamily: t.sans, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
                 Intelligence can be logged or linked after you create this initiative.
               </p>
             ) : null}
@@ -1323,37 +1306,46 @@ export function InitiativeDetailDrawer({
           ...drawerPanelMotionStyle(visible, durationMs),
         }}
       >
-        <header
-          style={{
-            alignItems: "flex-start",
-            borderBottom: `1px solid ${t.rule}`,
-            display: "flex",
-            gap: 12,
-            justifyContent: "space-between",
-            padding: "18px 24px",
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div style={drawerEyebrowStyle(t)}>Initiative</div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: t.ink, letterSpacing: "-0.01em" }}>
-              {item.name || "Untitled initiative"}
-            </h2>
-            <p style={{ margin: "6px 0 0", fontSize: 12, color: t.muted }}>
-              {kindLabel(item.kind)} · {pillarLabel(pillar)} · {displayDue(item.due)}
-            </p>
+        <header className="fuel-init-drawer-header" style={drawerHeaderStyle(t)}>
+          <div className="fuel-init-drawer-header__top">
+            <div className="fuel-init-drawer-header__title" style={drawerHeaderTitleBlockStyle()}>
+              <h2 style={{ ...drawerTitleStyle(t), fontSize: 17, fontWeight: 750 }}>
+                {item.name || "Untitled initiative"}
+              </h2>
+              <p style={{ ...drawerMetaStyle(t), marginTop: 2 }}>
+                {initiativeHeaderMeta(item.kind, pillar, item.due)}
+                {milestonesTotal > 0
+                  ? ` · ${milestonesDone}/${milestonesTotal} milestones`
+                  : null}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="fuel-drawer-close"
+              onClick={requestClose}
+              aria-label="Close"
+              style={drawerCloseBtnStyle(t)}
+            >
+              <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M4 4l8 8M12 4L4 12"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
           </div>
-          <div style={{ alignItems: "center", display: "flex", flexShrink: 0, flexWrap: "wrap", gap: 8 }}>
+
+          <div
+            className="fuel-init-drawer-header__toolbar"
+            style={drawerHeaderActionsStyle()}
+          >
             <div
+              className="fuel-init-drawer-header__status"
               role="group"
               aria-label="Status"
-              style={{
-                background: isLight ? t.bg : t.panelAlt,
-                border: `1px solid ${t.rule}`,
-                borderRadius: 8,
-                display: "inline-flex",
-                gap: 2,
-                padding: 3,
-              }}
+              style={statusToggleStyle(t)}
             >
               {(["Active", "Completed"] as const).map((s) => {
                 const active = listStatus === s;
@@ -1364,20 +1356,10 @@ export function InitiativeDetailDrawer({
                     aria-pressed={active}
                     onClick={() => setListStatus(s)}
                     style={{
-                      background: active
-                        ? isLight
-                          ? t.panel
-                          : `${t.accent}29`
-                        : "transparent",
-                      border: 0,
-                      borderRadius: 6,
-                      boxShadow: active && isLight ? "0 1px 2px rgba(26, 35, 50, 0.06)" : undefined,
-                      color: active ? t.ink : t.muted,
-                      cursor: "pointer",
-                      fontFamily: t.sans,
-                      fontSize: 12,
-                      fontWeight: isLight ? 600 : 700,
-                      padding: "6px 10px",
+                      ...statusToggleBtnStyle(t, active),
+                      flex: 1,
+                      justifyContent: "center",
+                      minHeight: 36,
                     }}
                   >
                     {s}
@@ -1385,85 +1367,99 @@ export function InitiativeDetailDrawer({
                 );
               })}
             </div>
-            {confirmDelete ? (
-              <div style={{ alignItems: "center", display: "flex", gap: 6 }}>
-                <span style={{ color: t.muted, fontSize: 11 }}>Delete this initiative?</span>
-                <button
-                  type="button"
-                  style={drawerDeleteBtnStyle(t)}
-                  onClick={() => {
-                    const fd = new FormData();
-                    fd.set("id", item.id);
-                    fd.set("companyUuid", companyUuid);
-                    onStart(async () => {
-                      const mod = await import("@/app/(app)/company/[uuid]/initiative-actions");
-                      await mod.deleteInitiativeAction(fd);
-                      requestClose();
-                    });
-                  }}
-                >
-                  Confirm
-                </button>
-                <button
-                  type="button"
-                  style={secondaryBtnStyle(t)}
-                  onClick={() => setConfirmDelete(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
+            {!confirmDelete ? (
               <button
                 type="button"
-                style={drawerDeleteBtnStyle(t)}
+                className="fuel-init-drawer-header__delete"
+                style={drawerDeleteLinkStyle(t)}
                 onClick={() => setConfirmDelete(true)}
               >
                 Delete
               </button>
-            )}
-            <button type="button" onClick={requestClose} aria-label="Close" style={secondaryBtnStyle(t)}>
-              ✕
-            </button>
+            ) : null}
           </div>
+
+          {confirmDelete ? (
+            <div
+              className="fuel-init-drawer-header__delete-confirm"
+              style={{ ["--fuel-negative" as string]: t.negative }}
+            >
+              <span style={{ color: t.muted, fontFamily: t.sans, fontSize: 12, flex: 1 }}>
+                Delete this initiative?
+              </span>
+              <button
+                type="button"
+                style={drawerDeleteBtnStyle(t)}
+                onClick={() => {
+                  const fd = new FormData();
+                  fd.set("id", item.id);
+                  fd.set("companyUuid", companyUuid);
+                  onStart(async () => {
+                    const mod = await import("@/app/(app)/company/[uuid]/initiative-actions");
+                    await mod.deleteInitiativeAction(fd);
+                    requestClose();
+                  });
+                }}
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                style={secondaryBtnStyle(t)}
+                onClick={() => setConfirmDelete(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : null}
+
+          {milestonesTotal > 0 ? (
+            <div
+              className="fuel-init-drawer-milestones fuel-init-drawer-milestones--inline"
+              aria-label="Milestone completion"
+            >
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={milestonesPct}
+                style={{
+                  background: isLight ? t.bg : t.panelAlt,
+                  borderRadius: 999,
+                  flex: 1,
+                  height: 4,
+                  minWidth: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    background: t.accent,
+                    height: "100%",
+                    transform: `scaleX(${milestonesPct / 100})`,
+                    transformOrigin: "left center",
+                    width: "100%",
+                  }}
+                />
+              </div>
+              <span
+                style={{
+                  color: t.muted,
+                  fontFamily: t.sans,
+                  fontSize: 12,
+                  fontVariantNumeric: "tabular-nums",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {milestonesDone}/{milestonesTotal}
+              </span>
+            </div>
+          ) : null}
         </header>
 
-        <div style={{ borderBottom: `1px solid ${t.rule}`, padding: "14px 24px 16px" }}>
-          <div
-            style={{
-              color: t.muted,
-              display: "flex",
-              fontSize: 11,
-              fontWeight: 700,
-              justifyContent: "space-between",
-              letterSpacing: "0.06em",
-              marginBottom: 10,
-              textTransform: "uppercase",
-            }}
-          >
-            <span>Milestone progress</span>
-            <strong style={{ color: t.inkSoft, fontSize: 13, fontWeight: 700, letterSpacing: 0, textTransform: "none" }}>
-              {milestonesTotal === 0
-                ? "No milestones yet"
-                : `${milestonesDone} of ${milestonesTotal} done`}
-            </strong>
-          </div>
-          <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={milestonesPct}
-            style={{
-              background: isLight ? t.bg : t.panelAlt,
-              borderRadius: 999,
-              height: 6,
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ background: t.accent, height: "100%", width: `${milestonesPct}%` }} />
-          </div>
-        </div>
-
         <div
+          className="fuel-init-drawer-body"
           style={{
             background: isLight ? t.bg : t.panel,
             display: "flex",
@@ -1490,7 +1486,7 @@ export function InitiativeDetailDrawer({
             </div>
             {editing ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr 130px 110px" }}>
+                <div className="fuel-init-fields-3">
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
@@ -1528,7 +1524,7 @@ export function InitiativeDetailDrawer({
                   className={INITIATIVE_FORM_CONTROL_CLASS}
                   style={{ ...formControlStyle(t), resize: "vertical", width: "100%" }}
                 />
-                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0,1fr) minmax(220px,260px)" }}>
+                <div className="fuel-grid-2">
                   <MemberAssigneesField t={t} value={assignees} onChange={setAssignees} />
                   <DueQuarterField t={t} due={due} onChange={setDue} />
                 </div>
@@ -1656,44 +1652,31 @@ export function InitiativeDetailDrawer({
           </section>
           ) : null}
 
-          <section style={drawerSectionCardStyle(t)}>
-            <div style={drawerSectionHeadStyle(t)}>
-              <span style={drawerSectionLabelStyle(t)}>Progress — baseline · current</span>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                <button
-                  type="button"
-                  disabled={intelBusy != null}
-                  onClick={() => {
-                    if (intelBusy) return;
-                    if (intelPanel === "log") {
-                      setIntelPanel(null);
-                      return;
-                    }
-                    setLogDraft(emptyLogDraft(nextProgressRole(links)));
-                    setIntelPanel("log");
-                  }}
-                  style={drawerMiniBtnStyle(t)}
-                >
-                  + Log intelligence
-                </button>
-                <button
-                  type="button"
-                  disabled={intelBusy != null}
-                  onClick={() => {
-                    if (intelBusy) return;
-                    if (intelPanel === "link") {
-                      setIntelPanel(null);
-                      return;
-                    }
-                    setLinkDraft(emptyLinkDraft(nextProgressRole(links)));
-                    setIntelPanel("link");
-                  }}
-                  style={drawerMiniBtnStyle(t)}
-                >
-                  + Link intelligence
-                </button>
-              </div>
-            </div>
+          <section className="fuel-init-progress" style={drawerSectionCardStyle(t)}>
+            <ProgressSectionHead
+              t={t}
+              logActive={intelPanel === "log"}
+              linkActive={intelPanel === "link"}
+              disabled={intelBusy != null}
+              onToggleLog={() => {
+                if (intelBusy) return;
+                if (intelPanel === "log") {
+                  setIntelPanel(null);
+                  return;
+                }
+                setLogDraft(emptyLogDraft(nextProgressRole(links)));
+                setIntelPanel("log");
+              }}
+              onToggleLink={() => {
+                if (intelBusy) return;
+                if (intelPanel === "link") {
+                  setIntelPanel(null);
+                  return;
+                }
+                setLinkDraft(emptyLinkDraft(nextProgressRole(links)));
+                setIntelPanel("link");
+              }}
+            />
 
             {links.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1701,81 +1684,56 @@ export function InitiativeDetailDrawer({
                   links
                     .filter((l) => l.role === role)
                     .map((link) => (
-                    <div
-                      key={link.id}
-                      style={{
-                        alignItems: "center",
-                        background: t.panelAlt,
-                        border: `1px solid ${t.rule}`,
-                        borderRadius: 8,
-                        display: "flex",
-                        gap: 10,
-                        padding: "10px 12px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: t.accent,
-                          fontFamily: t.mono,
-                          fontSize: 10,
-                          fontWeight: 700,
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                          width: 64,
-                        }}
-                      >
-                        {role}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
+                      <div key={link.id} style={progressLinkCardStyle(t)}>
+                        <span style={progressRoleBadgeStyle(t)}>{role}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              color: t.ink,
+                              fontFamily: t.sans,
+                              fontSize: 13.5,
+                              fontWeight: 600,
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {link.title}
+                          </div>
+                          <div
+                            style={{
+                              color: t.muted,
+                              fontFamily: t.sans,
+                              fontSize: 12,
+                              marginTop: 3,
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            {formatProgressLinkMeta(link)}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${role} intelligence`}
+                          onClick={() => {
+                            void persistLinks(links.filter((l) => l.id !== link.id)).catch((error) => {
+                              Sentry.captureException(error);
+                            });
+                          }}
                           style={{
-                            color: t.ink,
-                            fontSize: 13,
-                            fontWeight: 600,
-                            overflowWrap: "anywhere",
+                            ...secondaryBtnStyle(t),
+                            flexShrink: 0,
+                            minHeight: TOUCH_TARGET_MIN,
+                            minWidth: TOUCH_TARGET_MIN,
+                            padding: "0 10px",
                           }}
                         >
-                          {link.title}
-                        </div>
-                        <div
-                          style={{
-                            color: t.muted,
-                            fontSize: 11,
-                            marginTop: 2,
-                            overflowWrap: "anywhere",
-                          }}
-                        >
-                          {formatProgressLinkMeta(link)}
-                        </div>
+                          ×
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${role} intelligence`}
-                        onClick={() => {
-                          void persistLinks(links.filter((l) => l.id !== link.id)).catch((error) => {
-                            Sentry.captureException(error);
-                          });
-                        }}
-                        style={{ ...secondaryBtnStyle(t), padding: "2px 8px" }}
-                      >
-                        ×
-                      </button>
-                    </div>
                     )),
                 )}
               </div>
             ) : (
-              <div
-                style={{
-                  border: `1px dashed ${t.rule}`,
-                  borderRadius: 8,
-                  color: t.muted,
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  padding: "12px 14px",
-                  textAlign: "center",
-                }}
-              >
+              <div style={progressEmptyStateStyle(t)}>
                 No intelligence tracked yet. Log or link a baseline and a current reading so progress can be narrated from
                 the timeline.
               </div>
@@ -1786,45 +1744,26 @@ export function InitiativeDetailDrawer({
                 ref={intelFormRef}
                 tabIndex={-1}
                 aria-label="Log intelligence form"
-                style={{
-                  ...formCardStyle(t),
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                  marginTop: 10,
-                  outline: "none",
-                  overflow: "visible",
-                }}
+                style={progressFormCardStyle(t)}
               >
-                <div
-                  style={{
-                    alignItems: "start",
-                    display: "grid",
-                    gap: 10,
-                    gridTemplateColumns:
-                      "minmax(0, 0.85fr) minmax(0, 1.7fr) minmax(0, 1fr)",
-                  }}
-                >
-                  <label style={{ display: "block", minWidth: 0 }}>
-                    <span style={fieldLabelStyle(t)}>Mark as</span>
+                <div className="fuel-init-progress-fields">
+                  <label>
+                    <span style={progressFieldLabelStyle(t)}>Mark as</span>
                     <select
                       value={logDraft.role}
                       onChange={(e) =>
                         setLogDraft((p) => ({ ...p, role: e.target.value as ProgressRole }))
                       }
                       className={INITIATIVE_FORM_CONTROL_CLASS}
-                      style={{
-                        ...formControlStyle(t),
-                        width: "100%",
-                      }}
+                      style={formControlStyle(t)}
                     >
                       <option value="baseline">Baseline</option>
                       <option value="current">Current</option>
                     </select>
                   </label>
 
-                  <label style={{ display: "block", minWidth: 0 }}>
-                    <span style={fieldLabelStyle(t)}>Signal</span>
+                  <label>
+                    <span style={progressFieldLabelStyle(t)}>Signal</span>
                     <SignalCatalogPicker
                       t={t}
                       value={logDraft.signalId}
@@ -1835,23 +1774,20 @@ export function InitiativeDetailDrawer({
                         color: logDraft.signalId ? t.ink : t.muted,
                         fontFamily: t.sans,
                         fontSize: 13,
-                        minHeight: 40,
+                        minHeight: TOUCH_TARGET_MIN,
                       }}
                     />
                   </label>
 
-                  <label style={{ display: "block", minWidth: 0 }}>
-                    <span style={fieldLabelStyle(t)}>Value</span>
+                  <label>
+                    <span style={progressFieldLabelStyle(t)}>Value</span>
                     {selectedLogSignal?.kind === "boolean" ? (
                       <select
                         aria-label="Value"
                         value={logDraft.value || "true"}
                         onChange={(e) => setLogDraft((p) => ({ ...p, value: e.target.value }))}
                         className={INITIATIVE_FORM_CONTROL_CLASS}
-                        style={{
-                          ...formControlStyle(t),
-                          width: "100%",
-                        }}
+                        style={formControlStyle(t)}
                       >
                         <option value="true">true</option>
                         <option value="false">false</option>
@@ -1868,7 +1804,6 @@ export function InitiativeDetailDrawer({
                         className={INITIATIVE_FORM_CONTROL_CLASS}
                         style={{
                           ...formControlStyle(t),
-                          width: "100%",
                           ...(logValueInvalid ? { borderColor: t.negative } : null),
                         }}
                       />
@@ -1884,7 +1819,6 @@ export function InitiativeDetailDrawer({
                         className={INITIATIVE_FORM_CONTROL_CLASS}
                         style={{
                           ...formControlStyle(t),
-                          width: "100%",
                           ...(logValueInvalid ? { borderColor: t.negative } : null),
                         }}
                       />
@@ -1894,8 +1828,8 @@ export function InitiativeDetailDrawer({
                         style={{
                           color: t.negative,
                           fontFamily: t.sans,
-                          fontSize: 11,
-                          marginTop: 4,
+                          fontSize: 12,
+                          marginTop: 6,
                         }}
                       >
                         {selectedLogSignal?.unit === "usd"
@@ -1909,7 +1843,7 @@ export function InitiativeDetailDrawer({
                 </div>
 
                 <label style={{ display: "block" }}>
-                  <span style={fieldLabelStyle(t)}>
+                  <span style={progressFieldLabelStyle(t)}>
                     Note{" "}
                     <span style={{ fontWeight: 500, letterSpacing: "0.04em" }}>(optional)</span>
                   </span>
@@ -1918,23 +1852,21 @@ export function InitiativeDetailDrawer({
                     onChange={(e) => setLogDraft((p) => ({ ...p, note: e.target.value }))}
                     placeholder="Context or commentary…"
                     className={INITIATIVE_FORM_CONTROL_CLASS}
-                    style={{
-                      ...formControlStyle(t),
-                      width: "100%",
-                    }}
+                    style={formControlStyle(t)}
                   />
                 </label>
 
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <div className="fuel-init-progress-form-actions" style={progressFormActionsStyle()}>
                   <HoverBtn
                     type="button"
                     disabled={intelBusy != null}
-                    styleFor={(hovered) =>
-                      benchActionBtnStyle(t, "cancel", {
+                    styleFor={(hovered) => ({
+                      ...benchActionBtnStyle(t, "cancel", {
                         hovered,
                         disabled: intelBusy != null,
-                      })
-                    }
+                      }),
+                      minHeight: TOUCH_TARGET_MIN,
+                    })}
                     onClick={() => setIntelPanel(null)}
                   >
                     Cancel
@@ -1943,12 +1875,13 @@ export function InitiativeDetailDrawer({
                     type="button"
                     disabled={!canSubmitLog}
                     aria-busy={intelBusy === "log"}
-                    styleFor={(hovered) =>
-                      benchActionBtnStyle(t, "save", {
+                    styleFor={(hovered) => ({
+                      ...benchActionBtnStyle(t, "save", {
                         hovered,
                         disabled: !canSubmitLog,
-                      })
-                    }
+                      }),
+                      minHeight: TOUCH_TARGET_MIN,
+                    })}
                     onClick={() => {
                       if (!selectedLogSignal || !parsedLogValue?.valid || intelBusy) return;
                       const signal = selectedLogSignal;
@@ -2014,27 +1947,11 @@ export function InitiativeDetailDrawer({
                 ref={intelFormRef}
                 tabIndex={-1}
                 aria-label="Link intelligence form"
-                style={{
-                  ...formCardStyle(t),
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                  marginTop: 10,
-                  outline: "none",
-                  overflow: "visible",
-                }}
+                style={progressFormCardStyle(t)}
               >
-                <div
-                  style={{
-                    alignItems: "start",
-                    display: "grid",
-                    gap: 10,
-                    gridTemplateColumns:
-                      "minmax(0, 0.85fr) minmax(0, 1.7fr) minmax(0, 1fr)",
-                  }}
-                >
-                  <label style={{ display: "block", minWidth: 0 }}>
-                    <span style={fieldLabelStyle(t)}>Mark as</span>
+                <div className="fuel-init-progress-fields">
+                  <label>
+                    <span style={progressFieldLabelStyle(t)}>Mark as</span>
                     <select
                       value={linkDraft.role}
                       onChange={(e) =>
@@ -2044,18 +1961,15 @@ export function InitiativeDetailDrawer({
                         }))
                       }
                       className={INITIATIVE_FORM_CONTROL_CLASS}
-                      style={{
-                        ...formControlStyle(t),
-                        width: "100%",
-                      }}
+                      style={formControlStyle(t)}
                     >
                       <option value="baseline">Baseline</option>
                       <option value="current">Current</option>
                     </select>
                   </label>
 
-                  <label style={{ display: "block", minWidth: 0 }}>
-                    <span style={fieldLabelStyle(t)}>Intelligence</span>
+                  <label>
+                    <span style={progressFieldLabelStyle(t)}>Intelligence</span>
                     <IntelligenceItemPicker
                       t={t}
                       value={linkDraft.intelligenceId}
@@ -2068,13 +1982,13 @@ export function InitiativeDetailDrawer({
                         color: linkDraft.intelligenceId ? t.ink : t.muted,
                         fontFamily: t.sans,
                         fontSize: 13,
-                        minHeight: 40,
+                        minHeight: TOUCH_TARGET_MIN,
                       }}
                     />
                   </label>
 
-                  <label style={{ display: "block", minWidth: 0 }}>
-                    <span style={fieldLabelStyle(t)}>Value</span>
+                  <label>
+                    <span style={progressFieldLabelStyle(t)}>Value</span>
                     <input
                       value={linkValuePreview}
                       readOnly
@@ -2085,20 +1999,19 @@ export function InitiativeDetailDrawer({
                         ...formControlStyle(t),
                         color: linkValuePreview ? t.ink : t.muted,
                         cursor: "default",
-                        width: "100%",
                       }}
                     />
                   </label>
                 </div>
 
                 {intelLoadState === "error" ? (
-                  <p role="alert" style={{ color: t.negative, fontSize: 12, margin: 0 }}>
+                  <p role="alert" style={{ color: t.negative, fontFamily: t.sans, fontSize: 13, margin: 0 }}>
                     Could not load intelligence. Try again.
                   </p>
                 ) : null}
 
                 <label style={{ display: "block" }}>
-                  <span style={fieldLabelStyle(t)}>
+                  <span style={progressFieldLabelStyle(t)}>
                     Note{" "}
                     <span style={{ fontWeight: 500, letterSpacing: "0.04em" }}>(optional)</span>
                   </span>
@@ -2107,23 +2020,21 @@ export function InitiativeDetailDrawer({
                     onChange={(e) => setLinkDraft((p) => ({ ...p, note: e.target.value }))}
                     placeholder="Context or commentary…"
                     className={INITIATIVE_FORM_CONTROL_CLASS}
-                    style={{
-                      ...formControlStyle(t),
-                      width: "100%",
-                    }}
+                    style={formControlStyle(t)}
                   />
                 </label>
 
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <div className="fuel-init-progress-form-actions" style={progressFormActionsStyle()}>
                   <HoverBtn
                     type="button"
                     disabled={intelBusy != null}
-                    styleFor={(hovered) =>
-                      benchActionBtnStyle(t, "cancel", {
+                    styleFor={(hovered) => ({
+                      ...benchActionBtnStyle(t, "cancel", {
                         hovered,
                         disabled: intelBusy != null,
-                      })
-                    }
+                      }),
+                      minHeight: TOUCH_TARGET_MIN,
+                    })}
                     onClick={() => {
                       setIntelPanel(null);
                       setLinkDraft(emptyLinkDraft(nextProgressRole(links)));
@@ -2135,12 +2046,13 @@ export function InitiativeDetailDrawer({
                     type="button"
                     disabled={!canSubmitLink}
                     aria-busy={intelBusy === "link"}
-                    styleFor={(hovered) =>
-                      benchActionBtnStyle(t, "save", {
+                    styleFor={(hovered) => ({
+                      ...benchActionBtnStyle(t, "save", {
                         hovered,
                         disabled: !canSubmitLink,
-                      })
-                    }
+                      }),
+                      minHeight: TOUCH_TARGET_MIN,
+                    })}
                     onClick={() => {
                       if (!selectedLinkIntel || intelBusy) return;
                       const intel = selectedLinkIntel;
@@ -2168,16 +2080,6 @@ export function InitiativeDetailDrawer({
           </section>
 
         </div>
-
-        <footer style={benchActionsStyle(t)}>
-          <HoverBtn
-            type="button"
-            styleFor={(hovered) => benchActionBtnStyle(t, "cancel", { hovered })}
-            onClick={requestClose}
-          >
-            Close
-          </HoverBtn>
-        </footer>
       </aside>
     </div>
   );
@@ -2666,83 +2568,110 @@ export function InitiativesTab({
   useDrawerEscape(suggestedOpen, isPending || Boolean(acceptingId), closeSuggestedDrawer);
 
   return (
-    <section style={{ ...initiativesPageStyle(), fontFamily: t.sans }}>
+    <section
+      className="fuel-company-tab fuel-init-tab"
+      data-status-tab={statusTab}
+      style={{ fontFamily: t.sans }}
+    >
       <style dangerouslySetInnerHTML={{ __html: initiativeFormControlsCss(t) }} />
-      <div style={initiativesHeadStyle()}>
-        <div>
-          <h2 style={{ color: t.ink, fontSize: 14, fontWeight: 700, margin: 0 }}>Initiatives</h2>
-          <p style={{ color: t.muted, fontSize: 13, lineHeight: 1.55, margin: "6px 0 0", maxWidth: 640 }}>
+      <div className="fuel-company-tab__head fuel-init-tab__head" style={initiativesHeadStyle()}>
+        <div className="fuel-init-tab__intro" style={{ minWidth: 0, flex: "1 1 220px" }}>
+          <p className="fuel-company-tab__eyebrow" style={{ color: t.accent }}>
+            Operating work
+          </p>
+          <div className="fuel-init-tab__title-row">
+            <h2 className="fuel-company-tab__title" style={{ color: t.ink }}>
+              Initiatives
+            </h2>
+            {listLoadState === "ready" ? (
+              <span
+                className="fuel-init-tab__count"
+                style={{
+                  color: t.muted,
+                  fontFamily: t.mono,
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                {statusCounts[statusTab]}
+              </span>
+            ) : null}
+          </div>
+          <p className="fuel-company-tab__subtitle fuel-init-tab__subtitle" style={{ color: t.muted }}>
             {investorMode
               ? "Your private initiatives on this company — not visible to the founding team or other investors."
-              : "Continuous + one-time work the operating team is running with this company. When Fuel has enough profile, benchmark, context, or uploaded-document data, important patterns and document findings can become recommended initiatives."}
+              : "Continuous and one-time work the team is running. Fuel can recommend high-leverage items from profile, benchmarks, and documents."}
           </p>
         </div>
-        <div style={initiativesHeadActionsStyle()}>
-          {showSuggested ? (
-            <button
-              type="button"
-              style={secondaryBtnStyle(t)}
-              onClick={() => {
-                setIsCreating(false);
-                setSelectedId(null);
-                setOpenedSnapshot(null);
-                setSuggestedOpen(true);
-                replaceQuery({ suggested: "1", initiativeId: null, review: null });
-              }}
-            >
-              Suggested{" "}
-              <em style={{ color: t.accent, fontStyle: "normal", marginLeft: 4 }}>
-                {suggestionCount}
-              </em>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            style={primaryBtnStyle(t)}
-            onClick={() => {
-              setSuggestedOpen(false);
-              setSelectedId(null);
-              setOpenedSnapshot(null);
-              setCreateError(null);
-              setIsCreating(true);
-              replaceQuery({ suggested: null, review: null, initiativeId: null });
-            }}
-          >
-            + New initiative
-          </button>
+        <div className="fuel-company-tab__actions fuel-init-tab__actions" style={initiativesHeadActionsStyle()}>
+          <PageToolbar
+            t={t}
+            extra={
+              showSuggested ? (
+                <button
+                  type="button"
+                  style={secondaryBtnStyle(t)}
+                  onClick={() => {
+                    setIsCreating(false);
+                    setSelectedId(null);
+                    setOpenedSnapshot(null);
+                    setSuggestedOpen(true);
+                    replaceQuery({ suggested: "1", initiativeId: null, review: null });
+                  }}
+                >
+                  Suggested{" "}
+                  <em style={{ color: t.accent, fontStyle: "normal", marginLeft: 4 }}>
+                    {suggestionCount}
+                  </em>
+                </button>
+              ) : null
+            }
+            filter={
+              <FilterMenu t={t} activeCount={statusTab === "Active" ? 0 : 1} label="Status">
+                {(["Active", "Completed"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={statusTab === tab}
+                    style={{
+                      ...statusToggleBtnStyle(t, statusTab === tab),
+                      minHeight: TOUCH_TARGET_MIN,
+                      textAlign: "left",
+                      width: "100%",
+                    }}
+                    onClick={() => {
+                      setStatusTab(tab);
+                      setListPage(0);
+                    }}
+                  >
+                    {tab}
+                    {listLoadState === "ready" ? ` · ${statusCounts[tab]}` : ""}
+                  </button>
+                ))}
+              </FilterMenu>
+            }
+            create={
+              <CreateIconButton
+                t={t}
+                label="New initiative"
+                active={isCreating}
+                onClick={() => {
+                  if (isCreating) {
+                    setIsCreating(false);
+                    return;
+                  }
+                  setSuggestedOpen(false);
+                  setSelectedId(null);
+                  setOpenedSnapshot(null);
+                  setCreateError(null);
+                  setIsCreating(true);
+                  replaceQuery({ suggested: null, review: null, initiativeId: null });
+                }}
+              />
+            }
+          />
         </div>
-      </div>
-
-      <div role="tablist" aria-label="Initiative status" style={statusToggleStyle(t)}>
-        {(["Active", "Completed"] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={statusTab === tab}
-            style={statusToggleBtnStyle(t, statusTab === tab)}
-            onClick={() => {
-              setStatusTab(tab);
-              setListPage(0);
-            }}
-          >
-            {tab}
-            <em
-              style={{
-                color: statusTab === tab ? t.accent : t.muted,
-                fontStyle: "normal",
-                fontVariantNumeric: "tabular-nums",
-                fontWeight: 600,
-              }}
-            >
-              {listLoadState === "loading" ? (
-                <MagicShimmer theme={t} width={14} height={11} rounded={4} />
-              ) : (
-                statusCounts[tab]
-              )}
-            </em>
-          </button>
-        ))}
       </div>
 
       {listLoadState === "loading" ? (
@@ -2775,10 +2704,10 @@ export function InitiativesTab({
             {statusTab === "Completed"
               ? "Mark an active initiative Completed when the work ships."
               : showSuggested
-                ? "Fuel has suggested initiatives from intelligence, benchmark gaps, or uploaded documents. Review them, or create your own with + New initiative."
+                ? "Fuel has suggested initiatives from intelligence, benchmark gaps, or uploaded documents. Review them, or create your own with +."
                 : investorMode
-                  ? "Create diligence or value-creation work with + New initiative — kept private to your account."
-                  : "Create an initiative manually with + New initiative, or complete your company profile and upload documents in the Data Room so Fuel can recommend high-leverage work from intelligence and document findings."}
+                  ? "Create diligence or value-creation work with + — kept private to your account."
+                  : "Create an initiative with +, or complete your company profile and upload documents in the Data Room so Fuel can recommend high-leverage work from intelligence and document findings."}
           </p>
           {statusTab === "Active" && !investorMode && !showSuggested ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
@@ -2792,16 +2721,14 @@ export function InitiativesTab({
                   Upload documents
                 </button>
               ) : null}
-              <button
-                type="button"
-                style={primaryBtnStyle(t)}
-                onClick={() => {
-                  setCreateError(null);
-                  setIsCreating(true);
-                }}
-              >
-                + New initiative
-              </button>
+                <CreateIconButton
+                  t={t}
+                  label="New initiative"
+                  onClick={() => {
+                    setCreateError(null);
+                    setIsCreating(true);
+                  }}
+                />
             </div>
           ) : null}
           {statusTab === "Active" && showSuggested ? (
@@ -2823,7 +2750,7 @@ export function InitiativesTab({
       ) : null}
 
       {listLoadState !== "loading" && listItems.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="fuel-init-tab__list">
           {listItems.map((item) => {
             const status = normalizeUiStatus(item.status);
             const selected = selectedId === item.id;
@@ -2850,93 +2777,184 @@ export function InitiativesTab({
                 review: null,
               });
             };
+            const progressPct =
+              milestonesTotal > 0 ? Math.round((milestonesDone / milestonesTotal) * 100) : 0;
+            const ownerLabel = item.assignees.length
+              ? item.assignees.join(", ")
+              : item.ownerEmail;
+            const metaParts = [
+              kindLabel(item.kind),
+              pillarLabel(pillar),
+              ownerLabel,
+            ].filter(Boolean);
+            const mobileMeta =
+              milestonesTotal > 0
+                ? [...metaParts, `${milestonesDone}/${milestonesTotal} milestones`].join(" · ")
+                : metaParts.join(" · ");
+            const rail = pillarRailColor(t, pillar);
             return (
               <article
                 key={item.id}
-                className={`${INITIATIVE_CARD_CLASS}${selected ? " is-selected" : ""}`}
+                className={`fuel-init-card ${INITIATIVE_CARD_CLASS}${selected ? " is-selected" : ""}${
+                  status === "Active" ? " is-status-active" : ""
+                }`}
                 style={{
                   ...initiativeCardStyle(t),
-                  alignItems: "center",
-                  display: "flex",
-                  gap: 12,
-                  padding: "12px 14px",
+                  ["--fuel-init-rail" as string]: rail,
                 }}
               >
                 <button
                   type="button"
+                  className="fuel-init-card__body"
                   onClick={openInitiative}
                   aria-pressed={selected}
+                  aria-label={`Open ${item.name}`}
                   style={{
-                    alignItems: "center",
                     background: "transparent",
                     border: 0,
                     color: "inherit",
                     cursor: "pointer",
-                    display: "flex",
-                    flex: 1,
                     fontFamily: t.sans,
-                    gap: 12,
-                    justifyContent: "space-between",
-                    minWidth: 0,
-                    padding: 0,
+                    minHeight: TOUCH_TARGET_MIN,
                     textAlign: "left",
+                    width: "100%",
                   }}
                 >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
+                  <div className="fuel-init-card__top">
                     <strong style={initiativeCardTitleStyle(t)}>{item.name}</strong>
+                    <span
+                      className="fuel-init-card__status"
+                      style={initiativeStatusBadgeStyle(t, status)}
+                    >
+                      {status}
+                    </span>
+                  </div>
+                  <div className="fuel-init-card__chips">
+                    {metaParts.map((chip) => (
+                      <span key={chip} style={initiativeCardChipStyle(t)}>
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="fuel-init-card__meta-line" style={initiativeCardMetaLineStyle(t)}>
+                    {mobileMeta}
+                  </p>
+                  {milestonesTotal > 0 ? (
+                    <div className="fuel-init-card__progress">
+                      <div
+                        style={{
+                          alignItems: "center",
+                          color: t.muted,
+                          display: "flex",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>Milestones</span>
+                        <span style={{ color: t.inkSoft, fontVariantNumeric: "tabular-nums" }}>
+                          {milestonesDone}/{milestonesTotal}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          background: t.ruleSoft,
+                          borderRadius: 999,
+                          height: 4,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: rail,
+                            borderRadius: 999,
+                            height: "100%",
+                            transform: `scaleX(${progressPct / 100})`,
+                            transformOrigin: "left center",
+                            width: "100%",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <em
+                      className="fuel-init-card__empty-milestones"
+                      style={initiativeCardMetaStyle(t)}
+                    >
+                      No milestones yet
+                    </em>
+                  )}
+                  {milestonesTotal > 0 ? (
                     <div
+                      className="fuel-init-card__progress-slim"
+                      aria-hidden
                       style={{
-                        alignItems: "center",
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "8px 10px",
+                        background: t.ruleSoft,
+                        borderRadius: 999,
+                        height: 3,
+                        marginTop: 2,
+                        overflow: "hidden",
                       }}
                     >
-                      <span style={initiativeStatusBadgeStyle(t, status)}>{status}</span>
-                      <em style={initiativeCardMetaStyle(t)}>
-                        {kindLabel(item.kind)} · {pillarLabel(pillar)} ·{" "}
-                        {item.assignees.length ? item.assignees.join(", ") : item.ownerEmail}
-                        {milestonesTotal > 0
-                          ? ` · ${milestonesDone}/${milestonesTotal} milestones`
-                          : ""}
-                      </em>
+                      <div
+                        style={{
+                          background: rail,
+                          borderRadius: 999,
+                          height: "100%",
+                          transform: `scaleX(${progressPct / 100})`,
+                          transformOrigin: "left center",
+                          width: "100%",
+                        }}
+                      />
                     </div>
-                  </div>
+                  ) : null}
                 </button>
-                {canOpenIntelligence ? (
+                <div className="fuel-init-card__side">
+                  {canOpenIntelligence ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenIntelligence(intelligenceIds)}
+                      style={{
+                        ...dataRoomIntelligenceLinkStyle(t),
+                        flexShrink: 0,
+                        fontVariantNumeric: "tabular-nums",
+                        minHeight: TOUCH_TARGET_MIN,
+                        whiteSpace: "nowrap",
+                      }}
+                      aria-label={`View ${intelligenceTaggedCount} intelligence tagged to ${item.name}`}
+                    >
+                      {intelligenceTaggedCount} intel →
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => onOpenIntelligence(intelligenceIds)}
+                    onClick={openInitiative}
+                    className={`fuel-init-card__open ${INITIATIVE_CARD_OPEN_HINT_CLASS}`}
                     style={{
-                      ...dataRoomIntelligenceLinkStyle(t),
+                      background: `${t.accent}18`,
+                      border: `1px solid ${t.accent}47`,
+                      borderRadius: 8,
+                      color: t.accent,
+                      cursor: "pointer",
                       flexShrink: 0,
-                      fontVariantNumeric: "tabular-nums",
-                      whiteSpace: "nowrap",
+                      fontFamily: t.sans,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      minHeight: TOUCH_TARGET_MIN,
+                      padding: "0 12px",
                     }}
-                    aria-label={`View ${intelligenceTaggedCount} intelligence tagged to ${item.name}`}
+                    aria-label={`Open ${item.name}`}
                   >
-                    {intelligenceTaggedCount} intelligence →
+                    Open
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={openInitiative}
-                  className={INITIATIVE_CARD_OPEN_HINT_CLASS}
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: t.muted,
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    fontFamily: t.sans,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: 0,
-                  }}
-                  aria-label={`Open ${item.name}`}
-                >
-                  Open
-                </button>
+                  <span
+                    className="fuel-init-card__chevron"
+                    aria-hidden
+                    style={{ color: t.muted }}
+                  >
+                    ›
+                  </span>
+                </div>
               </article>
             );
           })}
@@ -3045,12 +3063,20 @@ export function InitiativesTab({
                   </div>
                   <button
                     type="button"
+                    className="fuel-drawer-close"
                     aria-label="Close"
                     disabled={isPending || Boolean(acceptingId)}
                     onClick={closeSuggestedDrawer}
-                    style={secondaryBtnStyle(t)}
+                    style={drawerCloseBtnStyle(t)}
                   >
-                    ✕
+                    <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+                      <path
+                        d="M4 4l8 8M12 4L4 12"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                      />
+                    </svg>
                   </button>
                 </header>
                 <div style={{ flex: 1, overflow: "auto", padding: "12px 20px 20px" }}>

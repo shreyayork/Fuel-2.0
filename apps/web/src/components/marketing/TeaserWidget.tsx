@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useAdaptiveLayout } from "@/lib/responsive";
+import { marketingPanel, marketingTheme as t } from "./styles";
 
 // Keep these in lockstep with the enum in /api/public/cohort-teaser. We
 // only expose verticals/stages that actually have seeded cohorts; the API
@@ -44,6 +46,9 @@ interface TeaserResponse {
  * land beneath via small fade.
  */
 export function TeaserWidget() {
+  const { phone, landscape, compact } = useAdaptiveLayout();
+  /** Stack copy + chart only in portrait phone; landscape keeps side-by-side. */
+  const stacked = phone && !landscape;
   const [vertical, setVertical] = useState<Vertical>("b2b_saas");
   const [stage, setStage] = useState<Stage>("seed");
   const [data, setData] = useState<TeaserResponse | null>(null);
@@ -82,29 +87,34 @@ export function TeaserWidget() {
   }, [vertical, stage]);
 
   return (
-    <section
+    <motion.section
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.6, ease: [0.22, 0.61, 0.36, 1] }}
       style={{
-        padding: "0 32px 96px",
-        maxWidth: 1180,
+        padding: "0 var(--gutter) var(--section-y)",
+        maxWidth: 1200,
         margin: "0 auto",
+        width: "100%",
+        boxSizing: "border-box",
       }}
     >
       <div
+        className="mkt-teaser-card"
         style={{
-          position: "relative",
-          background:
-            "linear-gradient(180deg, rgba(0,180,138,0.06) 0%, rgba(0,180,138,0) 100%)",
-          border: "1px solid rgba(31,49,64,0.95)",
-          borderRadius: 18,
-          padding: 36,
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-          gap: 32,
-          alignItems: "stretch",
-          overflow: "hidden",
+          ...marketingPanel({
+            padding: compact ? 22 : 36,
+            display: "grid",
+            gridTemplateColumns: stacked
+              ? "minmax(0, 1fr)"
+              : "minmax(0, 1fr) minmax(0, 1fr)",
+            gap: compact ? 24 : 32,
+            alignItems: "stretch",
+            background: `linear-gradient(145deg, ${t.accent}14 0%, ${t.panel}F2 42%, ${t.panelInner} 100%)`,
+          }),
         }}
       >
-        {/* Soft accent halo */}
         <div
           aria-hidden
           style={{
@@ -113,8 +123,7 @@ export function TeaserWidget() {
             right: "-10%",
             width: 400,
             height: 400,
-            background:
-              "radial-gradient(closest-side, rgba(0,180,138,0.18), transparent)",
+            background: `radial-gradient(closest-side, ${t.accent}2E, transparent)`,
             filter: "blur(20px)",
             pointerEvents: "none",
           }}
@@ -123,11 +132,11 @@ export function TeaserWidget() {
         <div style={{ position: "relative", zIndex: 1 }}>
           <div
             style={{
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
               letterSpacing: 2,
               textTransform: "uppercase",
-              color: "#00B48A",
+              color: t.accent,
               marginBottom: 12,
             }}
           >
@@ -136,11 +145,11 @@ export function TeaserWidget() {
           <h2
             style={{
               margin: 0,
-              fontSize: 30,
+              fontSize: "var(--fs-h2)",
               fontWeight: 600,
               letterSpacing: -0.4,
               lineHeight: 1.15,
-              color: "#F4F6F8",
+              color: t.ink,
             }}
           >
             See where the median company in your stage sits.
@@ -149,7 +158,7 @@ export function TeaserWidget() {
             style={{
               marginTop: 14,
               fontSize: 15,
-              color: "#CBD3DB",
+              color: t.inkSoft,
               lineHeight: 1.55,
               maxWidth: 460,
             }}
@@ -178,9 +187,8 @@ export function TeaserWidget() {
           style={{
             position: "relative",
             zIndex: 1,
-            background:
-              "linear-gradient(180deg, #0B141C 0%, #0F1A24 100%)",
-            border: "1px solid rgba(31,49,64,0.95)",
+            background: `linear-gradient(180deg, ${t.panelInner} 0%, ${t.bg} 100%)`,
+            border: `1px solid ${t.borderSubtle}`,
             borderRadius: 14,
             padding: 32,
             minHeight: 220,
@@ -188,6 +196,7 @@ export function TeaserWidget() {
             flexDirection: "column",
             justifyContent: "center",
             overflow: "hidden",
+            boxShadow: `0 0 0 1px ${t.borderFaint} inset, 0 20px 48px rgba(0,0,0,0.25)`,
           }}
         >
           <AnimatePresence mode="wait">
@@ -225,7 +234,7 @@ export function TeaserWidget() {
               >
                 <div
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     color: "#8A99A6",
                     textTransform: "uppercase",
                     letterSpacing: 1.5,
@@ -255,7 +264,7 @@ export function TeaserWidget() {
                   <div
                     style={{
                       marginTop: 10,
-                      fontSize: 11.5,
+                      fontSize: 12,
                       color: "#8A99A6",
                       fontStyle: "italic",
                     }}
@@ -269,7 +278,7 @@ export function TeaserWidget() {
           </AnimatePresence>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }
 
@@ -350,7 +359,7 @@ function Select<T extends string>({
         display: "flex",
         flexDirection: "column",
         gap: 6,
-        fontSize: 11,
+        fontSize: 12,
         color: "#8A99A6",
         letterSpacing: 1,
         textTransform: "uppercase",

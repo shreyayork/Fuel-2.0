@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 import { Chip, SectionHead } from "../atoms";
+import { FilterMenu, PageToolbar } from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
 
 export interface CohortSummary {
@@ -143,112 +145,150 @@ export function BenchmarksExplorer({
   const stages = Array.from(new Set(cohorts.map((c) => c.dimensions.stage).filter(Boolean))) as string[];
   const geos = Array.from(new Set(cohorts.map((c) => c.dimensions.geo).filter(Boolean))) as string[];
 
+  const filterActiveCount =
+    (businessModel ? 1 : 0) + (stage ? 1 : 0) + (geo ? 1 : 0);
+
   return (
-    <div>
+    <div className="fuel-benchmarks" style={{ fontFamily: t.sans }}>
       <SectionHead
         t={t}
         title="Benchmarks"
         subtitle="Percentile distributions for key metrics across peer cohorts. Pick a cohort to see where your portfolio stands."
-      />
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "280px 1fr",
-          gap: 20,
-          alignItems: "start",
-        }}
-      >
-        {/* Cohort picker */}
-        <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 8, padding: 12 }}>
-          <div
-            style={{
-              fontFamily: t.sans,
-              fontSize: 11,
-              color: t.muted,
-              fontWeight: 600,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              padding: "4px 8px 10px",
-            }}
-          >
-            Filter
-          </div>
-          <FilterRow t={t} label="Model" value={businessModel} options={models} onChange={setBusinessModel} />
-          <FilterRow t={t} label="Stage" value={stage} options={stages} onChange={setStage} />
-          <FilterRow t={t} label="Geo" value={geo} options={geos} onChange={setGeo} />
-          <div
-            style={{
-              fontFamily: t.sans,
-              fontSize: 11,
-              color: t.muted,
-              fontWeight: 600,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              padding: "14px 8px 10px",
-              borderTop: `1px solid ${t.ruleSoft}`,
-              marginTop: 10,
-            }}
-          >
-            Cohorts ({filteredCohorts.length})
-          </div>
-          {filteredCohorts.length === 0 ? (
-            <div style={{ padding: 12, fontFamily: t.sans, fontSize: 13, color: t.muted }}>
-              No cohorts match these filters.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {filteredCohorts.map((c) => {
-                const active = c.cohortKey === activeCohortKey;
-                return (
-                  <button
-                    key={c.cohortKey}
-                    onClick={() => pickCohort(c.cohortKey)}
+        right={
+          <PageToolbar
+            t={t}
+            filter={
+              <FilterMenu t={t} activeCount={filterActiveCount}>
+                <div
+                  style={{
+                    alignItems: "center",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <span
                     style={{
-                      textAlign: "left",
-                      padding: "8px 10px",
-                      background: active ? t.panelAlt : "transparent",
-                      border: `1px solid ${active ? t.rule : "transparent"}`,
-                      borderRadius: 6,
+                      color: t.muted,
                       fontFamily: t.sans,
-                      fontSize: 12.5,
-                      color: active ? t.ink : t.inkSoft,
-                      fontWeight: active ? 600 : 500,
-                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 650,
                     }}
                   >
-                    <div>{labelForCohort(c)}</div>
-                    <div style={{ fontSize: 10.5, color: t.muted, marginTop: 2, fontFamily: t.mono }}>
-                      n={c.sampleSize ?? "?"} · {c.metricCount} metrics
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    Dimensions
+                  </span>
+                  {filterActiveCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBusinessModel(null);
+                        setStage(null);
+                        setGeo(null);
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: t.accent,
+                        cursor: "pointer",
+                        fontFamily: t.sans,
+                        fontSize: 13,
+                        fontWeight: 650,
+                        minHeight: TOUCH_TARGET_MIN,
+                        padding: "0 4px",
+                      }}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+                <div className="fuel-benchmarks__filters" style={{ padding: 0 }}>
+                  <FilterSelect
+                    t={t}
+                    label="Model"
+                    value={businessModel}
+                    options={models}
+                    onChange={setBusinessModel}
+                  />
+                  <FilterSelect
+                    t={t}
+                    label="Stage"
+                    value={stage}
+                    options={stages}
+                    onChange={setStage}
+                  />
+                  <FilterSelect
+                    t={t}
+                    label="Geo"
+                    value={geo}
+                    options={geos}
+                    onChange={setGeo}
+                  />
+                </div>
+                {filteredCohorts.length === 0 ? (
+                  <div
+                    style={{
+                      color: t.muted,
+                      fontFamily: t.sans,
+                      fontSize: 14,
+                    }}
+                  >
+                    No peer groups match these filters.
+                  </div>
+                ) : (
+                  <CohortFilter
+                    t={t}
+                    cohorts={filteredCohorts}
+                    activeCohortKey={activeCohortKey}
+                    onPick={pickCohort}
+                  />
+                )}
+              </FilterMenu>
+            }
+          />
+        }
+      />
 
+      <div className="fuel-benchmarks__layout">
         {/* Metric cards */}
-        <div>
+        <div className="fuel-benchmarks__main" style={{ minWidth: 0 }}>
           {activeCohort ? (
-            <div style={{ marginBottom: 14, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontFamily: t.sans, fontSize: 17, fontWeight: 600, color: t.ink }}>
+            <div
+              className="fuel-benchmarks__active-head"
+              style={{
+                alignItems: "center",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 14,
+              }}
+            >
+              <span
+                style={{
+                  color: t.ink,
+                  fontFamily: t.sans,
+                  fontSize: 17,
+                  fontWeight: 700,
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.3,
+                  minWidth: 0,
+                }}
+              >
                 {labelForCohort(activeCohort)}
               </span>
-              <Chip t={t} tone="ghost">n={activeCohort.sampleSize ?? "?"}</Chip>
+              <Chip t={t} tone="ghost">
+                n={activeCohort.sampleSize ?? "?"}
+              </Chip>
               {activeCohort.dimensions.geo ? (
                 <Chip t={t} tone="ghost">{activeCohort.dimensions.geo.toUpperCase()}</Chip>
               ) : null}
             </div>
-          ) : null}
+          ) : (
+            <p style={{ color: t.muted, fontFamily: t.sans, fontSize: 13, margin: "0 0 14px" }}>
+              Select a cohort to inspect percentile bands.
+            </p>
+          )}
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 320px), 1fr))",
-              gap: 10,
-            }}
-          >
+          <div className="fuel-benchmarks__metrics">
             {metricDefs.map((def) => {
               const row = metricByKey.get(def.id) ?? null;
               return (
@@ -279,14 +319,15 @@ export function BenchmarksExplorer({
 
           <div
             style={{
+              color: t.muted,
               fontFamily: t.sans,
               fontSize: 11,
-              color: t.muted,
+              lineHeight: 1.45,
               marginTop: 14,
             }}
           >
-            Synthetic seed data. Real cohort aggregation from our portfolio + Bright Data
-            + paid sources lands next.
+            Synthetic seed data. Real cohort aggregation from our portfolio + Bright Data + paid
+            sources lands next.
           </div>
         </div>
       </div>
@@ -294,7 +335,140 @@ export function BenchmarksExplorer({
   );
 }
 
-function FilterRow({
+function CohortFilter({
+  t,
+  cohorts,
+  activeCohortKey,
+  onPick,
+}: {
+  t: ReturnType<typeof useTheme>;
+  cohorts: CohortSummary[];
+  activeCohortKey: string | null;
+  onPick: (key: string) => void;
+}) {
+  const useSelect = cohorts.length > 8;
+  return (
+    <div className="fuel-benchmarks__cohort-filter">
+      <div
+        style={{
+          color: t.muted,
+          fontFamily: t.sans,
+          fontSize: 12,
+          fontWeight: 650,
+          margin: "12px 4px 8px",
+        }}
+      >
+        Peer group
+      </div>
+      {useSelect ? (
+        <label
+          className="fuel-benchmarks__filter-field"
+          style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, padding: "0 4px" }}
+        >
+          <span style={{ display: "block", position: "relative" }}>
+            <select
+              aria-label="Peer group"
+              value={activeCohortKey ?? ""}
+              onChange={(e) => {
+                if (e.target.value) onPick(e.target.value);
+              }}
+              style={{
+                WebkitAppearance: "none",
+                appearance: "none",
+                backgroundColor: t.panelAlt,
+                border: `1px solid ${t.rule}`,
+                borderRadius: 8,
+                color: t.ink,
+                cursor: "pointer",
+                fontFamily: t.sans,
+                fontSize: 14,
+                fontWeight: 650,
+                minHeight: TOUCH_TARGET_MIN,
+                padding: "0 32px 0 12px",
+                width: "100%",
+              }}
+            >
+              {cohorts.map((c) => (
+                <option key={c.cohortKey} value={c.cohortKey}>
+                  {labelForCohort(c)}
+                  {c.sampleSize != null ? ` · n=${c.sampleSize}` : ""}
+                </option>
+              ))}
+            </select>
+            <span
+              aria-hidden
+              style={{
+                borderBottom: `1.5px solid ${t.muted}`,
+                borderRight: `1.5px solid ${t.muted}`,
+                height: 7,
+                pointerEvents: "none",
+                position: "absolute",
+                right: 14,
+                top: "50%",
+                transform: "translateY(-65%) rotate(45deg)",
+                width: 7,
+              }}
+            />
+          </span>
+        </label>
+      ) : (
+        <div
+          className="fuel-benchmarks__cohorts"
+          role="radiogroup"
+          aria-label="Peer group"
+        >
+          {cohorts.map((c) => {
+            const active = c.cohortKey === activeCohortKey;
+            const sample = c.sampleSize != null ? `n=${c.sampleSize}` : null;
+            return (
+              <button
+                key={c.cohortKey}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => onPick(c.cohortKey)}
+                style={{
+                  alignItems: "center",
+                  background: active ? t.accentSoft : t.panelAlt,
+                  border: `1px solid ${active ? t.accent : t.rule}`,
+                  borderRadius: 999,
+                  color: t.ink,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  flexWrap: "wrap",
+                  fontFamily: t.sans,
+                  fontSize: 13,
+                  fontWeight: active ? 700 : 550,
+                  gap: 6,
+                  justifyContent: "flex-start",
+                  minHeight: TOUCH_TARGET_MIN,
+                  padding: "8px 12px",
+                  textAlign: "left",
+                }}
+              >
+                <span>{labelForCohort(c)}</span>
+                {sample ? (
+                  <span
+                    style={{
+                      color: t.muted,
+                      fontFamily: t.mono,
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {sample}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterSelect({
   t,
   label,
   value,
@@ -309,60 +483,67 @@ function FilterRow({
 }) {
   if (options.length === 0) return null;
   return (
-    <div style={{ padding: "2px 6px 8px" }}>
-      <div
+    <label
+      className="fuel-benchmarks__filter-field"
+      style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}
+    >
+      <span
         style={{
+          color: t.mutedSoft,
           fontFamily: t.mono,
           fontSize: 10,
-          color: t.mutedSoft,
+          fontWeight: 650,
+          letterSpacing: "0.08em",
           textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          marginBottom: 4,
         }}
       >
         {label}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-        <button
-          onClick={() => onChange(null)}
+      </span>
+      <span style={{ display: "block", position: "relative" }}>
+        <select
+          aria-label={`Filter by ${label}`}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value ? e.target.value : null)}
           style={{
-            padding: "3px 8px",
-            borderRadius: 999,
-            fontFamily: t.sans,
-            fontSize: 11,
-            background: value == null ? t.accent : "transparent",
-            color: value == null ? "#0B1116" : t.inkSoft,
-            border: `1px solid ${value == null ? t.accent : t.rule}`,
+            WebkitAppearance: "none",
+            appearance: "none",
+            backgroundColor: t.panelAlt,
+            border: `1px solid ${value ? `${t.accent}66` : t.rule}`,
+            borderRadius: 8,
+            boxShadow: value ? `inset 0 0 0 1px ${t.accent}22` : undefined,
+            color: t.ink,
             cursor: "pointer",
-            fontWeight: value == null ? 600 : 500,
+            fontFamily: t.sans,
+            fontSize: 14,
+            fontWeight: value ? 650 : 500,
+            minHeight: TOUCH_TARGET_MIN,
+            padding: "0 32px 0 12px",
+            width: "100%",
           }}
         >
-          any
-        </button>
-        {options.map((o) => {
-          const active = value === o;
-          return (
-            <button
-              key={o}
-              onClick={() => onChange(active ? null : o)}
-              style={{
-                padding: "3px 8px",
-                borderRadius: 999,
-                fontFamily: t.sans,
-                fontSize: 11,
-                background: active ? t.accent : "transparent",
-                color: active ? "#0B1116" : t.inkSoft,
-                border: `1px solid ${active ? t.accent : t.rule}`,
-                cursor: "pointer",
-                fontWeight: active ? 600 : 500,
-              }}
-            >
+          <option value="">Any</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
               {prettify(o)}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+            </option>
+          ))}
+        </select>
+        <span
+          aria-hidden
+          style={{
+            borderBottom: `1.5px solid ${t.muted}`,
+            borderRight: `1.5px solid ${t.muted}`,
+            height: 7,
+            pointerEvents: "none",
+            position: "absolute",
+            right: 14,
+            top: "50%",
+            transform: "translateY(-65%) rotate(45deg)",
+            width: 7,
+          }}
+        />
+      </span>
+    </label>
   );
 }
 
@@ -416,53 +597,72 @@ function MetricAcrossCohortsPanel({
 
   return (
     <div
+      className="fuel-benchmarks__drill"
       style={{
-        marginTop: 18,
-        padding: 18,
         background: t.panel,
-        border: `1px solid ${t.accent}33`,
-        borderLeft: `3px solid ${t.accent}`,
-        borderRadius: 8,
+        border: `1px solid ${t.accent}55`,
+        borderRadius: 12,
+        boxShadow: `0 8px 24px ${t.borderFaint}`,
+        marginTop: 18,
+        padding: 16,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div>
+      <div className="fuel-benchmarks__drill-head">
+        <div style={{ minWidth: 0 }}>
           <div
             style={{
+              color: t.accent,
               fontFamily: t.sans,
               fontSize: 11,
-              fontWeight: 600,
-              color: t.accent,
+              fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
           >
             Metric drill-down
           </div>
-          <div style={{ fontFamily: t.sans, fontSize: 16, fontWeight: 700, color: t.ink, marginTop: 2 }}>
+          <div
+            style={{
+              color: t.ink,
+              fontFamily: t.sans,
+              fontSize: 16,
+              fontWeight: 700,
+              letterSpacing: "-0.01em",
+              marginTop: 2,
+            }}
+          >
             {metricDef?.label ?? metricId} across {entries.length} cohorts
           </div>
           {metricDef?.hint ? (
-            <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, marginTop: 2 }}>
+            <div style={{ color: t.muted, fontFamily: t.sans, fontSize: 12, marginTop: 4 }}>
               {metricDef.hint}
             </div>
           ) : null}
         </div>
         <button
+          type="button"
           onClick={onClose}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: t.muted,
-            fontSize: 16,
-            cursor: "pointer",
-          }}
+          aria-label="Close drill-down"
           title="Close"
+          style={{
+            alignItems: "center",
+            background: t.mode === "editorial" ? t.bg : t.panelAlt,
+            border: `1px solid ${t.rule}`,
+            borderRadius: 10,
+            color: t.inkSoft,
+            cursor: "pointer",
+            display: "inline-flex",
+            flexShrink: 0,
+            fontSize: 18,
+            height: TOUCH_TARGET_MIN,
+            justifyContent: "center",
+            width: TOUCH_TARGET_MIN,
+          }}
         >
           ×
         </button>
       </div>
-      <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
         {entries
           .sort((a, b) => (b.row.p50 ?? 0) - (a.row.p50 ?? 0))
           .map(({ cohortKey, label, row }) => {
@@ -470,57 +670,67 @@ function MetricAcrossCohortsPanel({
             return (
               <button
                 key={cohortKey}
+                type="button"
                 onClick={() => onPick(cohortKey)}
                 style={{
-                  textAlign: "left",
-                  background: active ? t.panelAlt : "transparent",
-                  border: `1px solid ${active ? t.accent : "transparent"}`,
-                  borderRadius: 6,
-                  padding: "8px 10px",
+                  background: active ? `${t.accent}14` : "transparent",
+                  border: `1px solid ${active ? `${t.accent}66` : t.rule}`,
+                  borderRadius: 10,
+                  color: t.ink,
                   cursor: "pointer",
                   fontFamily: t.sans,
-                  color: t.ink,
+                  padding: "10px 12px",
+                  textAlign: "left",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 500 }}>
-                  <span>{label}</span>
-                  <span style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    gap: 8,
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span style={{ minWidth: 0 }}>{label}</span>
+                  <span style={{ color: t.muted, fontFamily: t.mono, fontSize: 11 }}>
                     p50 {fmtValue(row.p50, row.unit)}
                   </span>
                 </div>
-                <div style={{ position: "relative", height: 10, marginTop: 6 }}>
+                <div style={{ height: 10, marginTop: 8, position: "relative" }}>
                   <div
                     style={{
-                      position: "absolute",
-                      top: 4,
-                      left: 0,
-                      right: 0,
-                      height: 2,
                       background: t.panelAlt,
+                      height: 2,
+                      left: 0,
+                      position: "absolute",
+                      right: 0,
+                      top: 4,
                     }}
                   />
                   {row.p25 != null && row.p90 != null ? (
                     <div
                       style={{
-                        position: "absolute",
-                        top: 2,
-                        left: `${pos(row.p25)}%`,
-                        width: `${pos(row.p90) - pos(row.p25)}%`,
-                        height: 6,
                         background: `linear-gradient(90deg, ${t.accent}33 0%, ${t.accent}88 50%, ${t.accent} 100%)`,
                         borderRadius: 3,
+                        height: 6,
+                        left: `${pos(row.p25)}%`,
+                        position: "absolute",
+                        top: 2,
+                        width: `${Math.max(pos(row.p90) - pos(row.p25), 0)}%`,
                       }}
                     />
                   ) : null}
                   {row.p50 != null ? (
                     <div
                       style={{
-                        position: "absolute",
+                        background: t.ink,
+                        height: 10,
                         left: `calc(${pos(row.p50)}% - 1px)`,
+                        position: "absolute",
                         top: 0,
                         width: 2,
-                        height: 10,
-                        background: t.ink,
                       }}
                     />
                   ) : null}
@@ -548,51 +758,66 @@ function MetricCard({
 }) {
   const inverted = row?.invertedGood ?? def.invertedGood ?? false;
   return (
-    <div
+    <button
+      type="button"
+      className={`fuel-benchmarks__metric${expanded ? " is-expanded" : ""}`}
       onClick={onToggle}
+      aria-expanded={expanded}
+      disabled={!onToggle}
       style={{
         background: t.panel,
-        border: `1px solid ${expanded ? t.accent : t.rule}`,
-        borderRadius: 8,
-        padding: 14,
+        border: `1px solid ${expanded ? `${t.accent}66` : t.rule}`,
+        borderRadius: 12,
+        boxShadow: expanded ? `0 8px 24px ${t.borderFaint}` : "none",
         cursor: onToggle ? "pointer" : "default",
+        display: "block",
+        fontFamily: t.sans,
+        padding: 14,
+        textAlign: "left",
         transition: "border-color 120ms ease",
+        width: "100%",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-        <span style={{ fontFamily: t.sans, fontSize: 13, fontWeight: 600, color: t.ink }}>
-          {def.label}
-        </span>
+      <div
+        style={{
+          alignItems: "baseline",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 6,
+          justifyContent: "space-between",
+          marginBottom: 4,
+        }}
+      >
+        <span style={{ color: t.ink, fontSize: 13.5, fontWeight: 700 }}>{def.label}</span>
         {inverted ? (
-          <span style={{ fontFamily: t.sans, fontSize: 10, color: t.muted }}>
-            lower is better
-          </span>
+          <span style={{ color: t.muted, fontSize: 10, fontWeight: 600 }}>lower is better</span>
         ) : null}
       </div>
-      <div style={{ fontFamily: t.sans, fontSize: 11.5, color: t.muted, marginBottom: 10 }}>
-        {def.hint ?? ""}
-      </div>
+      {def.hint ? (
+        <div style={{ color: t.muted, fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{def.hint}</div>
+      ) : (
+        <div style={{ marginBottom: 10 }} />
+      )}
       {row ? (
         <div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 8,
-              fontFeatureSettings: '"tnum" 1',
-            }}
-          >
+          <div className="fuel-benchmarks__pcts" style={{ fontFeatureSettings: '"tnum" 1' }}>
             {(["p25", "p50", "p75", "p90"] as const).map((p) => (
               <div key={p}>
-                <div style={{ fontFamily: t.mono, fontSize: 10, color: t.muted, textTransform: "uppercase" }}>
+                <div
+                  style={{
+                    color: t.muted,
+                    fontFamily: t.mono,
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                  }}
+                >
                   {p}
                 </div>
                 <div
                   style={{
-                    fontFamily: t.sans,
-                    fontSize: 15,
-                    fontWeight: 600,
                     color: p === "p50" ? t.ink : t.inkSoft,
+                    fontSize: 15,
+                    fontWeight: 700,
                     marginTop: 2,
                   }}
                 >
@@ -601,24 +826,31 @@ function MetricCard({
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 10, height: 5, background: t.panelAlt, borderRadius: 3, position: "relative", overflow: "hidden" }}>
+          <div
+            style={{
+              background: t.panelAlt,
+              borderRadius: 3,
+              height: 5,
+              marginTop: 12,
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
             <div
               style={{
-                position: "absolute",
+                background: `linear-gradient(90deg, ${t.accent}66 0%, ${t.accent} 50%, ${t.accent}66 100%)`,
+                bottom: 0,
                 left: "25%",
+                position: "absolute",
                 right: "25%",
                 top: 0,
-                bottom: 0,
-                background: `linear-gradient(90deg, ${t.accent}66 0%, ${t.accent} 50%, ${t.accent}66 100%)`,
               }}
             />
           </div>
         </div>
       ) : (
-        <div style={{ fontFamily: t.sans, fontSize: 12, color: t.mutedSoft, padding: "12px 0" }}>
-          Not in this cohort
-        </div>
+        <div style={{ color: t.mutedSoft, fontSize: 12, padding: "12px 0" }}>Not in this cohort</div>
       )}
-    </div>
+    </button>
   );
 }

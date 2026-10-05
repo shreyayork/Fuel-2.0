@@ -28,6 +28,7 @@ import {
   formatInsufficientCreditsMessage,
 } from "@/lib/credits/logic";
 import { useToast } from "@/components/toast/ToastProvider";
+import { CreateIconButton } from "@/components/ToolbarActions";
 import {
   dataRoomMenuOptionStyle,
   dataRoomMenuStyle,
@@ -50,6 +51,7 @@ export function DocumentUploadDropdown({
   onAttachError,
   attachedFileName = null,
   inline = false,
+  iconOnly = false,
   creditBalance,
   onUploadResult,
 }: {
@@ -69,6 +71,8 @@ export function DocumentUploadDropdown({
   onAttachError?: (message: string) => void;
   attachedFileName?: string | null;
   inline?: boolean;
+  /** Square navy plus — Data Room / compact headers. */
+  iconOnly?: boolean;
   creditBalance?: number;
   onUploadResult?: (result: DataRoomUploadResult) => void;
 }) {
@@ -437,18 +441,30 @@ export function DocumentUploadDropdown({
         onChange={handleFileChange}
       />
       <div ref={wrapRef} style={{ position: "relative" }}>
-        <button
-          type="button"
-          style={triggerStyle}
-          disabled={isProcessing}
-          aria-expanded={open}
-          aria-haspopup="listbox"
-          onMouseEnter={() => setTriggerHovered(true)}
-          onMouseLeave={() => setTriggerHovered(false)}
-          onClick={() => setOpen((value) => !value)}
-        >
-          {renderTriggerLabel()}
-        </button>
+        {iconOnly ? (
+          <CreateIconButton
+            t={t}
+            label={isProcessing ? "Processing document" : "Upload document"}
+            active={open}
+            disabled={isProcessing}
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            onClick={() => setOpen((value) => !value)}
+          />
+        ) : (
+          <button
+            type="button"
+            style={triggerStyle}
+            disabled={isProcessing}
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            onMouseEnter={() => setTriggerHovered(true)}
+            onMouseLeave={() => setTriggerHovered(false)}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {renderTriggerLabel()}
+          </button>
+        )}
       </div>
       {menu && typeof document !== "undefined" ? createPortal(menu, document.body) : null}
     </>

@@ -1,20 +1,20 @@
 import type { CSSProperties } from "react";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 import type { Theme } from "@/lib/theme";
 
+export { drawerCloseBtnStyle } from "@/components/drawer/styles";
+
+/** Spacing comes from `.fuel-company-tab` / `.fuel-init-tab` — avoid inline gap that overrides mobile CSS. */
 export function initiativesPageStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-    marginTop: 16,
-  };
+  return {};
 }
 
 export function initiativesHeadStyle(): CSSProperties {
   return {
-    alignItems: "flex-start",
+    alignItems: "center",
     display: "flex",
-    gap: 16,
+    flexWrap: "nowrap",
+    gap: 12,
     justifyContent: "space-between",
   };
 }
@@ -33,30 +33,40 @@ export function initiativesHeadActionsStyle(): CSSProperties {
 /** Design `.initiatives-primary-btn` */
 export function primaryBtnStyle(t: Theme): CSSProperties {
   return {
+    alignItems: "center",
     background: t.ink,
     border: `1px solid ${t.ink}`,
-    borderRadius: 8,
-    color: t.bg,
+    borderRadius: 10,
+    boxSizing: "border-box",
+    color: t.mode === "editorial" ? t.panel : t.bg,
     cursor: "pointer",
+    display: "inline-flex",
     fontFamily: t.sans,
     fontSize: 12.5,
-    fontWeight: 600,
-    padding: "9px 13px",
+    fontWeight: 650,
+    justifyContent: "center",
+    minHeight: 40,
+    padding: "0 14px",
   };
 }
 
 /** Design `.initiatives-secondary-btn` */
 export function secondaryBtnStyle(t: Theme): CSSProperties {
   return {
-    background: "transparent",
+    alignItems: "center",
+    background: t.panel,
     border: `1px solid ${t.rule}`,
-    borderRadius: 8,
+    borderRadius: 10,
+    boxSizing: "border-box",
     color: t.inkSoft,
     cursor: "pointer",
+    display: "inline-flex",
     fontFamily: t.sans,
     fontSize: 12.5,
-    fontWeight: 500,
-    padding: "9px 13px",
+    fontWeight: 600,
+    justifyContent: "center",
+    minHeight: 40,
+    padding: "0 14px",
   };
 }
 
@@ -94,9 +104,16 @@ export function statusToggleBtnStyle(t: Theme, active: boolean): CSSProperties {
 export function panelCardStyle(t: Theme): CSSProperties {
   return {
     background: t.panel,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 10,
+    border: `1px solid ${t.borderSubtle}`,
+    borderRadius: 12,
+    boxShadow: t.mode === "editorial" ? `0 1px 0 ${t.borderFaint}` : "none",
   };
+}
+
+export function pillarRailColor(t: Theme, pillar: "mkt" | "dev" | "rev"): string {
+  if (pillar === "mkt") return t.trackMarketing;
+  if (pillar === "rev") return t.trackFinOps;
+  return t.accent;
 }
 
 export function emptyCardStyle(t: Theme): CSSProperties {
@@ -121,8 +138,8 @@ export function formCardStyle(t: Theme): CSSProperties {
 
 export const INITIATIVE_FORM_CONTROL_CLASS = "initiative-form-control";
 
-/** Shared control height — Safari native select/date otherwise diverge from inputs. */
-export const INITIATIVE_FORM_CONTROL_MIN_HEIGHT_PX = 40;
+/** Shared control height — touch-friendly; Safari select height locked via CSS. */
+export const INITIATIVE_FORM_CONTROL_MIN_HEIGHT_PX = TOUCH_TARGET_MIN;
 
 /** Design idle = `--bg-main` / `#F7F8FA`; focus → white + ink border (light). */
 export function formControlStyle(t: Theme): CSSProperties {
@@ -138,6 +155,7 @@ export function formControlStyle(t: Theme): CSSProperties {
     minHeight: INITIATIVE_FORM_CONTROL_MIN_HEIGHT_PX,
     outline: "none",
     padding: "10px 12px",
+    width: "100%",
   };
 }
 
@@ -155,6 +173,7 @@ export function initiativeFormControlsCss(t: Theme): string {
 .${INITIATIVE_FORM_CONTROL_CLASS} {
   box-sizing: border-box;
   min-height: ${INITIATIVE_FORM_CONTROL_MIN_HEIGHT_PX}px;
+  width: 100%;
 }
 /* Safari native <select> stacks UA padding on CSS padding → oversized height.
  * Fixed height + zero vertical padding keeps it aligned with input/button peers.
@@ -166,6 +185,11 @@ select.${INITIATIVE_FORM_CONTROL_CLASS} {
   min-height: ${INITIATIVE_FORM_CONTROL_MIN_HEIGHT_PX}px !important;
   padding-bottom: 0 !important;
   padding-top: 0 !important;
+}
+@media (max-width: 767px) {
+  .${INITIATIVE_FORM_CONTROL_CLASS} {
+    font-size: 16px !important;
+  }
 }
 .${INITIATIVE_FORM_CONTROL_CLASS}:focus {
   background-color: ${focusBg} !important;
@@ -203,7 +227,7 @@ export function initiativeCardStyle(t: Theme): CSSProperties {
   return {
     background: t.panel,
     border: `1px solid ${t.rule}`,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: "hidden",
   };
 }
@@ -215,16 +239,20 @@ export function initiativeStatusBadgeStyle(
 ): CSSProperties {
   const tone =
     status === "Completed"
-      ? { border: `${t.muted}73`, color: t.muted }
-      : { border: `${t.accent}59`, color: t.accent };
+      ? { bg: `${t.muted}14`, color: t.muted }
+      : status === "Suggested"
+        ? { bg: `${t.warn}22`, color: t.warn }
+        : { bg: `${t.accent}18`, color: t.accent };
   return {
-    border: `1px solid ${tone.border}`,
-    borderRadius: 4,
+    background: tone.bg,
+    border: 0,
+    borderRadius: 999,
     color: tone.color,
-    fontSize: 9,
-    fontWeight: 800,
-    letterSpacing: "0.06em",
-    padding: "2px 6px",
+    flexShrink: 0,
+    fontSize: 10,
+    fontWeight: 750,
+    letterSpacing: "0.05em",
+    padding: "4px 8px",
     textTransform: "uppercase",
     whiteSpace: "nowrap",
   };
@@ -234,10 +262,14 @@ export function initiativeStatusBadgeStyle(
 export function initiativeCardTitleStyle(t: Theme): CSSProperties {
   return {
     color: t.ink,
-    fontSize: 13,
-    fontWeight: 500,
-    letterSpacing: 0,
-    lineHeight: 1.35,
+    fontSize: 14.5,
+    fontWeight: 650,
+    letterSpacing: "-0.015em",
+    lineHeight: 1.3,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   };
 }
 
@@ -249,6 +281,37 @@ export function initiativeCardMetaStyle(t: Theme): CSSProperties {
     fontStyle: "normal",
     fontWeight: 500,
     letterSpacing: 0,
+  };
+}
+
+/** Compact single-line meta for list cards (kind · pillar · owner). */
+export function initiativeCardMetaLineStyle(t: Theme): CSSProperties {
+  return {
+    color: t.muted,
+    fontFamily: t.sans,
+    fontSize: 12,
+    fontStyle: "normal",
+    fontWeight: 500,
+    letterSpacing: 0,
+    lineHeight: 1.35,
+    margin: 0,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  };
+}
+
+/** Desktop chip used in the richer list-card meta row. */
+export function initiativeCardChipStyle(t: Theme): CSSProperties {
+  return {
+    background: t.mode === "editorial" ? t.bg : t.panelAlt,
+    borderRadius: 999,
+    color: t.muted,
+    fontSize: 11,
+    fontWeight: 600,
+    padding: "3px 8px",
+    whiteSpace: "nowrap",
   };
 }
 
@@ -287,6 +350,57 @@ export function drawerEyebrowStyle(t: Theme): CSSProperties {
   };
 }
 
+export function drawerHeaderStyle(t: Theme): CSSProperties {
+  return {
+    borderBottom: `1px solid ${t.rule}`,
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: "14px 18px",
+  };
+}
+
+export function drawerHeaderTitleBlockStyle(): CSSProperties {
+  return {
+    flex: "1 1 auto",
+    minWidth: 0,
+  };
+}
+
+/** Status + Delete row — always full width under title/close. */
+export function drawerHeaderActionsStyle(): CSSProperties {
+  return {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "nowrap",
+    gap: 10,
+    width: "100%",
+  };
+}
+
+export function drawerTitleStyle(t: Theme): CSSProperties {
+  return {
+    color: t.ink,
+    fontFamily: t.sans,
+    fontSize: 18,
+    fontWeight: 800,
+    letterSpacing: "-0.01em",
+    lineHeight: 1.25,
+    margin: 0,
+    overflowWrap: "break-word",
+  };
+}
+
+export function drawerMetaStyle(t: Theme): CSSProperties {
+  return {
+    color: t.muted,
+    fontFamily: t.sans,
+    fontSize: 12,
+    lineHeight: 1.4,
+    margin: "6px 0 0",
+  };
+}
+
 export function sectionLabelStyle(t: Theme): CSSProperties {
   return {
     color: t.mutedSoft,
@@ -319,7 +433,7 @@ export function initiativeDrawerWidthStyle(): CSSProperties {
   };
 }
 
-/** Design `.initiative-drawer-delete`. */
+/** Design `.initiative-drawer-delete` — confirm/destructive filled control. */
 export function drawerDeleteBtnStyle(t: Theme): CSSProperties {
   return {
     background: `${t.negative}1A`,
@@ -330,7 +444,23 @@ export function drawerDeleteBtnStyle(t: Theme): CSSProperties {
     fontFamily: t.sans,
     fontSize: 12,
     fontWeight: 700,
-    padding: "7px 11px",
+    minHeight: TOUCH_TARGET_MIN,
+    padding: "0 12px",
+  };
+}
+
+/** Quiet delete affordance before confirm. */
+export function drawerDeleteLinkStyle(t: Theme): CSSProperties {
+  return {
+    background: "transparent",
+    border: 0,
+    color: t.negative,
+    cursor: "pointer",
+    fontFamily: t.sans,
+    fontSize: 12.5,
+    fontWeight: 600,
+    minHeight: TOUCH_TARGET_MIN,
+    padding: "0 4px",
   };
 }
 
@@ -356,10 +486,13 @@ export function drawerSectionCardStyle(t: Theme): CSSProperties {
     background: isLight ? t.panel : t.panelAlt,
     border: `1px solid ${t.rule}`,
     borderRadius: 10,
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: 14,
+    minWidth: 0,
     padding: "16px 18px",
+    width: "100%",
   };
 }
 
@@ -391,7 +524,139 @@ export function drawerMiniBtnStyle(t: Theme): CSSProperties {
     ...secondaryBtnStyle(t),
     fontSize: 11,
     fontWeight: 600,
-    padding: "6px 10px",
+    minHeight: TOUCH_TARGET_MIN,
+    padding: "0 12px",
+  };
+}
+
+/** Progress section title — clearer hierarchy than the old all-caps eyebrow. */
+export function progressSectionTitleStyle(t: Theme): CSSProperties {
+  return {
+    color: t.ink,
+    fontFamily: t.sans,
+    fontSize: 15,
+    fontWeight: 700,
+    letterSpacing: "-0.015em",
+    lineHeight: 1.25,
+    margin: 0,
+  };
+}
+
+export function progressSectionSubtitleStyle(t: Theme): CSSProperties {
+  return {
+    color: t.muted,
+    fontFamily: t.sans,
+    fontSize: 12.5,
+    fontWeight: 500,
+    letterSpacing: 0,
+    lineHeight: 1.4,
+    margin: "4px 0 0",
+  };
+}
+
+export function progressSectionHeadStyle(t: Theme): CSSProperties {
+  return {
+    borderBottom: `1px solid ${t.rule}`,
+    paddingBottom: 14,
+  };
+}
+
+/** Log / Link intelligence CTAs — active state when the form panel is open. */
+export function progressCtaBtnStyle(t: Theme, active = false): CSSProperties {
+  return {
+    ...secondaryBtnStyle(t),
+    background: active
+      ? `${t.accent}18`
+      : t.mode === "editorial"
+        ? t.panel
+        : t.panelAlt,
+    border: `1px solid ${active ? `${t.accent}47` : t.rule}`,
+    color: active ? t.accent : t.inkSoft,
+    fontSize: 12.5,
+    fontWeight: 650,
+    minHeight: TOUCH_TARGET_MIN,
+    padding: "0 14px",
+  };
+}
+
+export function progressEmptyStateStyle(t: Theme): CSSProperties {
+  return {
+    background: t.mode === "editorial" ? t.bg : t.panelInner,
+    border: `1px dashed ${t.rule}`,
+    borderRadius: 10,
+    color: t.muted,
+    fontFamily: t.sans,
+    fontSize: 13,
+    lineHeight: 1.55,
+    padding: "18px 16px",
+    textAlign: "center",
+  };
+}
+
+export function progressFormCardStyle(t: Theme): CSSProperties {
+  return {
+    ...panelCardStyle(t),
+    background: t.mode === "editorial" ? t.bg : t.panelInner,
+    border: `1px solid ${t.borderSubtle}`,
+    borderRadius: 12,
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+    marginTop: 2,
+    minWidth: 0,
+    outline: "none",
+    overflow: "visible",
+    padding: 16,
+    width: "100%",
+  };
+}
+
+export function progressFieldLabelStyle(t: Theme): CSSProperties {
+  return {
+    ...fieldLabelStyle(t),
+    fontSize: 11,
+    letterSpacing: "0.06em",
+    marginBottom: 8,
+  };
+}
+
+export function progressLinkCardStyle(t: Theme): CSSProperties {
+  return {
+    alignItems: "center",
+    background: t.mode === "editorial" ? t.bg : t.panelInner,
+    border: `1px solid ${t.borderSubtle}`,
+    borderRadius: 10,
+    boxSizing: "border-box",
+    display: "flex",
+    gap: 12,
+    minWidth: 0,
+    padding: "12px 14px",
+    width: "100%",
+  };
+}
+
+export function progressRoleBadgeStyle(t: Theme): CSSProperties {
+  return {
+    background: `${t.accent}18`,
+    borderRadius: 6,
+    color: t.accent,
+    flexShrink: 0,
+    fontFamily: t.sans,
+    fontSize: 10,
+    fontWeight: 750,
+    letterSpacing: "0.05em",
+    padding: "5px 8px",
+    textTransform: "uppercase",
+  };
+}
+
+export function progressFormActionsStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "flex-end",
   };
 }
 
@@ -402,7 +667,7 @@ export function drawerMetaRowStyle(t: Theme, isLast: boolean): CSSProperties {
     borderBottom: isLast ? 0 : `1px solid ${t.rule}`,
     display: "grid",
     gap: 16,
-    gridTemplateColumns: "120px minmax(0, 1fr)",
+    gridTemplateColumns: "minmax(0, 120px) minmax(0, 1fr)",
     minWidth: 0,
     padding: "10px 0",
   };

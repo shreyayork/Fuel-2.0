@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import { SuperAdminShell } from "@/components/SuperAdminShell";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,6 @@ export default async function SuperAdminLayout({ children }: { children: ReactNo
   const session = await getSession();
   // Local dev (no Cognito configured) has no session cookie; fall back to
   // the default dev user so isSuperAdmin's dev path can authorize.
-  const devEmail = process.env.COGNITO_USER_POOL_ID ? null : "mike@york.ie";
-  if (!isSuperAdmin(session, devEmail)) notFound();
+  if (!isSuperAdmin(session, superAdminDevEmail())) notFound();
   return <SuperAdminShell>{children}</SuperAdminShell>;
 }

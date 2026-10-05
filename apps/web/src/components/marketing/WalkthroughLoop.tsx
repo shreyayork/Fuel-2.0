@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import {
+  marketingEyebrow,
+  marketingPanel,
+  marketingTheme as t,
+} from "./styles";
 
 /**
  * Scripted product walkthrough that loops below the fold. Three scenes
@@ -31,41 +36,47 @@ export function WalkthroughLoop() {
   const scene = SCENES[index];
 
   return (
-    <section
+    <motion.section
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.65, ease: [0.22, 0.61, 0.36, 1] }}
       style={{
-        padding: "32px 32px 96px",
-        maxWidth: 1180,
+        padding: "40px var(--gutter) var(--section-y)",
+        maxWidth: 1200,
         margin: "0 auto",
+        width: "100%",
+        boxSizing: "border-box",
       }}
     >
-      <SectionEyebrow>What the AI does on your behalf</SectionEyebrow>
+      <div style={{ ...marketingEyebrow(), textAlign: "center" }}>
+        What the AI does on your behalf
+      </div>
       <h2
         style={{
           margin: "10px auto 36px",
           textAlign: "center",
-          fontSize: 28,
+          fontSize: "var(--fs-h2)",
           letterSpacing: -0.3,
           fontWeight: 600,
-          color: "#F4F6F8",
+          color: t.ink,
           maxWidth: 680,
+          lineHeight: 1.2,
         }}
       >
         From cold sign-up to a benchmarked diagnosis in one session.
       </h2>
 
-      <div
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(23,38,50,0.85) 0%, rgba(15,26,36,0.85) 100%)",
-          border: "1px solid rgba(38,57,71,0.9)",
-          borderRadius: 16,
-          overflow: "hidden",
-          boxShadow:
-            "0 30px 80px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.04) inset",
-        }}
-      >
+      <div style={marketingPanel({ borderRadius: 16 })}>
         <TerminalChrome scene={scene} />
-        <div style={{ position: "relative", padding: "24px 28px 28px", minHeight: 380 }}>
+        <div
+          className="mkt-walkthrough-body"
+          style={{
+            position: "relative",
+            padding: "24px 28px 28px",
+            minHeight: 380,
+          }}
+        >
           <AnimatePresence mode="wait">
             {scene === "profile" && <ProfileScene key="profile" />}
             {scene === "benchmark" && <BenchmarkScene key="benchmark" />}
@@ -74,24 +85,7 @@ export function WalkthroughLoop() {
         </div>
         <SceneDots active={index} count={SCENES.length} />
       </div>
-    </section>
-  );
-}
-
-function SectionEyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: 2,
-        textTransform: "uppercase",
-        color: "#00B48A",
-        textAlign: "center",
-      }}
-    >
-      {children}
-    </div>
+    </motion.section>
   );
 }
 
@@ -109,19 +103,19 @@ function TerminalChrome({ scene }: { scene: Scene }) {
         alignItems: "center",
         gap: 10,
         padding: "10px 14px",
-        borderBottom: "1px solid rgba(38,57,71,0.9)",
-        background: "rgba(15,26,36,0.6)",
+        borderBottom: `1px solid ${t.borderSubtle}`,
+        background: `${t.shell}99`,
       }}
     >
-      <span style={dotStyle("#FF6B5B")} />
-      <span style={dotStyle("#ECD67F")} />
-      <span style={dotStyle("#00B48A")} />
+      <span style={dotStyle(t.negative)} />
+      <span style={dotStyle(t.warn)} />
+      <span style={dotStyle(t.accent)} />
       <span
         style={{
           marginLeft: 12,
-          fontFamily: "JetBrains Mono, ui-monospace, monospace",
-          fontSize: 11.5,
-          color: "#8A99A6",
+          fontFamily: t.mono,
+          fontSize: 12,
+          color: t.mutedSoft,
         }}
       >
         {titleByScene[scene]}
@@ -176,23 +170,27 @@ function ProfileScene() {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 + i * 0.85, duration: 0.4 }}
+            className="mkt-tool-row"
             style={{
               display: "grid",
-              gridTemplateColumns: "auto 1fr auto",
+              gridTemplateColumns: "auto minmax(0, 1fr) auto",
               alignItems: "center",
               gap: 12,
               padding: "8px 12px",
               borderRadius: 8,
               background: "rgba(0,180,138,0.05)",
               border: "1px solid rgba(0,180,138,0.12)",
+              minWidth: 0,
             }}
           >
             <span style={{ color: "#00B48A" }}>↳</span>
-            <span>
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
               <span style={{ color: "#F4F6F8" }}>{s.skill}</span>
               <span style={{ color: "#596876" }}>({s.arg})</span>
             </span>
-            <ToolStatus delay={0.5 + i * 0.85 + 0.5} label={s.out} />
+            <span className="mkt-tool-status">
+              <ToolStatus delay={0.5 + i * 0.85 + 0.5} label={s.out} />
+            </span>
           </motion.div>
         ))}
 
@@ -250,15 +248,17 @@ function BenchmarkScene() {
             transition={{ delay: 0.3 + i * 0.45 }}
           >
             <div
+              className="mkt-metric-row"
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.2fr auto auto",
+                gridTemplateColumns: "minmax(0, 1.2fr) auto auto",
                 alignItems: "baseline",
                 gap: 16,
                 fontFamily: "JetBrains Mono, ui-monospace, monospace",
                 fontSize: 13,
                 color: "#CBD3DB",
                 marginBottom: 6,
+                minWidth: 0,
               }}
             >
               <span style={{ color: "#F4F6F8", fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -580,7 +580,7 @@ function ToolStatus({
             borderRadius: 999,
             background: "#00B48A",
             color: "#0F1A24",
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
             display: "inline-flex",
             alignItems: "center",

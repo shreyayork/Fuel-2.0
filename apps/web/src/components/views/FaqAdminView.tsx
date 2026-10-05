@@ -3,59 +3,35 @@
 import { useEffect, useState, useTransition, type DragEvent } from "react";
 import type { Theme } from "@/lib/theme";
 import type { FaqEntry } from "@/db/schema";
-import { Chip, SectionHead } from "../atoms";
+import { Chip } from "../atoms";
+import { AdminPageHeader } from "./AdminPageHeader";
+import { AdminStatsStrip } from "./AdminChrome";
 import { useTheme } from "../ThemeContext";
+import {
+  adminBtnStyle,
+  adminEmptyStyle,
+  adminInputStyle,
+  adminModalOverlayStyle,
+  adminModalPanelStyle,
+  adminModalTitleStyle,
+  adminPageStyle,
+  adminSectionLabelStyle,
+  adminTableFrameStyle,
+  adminTableScrollStyle,
+  adminTableStyle,
+  adminTdActionsStyle,
+  adminTdStyle,
+  adminThStyle,
+} from "./adminStyles";
 import { formatFaqPointsText } from "@/lib/faq-constants";
 import { FaqLinkedTextarea } from "@/components/help/FaqLinkedTextarea";
 import {
   deleteFaqEntryAction,
   setFaqSortOrderAction,
-  upsertFaqEntryAction,
-} from "@/app/(super-admin)/super-admin/faq/actions";
+  upsertFaqEntryAction} from "@/app/(super-admin)/super-admin/faq/actions";
 
-function button(t: Theme, variant: "primary" | "ghost" | "danger" = "ghost"): React.CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-    danger: { bg: "transparent", color: t.warn, border: t.warn },
-  } as const;
-  const v = map[variant];
-  return {
-    padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: "pointer",
-  };
-}
 
-function input(t: Theme): React.CSSProperties {
-  return {
-    padding: "8px 10px",
-    background: t.panelAlt,
-    color: t.ink,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 13,
-    width: "100%",
-  };
-}
 
-function cellBase(t: Theme): React.CSSProperties {
-  return {
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.inkSoft,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "middle",
-  };
-}
 
 function reorderLocal(list: FaqEntry[], fromId: string, toId: string): FaqEntry[] {
   if (fromId === toId) return list;
@@ -154,131 +130,122 @@ export function FaqAdminView({ rows }: { rows: FaqEntry[] }) {
   };
 
   return (
-    <div>
-      <SectionHead
+    <div className="fuel-admin-page" style={adminPageStyle()}>
+      <AdminPageHeader
         t={t}
-        title="Help & FAQ · Admin"
-        subtitle="Drag rows to reorder (last-write-wins). Select text → Link or ⌘/Ctrl+K to attach a URL."
-        right={
-          <button type="button" onClick={openNew} style={button(t, "primary")}>
+        title="Help & FAQ"
+        description="Drag to reorder. Select text → Link or ⌘/Ctrl+K for a URL."
+        actions={
+          <button type="button" onClick={openNew} style={adminBtnStyle(t, "primary")}>
             + New question
           </button>
         }
       />
 
+      <AdminStatsStrip
+        t={t}
+        items={[
+          { label: "Questions", value: ordered.length },
+          {
+            label: "Published",
+            value: ordered.filter((r) => r.published).length,
+          },
+          {
+            label: "Drafts",
+            value: ordered.filter((r) => !r.published).length,
+          },
+        ]}
+      />
+
       {ordered.length === 0 ? (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            background: t.panel,
-            border: `1px solid ${t.rule}`,
-            fontFamily: t.sans,
-            fontSize: 13,
-            color: t.muted,
-            borderRadius: 6,
-          }}
-        >
+        <div style={adminEmptyStyle(t)}>
           No FAQ entries yet. Create the first question to populate Help & FAQ.
         </div>
       ) : (
-        <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 6 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["", "Question", "Status", ""].map((h, i) => (
-                  <th
-                    key={h || `col-${i}`}
-                    style={{
-                      textAlign: "left",
-                      padding: "10px 12px",
-                      fontFamily: t.sans,
-                      fontSize: 11,
-                      color: t.muted,
-                      borderBottom: `1px solid ${t.rule}`,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ordered.map((r) => {
-                const isDragging = dragId === r.id;
-                const isOver = overId === r.id && dragId !== r.id;
-                return (
-                  <tr
-                    key={r.id}
-                    draggable={!isPending}
-                    onDragStart={(e) => onDragStart(e, r.id)}
-                    onDragOver={(e) => onDragOver(e, r.id)}
-                    onDragLeave={() => {
-                      if (overId === r.id) setOverId(null);
-                    }}
-                    onDrop={(e) => onDrop(e, r.id)}
-                    onDragEnd={() => {
-                      setDragId(null);
-                      setOverId(null);
-                    }}
-                    style={{
-                      // Keep solid panel bg while dragging — never transparent.
-                      background: isOver ? t.accentTint : t.panel,
-                      outline: isDragging ? `2px solid ${t.accent}` : undefined,
-                      outlineOffset: isDragging ? -2 : undefined,
-                      opacity: 1,
-                      cursor: isPending ? "default" : isDragging ? "grabbing" : "grab",
-                    }}
-                  >
-                    <td
-                      style={{
-                        ...cellBase(t),
-                        width: 44,
-                        color: t.muted,
-                        background: "inherit",
+        <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+          <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+            <table className="fuel-admin-table" style={adminTableStyle()}>
+              <thead>
+                <tr>
+                  {["", "Question", "Status", ""].map((h, i) => (
+                    <th key={h || `col-${i}`} style={adminThStyle(t)}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {ordered.map((r) => {
+                  const isDragging = dragId === r.id;
+                  const isOver = overId === r.id && dragId !== r.id;
+                  return (
+                    <tr
+                      key={r.id}
+                      draggable={!isPending}
+                      onDragStart={(e) => onDragStart(e, r.id)}
+                      onDragOver={(e) => onDragOver(e, r.id)}
+                      onDragLeave={() => {
+                        if (overId === r.id) setOverId(null);
                       }}
-                      aria-hidden="true"
+                      onDrop={(e) => onDrop(e, r.id)}
+                      onDragEnd={() => {
+                        setDragId(null);
+                        setOverId(null);
+                      }}
+                      style={{
+                        // Keep solid panel bg while dragging — never transparent.
+                        background: isOver ? t.accentTint : t.panel,
+                        outline: isDragging ? `2px solid ${t.accent}` : undefined,
+                        outlineOffset: isDragging ? -2 : undefined,
+                        opacity: 1,
+                        cursor: isPending ? "default" : isDragging ? "grabbing" : "grab"}}
                     >
-                      <span style={{ fontSize: 14, letterSpacing: 1 }} title="Drag to reorder">
-                        ⋮⋮
-                      </span>
-                    </td>
-                    <td style={{ ...cellBase(t), background: "inherit" }}>
-                      <div style={{ fontFamily: t.sans, fontSize: 13, fontWeight: 600, color: t.ink }}>
-                        {r.question}
-                      </div>
-                      <div
+                      <td
                         style={{
-                          fontFamily: t.sans,
-                          fontSize: 11,
+                          ...adminTdStyle(t),
+                          width: 44,
                           color: t.muted,
-                          marginTop: 2,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          maxWidth: 480,
-                        }}
+                          background: "inherit"}}
+                        aria-hidden="true"
                       >
-                        {r.answer}
-                      </div>
-                    </td>
-                    <td style={{ ...cellBase(t), background: "inherit" }}>
-                      <Chip t={t} tone={r.published ? "accent" : "ghost"}>
-                        {r.published ? "Published" : "Draft"}
-                      </Chip>
-                    </td>
-                    <td style={{ ...cellBase(t), textAlign: "right", background: "inherit" }}>
-                      <button type="button" onClick={() => openEdit(r)} style={button(t, "ghost")}>
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        <span style={{ fontSize: 14, letterSpacing: 1 }} title="Drag to reorder">
+                          ⋮⋮
+                        </span>
+                      </td>
+                      <td style={{ ...adminTdStyle(t), background: "inherit" }}>
+                        <div style={{ fontFamily: t.sans, fontSize: 13, fontWeight: 600, color: t.ink }}>
+                          {r.question}
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: t.sans,
+                            fontSize: 11,
+                            color: t.muted,
+                            marginTop: 2,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            maxWidth: 480}}
+                        >
+                          {r.answer}
+                        </div>
+                      </td>
+                      <td style={{ ...adminTdStyle(t), background: "inherit" }}>
+                        <Chip t={t} tone={r.published ? "accent" : "ghost"}>
+                          {r.published ? "Published" : "Draft"}
+                        </Chip>
+                      </td>
+                      <td style={{ ...adminTdActionsStyle(t), background: "inherit" }}>
+                        <button type="button" onClick={() => openEdit(r)} style={adminBtnStyle(t, "ghost")}>
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -290,8 +257,7 @@ export function FaqAdminView({ rows }: { rows: FaqEntry[] }) {
 function FaqModal({
   t,
   row,
-  onClose,
-}: {
+  onClose}: {
   t: Theme;
   row: FaqEntry | null;
   onClose: () => void;
@@ -309,8 +275,7 @@ function FaqModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 200,
-      }}
+        zIndex: 200}}
     >
       <div
         role="dialog"
@@ -324,16 +289,14 @@ function FaqModal({
           padding: 24,
           width: "min(720px, 94vw)",
           maxHeight: "90vh",
-          overflow: "auto",
-        }}
+          overflow: "auto"}}
       >
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "baseline",
-            marginBottom: 16,
-          }}
+            marginBottom: 16}}
         >
           <div
             id="faq-admin-modal-title"
@@ -341,7 +304,7 @@ function FaqModal({
           >
             {row ? "Edit FAQ entry" : "New FAQ entry"}
           </div>
-          <button type="button" onClick={onClose} style={button(t, "ghost")}>
+          <button type="button" onClick={onClose} style={adminBtnStyle(t, "ghost")}>
             Close
           </button>
         </div>
@@ -358,7 +321,7 @@ function FaqModal({
           {row ? <input type="hidden" name="id" value={row.id} /> : null}
 
           <Row t={t} label="Question *">
-            <input name="question" required defaultValue={row?.question ?? ""} style={input(t)} />
+            <input name="question" required defaultValue={row?.question ?? ""} style={adminInputStyle(t)} />
           </Row>
           <Row t={t} label="Answer *">
             <FaqLinkedTextarea
@@ -396,8 +359,7 @@ function FaqModal({
                 fontFamily: t.sans,
                 fontSize: 13,
                 color: t.inkSoft,
-                paddingTop: 8,
-              }}
+                paddingTop: 8}}
             >
               <input type="checkbox" name="published" defaultChecked={row?.published ?? false} />
               Visible on Help & FAQ
@@ -409,13 +371,12 @@ function FaqModal({
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginTop: 8,
-            }}
+              marginTop: 8}}
           >
             {row ? (
               <button
                 type="button"
-                style={button(t, "danger")}
+                style={adminBtnStyle(t, "danger")}
                 onClick={() => {
                   if (!confirm(`Delete “${row.question}”? This cannot be undone.`)) return;
                   const fd = new FormData();
@@ -431,7 +392,7 @@ function FaqModal({
             ) : (
               <span />
             )}
-            <button type="submit" disabled={isPending} style={button(t, "primary")}>
+            <button type="submit" disabled={isPending} style={adminBtnStyle(t, "primary")}>
               {isPending ? "Saving…" : row ? "Save changes" : "Create entry"}
             </button>
           </div>
@@ -452,8 +413,7 @@ function Row({ t, label, children }: { t: Theme; label: string; children: React.
           paddingTop: 8,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
-          fontWeight: 500,
-        }}
+          fontWeight: 500}}
       >
         {label}
       </div>

@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import { deleteFaqEntry, setFaqSortOrder, upsertFaqEntry } from "@/lib/faq";
 import { parseFaqPointsText } from "@/lib/faq-constants";
 
 async function requireSuperAdmin(): Promise<string> {
   const session = await getSession();
-  if (!isSuperAdmin(session)) redirect("/");
+  if (!isSuperAdmin(session, superAdminDevEmail())) redirect("/");
   return session?.email ?? "mike@york.ie";
 }
 

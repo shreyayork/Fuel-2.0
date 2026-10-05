@@ -11,12 +11,18 @@
 export function FuelMark({
   size = 22,
   busy = false,
+  /**
+   * Full-opacity mark for use on accent gradients / filled CTAs where the
+   * default translucent teal/gold bars would disappear into the background.
+   */
+  solid = false,
   accent = "#00B48A",
   warm = "#ECD67F",
   deep = "#284256",
 }: {
   size?: number;
   busy?: boolean;
+  solid?: boolean;
   accent?: string;
   warm?: string;
   deep?: string;
@@ -35,6 +41,13 @@ export function FuelMark({
         .fuel-mark .b2 { opacity: 0.7; }
         .fuel-mark .b3 { opacity: 0.5; }
 
+        /* High-contrast variant — keep light hierarchy, never wash out */
+        .fuel-mark.solid .bar { opacity: 1; }
+        .fuel-mark.solid .b1 { opacity: 1; }
+        .fuel-mark.solid .b2 { opacity: 0.9; }
+        .fuel-mark.solid .b3 { opacity: 0.8; }
+        .fuel-mark.solid .spark { opacity: 1; }
+
         .fuel-mark.busy .bar { animation: fuel-bar-ignite 1.8s ease-in-out infinite; }
         .fuel-mark.busy .b1 { animation-delay: 0s; }
         .fuel-mark.busy .b2 { animation-delay: 0.18s; }
@@ -42,6 +55,11 @@ export function FuelMark({
         @keyframes fuel-bar-ignite {
           0%, 100% { opacity: 0.4; transform: scaleX(1); }
           45%      { opacity: 1;   transform: scaleX(1.04); }
+        }
+        .fuel-mark.solid.busy .bar { animation-name: fuel-bar-ignite-solid; }
+        @keyframes fuel-bar-ignite-solid {
+          0%, 100% { opacity: 0.75; transform: scaleX(1); }
+          45%      { opacity: 1; transform: scaleX(1.04); }
         }
 
         .fuel-mark .spark {
@@ -57,10 +75,26 @@ export function FuelMark({
           70%  { transform: translate(1px, 0px) scale(0.9); opacity: 0.9; }
           100% { transform: translate(0, 0) scale(1);    opacity: 0.6; }
         }
+        .fuel-mark.solid.busy .spark {
+          animation-name: fuel-spark-float-solid;
+        }
+        @keyframes fuel-spark-float-solid {
+          0%   { transform: translate(0, 0) scale(1); opacity: 0.85; }
+          40%  { transform: translate(-1px, -2px) scale(1.25); opacity: 1; }
+          70%  { transform: translate(1px, 0px) scale(0.9); opacity: 0.95; }
+          100% { transform: translate(0, 0) scale(1); opacity: 0.85; }
+        }
 
         .fuel-mark:not(.busy) .spark { animation: fuel-spark-idle 3.6s ease-in-out infinite; }
         @keyframes fuel-spark-idle {
           0%, 100% { transform: scale(1); opacity: 0.75; }
+          50%      { transform: scale(1.12); opacity: 1; }
+        }
+        .fuel-mark.solid:not(.busy) .spark {
+          animation-name: fuel-spark-idle-solid;
+        }
+        @keyframes fuel-spark-idle-solid {
+          0%, 100% { transform: scale(1); opacity: 0.92; }
           50%      { transform: scale(1.12); opacity: 1; }
         }
 
@@ -75,7 +109,7 @@ export function FuelMark({
         }
       `}</style>
       <svg
-        className={`fuel-mark ${busy ? "busy" : ""}`}
+        className={`fuel-mark${busy ? " busy" : ""}${solid ? " solid" : ""}`}
         width={size}
         height={size}
         viewBox="0 0 32 32"

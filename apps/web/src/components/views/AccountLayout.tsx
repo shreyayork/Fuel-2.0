@@ -10,6 +10,7 @@ import {
   formatAccountPlanLabel,
   formatAccountStatusLabel,
 } from "@/lib/accounts/display";
+import { BREAKPOINTS, useNarrow } from "@/lib/responsive";
 import { Chip, SectionHead } from "../atoms";
 import { useTheme } from "../ThemeContext";
 
@@ -39,6 +40,7 @@ export function AccountLayout({
   children: ReactNode;
 }) {
   const t = useTheme();
+  const phone = useNarrow(BREAKPOINTS.md);
   const pathname = usePathname();
   const isProfile = pathname === "/account/profile";
   const visibleTabs = TABS.filter((tab) => {
@@ -46,39 +48,47 @@ export function AccountLayout({
     return !tab.hidden;
   });
 
+  const chips =
+    isProfile ? undefined : (
+      <div
+        className="fuel-account-layout__chips"
+        style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 8 }}
+      >
+        <Chip t={t} tone={accountPlanChipTone(account)}>
+          {formatAccountPlanLabel(account)}
+        </Chip>
+        <Chip t={t} tone={accountStatusChipTone(account)}>
+          {formatAccountStatusLabel(account)}
+        </Chip>
+        <Chip t={t} tone="ghost">{role}</Chip>
+      </div>
+    );
+
   return (
-    <div>
+    <div className="fuel-account-layout">
       <SectionHead
         t={t}
         title={isProfile ? "Profile" : account.name}
         subtitle={
-          isProfile
-            ? "Your account, preferences, and the lists you own."
-            : "Account settings · members, teams, plan, and billing"
+          phone
+            ? undefined
+            : isProfile
+              ? "Your account, preferences, and the lists you own."
+              : "Account settings · members, teams, plan, and billing"
         }
-        right={
-          isProfile ? undefined : (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <Chip t={t} tone={accountPlanChipTone(account)}>
-                {formatAccountPlanLabel(account)}
-              </Chip>
-              <Chip t={t} tone={accountStatusChipTone(account)}>
-                {formatAccountStatusLabel(account)}
-              </Chip>
-              <Chip t={t} tone="ghost">{role}</Chip>
-            </div>
-          )
-        }
+        right={phone ? undefined : chips}
       />
+      {phone && chips ? (
+        <div className="fuel-account-layout__chips-row" style={{ marginBottom: 12 }}>
+          {chips}
+        </div>
+      ) : null}
 
       <div
-        className="fuel-scroll-x"
+        className="fuel-tabs-scroll fuel-account-layout__tabs"
         style={{
-          display: "flex",
-          gap: 4,
           borderBottom: `1px solid ${t.rule}`,
-          marginBottom: 24,
-          WebkitOverflowScrolling: "touch",
+          marginBottom: phone ? 16 : 24,
         }}
       >
         {visibleTabs.map((tab) => {
@@ -95,19 +105,19 @@ export function AccountLayout({
               key={tab.key}
               href={tab.href}
               style={{
-                padding: "12px 14px",
-                minHeight: 44,
-                display: "inline-flex",
                 alignItems: "center",
+                borderBottom: `2px solid ${active ? t.ink : "transparent"}`,
+                color: active ? t.ink : t.muted,
+                display: "inline-flex",
+                flexShrink: 0,
                 fontFamily: t.sans,
                 fontSize: 13,
                 fontWeight: active ? 600 : 500,
-                color: active ? t.ink : t.muted,
-                borderBottom: `2px solid ${active ? t.ink : "transparent"}`,
                 marginBottom: -1,
+                minHeight: 44,
+                padding: phone ? "10px 12px" : "12px 14px",
                 textDecoration: "none",
                 whiteSpace: "nowrap",
-                flexShrink: 0,
               }}
             >
               {tab.label}

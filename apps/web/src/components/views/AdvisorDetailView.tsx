@@ -27,29 +27,35 @@ function button(t: Theme, variant: "primary" | "ghost" | "danger" = "ghost"): Re
   } as const;
   const v = map[variant];
   return {
-    padding: "8px 14px",
+    alignItems: "center",
     background: v.bg,
-    color: v.color,
     border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: v.color,
     cursor: "pointer",
+    display: "inline-flex",
+    fontFamily: t.sans,
+    fontSize: 13,
+    fontWeight: 550,
+    justifyContent: "center",
+    minHeight: 44,
+    padding: "8px 14px",
   };
 }
 
 function input(t: Theme, multiline = false): React.CSSProperties {
   return {
-    padding: "8px 10px",
     background: t.panelAlt,
-    color: t.ink,
     border: `1px solid ${t.rule}`,
-    borderRadius: 6,
+    borderRadius: 8,
+    boxSizing: "border-box",
+    color: t.ink,
     fontFamily: t.sans,
-    fontSize: 13,
+    fontSize: 16,
     width: "100%",
-    minHeight: multiline ? 90 : undefined,
+    minHeight: multiline ? 96 : 44,
+    padding: "10px 12px",
     resize: multiline ? "vertical" : undefined,
   };
 }
@@ -71,9 +77,20 @@ export function AdvisorDetailView({
     typeof window !== "undefined" ? `${window.location.origin}/advisor/${advisor.id}/card` : "";
 
   return (
-    <div>
-      <div style={{ marginBottom: 14 }}>
-        <Link href="/advisors" style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, textDecoration: "none" }}>
+    <div className="fuel-page">
+      <div>
+        <Link
+          href="/advisors"
+          style={{
+            alignItems: "center",
+            color: t.muted,
+            display: "inline-flex",
+            fontFamily: t.sans,
+            fontSize: 13,
+            minHeight: 44,
+            textDecoration: "none",
+          }}
+        >
           ← All advisors
         </Link>
       </div>
@@ -93,14 +110,14 @@ export function AdvisorDetailView({
         right={
           instanceLevel ? (
             advisor.publicCard ? (
-              <button onClick={() => setShowShare(true)} style={button(t, "ghost")}>
+              <button type="button" onClick={() => setShowShare(true)} style={button(t, "ghost")}>
                 Copy share link
               </button>
             ) : null
           ) : (
-            <div style={{ display: "flex", gap: 6 }}>
+            <>
               {advisor.publicCard ? (
-                <button onClick={() => setShowShare(true)} style={button(t, "ghost")}>
+                <button type="button" onClick={() => setShowShare(true)} style={button(t, "ghost")}>
                   Copy share link
                 </button>
               ) : null}
@@ -112,7 +129,7 @@ export function AdvisorDetailView({
                   {advisor.linkedinFetchedAt ? "Re-fetch from LinkedIn" : "Enhance from LinkedIn"}
                 </button>
               </form>
-            </div>
+            </>
           )
         }
       />
@@ -121,7 +138,7 @@ export function AdvisorDetailView({
         <ShareLink t={t} url={shareUrl} onClose={() => setShowShare(false)} />
       ) : null}
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 20 }}>
+      <div className="fuel-network-split">
         <div style={{ minWidth: 0 }}>
           {instanceLevel ? (
             <InstanceReadOnly t={t} advisor={advisor} />
@@ -169,15 +186,24 @@ export function AdvisorDetailView({
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      flexWrap: "wrap",
                       gap: 8,
-                      padding: "8px 10px",
+                      padding: "10px 12px",
                       border: `1px solid ${t.rule}`,
-                      borderRadius: 6,
+                      borderRadius: 8,
                     }}
                   >
                     <Link
                       href={`/company/${link.companyUuid}`}
-                      style={{ fontFamily: t.sans, fontSize: 13, color: t.ink, textDecoration: "none" }}
+                      style={{
+                        fontFamily: t.sans,
+                        fontSize: 14,
+                        color: t.ink,
+                        textDecoration: "none",
+                        minWidth: 0,
+                        overflowWrap: "anywhere",
+                        flex: "1 1 140px",
+                      }}
                     >
                       {link.companyName}
                       {link.role ? ` · ${link.role}` : ""}
@@ -185,7 +211,7 @@ export function AdvisorDetailView({
                     <form action={(fd) => startTransition(() => unlinkAdvisorFromCompanyAction(fd))}>
                       <input type="hidden" name="advisorId" value={advisor.id} />
                       <input type="hidden" name="companyUuid" value={link.companyUuid} />
-                      <button type="submit" style={{ ...button(t, "ghost"), padding: "4px 10px", fontSize: 11 }}>
+                      <button type="submit" style={button(t, "ghost")}>
                         Unlink
                       </button>
                     </form>
@@ -262,31 +288,34 @@ function InstanceReadOnly({ t, advisor }: { t: Theme; advisor: Advisor }) {
 function ShareLink({ t, url, onClose }: { t: Theme; url: string; onClose: () => void }) {
   return (
     <div
+      className="fuel-network-share"
       style={{
         background: t.panelAlt,
         border: `1px solid ${t.accent}`,
-        borderRadius: 6,
+        borderRadius: 10,
         padding: 12,
-        marginBottom: 14,
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
       }}
     >
-      <div style={{ flex: 1, fontFamily: t.mono, fontSize: 12, color: t.ink, userSelect: "all", wordBreak: "break-all" }}>
+      <div
+        className="fuel-network-share__url"
+        style={{ fontFamily: t.mono, fontSize: 12, color: t.ink, userSelect: "all" }}
+      >
         {url}
       </div>
-      <button
-        onClick={() => {
-          void navigator.clipboard.writeText(url);
-        }}
-        style={button(t, "primary")}
-      >
-        Copy
-      </button>
-      <button onClick={onClose} style={button(t, "ghost")}>
-        Close
-      </button>
+      <div className="fuel-network-share__actions">
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(url);
+          }}
+          style={button(t, "primary")}
+        >
+          Copy
+        </button>
+        <button type="button" onClick={onClose} style={button(t, "ghost")}>
+          Close
+        </button>
+      </div>
     </div>
   );
 }
@@ -385,11 +414,11 @@ function EditForm({
 
 function Field({ t, label, children }: { t: Theme; label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "160px minmax(0, 1fr)", gap: 10, alignItems: "start" }}>
+    <div className="fuel-form-row">
       <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, paddingTop: 8, letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 500 }}>
         {label}
       </div>
-      <div>{children}</div>
+      <div style={{ minWidth: 0 }}>{children}</div>
     </div>
   );
 }

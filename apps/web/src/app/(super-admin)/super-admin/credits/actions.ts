@@ -4,7 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import { isCreditCatalogFlow, type CreditCatalogFlow } from "@/lib/credits/catalog-flow";
 import {
   isValidCatalogSlug,
@@ -23,8 +23,7 @@ export type CreditsActionResult =
 
 async function requireSuperAdmin(): Promise<void> {
   const session = await getSession();
-  const devEmail = process.env.COGNITO_USER_POOL_ID ? null : "mike@york.ie";
-  if (!isSuperAdmin(session, devEmail)) redirect("/");
+  if (!isSuperAdmin(session, superAdminDevEmail())) redirect("/");
 }
 
 function revalidateCreditsPaths() {

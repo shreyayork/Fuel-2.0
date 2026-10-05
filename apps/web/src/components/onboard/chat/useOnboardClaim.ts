@@ -21,8 +21,12 @@ async function postClaim(body: Record<string, unknown>): Promise<Response> {
   });
 }
 
-export function useOnboardClaim(cta: OnboardCta) {
+export function useOnboardClaim(
+  cta: OnboardCta,
+  opts?: { designPreview?: boolean },
+) {
   const router = useRouter();
+  const designPreview = opts?.designPreview === true;
   const [claiming, setClaiming] = useState(false);
   const [claimingCta, setClaimingCta] = useState<OnboardCta | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
@@ -31,7 +35,7 @@ export function useOnboardClaim(cta: OnboardCta) {
   const finishOnboarding = useCallback(
     async (
       data: OnboardingUserData,
-      opts?: { ctaOverride?: OnboardCta; wizardPayload?: WizardClaimPayload },
+      finishOpts?: { ctaOverride?: OnboardCta; wizardPayload?: WizardClaimPayload },
     ) => {
       // State updates are asynchronous; the ref closes the same-tick window in
       // which a double click could otherwise issue two claim requests.
@@ -39,15 +43,17 @@ export function useOnboardClaim(cta: OnboardCta) {
       claimingRef.current = true;
 
       const domain = data.verifiedDomain || domainFromEmail(data.email);
-      const profile = opts?.wizardPayload?.profile ?? buildClaimProfileFromUserData(data, domain);
-      const effectiveCta = opts?.ctaOverride ?? cta;
+      const profile =
+        finishOpts?.wizardPayload?.profile ??
+        buildClaimProfileFromUserData(data, domain);
+      const effectiveCta = finishOpts?.ctaOverride ?? cta;
 
       setClaiming(true);
       setClaimingCta(effectiveCta);
       setClaimError(null);
 
       const metrics =
-        opts?.wizardPayload?.metrics ??
+        finishOpts?.wizardPayload?.metrics ??
         (data.benchmarkInputs && hasAnyBenchmarkInput(data.benchmarkInputs)
           ? {
               arrUsd: data.benchmarkInputs.arrUsd,
@@ -68,9 +74,9 @@ export function useOnboardClaim(cta: OnboardCta) {
         cta: effectiveCta,
         profile,
         metrics,
-        cohortKey: opts?.wizardPayload?.cohortKey ?? data.cohortKey,
+        cohortKey: finishOpts?.wizardPayload?.cohortKey ?? data.cohortKey,
       };
-      const wp = opts?.wizardPayload;
+      const wp = finishOpts?.wizardPayload;
       if (wp?.enrichmentRunId) claimBody.enrichmentRunId = wp.enrichmentRunId;
       if (wp?.flowType) claimBody.flowType = wp.flowType;
       if (wp?.answers) claimBody.answers = wp.answers;
@@ -78,20 +84,33 @@ export function useOnboardClaim(cta: OnboardCta) {
       if (wp?.profileForm) claimBody.profileForm = wp.profileForm;
       if (wp?.fundingRounds) claimBody.fundingRounds = wp.fundingRounds;
       if (wp?.rawBenchmarkInputs) claimBody.rawBenchmarkInputs = wp.rawBenchmarkInputs;
-      if (wp?.setupIncomplete) claimBody.setupIncomplete = true;
+      // Design / "Set up later" — surface Complete Profile on Overview.
+      if (wp?.setupIncomplete || designPreview) claimBody.setupIncomplete = true;
 
-      const minDwell = minLoadingDelay(signalsLoadingMinDwellMs(data.isYorkClient));
+      const dwellMs = designPreview
+        ? 450
+        : signalsLoadingMinDwellMs(data.isYorkClient);
 
       try {
-        const [res] = await Promise.all([postClaim(claimBody), minDwell]);
+        const [res] = await Promise.all([
+          postClaim(claimBody),
+          minLoadingDelay(dwellMs),
+        ]);
         const body = (await res.json()) as {
           redirect?: string;
           error?: string;
           detail?: string;
         };
         if (!res.ok) {
+          // Prefer CTA-aware redirect from the API (incl. already_has_account
+          // in local design). Never fall back to `/` — that is the marketing
+          // landing when Cognito is off.
+          if (body.redirect) {
+            router.push(body.redirect);
+            return;
+          }
           if (body.error === "already_has_account") {
-            router.push("/");
+            router.push("/dashboard");
             return;
           }
           const msg = body.detail
@@ -107,7 +126,7 @@ export function useOnboardClaim(cta: OnboardCta) {
           router.push(body.redirect);
           return;
         }
-        router.push("/");
+        router.push("/dashboard");
       } catch {
         setClaimError("network_error");
         claimingRef.current = false;
@@ -115,7 +134,7 @@ export function useOnboardClaim(cta: OnboardCta) {
         setClaimingCta(null);
       }
     },
-    [cta, router],
+    [cta, designPreview, router],
   );
 
   const exploreLater = useCallback(

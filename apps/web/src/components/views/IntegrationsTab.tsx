@@ -81,19 +81,20 @@ export function IntegrationsTab({
         return (
           <div
             key={p.id}
+            className="fuel-integration-card"
             style={{
+              alignItems: "center",
               background: t.panel,
               border: `1px solid ${t.rule}`,
-              padding: 18,
-              borderRadius: 6,
+              borderRadius: 12,
               display: "grid",
-              gridTemplateColumns: "1fr auto",
-              alignItems: "center",
               gap: 16,
+              gridTemplateColumns: "1fr auto",
+              padding: 18,
             }}
           >
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
                 <span
                   style={{ fontFamily: t.sans, fontSize: 15, fontWeight: 600, color: t.ink }}
                 >
@@ -113,21 +114,23 @@ export function IntegrationsTab({
               </div>
               {conn ? (
                 <div
+                  className="fuel-integration-meta"
                   style={{
                     marginTop: 8,
                     fontFamily: t.sans,
                     fontSize: 12,
                     color: t.muted,
                     display: "flex",
+                    flexWrap: "wrap",
                     gap: 14,
                   }}
                 >
                   <span>installed by {conn.installedByEmail}</span>
-                  <span>•</span>
+                  <span aria-hidden>•</span>
                   <span>{fmtDate(conn.installedAt)}</span>
                   {conn.accountExternalId ? (
                     <>
-                      <span>•</span>
+                      <span aria-hidden>•</span>
                       <span style={{ fontFamily: t.mono }}>id {conn.accountExternalId}</span>
                     </>
                   ) : null}
@@ -148,19 +151,22 @@ export function IntegrationsTab({
                 </div>
               ) : null}
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="fuel-integration-card__actions" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {conn && p.configurePath ? (
                 <Link
                   href={p.configurePath}
                   style={{
-                    padding: "8px 14px",
+                    alignItems: "center",
                     background: t.ink,
-                    color: t.bg,
                     border: `1px solid ${t.ink}`,
-                    borderRadius: 6,
+                    borderRadius: 8,
+                    color: t.bg,
+                    display: "inline-flex",
                     fontFamily: t.sans,
-                    fontSize: 12,
-                    fontWeight: 500,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    minHeight: 44,
+                    padding: "8px 14px",
                     textDecoration: "none",
                   }}
                 >
@@ -174,13 +180,16 @@ export function IntegrationsTab({
                       href={installPath}
                       title="Re-run the OAuth flow. Preserves pipeline + activity configurations."
                       style={{
-                        padding: "6px 12px",
+                        alignItems: "center",
                         background: "transparent",
-                        color: t.ink,
                         border: `1px solid ${t.rule}`,
-                        borderRadius: 6,
+                        borderRadius: 8,
+                        color: t.ink,
+                        display: "inline-flex",
                         fontFamily: t.sans,
-                        fontSize: 12,
+                        fontSize: 13,
+                        minHeight: 44,
+                        padding: "8px 12px",
                         textDecoration: "none",
                       }}
                     >
@@ -203,14 +212,17 @@ export function IntegrationsTab({
                       <button
                         type="submit"
                         style={{
-                          padding: "6px 12px",
+                          alignItems: "center",
                           background: "transparent",
-                          color: t.muted,
                           border: `1px solid ${t.rule}`,
-                          borderRadius: 6,
-                          fontFamily: t.sans,
-                          fontSize: 12,
+                          borderRadius: 8,
+                          color: t.muted,
                           cursor: "pointer",
+                          display: "inline-flex",
+                          fontFamily: t.sans,
+                          fontSize: 13,
+                          minHeight: 44,
+                          padding: "8px 12px",
                         }}
                       >
                         Disconnect
@@ -223,16 +235,19 @@ export function IntegrationsTab({
                   href={blocked ? "#" : installPath}
                   aria-disabled={blocked}
                   style={{
-                    padding: "8px 14px",
+                    alignItems: "center",
                     background: blocked ? t.panelAlt : t.ink,
-                    color: blocked ? t.muted : t.bg,
                     border: `1px solid ${blocked ? t.rule : t.ink}`,
-                    borderRadius: 6,
+                    borderRadius: 8,
+                    color: blocked ? t.muted : t.bg,
+                    display: "inline-flex",
                     fontFamily: t.sans,
-                    fontSize: 12,
-                    fontWeight: 500,
-                    textDecoration: "none",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    minHeight: 44,
+                    padding: "8px 14px",
                     pointerEvents: blocked ? "none" : "auto",
+                    textDecoration: "none",
                   }}
                 >
                   Connect

@@ -362,7 +362,7 @@ export const DEFAULT_FAQ_SEED: Array<{
     points: [
       {
         label: "Where you land",
-        body: "[Portfolios](/portfolio), [Pipeline](/pipeline), and [Watchlists](/watchlists) instead of the founder [Overview](/company/{{company_id}}?tab=overview).",
+        body: "[Overview](/overview), [Portfolios](/portfolio), [Pipeline](/pipeline), and [Watchlists](/watchlists) instead of the founder [Overview](/company/{{company_id}}?tab=overview).",
       },
       {
         label: "What you can open",

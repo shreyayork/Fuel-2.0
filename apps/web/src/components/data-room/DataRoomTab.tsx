@@ -152,40 +152,23 @@ export function DataRoomTab({
       <div
         style={{
           ...dataRoomHeadStyle(),
-          flexDirection: narrow ? "column" : "row",
+          alignItems: "center",
         }}
       >
-        <div>
-          <h2
-            style={{
-              color: t.ink,
-              fontSize: 14,
-              fontWeight: 700,
-              letterSpacing: 0,
-              margin: 0,
-            }}
-          >
-            Data Room
-          </h2>
-          <p
-            style={{
-              color: t.muted,
-              fontSize: 13,
-              lineHeight: 1.55,
-              margin: "6px 0 0",
-              maxWidth: 640,
-            }}
-          >
-            Pitch decks, investor notes, financial models, and other private files Fuel uses to
-            generate intelligence. One latest file per type.
-          </p>
-        </div>
-        <div
+        <h2
           style={{
-            ...dataRoomHeadActionsStyle(),
-            justifyContent: narrow ? "flex-start" : "flex-end",
+            color: t.ink,
+            fontSize: 20,
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
+            lineHeight: 1.2,
+            margin: 0,
+            minWidth: 0,
           }}
         >
+          Data Room
+        </h2>
+        <div style={dataRoomHeadActionsStyle()}>
           <DocumentUploadDropdown
             t={t}
             companyUuid={companyUuid}
@@ -193,6 +176,7 @@ export function DataRoomTab({
             processingTypeId={processingTypeId}
             uploadSource="data_room"
             creditBalance={creditBalance}
+            iconOnly
             onSnapshot={applySnapshot}
             onUploadStart={handleUploadStart}
             onUploadResult={handleUploadResult}
@@ -221,9 +205,7 @@ export function DataRoomTab({
               maxWidth: 620,
             }}
           >
-            Choose a document type from{" "}
-            <span style={{ color: t.inkSoft, fontWeight: 800 }}>Upload document</span> — the same
-            list as Intelligence — to add your first file.
+            Tap + to add your first file — the same document types as Intelligence.
           </p>
         </div>
       ) : (

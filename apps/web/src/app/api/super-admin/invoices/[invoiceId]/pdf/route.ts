@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import { ensureFuelInvoicePdf } from "@/lib/credits/invoice-pdf/ensure";
 import { fuelInvoicePdfHeaders } from "@/lib/credits/invoices-shared";
 import { getBillingInvoiceByDisplayNumber } from "@/lib/super-admin/user-invoices";
@@ -28,8 +28,7 @@ export async function GET(
   ctx: { params: Promise<{ invoiceId: string }> },
 ): Promise<Response> {
   const session = await getSession();
-  const devEmail = process.env.COGNITO_USER_POOL_ID ? null : "mike@york.ie";
-  if (!isSuperAdmin(session, devEmail)) return notFound();
+  if (!isSuperAdmin(session, superAdminDevEmail())) return notFound();
 
   const { invoiceId: rawId } = await ctx.params;
   const displayNumber = Number.parseInt(rawId, 10);

@@ -9,6 +9,7 @@ import { useAgentDrawer } from "../AgentDrawer";
 import { Chip, SectionHead } from "../atoms";
 import { FuelMark } from "../FuelMark";
 import { useTheme } from "../ThemeContext";
+import { THEMES } from "@/lib/theme";
 import { BenchmarkEditDrawer } from "@/components/company/overview/BenchmarkEditDrawer";
 import { OverviewStyleSheet } from "@/components/company/overview/OverviewStyleSheet";
 import {
@@ -216,13 +217,19 @@ ${subjectHint}`);
                     fontFamily: t.sans,
                     fontSize: 12.5,
                     fontWeight: 600,
-                    color: "#0B1116",
-                    background: "linear-gradient(135deg, #00B48A 0%, #ECD67F 100%)",
+                    color: THEMES.editorial.ink,
+                    background: `linear-gradient(135deg, ${t.accent} 0%, ${THEMES.signal.warn} 100%)`,
                     cursor: benchmarkCompany ? "pointer" : "not-allowed",
                     opacity: benchmarkCompany ? 1 : 0.55,
                   }}
                 >
-                  <FuelMark size={16} />
+                  <FuelMark
+                    size={16}
+                    solid
+                    accent={THEMES.editorial.ink}
+                    warm={THEMES.editorial.ink}
+                    deep={THEMES.editorial.ink}
+                  />
                   Fill in the numbers
                 </button>
                 <button
@@ -256,8 +263,8 @@ ${subjectHint}`);
                   fontFamily: t.sans,
                   fontSize: 12.5,
                   fontWeight: 600,
-                  color: "#0B1116",
-                  background: "linear-gradient(135deg, #00B48A 0%, #ECD67F 100%)",
+                  color: THEMES.editorial.ink,
+                  background: `linear-gradient(135deg, ${t.accent} 0%, ${THEMES.signal.warn} 100%)`,
                   cursor: "pointer",
                   transition: "transform 120ms ease, filter 200ms ease",
                 }}
@@ -270,7 +277,13 @@ ${subjectHint}`);
                   (e.currentTarget as HTMLButtonElement).style.filter = "saturate(1)";
                 }}
               >
-                <FuelMark size={16} />
+                <FuelMark
+                  size={16}
+                  solid
+                  accent={THEMES.editorial.ink}
+                  warm={THEMES.editorial.ink}
+                  deep={THEMES.editorial.ink}
+                />
                 Run with Fuel AI
               </button>
             )}

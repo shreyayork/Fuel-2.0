@@ -16,8 +16,14 @@ import {
   DUPLICATE_TEAM_NAME_MESSAGE,
   isTeamNameTaken,
 } from "@/lib/teams/team-name";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import { Chip, Tabs } from "../atoms";
 import { G } from "../icons";
+import {
+  CreateIconButton,
+  FilterMenu,
+  PageToolbar,
+} from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
 import { useToast } from "../toast/ToastProvider";
 import {
@@ -25,6 +31,13 @@ import {
   MemberChipPicker,
   SurfaceField,
 } from "./watchlist-access-ui";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdActionsStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 
 export type AccountTeamRow = {
   id: string;
@@ -56,6 +69,7 @@ export function AccountTeams({
   currentUserEmail: string;
 }) {
   const t = useTheme();
+  const phone = useNarrow(BREAKPOINTS.md);
   const { showToast } = useToast();
   const [, startTransition] = useTransition();
   const [createPending, startCreate] = useTransition();
@@ -71,6 +85,7 @@ export function AccountTeams({
   const [editMembers, setEditMembers] = useState<string[]>([]);
 
   const me = currentUserEmail.trim().toLowerCase();
+  const hasTeams = teams.length > 0;
 
   function beginEdit(team: AccountTeamRow) {
     setShowCreate(false);
@@ -160,87 +175,131 @@ export function AccountTeams({
     });
   }, [teams, filter, me]);
 
-  const th: CSSProperties = {
-    padding: "10px 14px",
-    textAlign: "left",
-    fontFamily: t.sans,
-    fontSize: 11,
-    fontWeight: 500,
-    color: t.muted,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    borderBottom: `1px solid ${t.rule}`,
-  };
-  const td: CSSProperties = {
-    padding: "12px 14px",
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "middle",
-  };
   const primaryBtn: CSSProperties = {
-    padding: "8px 14px",
+    alignItems: "center",
     background: t.ink,
-    color: t.bg,
     border: `1px solid ${t.ink}`,
     borderRadius: 8,
+    color: t.bg,
+    cursor: "pointer",
+    display: "inline-flex",
     fontFamily: t.sans,
     fontSize: 13,
-    fontWeight: 500,
-    cursor: "pointer",
+    fontWeight: 600,
+    justifyContent: "center",
+    minHeight: TOUCH_TARGET_MIN,
+    padding: "10px 16px",
+    whiteSpace: "nowrap",
   };
+
+  function openCreate() {
+    setShowCreate(true);
+    setNameError(null);
+    if (editingId) cancelEdit();
+  }
+
+  function toggleCreate() {
+    setShowCreate((v) => !v);
+    setNameError(null);
+    if (editingId) cancelEdit();
+  }
+
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <Tabs
-          t={t}
-          active={filter}
-          onChange={(k) => setFilter(k as MembershipFilter)}
-          items={[
-            { key: "all", label: "All teams", count: counts.all },
-            { key: "mine", label: "I'm on", count: counts.mine },
-            { key: "other", label: "Other teams", count: counts.other },
-          ]}
-        />
-        {canManage ? (
-          <button
-            type="button"
-            onClick={() => {
-              setShowCreate((v) => !v);
-              setNameError(null);
-              if (editingId) cancelEdit();
-            }}
-            aria-expanded={showCreate}
-            style={primaryBtn}
-          >
-            {showCreate ? "Cancel" : "+ New team"}
-          </button>
-        ) : null}
-      </div>
+    <div className="fuel-account-teams">
+      {/* Filters + New team only matter once teams exist */}
+      {hasTeams ? (
+        <div
+          className="fuel-account-teams__toolbar"
+          style={{
+            alignItems: "center",
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 12,
+          }}
+        >
+          <PageToolbar
+            t={t}
+            filter={
+              <FilterMenu t={t} activeCount={filter === "all" ? 0 : 1}>
+                <Tabs
+                  t={t}
+                  active={filter}
+                  onChange={(k) => setFilter(k as MembershipFilter)}
+                  items={[
+                    {
+                      key: "all",
+                      label: phone ? "All" : "All teams",
+                      count: counts.all,
+                    },
+                    {
+                      key: "mine",
+                      label: phone ? "Mine" : "I'm on",
+                      count: counts.mine,
+                    },
+                    {
+                      key: "other",
+                      label: phone ? "Other" : "Other teams",
+                      count: counts.other,
+                    },
+                  ]}
+                />
+              </FilterMenu>
+            }
+            create={
+              canManage ? (
+                <CreateIconButton
+                  t={t}
+                  label={showCreate ? "Cancel create" : "New team"}
+                  active={showCreate}
+                  onClick={toggleCreate}
+                />
+              ) : undefined
+            }
+          />
+        </div>
+      ) : null}
 
       {canManage && showCreate ? (
         <form
+          className="fuel-account-teams__create"
           onSubmit={onCreateSubmit}
           style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "flex-start",
-            padding: 14,
             background: t.panel,
             border: `1px solid ${t.rule}`,
-            marginBottom: 14,
-            flexWrap: "wrap",
+            borderRadius: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            marginBottom: hasTeams ? 14 : 0,
+            padding: phone ? 14 : 16,
           }}
         >
+          <div>
+            <div
+              style={{
+                color: t.ink,
+                fontFamily: t.sans,
+                fontSize: 14,
+                fontWeight: 650,
+                marginBottom: 4,
+              }}
+            >
+              New team
+            </div>
+            <p
+              style={{
+                color: t.muted,
+                fontFamily: t.sans,
+                fontSize: 12,
+                lineHeight: 1.4,
+                margin: 0,
+              }}
+            >
+              Name the team and optionally add members now.
+            </p>
+          </div>
           <input type="hidden" name="accountId" value={accountId} />
-          <div style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <SurfaceField
               name="name"
               placeholder="Team name"
@@ -267,38 +326,120 @@ export function AccountTeams({
               </span>
             ) : null}
           </div>
-          <div style={{ flex: 2, minWidth: 220 }}>
-            <MemberChipPicker
-              members={accountMembers}
-              value={createMembers}
-              onChange={setCreateMembers}
-              name="memberEmails"
-              disabled={createPending}
-              placeholder="Add members…"
-            />
-          </div>
-          <button
-            type="submit"
+          <MemberChipPicker
+            members={accountMembers}
+            value={createMembers}
+            onChange={setCreateMembers}
+            name="memberEmails"
             disabled={createPending}
+            placeholder="Add members…"
+          />
+          <div
             style={{
-              ...primaryBtn,
-              cursor: createPending ? "wait" : "pointer",
-              opacity: createPending ? 0.7 : 1,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              justifyContent: phone ? "stretch" : "flex-end",
             }}
           >
-            {createPending ? "Creating…" : "Create team"}
-          </button>
+            {hasTeams || !canManage ? null : (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreate(false);
+                  setNameError(null);
+                }}
+                style={{
+                  ...primaryBtn,
+                  background: "transparent",
+                  border: `1px solid ${t.rule}`,
+                  color: t.inkSoft,
+                  flex: phone ? "1 1 auto" : undefined,
+                }}
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={createPending}
+              style={{
+                ...primaryBtn,
+                cursor: createPending ? "wait" : "pointer",
+                flex: phone ? "1 1 auto" : undefined,
+                opacity: createPending ? 0.7 : 1,
+              }}
+            >
+              {createPending ? "Creating…" : "Create team"}
+            </button>
+          </div>
         </form>
       ) : null}
 
-      <div style={{ background: t.panel, border: `1px solid ${t.rule}`, overflow: "visible" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      {/* Zero teams: calm empty state — no filter tabs, no empty table headers */}
+      {!hasTeams && !showCreate ? (
+        <div
+          className="fuel-account-teams__empty"
+          style={{
+            background: t.panel,
+            border: `1px solid ${t.rule}`,
+            borderRadius: 12,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 10,
+            padding: phone ? "36px 20px" : "48px 28px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              color: t.ink,
+              fontFamily: t.sans,
+              fontSize: 15,
+              fontWeight: 700,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            No teams yet
+          </div>
+          <p
+            style={{
+              color: t.muted,
+              fontFamily: t.sans,
+              fontSize: 13,
+              lineHeight: 1.5,
+              margin: 0,
+              maxWidth: 320,
+            }}
+          >
+            {canManage
+              ? "Create a team to group members for watchlists and shared work."
+              : "An owner or admin can create the first team for this account."}
+          </p>
+          {canManage ? (
+            <CreateIconButton
+              t={t}
+              label="Create team"
+              onClick={openCreate}
+              style={{ marginTop: 4 }}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {hasTeams ? (
+      <div
+        className="fuel-data-table-frame fuel-table-wrap"
+        style={{ ...dataTableFrameStyle(t), overflow: "visible" }}
+      >
+        <table className="fuel-data-table" style={dataTableStyle()}>
           <thead>
             <tr>
-              <th style={th}>Team</th>
-              <th style={th}>Description</th>
-              <th style={th}>Members</th>
-              <th style={{ ...th, textAlign: "right" }}>Actions</th>
+              <th style={dataThStyle(t)}>Team</th>
+              <th style={dataThStyle(t)}>Description</th>
+              <th style={dataThStyle(t)}>Members</th>
+              <th style={dataThStyle(t, { align: "right" })}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -310,7 +451,7 @@ export function AccountTeams({
                   key={team.id}
                   style={isEditing ? editingRowStyle(t.accent) : undefined}
                 >
-                  <td style={td}>
+                  <td style={dataTdStyle(t, { top: false })}>
                     {isEditing ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
                         <SurfaceField
@@ -347,7 +488,7 @@ export function AccountTeams({
                       </div>
                     )}
                   </td>
-                  <td style={{ ...td, maxWidth: 260 }}>
+                  <td style={{ ...dataTdStyle(t, { top: false }), maxWidth: 260 }}>
                     {isEditing ? (
                       <SurfaceField
                         value={editDescription}
@@ -369,7 +510,7 @@ export function AccountTeams({
                       </span>
                     )}
                   </td>
-                  <td style={{ ...td, minWidth: 260 }}>
+                  <td style={{ ...dataTdStyle(t, { top: false }), minWidth: 260 }}>
                     <MemberChipPicker
                       members={accountMembers}
                       value={isEditing ? editMembers : team.members}
@@ -377,7 +518,7 @@ export function AccountTeams({
                       disabled={!canManage || !isEditing || savePending}
                     />
                   </td>
-                  <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                  <td style={dataTdActionsStyle(t)}>
                     {canManage ? (
                       <div style={{ display: "inline-flex", gap: 6 }}>
                         {isEditing ? (
@@ -445,34 +586,24 @@ export function AccountTeams({
         {visibleTeams.length === 0 ? (
           <div
             style={{
-              padding: 40,
-              textAlign: "center",
-              fontFamily: t.sans,
-              fontSize: 13,
+              alignItems: "center",
               color: t.muted,
               display: "flex",
               flexDirection: "column",
-              alignItems: "center",
-              gap: 12,
+              fontFamily: t.sans,
+              fontSize: 13,
+              gap: 8,
+              padding: 32,
+              textAlign: "center",
             }}
           >
-            {teams.length === 0 ? (
-              <>
-                <span>No teams yet.</span>
-                {canManage ? (
-                  <button type="button" onClick={() => setShowCreate(true)} style={primaryBtn}>
-                    Create team
-                  </button>
-                ) : null}
-              </>
-            ) : filter === "mine" ? (
-              "You're not on any team."
-            ) : (
-              "No teams match this filter."
-            )}
+            {filter === "mine"
+              ? "You're not on any team."
+              : "No teams match this filter."}
           </div>
         ) : null}
       </div>
+      ) : null}
     </div>
   );
 }

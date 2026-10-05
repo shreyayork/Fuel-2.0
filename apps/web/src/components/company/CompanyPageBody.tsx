@@ -44,6 +44,7 @@ export async function CompanyPageBody({
     creditBalance,
     artifactCount,
     initiativeCount,
+    overviewInitial,
   } = data;
 
   const founderFirstRun =
@@ -242,6 +243,7 @@ export async function CompanyPageBody({
         creditBalance={creditBalance}
         artifactCount={artifactCount}
         initiativeCount={initiativeCount}
+        overviewInitial={overviewInitial}
       />
     </>
   );

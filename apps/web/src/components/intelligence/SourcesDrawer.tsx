@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Theme } from "@/lib/theme";
 import type { DataRoomDocumentSlot } from "@/lib/data-room/types";
 import type { PaginatedResponse } from "@/lib/list-pagination";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, mqMax, useMediaQuery } from "@/lib/responsive";
 import {
   drawerPanelMotionStyle,
   drawerScrimMotionStyle,
@@ -16,6 +17,7 @@ import {
   ListPagination,
   type ListPageSize,
 } from "@/components/ui/ListPagination";
+import { drawerCloseBtnStyle } from "@/components/drawer/styles";
 import { ghostButtonStyle } from "./styles";
 
 export type IntelligenceSourceListItem = {
@@ -62,6 +64,19 @@ export function sourcesFromDocumentSlots(
 /** Skeleton row count — enough to read as a list without a tall placeholder. */
 const SOURCE_SKELETON_ROWS = 5;
 
+function CloseIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M4 4l8 8M12 4L4 12"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** Placeholder rows mirror the source row geometry to avoid drawer layout jump. */
 function SourceListSkeleton({ t, rows }: { t: Theme; rows: number }) {
   return (
@@ -69,7 +84,7 @@ function SourceListSkeleton({ t, rows }: { t: Theme; rows: number }) {
       role="status"
       aria-busy="true"
       aria-label="Loading sources"
-      style={{ display: "flex", flexDirection: "column", gap: 8 }}
+      style={{ display: "flex", flexDirection: "column", gap: 6 }}
     >
       {Array.from({ length: rows }, (_, i) => (
         <div
@@ -81,7 +96,8 @@ function SourceListSkeleton({ t, rows }: { t: Theme; rows: number }) {
             borderRadius: 8,
             display: "flex",
             gap: 10,
-            padding: "10px 12px",
+            minHeight: 48,
+            padding: "8px 12px",
           }}
         >
           <MagicShimmer theme={t} width={34} height={16} rounded={4} />
@@ -94,6 +110,15 @@ function SourceListSkeleton({ t, rows }: { t: Theme; rows: number }) {
       ))}
     </div>
   );
+}
+
+function statusLabel(source: IntelligenceSourceListItem): string | null {
+  if (source.kind === "note") return "Reference";
+  if (source.status === "generated" && source.intelligenceCount > 0) {
+    return `${source.intelligenceCount} signal${source.intelligenceCount === 1 ? "" : "s"}`;
+  }
+  if (source.status === "awaiting") return "Extract";
+  return null;
 }
 
 /** Focus keys for a source: intel ids + document version + context item. */
@@ -130,6 +155,7 @@ export function SourcesDrawer({
   onTotalChange?: (total: number) => void;
 }) {
   const { mounted, visible, durationMs } = useDrawerPresence(open);
+  const sheet = useMediaQuery(mqMax(BREAKPOINTS.md), false);
   const [listPage, setListPage] = useState(0);
   const [listPageSize, setListPageSize] = useState<ListPageSize>(DEFAULT_LIST_PAGE_SIZE);
   const [sources, setSources] = useState<IntelligenceSourceListItem[]>([]);
@@ -218,66 +244,121 @@ export function SourcesDrawer({
         aria-label="Sources"
         style={{
           background: t.panel,
-          borderLeft: `1px solid ${t.rule}`,
-          bottom: 0,
-          boxShadow: `-24px 0 60px ${t.overlay}`,
+          ...(sheet
+            ? {
+                borderRadius: "16px 16px 0 0",
+                borderTop: `1px solid ${t.rule}`,
+                bottom: 0,
+                boxShadow: `0 -16px 48px ${t.overlay}`,
+                left: 0,
+                maxHeight: "min(88vh, 720px)",
+                right: 0,
+                top: "auto",
+                width: "100%",
+              }
+            : {
+                borderLeft: `1px solid ${t.rule}`,
+                bottom: 0,
+                boxShadow: `-24px 0 60px ${t.overlay}`,
+                maxWidth: 420,
+                right: 0,
+                top: 0,
+                width: "min(100vw, 420px)",
+              }),
           display: "flex",
           flexDirection: "column",
-          maxWidth: 480,
           position: "fixed",
-          right: 0,
-          top: 0,
-          width: "min(100vw, 480px)",
           zIndex: 71,
-          ...drawerPanelMotionStyle(visible, durationMs),
+          ...drawerPanelMotionStyle(visible, durationMs, {
+            from: sheet ? "bottom" : "right",
+          }),
         }}
       >
+        {sheet ? (
+          <div
+            aria-hidden
+            style={{
+              alignSelf: "center",
+              background: t.rule,
+              borderRadius: 999,
+              flexShrink: 0,
+              height: 4,
+              marginTop: 8,
+              width: 36,
+            }}
+          />
+        ) : null}
+
         <header
           style={{
-            background: t.panelAlt,
+            alignItems: "flex-start",
+            background: t.panel,
             borderBottom: `1px solid ${t.ruleSoft}`,
             display: "flex",
             gap: 12,
             justifyContent: "space-between",
-            padding: "16px 18px",
+            padding: sheet ? "10px 16px 12px" : "14px 16px",
           }}
         >
-          <div>
-            <h2
-              style={{
-                color: t.ink,
-                fontFamily: t.sans,
-                fontSize: 16,
-                fontWeight: 700,
-                margin: 0,
-              }}
-            >
-              Sources
-            </h2>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ alignItems: "baseline", display: "flex", flexWrap: "wrap", gap: "4px 10px" }}>
+              <h2
+                style={{
+                  color: t.ink,
+                  fontFamily: t.sans,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  margin: 0,
+                }}
+              >
+                Sources
+              </h2>
+              {loadState === "ready" && total > 0 ? (
+                <span
+                  style={{
+                    color: t.muted,
+                    fontFamily: t.mono,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {total}
+                </span>
+              ) : null}
+            </div>
             <p
               style={{
                 color: t.muted,
                 fontFamily: t.sans,
                 fontSize: 12,
-                lineHeight: 1.45,
-                margin: "6px 0 0",
+                lineHeight: 1.35,
+                margin: "4px 0 0",
               }}
             >
-              Notes and documents that feed intelligence. Notes are reference-only; documents can
-              generate intelligence.
+              Notes stay as reference · docs can extract signals
             </p>
           </div>
-          <button type="button" aria-label="Close" onClick={onClose} style={ghostButtonStyle(t)}>
-            ✕
+          <button
+            type="button"
+            className="fuel-drawer-close"
+            aria-label="Close"
+            onClick={onClose}
+            style={drawerCloseBtnStyle(t)}
+          >
+            <CloseIcon />
           </button>
         </header>
 
-        <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            padding: sheet ? "12px 14px calc(12px + env(safe-area-inset-bottom, 0px))" : 14,
+          }}
+        >
           {loadState === "loading" || loadState === "idle" ? (
-            <SourceListSkeleton
-              t={t}
-              rows={Math.min(listPageSize, SOURCE_SKELETON_ROWS)}
-            />
+            <SourceListSkeleton t={t} rows={Math.min(listPageSize, SOURCE_SKELETON_ROWS)} />
           ) : null}
           {loadState === "error" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -300,12 +381,22 @@ export function SourcesDrawer({
           ) : null}
           {loadState === "ready" && sources.length > 0 ? (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <ul
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  listStyle: "none",
+                  margin: 0,
+                  padding: 0,
+                }}
+              >
                 {sources.map((source) => {
                   const isNote = source.kind === "note";
                   const hasIntel =
                     source.status === "generated" && source.intelligenceCount > 0;
                   const canGenerate = !isNote && source.status === "awaiting";
+                  const meta = statusLabel(source);
                   const focusFromSource = () => {
                     if (!hasIntel) {
                       onSelectSource?.(source.id);
@@ -316,138 +407,156 @@ export function SourcesDrawer({
                     onClose();
                   };
                   return (
-                    <div
-                      key={source.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={focusFromSource}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          focusFromSource();
-                        }
-                      }}
-                      style={{
-                        alignItems: "center",
-                        background: t.panelInner,
-                        border: `1px solid ${t.ruleSoft}`,
-                        borderRadius: 8,
-                        cursor: "pointer",
-                        display: "flex",
-                        gap: 10,
-                        padding: "10px 12px",
-                      }}
-                    >
-                      <span
+                    <li key={source.id}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={focusFromSource}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            focusFromSource();
+                          }
+                        }}
                         style={{
-                          background: isNote ? `${t.muted}22` : `${t.accent}22`,
-                          borderRadius: 4,
-                          color: isNote ? t.muted : t.accent,
-                          fontFamily: t.mono,
-                          fontSize: 10,
-                          fontWeight: 700,
-                          padding: "2px 6px",
-                          textTransform: "uppercase",
+                          alignItems: "center",
+                          background: t.panelInner,
+                          border: `1px solid ${t.ruleSoft}`,
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          display: "grid",
+                          gap: "6px 10px",
+                          gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                          minHeight: TOUCH_TARGET_MIN,
+                          padding: "8px 10px",
                         }}
                       >
-                        {source.originLabel}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong
-                          style={{
-                            color: t.ink,
-                            display: "block",
-                            fontFamily: t.sans,
-                            fontSize: 13,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {source.title}
-                        </strong>
                         <span
                           style={{
-                            color: t.mutedSoft,
+                            background: isNote ? `${t.muted}22` : `${t.accent}22`,
+                            borderRadius: 4,
+                            color: isNote ? t.muted : t.accent,
                             fontFamily: t.mono,
                             fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            padding: "3px 6px",
+                            textTransform: "uppercase",
                           }}
                         >
-                          {source.addedAtLabel}
+                          {source.originLabel}
                         </span>
-                      </div>
-                      <div
-                        style={{ alignItems: "center", display: "flex", gap: 6 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {hasIntel ? (
-                          <button
-                            type="button"
-                            onClick={focusFromSource}
+                        <div style={{ minWidth: 0 }}>
+                          <strong
                             style={{
-                              background: "transparent",
-                              border: "none",
-                              color: t.accent,
-                              cursor: "pointer",
+                              color: t.ink,
+                              display: "block",
                               fontFamily: t.sans,
-                              fontSize: 11,
-                              fontWeight: 600,
+                              fontSize: 13,
+                              fontWeight: 650,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            {source.intelligenceCount} signal
-                            {source.intelligenceCount === 1 ? "" : "s"} →
-                          </button>
-                        ) : isNote ? (
+                            {source.title}
+                          </strong>
                           <span
                             style={{
                               color: t.mutedSoft,
-                              fontFamily: t.sans,
-                              fontSize: 11,
+                              fontFamily: t.mono,
+                              fontSize: 10,
                             }}
                           >
-                            Reference only
+                            {source.addedAtLabel}
                           </span>
-                        ) : canGenerate ? (
-                          <button
-                            type="button"
-                            onClick={() => onGenerate?.(source.id)}
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              color: t.accent,
-                              cursor: "pointer",
-                              fontFamily: t.sans,
-                              fontSize: 11,
-                              fontWeight: 600,
-                            }}
-                          >
-                            Extract →
-                          </button>
-                        ) : null}
-                        {onRemove ? (
-                          <button
-                            type="button"
-                            aria-label="Remove source"
-                            onClick={() => onRemove(source.id)}
-                            style={{
-                              background: "transparent",
-                              border: `1px solid ${t.rule}`,
-                              borderRadius: 4,
-                              color: t.muted,
-                              cursor: "pointer",
-                              fontSize: 12,
-                              lineHeight: 1,
-                              padding: "2px 6px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        ) : null}
+                        </div>
+                        <div
+                          style={{
+                            alignItems: "center",
+                            display: "flex",
+                            gap: 4,
+                            justifyContent: "flex-end",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {hasIntel ? (
+                            <button
+                              type="button"
+                              onClick={focusFromSource}
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                color: t.accent,
+                                cursor: "pointer",
+                                fontFamily: t.sans,
+                                fontSize: 11,
+                                fontWeight: 650,
+                                minHeight: 36,
+                                padding: "0 4px",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {meta} →
+                            </button>
+                          ) : canGenerate ? (
+                            <button
+                              type="button"
+                              onClick={() => onGenerate?.(source.id)}
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                color: t.accent,
+                                cursor: "pointer",
+                                fontFamily: t.sans,
+                                fontSize: 11,
+                                fontWeight: 650,
+                                minHeight: 36,
+                                padding: "0 4px",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Extract →
+                            </button>
+                          ) : meta ? (
+                            <span
+                              style={{
+                                color: t.mutedSoft,
+                                fontFamily: t.sans,
+                                fontSize: 11,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {meta}
+                            </span>
+                          ) : null}
+                          {onRemove ? (
+                            <button
+                              type="button"
+                              aria-label="Remove source"
+                              onClick={() => onRemove(source.id)}
+                              style={{
+                                alignItems: "center",
+                                background: "transparent",
+                                border: `1px solid ${t.rule}`,
+                                borderRadius: 6,
+                                color: t.muted,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                height: 32,
+                                justifyContent: "center",
+                                width: 32,
+                              }}
+                            >
+                              <CloseIcon />
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
               <ListPagination
                 t={t}
                 page={listPage}

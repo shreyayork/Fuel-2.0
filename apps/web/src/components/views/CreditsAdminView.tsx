@@ -4,8 +4,28 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Theme } from "@/lib/theme";
 import type { CreditActionCost, CreditPlan, TopupPack } from "@/db/schema";
-import { Chip, SectionHead, Tabs, type TabItem } from "../atoms";
+import { Chip, Tabs, type TabItem } from "../atoms";
+import { AdminPageHeader } from "./AdminPageHeader";
+import { AdminStatsStrip } from "./AdminChrome";
 import { useTheme } from "../ThemeContext";
+import {
+  adminBtnStyle,
+  adminEmptyStyle,
+  adminFormLabelStyle,
+  adminFormRowStyle,
+  adminInputStyle,
+  adminModalOverlayStyle,
+  adminModalPanelStyle,
+  adminModalTitleStyle,
+  adminPageStyle,
+  adminSectionLabelStyle,
+  adminTableFrameStyle,
+  adminTableScrollStyle,
+  adminTableStyle,
+  adminTdActionsStyle,
+  adminTdStyle,
+  adminThStyle,
+} from "./adminStyles";
 import {
   deleteActionCostAction,
   deleteTopupPackAction,
@@ -13,20 +33,17 @@ import {
   restoreTopupPackAction,
   upsertActionCostAction,
   upsertCreditPlanAction,
-  upsertTopupPackAction,
-} from "@/app/(super-admin)/super-admin/credits/actions";
+  upsertTopupPackAction} from "@/app/(super-admin)/super-admin/credits/actions";
 import type { CreditCatalogFlow } from "@/lib/credits/catalog-flow";
 import { creditsPerBlock, PROFILE_EARN_BLOCK_COUNT } from "@/lib/credits/profile-modules";
 import {
   formatUsdFromCents,
-  resolveStrikePrice,
-} from "@/lib/credits/admin-price-display";
+  resolveStrikePrice} from "@/lib/credits/admin-price-display";
 import { creditBillingPriceStruck } from "@/components/credits/styles";
 import {
   CREDIT_ACTION_TYPES,
   INTEGRATION_SYNC_ACTIONS,
-  INTEGRATION_SYNC_ACTION_SLUGS,
-} from "@/lib/credits/constants";
+  INTEGRATION_SYNC_ACTION_SLUGS} from "@/lib/credits/constants";
 
 const CATALOG_SLUG_PATTERN = "[a-z][a-z0-9-]{1,62}";
 
@@ -37,8 +54,7 @@ function AdminStrikePrice({
   t,
   listCents,
   finalCents,
-  fractionDigits = 2,
-}: {
+  fractionDigits = 2}: {
   t: Theme;
   listCents: number | null | undefined;
   finalCents: number | null | undefined;
@@ -61,81 +77,15 @@ function AdminStrikePrice({
   return <>{formatUsdFromCents(resolved.finalCents, fractionDigits)}</>;
 }
 
-function button(t: Theme, variant: "primary" | "ghost" | "danger" = "ghost"): React.CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-    danger: { bg: "transparent", color: t.warn, border: t.warn },
-  } as const;
-  const v = map[variant];
-  return {
-    padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: "pointer",
-  };
-}
 
-function input(t: Theme, multiline = false): React.CSSProperties {
-  return {
-    padding: "8px 10px",
-    background: t.panelAlt,
-    color: t.ink,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 13,
-    width: "100%",
-    minHeight: multiline ? 80 : undefined,
-    resize: multiline ? "vertical" : undefined,
-  };
-}
 
-function cellBase(t: Theme): React.CSSProperties {
-  return {
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.inkSoft,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "top",
-  };
-}
 
-function th(t: Theme): React.CSSProperties {
-  return {
-    textAlign: "left",
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 10,
-    color: t.muted,
-    borderBottom: `1px solid ${t.rule}`,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-  };
-}
 
 function Row({ t, label, children }: { t: Theme; label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 10, alignItems: "start" }}>
-      <div
-        style={{
-          fontFamily: t.sans,
-          fontSize: 11,
-          color: t.muted,
-          letterSpacing: "0.04em",
-          textTransform: "uppercase",
-          fontWeight: 500,
-        }}
-      >
-        {label}
-      </div>
-      <div>{children}</div>
+    <div className="fuel-admin-form-row" style={adminFormRowStyle()}>
+      <div style={adminFormLabelStyle(t)}>{label}</div>
+      <div style={{ minWidth: 0 }}>{children}</div>
     </div>
   );
 }
@@ -144,50 +94,25 @@ function ModalShell({
   t,
   title,
   onClose,
-  children,
-}: {
+  children}: {
   t: Theme;
   title: string;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 200,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: t.panel,
-          border: `1px solid ${t.rule}`,
-          borderRadius: 8,
-          padding: 24,
-          width: "min(640px, 94vw)",
-          maxHeight: "90vh",
-          overflow: "auto",
-        }}
-      >
+    <div onClick={onClose} style={adminModalOverlayStyle(t)}>
+      <div onClick={(e) => e.stopPropagation()} style={adminModalPanelStyle(t)}>
         <div
           style={{
+            alignItems: "center",
             display: "flex",
+            gap: 12,
             justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: 16,
           }}
         >
-          <div style={{ fontFamily: t.sans, fontSize: 17, fontWeight: 600, color: t.ink }}>
-            {title}
-          </div>
-          <button type="button" onClick={onClose} style={button(t, "ghost")}>
+          <h2 style={adminModalTitleStyle(t)}>{title}</h2>
+          <button type="button" onClick={onClose} style={adminBtnStyle(t, "ghost")}>
             Close
           </button>
         </div>
@@ -200,8 +125,7 @@ function ModalShell({
 export function CreditsAdminView({
   plans,
   actionCosts,
-  topups,
-}: {
+  topups}: {
   plans: CreditPlan[];
   actionCosts: CreditActionCost[];
   topups: TopupPack[];
@@ -241,12 +165,12 @@ export function CreditsAdminView({
   ];
 
   return (
-    <div>
-      <SectionHead
+    <div className="fuel-admin-page" style={adminPageStyle()}>
+      <AdminPageHeader
         t={t}
-        title="Credits · Admin"
-        subtitle="Founder and Investor catalogs are edited separately. Soft-delete hides a row from that flow only. Sync to Stripe creates new Prices when amounts change."
-        right={
+        title="Credits"
+        description="Plans, action costs, and top-ups by founder or investor flow."
+        actions={
           section === "actions" && availableActionSlugs.length > 0 ? (
             <button
               type="button"
@@ -254,7 +178,7 @@ export function CreditsAdminView({
                 setEditingAction(null);
                 setCreatingAction(true);
               }}
-              style={button(t, "primary")}
+              style={adminBtnStyle(t, "primary")}
             >
               + Action cost
             </button>
@@ -265,12 +189,21 @@ export function CreditsAdminView({
                 setEditingTopup(null);
                 setCreatingTopup(true);
               }}
-              style={button(t, "primary")}
+              style={adminBtnStyle(t, "primary")}
             >
               + Top-up pack
             </button>
           ) : null
         }
+      />
+
+      <AdminStatsStrip
+        t={t}
+        items={[
+          { label: "Plans", value: flowPlans.length, footnote: flow },
+          { label: "Action costs", value: flowActions.length },
+          { label: "Top-ups", value: flowTopups.length },
+        ]}
       />
 
       <div style={{ marginBottom: 12 }}>
@@ -357,68 +290,75 @@ export function CreditsAdminView({
 function PlansTable({
   t,
   rows,
-  onEdit,
-}: {
+  onEdit}: {
   t: Theme;
   rows: CreditPlan[];
   onEdit: (row: CreditPlan) => void;
 }) {
   return (
-    <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 6 }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            {["Plan", "Monthly / daily", "Fee (mo / yr)", "Stripe prices", ""].map((h) => (
-              <th key={h || "actions"} style={th(t)}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={`${r.flow}:${r.slug}`}>
-              <td style={cellBase(t)}>
-                <div style={{ fontWeight: 600, color: t.ink }}>{r.displayName}</div>
-                <div style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>{r.slug}</div>
-              </td>
-              <td style={cellBase(t)}>
-                {r.monthlyLimit} / {r.dailyLimit}
-              </td>
-              <td style={cellBase(t)}>
-                {r.monthlyPriceCents != null || r.annualPriceCents != null ? (
-                  <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" }}>
-                    <AdminStrikePrice
-                      t={t}
-                      listCents={r.listPriceCents}
-                      finalCents={r.monthlyPriceCents}
-                      fractionDigits={0}
-                    />
-                    <span style={{ color: t.muted }}>/</span>
-                    <AdminStrikePrice
-                      t={t}
-                      listCents={r.annualListPriceCents}
-                      finalCents={r.annualPriceCents}
-                      fractionDigits={0}
-                    />
-                  </span>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td style={{ ...cellBase(t), fontFamily: t.mono, fontSize: 11 }}>
-                <div>{r.stripeMonthlyPriceId ?? "—"}</div>
-                <div style={{ color: t.muted }}>{r.stripeAnnualPriceId ?? "—"}</div>
-              </td>
-              <td style={cellBase(t)}>
-                <button type="button" style={button(t, "ghost")} onClick={() => onEdit(r)}>
-                  Edit
-                </button>
-              </td>
+    <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+      <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+        <table className="fuel-admin-table" style={adminTableStyle()}>
+          <thead>
+            <tr>
+              {["Plan", "Monthly / daily", "Fee (mo / yr)", "Stripe prices", ""].map((h) => (
+                <th
+                  key={h || "actions"}
+                  style={adminThStyle(
+                    t,
+                    h === "Monthly / daily" || h === "Fee (mo / yr)" ? { numeric: true } : undefined,
+                  )}
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={`${r.flow}:${r.slug}`}>
+                <td style={adminTdStyle(t)}>
+                  <div style={{ fontWeight: 600, color: t.ink }}>{r.displayName}</div>
+                  <div style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>{r.slug}</div>
+                </td>
+                <td style={adminTdStyle(t, { numeric: true })}>
+                  {r.monthlyLimit} / {r.dailyLimit}
+                </td>
+                <td style={adminTdStyle(t, { numeric: true })}>
+                  {r.monthlyPriceCents != null || r.annualPriceCents != null ? (
+                    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" }}>
+                      <AdminStrikePrice
+                        t={t}
+                        listCents={r.listPriceCents}
+                        finalCents={r.monthlyPriceCents}
+                        fractionDigits={0}
+                      />
+                      <span style={{ color: t.muted }}>/</span>
+                      <AdminStrikePrice
+                        t={t}
+                        listCents={r.annualListPriceCents}
+                        finalCents={r.annualPriceCents}
+                        fractionDigits={0}
+                      />
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td style={adminTdStyle(t, { mono: true })}>
+                  <div>{r.stripeMonthlyPriceId ?? "—"}</div>
+                  <div style={{ color: t.muted }}>{r.stripeAnnualPriceId ?? "—"}</div>
+                </td>
+                <td style={adminTdActionsStyle(t)}>
+                  <button type="button" style={adminBtnStyle(t, "ghost")} onClick={() => onEdit(r)}>
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -426,8 +366,7 @@ function PlansTable({
 function IntegrationSyncCostsPanel({
   t,
   flow,
-  rows,
-}: {
+  rows}: {
   t: Theme;
   flow: CreditCatalogFlow;
   rows: CreditActionCost[];
@@ -475,8 +414,7 @@ function IntegrationSyncCostsPanel({
         background: t.panel,
         border: `1px solid ${t.rule}`,
         borderRadius: 6,
-        padding: 16,
-      }}
+        padding: 16}}
     >
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontFamily: t.sans, fontSize: 14, fontWeight: 600, color: t.ink }}>
@@ -500,7 +438,7 @@ function IntegrationSyncCostsPanel({
                   min={0}
                   step={1}
                   defaultValue={row?.cost ?? 0}
-                  style={{ ...input(t), maxWidth: 120 }}
+                  style={{ ...adminInputStyle(t), maxWidth: 120 }}
                 />
                 <span style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>
                   {def.action}
@@ -516,7 +454,7 @@ function IntegrationSyncCostsPanel({
           <div style={{ fontFamily: t.sans, fontSize: 12, color: t.positive }}>Saved.</div>
         ) : null}
         <div>
-          <button type="submit" disabled={pending} style={button(t, "primary")}>
+          <button type="submit" disabled={pending} style={adminBtnStyle(t, "primary")}>
             {pending ? "Saving…" : "Save integration costs"}
           </button>
         </div>
@@ -529,55 +467,59 @@ function ActionsTable({
   t,
   flow,
   rows,
-  onEdit,
-}: {
+  onEdit}: {
   t: Theme;
   flow: CreditCatalogFlow;
   rows: CreditActionCost[];
   onEdit: (row: CreditActionCost) => void;
 }) {
   return (
-    <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 6 }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            {["Action", "Label", "Cost", "Status", ""].map((h) => (
-              <th key={h || "actions"} style={th(t)}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const inactive = !r.active;
-            return (
-              <tr key={`${flow}:${r.actionSlug}`} style={inactive ? { opacity: 0.55 } : undefined}>
-                <td style={{ ...cellBase(t), fontFamily: t.mono, fontSize: 12 }}>{r.actionSlug}</td>
-                <td style={cellBase(t)}>{r.label}</td>
-                <td style={cellBase(t)}>{r.cost}</td>
-                <td style={cellBase(t)}>
-                  <Chip t={t} tone={inactive ? "warn" : "positive"}>
-                    {inactive ? "Inactive" : "Active"}
-                  </Chip>
-                </td>
-                <td style={cellBase(t)}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button" style={button(t, "ghost")} onClick={() => onEdit(r)}>
-                      Edit
-                    </button>
-                    {inactive ? (
-                      <RestoreActionButton t={t} flow={flow} slug={r.actionSlug} />
-                    ) : (
-                      <DeleteActionButton t={t} flow={flow} slug={r.actionSlug} label={r.label} />
-                    )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+      <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+        <table className="fuel-admin-table" style={adminTableStyle()}>
+          <thead>
+            <tr>
+              {["Action", "Label", "Cost", "Status", ""].map((h) => (
+                <th
+                  key={h || "actions"}
+                  style={adminThStyle(t, h === "Cost" ? { numeric: true } : undefined)}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const inactive = !r.active;
+              return (
+                <tr key={`${flow}:${r.actionSlug}`} style={inactive ? { opacity: 0.55 } : undefined}>
+                  <td style={adminTdStyle(t, { mono: true })}>{r.actionSlug}</td>
+                  <td style={adminTdStyle(t)}>{r.label}</td>
+                  <td style={adminTdStyle(t, { numeric: true })}>{r.cost}</td>
+                  <td style={adminTdStyle(t)}>
+                    <Chip t={t} tone={inactive ? "warn" : "positive"}>
+                      {inactive ? "Inactive" : "Active"}
+                    </Chip>
+                  </td>
+                  <td style={adminTdActionsStyle(t)}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                      <button type="button" style={adminBtnStyle(t, "ghost")} onClick={() => onEdit(r)}>
+                        Edit
+                      </button>
+                      {inactive ? (
+                        <RestoreActionButton t={t} flow={flow} slug={r.actionSlug} />
+                      ) : (
+                        <DeleteActionButton t={t} flow={flow} slug={r.actionSlug} label={r.label} />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -586,77 +528,84 @@ function TopupsTable({
   t,
   flow,
   rows,
-  onEdit,
-}: {
+  onEdit}: {
   t: Theme;
   flow: CreditCatalogFlow;
   rows: TopupPack[];
   onEdit: (row: TopupPack) => void;
 }) {
   return (
-    <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 6 }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            {["Pack", "Credits", "Price", "Discount", "Stripe", "Status", ""].map((h) => (
-              <th key={h || "actions"} style={th(t)}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const inactive = !r.active;
-            return (
-              <tr key={`${flow}:${r.slug}`} style={inactive ? { opacity: 0.55 } : undefined}>
-                <td style={cellBase(t)}>
-                  <div style={{ fontWeight: 600, color: t.ink }}>{r.label}</div>
-                  <div style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>{r.slug}</div>
-                </td>
-                <td style={cellBase(t)}>{r.credits}</td>
-                <td style={cellBase(t)}>
-                  <AdminStrikePrice
-                    t={t}
-                    listCents={r.listPriceCents}
-                    finalCents={r.priceCents}
-                    fractionDigits={2}
-                  />
-                </td>
-                <td style={cellBase(t)}>
-                  {r.discount ? (
-                    <span style={{ fontFamily: t.sans, fontSize: 12, color: t.muted }}>
-                      {r.discount}
-                    </span>
-                  ) : (
-                    "—"
+    <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+      <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+        <table className="fuel-admin-table" style={adminTableStyle()}>
+          <thead>
+            <tr>
+              {["Pack", "Credits", "Price", "Discount", "Stripe", "Status", ""].map((h) => (
+                <th
+                  key={h || "actions"}
+                  style={adminThStyle(
+                    t,
+                    h === "Credits" || h === "Price" ? { numeric: true } : undefined,
                   )}
-                </td>
-                <td style={{ ...cellBase(t), fontFamily: t.mono, fontSize: 11 }}>
-                  {r.stripePriceId ?? "—"}
-                </td>
-                <td style={cellBase(t)}>
-                  <Chip t={t} tone={inactive ? "warn" : "positive"}>
-                    {inactive ? "Inactive" : "Active"}
-                  </Chip>
-                </td>
-                <td style={cellBase(t)}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button" style={button(t, "ghost")} onClick={() => onEdit(r)}>
-                      Edit
-                    </button>
-                    {inactive ? (
-                      <RestoreTopupButton t={t} flow={flow} slug={r.slug} />
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const inactive = !r.active;
+              return (
+                <tr key={`${flow}:${r.slug}`} style={inactive ? { opacity: 0.55 } : undefined}>
+                  <td style={adminTdStyle(t)}>
+                    <div style={{ fontWeight: 600, color: t.ink }}>{r.label}</div>
+                    <div style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>{r.slug}</div>
+                  </td>
+                  <td style={adminTdStyle(t, { numeric: true })}>{r.credits}</td>
+                  <td style={adminTdStyle(t, { numeric: true })}>
+                    <AdminStrikePrice
+                      t={t}
+                      listCents={r.listPriceCents}
+                      finalCents={r.priceCents}
+                      fractionDigits={2}
+                    />
+                  </td>
+                  <td style={adminTdStyle(t)}>
+                    {r.discount ? (
+                      <span style={{ fontFamily: t.sans, fontSize: 12, color: t.muted }}>
+                        {r.discount}
+                      </span>
                     ) : (
-                      <DeleteTopupButton t={t} flow={flow} slug={r.slug} label={r.label} />
+                      "—"
                     )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  </td>
+                  <td style={adminTdStyle(t, { mono: true })}>
+                    {r.stripePriceId ?? "—"}
+                  </td>
+                  <td style={adminTdStyle(t)}>
+                    <Chip t={t} tone={inactive ? "warn" : "positive"}>
+                      {inactive ? "Inactive" : "Active"}
+                    </Chip>
+                  </td>
+                  <td style={adminTdActionsStyle(t)}>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                      <button type="button" style={adminBtnStyle(t, "ghost")} onClick={() => onEdit(r)}>
+                        Edit
+                      </button>
+                      {inactive ? (
+                        <RestoreTopupButton t={t} flow={flow} slug={r.slug} />
+                      ) : (
+                        <DeleteTopupButton t={t} flow={flow} slug={r.slug} label={r.label} />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -665,8 +614,7 @@ function DeleteActionButton({
   t,
   flow,
   slug,
-  label,
-}: {
+  label}: {
   t: Theme;
   flow: CreditCatalogFlow;
   slug: string;
@@ -680,7 +628,7 @@ function DeleteActionButton({
       <button
         type="button"
         disabled={isPending}
-        style={button(t, "danger")}
+        style={adminBtnStyle(t, "danger")}
         onClick={() => {
           if (!confirm(`Soft-delete action cost “${label}”?`)) return;
           startTransition(async () => {
@@ -709,8 +657,7 @@ function DeleteActionButton({
 function RestoreActionButton({
   t,
   flow,
-  slug,
-}: {
+  slug}: {
   t: Theme;
   flow: CreditCatalogFlow;
   slug: string;
@@ -723,7 +670,7 @@ function RestoreActionButton({
       <button
         type="button"
         disabled={isPending}
-        style={button(t, "ghost")}
+        style={adminBtnStyle(t, "ghost")}
         onClick={() =>
           startTransition(async () => {
             setError(null);
@@ -752,8 +699,7 @@ function DeleteTopupButton({
   t,
   flow,
   slug,
-  label,
-}: {
+  label}: {
   t: Theme;
   flow: CreditCatalogFlow;
   slug: string;
@@ -767,7 +713,7 @@ function DeleteTopupButton({
       <button
         type="button"
         disabled={isPending}
-        style={button(t, "danger")}
+        style={adminBtnStyle(t, "danger")}
         onClick={() => {
           if (!confirm(`Soft-delete top-up “${label}”?`)) return;
           startTransition(async () => {
@@ -796,8 +742,7 @@ function DeleteTopupButton({
 function RestoreTopupButton({
   t,
   flow,
-  slug,
-}: {
+  slug}: {
   t: Theme;
   flow: CreditCatalogFlow;
   slug: string;
@@ -810,7 +755,7 @@ function RestoreTopupButton({
       <button
         type="button"
         disabled={isPending}
-        style={button(t, "ghost")}
+        style={adminBtnStyle(t, "ghost")}
         onClick={() =>
           startTransition(async () => {
             setError(null);
@@ -864,7 +809,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
         <input type="hidden" name="slug" value={row.slug} />
 
         <Row t={t} label="Display name *">
-          <input name="displayName" required defaultValue={row.displayName} style={input(t)} />
+          <input name="displayName" required defaultValue={row.displayName} style={adminInputStyle(t)} />
         </Row>
         <Row t={t} label="Monthly limit *">
           <div>
@@ -875,7 +820,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
               min={0}
               defaultValue={row.monthlyLimit}
               onChange={(e) => setMonthlyLimitDraft(e.target.value)}
-              style={input(t)}
+              style={adminInputStyle(t)}
             />
             {!isPro && row.flow === "founder" ? (
               <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 4 }}>
@@ -897,7 +842,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
             required
             min={0}
             defaultValue={row.dailyLimit}
-            style={input(t)}
+            style={adminInputStyle(t)}
           />
         </Row>
         <Row t={t} label="Block duration (ms)">
@@ -906,7 +851,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
             type="number"
             min={0}
             defaultValue={row.blockDurationMs}
-            style={input(t)}
+            style={adminInputStyle(t)}
           />
         </Row>
 
@@ -923,7 +868,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
                     ? (row.monthlyPriceCents / 100).toString()
                     : "30"
                 }
-                style={input(t)}
+                style={adminInputStyle(t)}
               />
             </Row>
             <Row t={t} label="Monthly list price ($)">
@@ -938,7 +883,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
                       ? (row.listPriceCents / 100).toString()
                       : ""
                   }
-                  style={input(t)}
+                  style={adminInputStyle(t)}
                 />
                 <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 4 }}>
                   Optional compare-at. Shown struck when greater than monthly fee. Not sent to Stripe.
@@ -956,7 +901,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
                     ? (row.annualPriceCents / 100).toString()
                     : "300"
                 }
-                style={input(t)}
+                style={adminInputStyle(t)}
               />
             </Row>
             <Row t={t} label="Annual list price ($)">
@@ -971,7 +916,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
                       ? (row.annualListPriceCents / 100).toString()
                       : ""
                   }
-                  style={input(t)}
+                  style={adminInputStyle(t)}
                 />
                 <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 4 }}>
                   Optional compare-at for annual fee. Not sent to Stripe.
@@ -983,7 +928,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
                 name="stripeMonthlyPriceId"
                 placeholder="price_…"
                 defaultValue={row.stripeMonthlyPriceId ?? ""}
-                style={{ ...input(t), fontFamily: t.mono }}
+                style={{ ...adminInputStyle(t), fontFamily: t.mono }}
               />
             </Row>
             <Row t={t} label="Stripe annual price">
@@ -991,7 +936,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
                 name="stripeAnnualPriceId"
                 placeholder="price_…"
                 defaultValue={row.stripeAnnualPriceId ?? ""}
-                style={{ ...input(t), fontFamily: t.mono }}
+                style={{ ...adminInputStyle(t), fontFamily: t.mono }}
               />
             </Row>
             <Row t={t} label="Stripe sync">
@@ -1016,7 +961,7 @@ function PlanModal({ t, row, onClose }: { t: Theme; row: CreditPlan; onClose: ()
           <div style={{ fontFamily: t.sans, fontSize: 12, color: t.warn }}>{error}</div>
         ) : null}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-          <button type="submit" disabled={isPending} style={button(t, "primary")}>
+          <button type="submit" disabled={isPending} style={adminBtnStyle(t, "primary")}>
             {isPending ? "Saving…" : "Save plan"}
           </button>
         </div>
@@ -1030,8 +975,7 @@ function ActionModal({
   flow,
   row,
   availableSlugs,
-  onClose,
-}: {
+  onClose}: {
   t: Theme;
   flow: CreditCatalogFlow;
   row: CreditActionCost | null;
@@ -1070,7 +1014,7 @@ function ActionModal({
               </div>
             </>
           ) : (
-            <select name="actionSlug" required defaultValue="" style={input(t)}>
+            <select name="actionSlug" required defaultValue="" style={adminInputStyle(t)}>
               <option value="" disabled>
                 Pick action…
               </option>
@@ -1083,7 +1027,7 @@ function ActionModal({
           )}
         </Row>
         <Row t={t} label="Label *">
-          <input name="label" required defaultValue={row?.label ?? ""} style={input(t)} />
+          <input name="label" required defaultValue={row?.label ?? ""} style={adminInputStyle(t)} />
         </Row>
         <Row t={t} label="Cost *">
           <input
@@ -1092,14 +1036,14 @@ function ActionModal({
             required
             min={0}
             defaultValue={row?.cost ?? 1}
-            style={input(t)}
+            style={adminInputStyle(t)}
           />
         </Row>
         {error ? (
           <div style={{ fontFamily: t.sans, fontSize: 12, color: t.warn }}>{error}</div>
         ) : null}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-          <button type="submit" disabled={isPending} style={button(t, "primary")}>
+          <button type="submit" disabled={isPending} style={adminBtnStyle(t, "primary")}>
             {isPending ? "Saving…" : row ? "Save" : "Create"}
           </button>
         </div>
@@ -1112,8 +1056,7 @@ function TopupModal({
   t,
   flow,
   row,
-  onClose,
-}: {
+  onClose}: {
   t: Theme;
   flow: CreditCatalogFlow;
   row: TopupPack | null;
@@ -1157,7 +1100,7 @@ function TopupModal({
                 pattern={CATALOG_SLUG_PATTERN}
                 title="Lowercase kebab-case: start with a letter; letters, numbers, hyphens"
                 placeholder="kebab-case"
-                style={{ ...input(t), fontFamily: t.mono }}
+                style={{ ...adminInputStyle(t), fontFamily: t.mono }}
               />
               <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 4 }}>
                 Lowercase kebab-case only (e.g. sprint-boost)
@@ -1166,7 +1109,7 @@ function TopupModal({
           )}
         </Row>
         <Row t={t} label="Label *">
-          <input name="label" required defaultValue={row?.label ?? ""} style={input(t)} />
+          <input name="label" required defaultValue={row?.label ?? ""} style={adminInputStyle(t)} />
         </Row>
         <Row t={t} label="Credits *">
           <input
@@ -1175,7 +1118,7 @@ function TopupModal({
             required
             min={1}
             defaultValue={row?.credits ?? 100}
-            style={input(t)}
+            style={adminInputStyle(t)}
           />
         </Row>
         <Row t={t} label="Price ($) *">
@@ -1188,7 +1131,7 @@ function TopupModal({
             defaultValue={
               row?.priceCents != null ? (row.priceCents / 100).toString() : "12"
             }
-            style={input(t)}
+            style={adminInputStyle(t)}
           />
         </Row>
         <Row t={t} label="List price ($)">
@@ -1201,7 +1144,7 @@ function TopupModal({
               defaultValue={
                 row?.listPriceCents != null ? (row.listPriceCents / 100).toString() : ""
               }
-              style={input(t)}
+              style={adminInputStyle(t)}
             />
             <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 4 }}>
               Optional compare-at. Shown struck when greater than price. Not sent to Stripe.
@@ -1209,17 +1152,17 @@ function TopupModal({
           </div>
         </Row>
         <Row t={t} label="Blurb *">
-          <textarea name="blurb" required defaultValue={row?.blurb ?? ""} style={input(t, true)} />
+          <textarea name="blurb" required defaultValue={row?.blurb ?? ""} style={adminInputStyle(t, { multiline: true })} />
         </Row>
         <Row t={t} label="Discount label">
-          <input name="discount" defaultValue={row?.discount ?? ""} style={input(t)} />
+          <input name="discount" defaultValue={row?.discount ?? ""} style={adminInputStyle(t)} />
         </Row>
         <Row t={t} label="Sort order">
           <input
             name="sortOrder"
             type="number"
             defaultValue={row?.sortOrder ?? 0}
-            style={input(t)}
+            style={adminInputStyle(t)}
           />
         </Row>
         <Row t={t} label="Popular">
@@ -1233,7 +1176,7 @@ function TopupModal({
             name="stripePriceId"
             placeholder="price_…"
             defaultValue={row?.stripePriceId ?? ""}
-            style={{ ...input(t), fontFamily: t.mono }}
+            style={{ ...adminInputStyle(t), fontFamily: t.mono }}
           />
         </Row>
         <Row t={t} label="Stripe sync">
@@ -1246,7 +1189,7 @@ function TopupModal({
           <div style={{ fontFamily: t.sans, fontSize: 12, color: t.warn }}>{error}</div>
         ) : null}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-          <button type="submit" disabled={isPending} style={button(t, "primary")}>
+          <button type="submit" disabled={isPending} style={adminBtnStyle(t, "primary")}>
             {isPending ? "Saving…" : row ? "Save pack" : "Create pack"}
           </button>
         </div>

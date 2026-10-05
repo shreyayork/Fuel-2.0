@@ -3,50 +3,35 @@
 import { useState, useTransition } from "react";
 import type { Theme } from "@/lib/theme";
 import type { Advisor } from "@/db/schema";
-import { Chip, SectionHead } from "../atoms";
+import { Chip } from "../atoms";
+import { AdminPageHeader } from "./AdminPageHeader";
+import { AdminStatsStrip } from "./AdminChrome";
 import { G } from "../icons";
 import { useTheme } from "../ThemeContext";
+import {
+  adminBtnStyle,
+  adminEmptyStyle,
+  adminInputStyle,
+  adminModalOverlayStyle,
+  adminModalPanelStyle,
+  adminModalTitleStyle,
+  adminPageStyle,
+  adminSectionLabelStyle,
+  adminTableFrameStyle,
+  adminTableScrollStyle,
+  adminTableStyle,
+  adminTdActionsStyle,
+  adminTdStyle,
+  adminThStyle,
+} from "./adminStyles";
 import { CompactActionButton } from "./watchlist-access-ui";
 import {
   upsertAdvisorAction,
   deleteAdvisorAction,
   setAdvisorStatusAction,
-  enhanceInstanceAdvisorFromLinkedInAction,
-} from "@/app/(super-admin)/super-admin/advisors/actions";
+  enhanceInstanceAdvisorFromLinkedInAction} from "@/app/(super-admin)/super-admin/advisors/actions";
 
-function button(t: Theme, variant: "primary" | "ghost" = "ghost"): React.CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-  } as const;
-  const v = map[variant];
-  return {
-    padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: "pointer",
-  };
-}
 
-function input(t: Theme, multiline = false): React.CSSProperties {
-  return {
-    padding: "8px 10px",
-    background: t.panelAlt,
-    color: t.ink,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 13,
-    width: "100%",
-    minHeight: multiline ? 80 : undefined,
-    resize: multiline ? "vertical" : undefined,
-  };
-}
 
 type AdvisorModalState =
   | { mode: "create" }
@@ -57,111 +42,108 @@ export function AdvisorAdminView({ rows }: { rows: Advisor[] }) {
   const [modal, setModal] = useState<AdvisorModalState | null>(null);
 
   return (
-    <div>
-      <SectionHead
+    <div className="fuel-admin-page" style={adminPageStyle()}>
+      <AdminPageHeader
         t={t}
-        title="Advisors · Admin"
-        subtitle="Instance-level advisors. Visible to every account alongside each account's own advisors."
-        right={
-          <button onClick={() => setModal({ mode: "create" })} style={button(t, "primary")}>
+        title="Advisors"
+        description="Instance advisors visible to every account alongside their own."
+        actions={
+          <button onClick={() => setModal({ mode: "create" })} style={adminBtnStyle(t, "primary")}>
             + New advisor
           </button>
         }
       />
 
+      <AdminStatsStrip
+        t={t}
+        items={[
+          { label: "Advisors", value: rows.length },
+          {
+            label: "Active",
+            value: rows.filter((r) => r.status === "active").length,
+          },
+          {
+            label: "Archived",
+            value: rows.filter((r) => r.status === "archived").length,
+          },
+          {
+            label: "Public cards",
+            value: rows.filter((r) => r.publicCard).length,
+          },
+        ]}
+      />
+
       {rows.length === 0 ? (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            background: t.panel,
-            border: `1px solid ${t.rule}`,
-            fontFamily: t.sans,
-            fontSize: 13,
-            color: t.muted,
-          }}
-        >
-          No instance advisors curated yet.
-        </div>
+        <div style={adminEmptyStyle(t)}>No instance advisors curated yet.</div>
       ) : (
-        <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 6 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["Name", "Title / Company", "Expertise", "Status", ""].map((h) => (
-                  <th
-                    key={h || "actions"}
-                    style={{
-                      textAlign: "left",
-                      padding: "10px 12px",
-                      fontFamily: t.sans,
-                      fontSize: 11,
-                      color: t.muted,
-                      borderBottom: `1px solid ${t.rule}`,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td style={cellBase(t)}>
-                    <div style={{ fontFamily: t.sans, fontSize: 13, fontWeight: 600, color: t.ink }}>
-                      {r.name}
-                    </div>
-                    {r.email ? (
-                      <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 2 }}>
-                        {r.email}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td style={cellBase(t)}>
-                    <div style={{ fontFamily: t.sans, fontSize: 13, color: t.inkSoft }}>
-                      {[r.title, r.company].filter(Boolean).join(" · ") || "—"}
-                    </div>
-                  </td>
-                  <td style={cellBase(t)}>
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                      {(r.expertise ?? []).slice(0, 3).map((tag) => (
-                        <Chip key={tag} t={t} tone="ghost">
-                          {tag}
-                        </Chip>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={cellBase(t)}>
-                    <StatusToggle row={r} />
-                  </td>
-                  <td style={{ ...cellBase(t), textAlign: "right" }}>
-                    <div style={{ display: "inline-flex", gap: 6 }}>
-                      <CompactActionButton
-                        iconOnly
-                        ariaLabel={`View ${r.name}`}
-                        title="View"
-                        onClick={() => setModal({ mode: "view", row: r })}
-                      >
-                        {G.view}
-                      </CompactActionButton>
-                      <CompactActionButton
-                        iconOnly
-                        ariaLabel={`Edit ${r.name}`}
-                        title="Edit"
-                        onClick={() => setModal({ mode: "edit", row: r })}
-                      >
-                        {G.edit}
-                      </CompactActionButton>
-                      <DeleteAdvisorButton row={r} />
-                    </div>
-                  </td>
+        <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+          <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+            <table className="fuel-admin-table" style={adminTableStyle()}>
+              <thead>
+                <tr>
+                  {["Name", "Title / Company", "Expertise", "Status", ""].map((h) => (
+                    <th key={h || "actions"} style={adminThStyle(t)}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td style={adminTdStyle(t)}>
+                      <div style={{ fontFamily: t.sans, fontSize: 13, fontWeight: 600, color: t.ink }}>
+                        {r.name}
+                      </div>
+                      {r.email ? (
+                        <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 2 }}>
+                          {r.email}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td style={adminTdStyle(t)}>
+                      <div style={{ fontFamily: t.sans, fontSize: 13, color: t.inkSoft }}>
+                        {[r.title, r.company].filter(Boolean).join(" · ") || "—"}
+                      </div>
+                    </td>
+                    <td style={adminTdStyle(t)}>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {(r.expertise ?? []).slice(0, 3).map((tag) => (
+                          <Chip key={tag} t={t} tone="ghost">
+                            {tag}
+                          </Chip>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={adminTdStyle(t)}>
+                      <StatusToggle row={r} />
+                    </td>
+                    <td style={adminTdActionsStyle(t)}>
+                      <div style={{ display: "inline-flex", gap: 6 }}>
+                        <CompactActionButton
+                          iconOnly
+                          ariaLabel={`View ${r.name}`}
+                          title="View"
+                          onClick={() => setModal({ mode: "view", row: r })}
+                        >
+                          {G.view}
+                        </CompactActionButton>
+                        <CompactActionButton
+                          iconOnly
+                          ariaLabel={`Edit ${r.name}`}
+                          title="Edit"
+                          onClick={() => setModal({ mode: "edit", row: r })}
+                        >
+                          {G.edit}
+                        </CompactActionButton>
+                        <DeleteAdvisorButton row={r} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -205,8 +187,7 @@ function StatusToggle({ row }: { row: Advisor }) {
           opacity: isPending ? 0.6 : 1,
           fontFamily: t.sans,
           fontSize: 12,
-          color: t.inkSoft,
-        }}
+          color: t.inkSoft}}
       >
         <span
           aria-hidden
@@ -217,8 +198,7 @@ function StatusToggle({ row }: { row: Advisor }) {
             background: active ? t.accent : t.panelAlt,
             border: `1px solid ${active ? t.accent : t.rule}`,
             position: "relative",
-            flexShrink: 0,
-          }}
+            flexShrink: 0}}
         >
           <span
             style={{
@@ -229,8 +209,7 @@ function StatusToggle({ row }: { row: Advisor }) {
               height: 14,
               borderRadius: "50%",
               background: t.mode === "editorial" ? t.panel : t.ink,
-              transition: "left 120ms ease",
-            }}
+              transition: "left 120ms ease"}}
           />
         </span>
         {active ? "Active" : "Inactive"}
@@ -269,24 +248,13 @@ function DeleteAdvisorButton({ row }: { row: Advisor }) {
   );
 }
 
-function cellBase(t: Theme): React.CSSProperties {
-  return {
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.inkSoft,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "top",
-  };
-}
 
 function AdvisorModal({
   t,
   row,
   readOnly,
   onClose,
-  onUpdated,
-}: {
+  onUpdated}: {
   t: Theme;
   row: Advisor | null;
   readOnly: boolean;
@@ -307,8 +275,7 @@ function AdvisorModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 200,
-      }}
+        zIndex: 200}}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -319,8 +286,7 @@ function AdvisorModal({
           padding: 24,
           width: "min(720px, 94vw)",
           maxHeight: "90vh",
-          overflow: "auto",
-        }}
+          overflow: "auto"}}
       >
         <div
           style={{
@@ -328,8 +294,7 @@ function AdvisorModal({
             justifyContent: "space-between",
             alignItems: "baseline",
             gap: 12,
-            marginBottom: 16,
-          }}
+            marginBottom: 16}}
         >
           <div style={{ fontFamily: t.sans, fontSize: 17, fontWeight: 600, color: t.ink }}>
             {readOnly && draft ? draft.name : draft ? `Edit ${draft.name}` : "New advisor"}
@@ -353,10 +318,9 @@ function AdvisorModal({
                   type="submit"
                   disabled={!linkedinUrl || isPending}
                   style={{
-                    ...button(t, "primary"),
+                    ...adminBtnStyle(t, "primary"),
                     opacity: !linkedinUrl || isPending ? 0.6 : 1,
-                    cursor: !linkedinUrl || isPending ? "default" : "pointer",
-                  }}
+                    cursor: !linkedinUrl || isPending ? "default" : "pointer"}}
                   title={
                     linkedinUrl
                       ? undefined
@@ -371,7 +335,7 @@ function AdvisorModal({
                 </button>
               </form>
             ) : null}
-            <button onClick={onClose} style={button(t, "ghost")}>
+            <button onClick={onClose} style={adminBtnStyle(t, "ghost")}>
               Close
             </button>
           </div>
@@ -393,26 +357,26 @@ function AdvisorModal({
           {draft ? <input type="hidden" name="id" value={draft.id} /> : null}
 
           <Row t={t} label="Name *">
-            <input name="name" required readOnly={readOnly} defaultValue={draft?.name ?? ""} style={input(t)} />
+            <input name="name" required readOnly={readOnly} defaultValue={draft?.name ?? ""} style={adminInputStyle(t)} />
           </Row>
           <Row t={t} label="Title">
-            <input name="title" readOnly={readOnly} defaultValue={draft?.title ?? ""} style={input(t)} key={`title-${draft?.updatedAt?.toString() ?? "new"}`} />
+            <input name="title" readOnly={readOnly} defaultValue={draft?.title ?? ""} style={adminInputStyle(t)} key={`title-${draft?.updatedAt?.toString() ?? "new"}`} />
           </Row>
           <Row t={t} label="Company">
-            <input name="company" readOnly={readOnly} defaultValue={draft?.company ?? ""} style={input(t)} key={`company-${draft?.updatedAt?.toString() ?? "new"}`} />
+            <input name="company" readOnly={readOnly} defaultValue={draft?.company ?? ""} style={adminInputStyle(t)} key={`company-${draft?.updatedAt?.toString() ?? "new"}`} />
           </Row>
           <Row t={t} label="Email">
-            <input name="email" type="email" readOnly={readOnly} defaultValue={draft?.email ?? ""} style={input(t)} />
+            <input name="email" type="email" readOnly={readOnly} defaultValue={draft?.email ?? ""} style={adminInputStyle(t)} />
           </Row>
           <Row t={t} label="Phone">
-            <input name="phone" readOnly={readOnly} defaultValue={draft?.phone ?? ""} style={input(t)} />
+            <input name="phone" readOnly={readOnly} defaultValue={draft?.phone ?? ""} style={adminInputStyle(t)} />
           </Row>
           <Row t={t} label="LinkedIn URL">
             <input
               name="linkedinUrl"
               readOnly={readOnly}
               defaultValue={draft?.linkedinUrl ?? ""}
-              style={input(t)}
+              style={adminInputStyle(t)}
               onChange={(e) => {
                 if (!draft || readOnly) return;
                 setDraft({ ...draft, linkedinUrl: e.target.value });
@@ -420,17 +384,17 @@ function AdvisorModal({
             />
           </Row>
           <Row t={t} label="Photo URL">
-            <input name="photoUrl" readOnly={readOnly} defaultValue={draft?.photoUrl ?? ""} style={input(t)} key={`photo-${draft?.updatedAt?.toString() ?? "new"}`} />
+            <input name="photoUrl" readOnly={readOnly} defaultValue={draft?.photoUrl ?? ""} style={adminInputStyle(t)} key={`photo-${draft?.updatedAt?.toString() ?? "new"}`} />
           </Row>
           <Row t={t} label="Location">
-            <input name="location" readOnly={readOnly} defaultValue={draft?.location ?? ""} style={input(t)} key={`loc-${draft?.updatedAt?.toString() ?? "new"}`} />
+            <input name="location" readOnly={readOnly} defaultValue={draft?.location ?? ""} style={adminInputStyle(t)} key={`loc-${draft?.updatedAt?.toString() ?? "new"}`} />
           </Row>
           <Row t={t} label="Expertise (comma-separated)">
             <input
               name="expertise"
               readOnly={readOnly}
               defaultValue={(draft?.expertise ?? []).join(", ")}
-              style={input(t)}
+              style={adminInputStyle(t)}
             />
           </Row>
           <Row t={t} label="Focus industries">
@@ -438,18 +402,18 @@ function AdvisorModal({
               name="focusIndustries"
               readOnly={readOnly}
               defaultValue={(draft?.focusIndustries ?? []).join(", ")}
-              style={input(t)}
+              style={adminInputStyle(t)}
             />
           </Row>
           <Row t={t} label="Bio">
-            <textarea name="bio" readOnly={readOnly} defaultValue={draft?.bio ?? ""} style={input(t, true)} key={`bio-${draft?.updatedAt?.toString() ?? "new"}`} />
+            <textarea name="bio" readOnly={readOnly} defaultValue={draft?.bio ?? ""} style={adminInputStyle(t, { multiline: true })} key={`bio-${draft?.updatedAt?.toString() ?? "new"}`} />
           </Row>
           <Row t={t} label="Admin notes">
             <textarea
               name="privateNotes"
               readOnly={readOnly}
               defaultValue={draft?.privateNotes ?? ""}
-              style={input(t, true)}
+              style={adminInputStyle(t, { multiline: true })}
             />
           </Row>
           <Row t={t} label="Public card">
@@ -461,8 +425,7 @@ function AdvisorModal({
                 fontFamily: t.sans,
                 fontSize: 13,
                 color: t.inkSoft,
-                paddingTop: 8,
-              }}
+                paddingTop: 8}}
             >
               <input
                 type="checkbox"
@@ -482,7 +445,7 @@ function AdvisorModal({
 
           {readOnly ? null : (
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-              <button type="submit" disabled={isPending} style={button(t, "primary")}>
+              <button type="submit" disabled={isPending} style={adminBtnStyle(t, "primary")}>
                 {isPending ? "Saving…" : draft ? "Save changes" : "Create advisor"}
               </button>
             </div>
@@ -500,8 +463,7 @@ function Row({ t, label, children }: { t: Theme; label: string; children: React.
         display: "grid",
         gridTemplateColumns: "160px 1fr",
         gap: 10,
-        alignItems: "start",
-      }}
+        alignItems: "start"}}
     >
       <div
         style={{
@@ -511,8 +473,7 @@ function Row({ t, label, children }: { t: Theme; label: string; children: React.
           paddingTop: 8,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
-          fontWeight: 500,
-        }}
+          fontWeight: 500}}
       >
         {label}
       </div>

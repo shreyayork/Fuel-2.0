@@ -405,15 +405,13 @@ function LinkSignalForm({
         });
       }}
       onClick={(e) => e.stopPropagation()}
+      className="fuel-grid-3"
       style={{
         marginTop: 8,
         padding: 10,
         background: t.panelAlt,
         border: `1px solid ${t.rule}`,
         borderRadius: 6,
-        display: "grid",
-        gridTemplateColumns: "1fr 120px 1fr 140px auto",
-        gap: 8,
         alignItems: "center",
       }}
     >
@@ -1047,13 +1045,7 @@ function MilestoneRow({
               padding: "14px 14px 12px",
             }}
           >
-            <div
-              style={{
-                display: "grid",
-                gap: 10,
-                gridTemplateColumns: "minmax(0,1fr) minmax(0,180px)",
-              }}
-            >
+            <div className="fuel-grid-2">
               <label style={{ display: "block", minWidth: 0 }}>
                 <span style={fieldLabelStyle(t)}>Milestone</span>
                 <input

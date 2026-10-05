@@ -10,15 +10,23 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Theme } from "@/lib/theme";
-import { accentChipBg, accentChipBorder, accentChipFg } from "@/lib/theme";
+import { accentChipBg, accentChipBorder, accentChipFg, framedPanelPadStyle } from "@/lib/theme";
+import { TOUCH_TARGET_MIN, useMobileNav, useNarrow } from "@/lib/responsive";
 import type { CompanyDoc, CompanyHit, ContextItem, FundingRound } from "@/lib/fuel-data";
 import { ProvenanceDrawer } from "../provenance/ProvenanceDrawer";
+import { CompanyBottomNav } from "@/components/company/CompanyBottomNav";
 import { Chip, Logo, Tabs } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import { shouldClearIntelligenceFocusOnTopNav } from "@/lib/intelligence/tab-nav-focus";
 import { useUrlSyncedTab } from "@/lib/use-url-synced-tab";
 import { AiActionsMenu } from "./AiActionsMenu";
 import { type PlaybookPickerEntry as SharedPlaybookPickerEntry } from "./PlaybookPickerButton";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 import {
   FUEL_ARTIFACT_CREATED_EVENT,
   type FuelArtifactCreatedDetail,
@@ -38,6 +46,7 @@ import {
 import { DataRoomTab } from "@/components/data-room/DataRoomTab";
 import { BenchmarkEditDrawer } from "@/components/company/overview/BenchmarkEditDrawer";
 import { DetailAnswersDrawer } from "@/components/company/overview/DetailAnswersDrawer";
+import type { OverviewApiResponse } from "@/lib/overview/types";
 import { OverviewStyleSheet } from "@/components/company/overview/OverviewStyleSheet";
 import { IntelligencePage } from "@/components/intelligence/IntelligencePage";
 import { IntelligenceProvenanceDrawer } from "@/components/intelligence/IntelligenceProvenanceDrawer";
@@ -1225,96 +1234,66 @@ function FundingRoundsCard({ uuid }: { uuid: string }) {
           })}
         </svg>
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            {["Date", "Round", "Amount", "Investors"].map((h, i) => (
-              <th
-                key={h}
-                style={{
-                  textAlign: i === 2 ? "right" : "left",
-                  fontFamily: t.sans,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  color: t.muted,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  padding: "6px 10px",
-                  borderBottom: `1px solid ${t.rule}`,
-                }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rounds.map((r) => (
-            <tr key={r.id || `${r.announcedOn}-${r.investmentType}`}>
-              <td style={{ padding: "10px 10px", fontSize: 12, color: t.ink, borderBottom: `1px solid ${t.ruleSoft}`, fontFamily: t.sans }}>
-                {formatMonth(r.announcedOn) ?? "—"}
-              </td>
-              <td style={{ padding: "10px 10px", fontSize: 13, color: t.ink, borderBottom: `1px solid ${t.ruleSoft}` }}>
-                {r.investmentType ? titleCase(r.investmentType.replace(/_/g, " ")) : "—"}
-              </td>
-              <td
-                style={{
-                  padding: "10px 10px",
-                  fontSize: 13,
-                  color: t.ink,
-                  borderBottom: `1px solid ${t.ruleSoft}`,
-                  textAlign: "right",
-                  fontFamily: t.sans,
-                  fontFeatureSettings: '"tnum" 1',
-                }}
-              >
-                {r.raisedAmountUsd ? formatUsd(r.raisedAmountUsd) : "—"}
-              </td>
-              <td
-                style={{
-                  padding: "10px 10px",
-                  fontSize: 12,
-                  color: t.inkSoft,
-                  borderBottom: `1px solid ${t.ruleSoft}`,
-                  maxWidth: 360,
-                }}
-              >
-                {r.investors && r.investors.length > 0 ? (
-                  <span style={{ lineHeight: 1.4 }}>
-                    {r.investors.slice(0, 4).map((inv, i, arr) => (
-                      <span key={inv.companyUuid || inv.id || inv.name}>
-                        {inv.companyUuid ? (
-                          <Link
-                            href={`/company/${encodeURIComponent(inv.companyUuid)}`}
-                            style={{ color: t.accent, textDecoration: "none" }}
-                          >
-                            {inv.name}
-                          </Link>
-                        ) : (
-                          <span>{inv.name}</span>
-                        )}
-                        {i < arr.length - 1 ? ", " : ""}
-                      </span>
-                    ))}
-                    {r.investors.length > 4 ? (
-                      <span style={{ color: t.muted }}> · +{r.investors.length - 4}</span>
-                    ) : null}
-                  </span>
-                ) : r.investorNames && r.investorNames.length > 0 ? (
-                  <span style={{ lineHeight: 1.4 }}>
-                    {r.investorNames.slice(0, 4).join(", ")}
-                    {r.investorNames.length > 4 ? (
-                      <span style={{ color: t.muted }}> · +{r.investorNames.length - 4}</span>
-                    ) : null}
-                  </span>
-                ) : (
-                  <span style={{ color: t.mutedSoft }}>—</span>
-                )}
-              </td>
+      <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
+        <table className="fuel-data-table" style={dataTableStyle()}>
+          <thead>
+            <tr>
+              <th style={dataThStyle(t)}>Date</th>
+              <th style={dataThStyle(t)}>Round</th>
+              <th style={dataThStyle(t, { numeric: true })}>Amount</th>
+              <th style={dataThStyle(t)}>Investors</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rounds.map((r) => (
+              <tr key={r.id || `${r.announcedOn}-${r.investmentType}`}>
+                <td style={dataTdStyle(t, { top: false })}>
+                  {formatMonth(r.announcedOn) ?? "—"}
+                </td>
+                <td style={dataTdStyle(t, { top: false })}>
+                  {r.investmentType ? titleCase(r.investmentType.replace(/_/g, " ")) : "—"}
+                </td>
+                <td style={dataTdStyle(t, { numeric: true, top: false })}>
+                  {r.raisedAmountUsd ? formatUsd(r.raisedAmountUsd) : "—"}
+                </td>
+                <td style={dataTdStyle(t, { top: false })}>
+                  {r.investors && r.investors.length > 0 ? (
+                    <span style={{ lineHeight: 1.4 }}>
+                      {r.investors.slice(0, 4).map((inv, i, arr) => (
+                        <span key={inv.companyUuid || inv.id || inv.name}>
+                          {inv.companyUuid ? (
+                            <Link
+                              href={`/company/${encodeURIComponent(inv.companyUuid)}`}
+                              style={{ color: t.accent, textDecoration: "none" }}
+                            >
+                              {inv.name}
+                            </Link>
+                          ) : (
+                            <span>{inv.name}</span>
+                          )}
+                          {i < arr.length - 1 ? ", " : ""}
+                        </span>
+                      ))}
+                      {r.investors.length > 4 ? (
+                        <span style={{ color: t.muted }}> · +{r.investors.length - 4}</span>
+                      ) : null}
+                    </span>
+                  ) : r.investorNames && r.investorNames.length > 0 ? (
+                    <span style={{ lineHeight: 1.4 }}>
+                      {r.investorNames.slice(0, 4).join(", ")}
+                      {r.investorNames.length > 4 ? (
+                        <span style={{ color: t.muted }}> · +{r.investorNames.length - 4}</span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span style={{ color: t.mutedSoft }}>—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 }
@@ -1700,11 +1679,14 @@ export function CompanyPublicView({
   dataRoom = { slots: [], activeCount: 0, sourcesTotal: 0, feedAttachments: [] },
   companyIntelligence = [],
   creditBalance = 0,
+  overviewInitial = null,
 }: {
   company: CompanyDoc;
   userEmail?: string;
   /** Founder CM home — Overview tab renders the AI operating dashboard. */
   isFounderHome?: boolean;
+  /** Server-prefetched overview for first paint without the build shell. */
+  overviewInitial?: OverviewApiResponse | null;
   privateContext?: PrivateContextItem[];
   artifacts?: ArtifactSummary[];
   /** Research: artifactId → created suggestion persist keys (server hydrate). */
@@ -1779,7 +1761,14 @@ export function CompanyPublicView({
   const [artifactItems, setArtifactItems] = useState(artifacts);
   const [artifactBadgeCount, setArtifactBadgeCount] = useState(artifactCount);
   const [tourTabAnchorEl, setTourTabAnchorEl] = useState<HTMLButtonElement | null>(null);
+  /** Pin company tabs after the header card scrolls away (body overflow-x:clip breaks CSS sticky). */
+  const tabsSentinelRef = useRef<HTMLDivElement | null>(null);
+  const tabsBarRef = useRef<HTMLDivElement | null>(null);
+  const [tabsPinned, setTabsPinned] = useState(false);
+  const [tabsBarHeight, setTabsBarHeight] = useState(0);
+  const [tabsPinBox, setTabsPinBox] = useState<{ left: number; width: number } | null>(null);
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  const mobileNav = useMobileNav();
   const goToIntelligence = () => setTab("intelligence");
 
   const { benchmarkRefreshing, benchmarkRefreshError } = useBenchmarkRefreshOverlay(
@@ -1862,6 +1851,44 @@ export function CompanyPublicView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFounderHome, registerCompanyTour, stableSetTab, unregisterCompanyTour]);
 
+  // Pin tabs once the company card scrolls off-screen; release when it returns.
+  useEffect(() => {
+    if (mobileNav) {
+      setTabsPinned(false);
+      return;
+    }
+    const sentinel = tabsSentinelRef.current;
+    if (!sentinel) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        setTabsPinned(!entry.isIntersecting);
+      },
+      { root: null, threshold: 0, rootMargin: "0px 0px 0px 0px" },
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, [mobileNav]);
+
+  useEffect(() => {
+    if (mobileNav) return;
+    const bar = tabsBarRef.current;
+    if (!bar) return;
+    const measure = () => {
+      const host = bar.closest(".company-page-chrome") ?? bar.parentElement;
+      if (host) {
+        const rect = host.getBoundingClientRect();
+        setTabsPinBox({ left: rect.left, width: rect.width });
+      }
+      // Capture in-flow height only — pinned bar adds safe-area padding.
+      if (!bar.classList.contains("is-pinned")) {
+        setTabsBarHeight(bar.offsetHeight);
+      }
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [tab, tabsPinned, mobileNav]);
+
   const tabTourTarget = isTabTourTarget(tour.activeTarget) ? tour.activeTarget : null;
   const aiActionsTourActive =
     tour.tourOpen &&
@@ -1894,82 +1921,97 @@ export function CompanyPublicView({
   ];
   const socialLinks = socials.filter((s) => s.url);
 
+  const publicNavItems = companyPublicNavItems({
+    isClaimedCompany: isFounderHome,
+    initiativeCount,
+    artifactCount: artifactBadgeCount,
+    dataRoomCount: dataRoomState.activeCount,
+  });
+
+  const onPublicNavChange = (k: string) => {
+    const next = k as TabKey;
+    if (shouldClearIntelligenceFocusOnTopNav(next)) {
+      setHighlightIntelIds([]);
+    }
+    setTab(next);
+  };
+
   return (
-    <div>
+    <div className={mobileNav ? "fuel-company-has-bottom-nav" : undefined}>
       <div className="company-page-chrome">
       <div
+        className="company-page-chrome__header"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 20,
-          padding: 20,
           background: t.panel,
           border: `1px solid ${t.rule}`,
           borderRadius: COMPANY_PROFILE_SECTION_RADIUS,
         }}
       >
-        <Logo
-          t={t}
-          co={{ logo: logoInitial, name: company.name, uuid: company.uuid, logoUrl: company.logoUrl }}
-          size={48}
-          fallbackTone="accent"
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <h1
-              role={isFounderHome ? "button" : undefined}
-              tabIndex={isFounderHome ? 0 : undefined}
-              onClick={isFounderHome ? () => setTab("profile") : undefined}
-              onKeyDown={
-                isFounderHome
-                  ? (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setTab("profile");
+        <div className="company-page-chrome__identity">
+          <Logo
+            t={t}
+            co={{ logo: logoInitial, name: company.name, uuid: company.uuid, logoUrl: company.logoUrl }}
+            size={48}
+            fallbackTone="accent"
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <h1
+                role={isFounderHome ? "button" : undefined}
+                tabIndex={isFounderHome ? 0 : undefined}
+                onClick={isFounderHome ? () => setTab("profile") : undefined}
+                onKeyDown={
+                  isFounderHome
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setTab("profile");
+                        }
                       }
-                    }
-                  : undefined
-              }
+                    : undefined
+                }
+                style={{
+                  margin: 0,
+                  fontFamily: t.sans,
+                  fontSize: 24,
+                  fontWeight: 700,
+                  letterSpacing: "-0.015em",
+                  color: t.ink,
+                  cursor: isFounderHome ? "pointer" : undefined,
+                }}
+              >
+                {company.name}
+              </h1>
+              {isOperating ? <Chip t={t} tone="ghost">Operating</Chip> : null}
+              {company.status && !isOperating ? <Chip t={t} tone="warn">{titleCase(company.status)}</Chip> : null}
+              {company.categories && company.categories[0] ? (
+                <Chip t={t} tone="ghost">{company.categories[0].name}</Chip>
+              ) : null}
+              {company.domain ? (
+                <a
+                  href={company.homepageUrl ?? `https://${company.domain}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textDecoration: "none" }}
+                >
+                  <Chip t={t} tone="accent">{company.domain}</Chip>
+                </a>
+              ) : null}
+            </div>
+            <div
               style={{
-                margin: 0,
+                marginTop: 6,
                 fontFamily: t.sans,
-                fontSize: 24,
-                fontWeight: 700,
-                letterSpacing: "-0.015em",
-                color: t.ink,
-                cursor: isFounderHome ? "pointer" : undefined,
+                fontSize: 13,
+                color: t.muted,
+                lineHeight: 1.4,
               }}
             >
-              {company.name}
-            </h1>
-            {isOperating ? <Chip t={t} tone="ghost">Operating</Chip> : null}
-            {company.status && !isOperating ? <Chip t={t} tone="warn">{titleCase(company.status)}</Chip> : null}
-            {company.categories && company.categories[0] ? (
-              <Chip t={t} tone="ghost">{company.categories[0].name}</Chip>
-            ) : null}
-            {company.domain ? (
-              <a
-                href={company.homepageUrl ?? `https://${company.domain}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{ textDecoration: "none" }}
-              >
-                <Chip t={t} tone="accent">{company.domain}</Chip>
-              </a>
-            ) : null}
-          </div>
-          <div
-            style={{
-              marginTop: 6,
-              fontFamily: t.sans,
-              fontSize: 12,
-              color: t.muted,
-            }}
-          >
-            · External company · sourced from fuel-data
+              · External company · sourced from fuel-data
+            </div>
           </div>
         </div>
-        <div style={{ display: "inline-flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        <div className="company-page-chrome__actions">
           {isFounderHome ? (
             <ViewProfileButton
               t={t}
@@ -1997,31 +2039,50 @@ export function CompanyPublicView({
         </div>
       </div>
 
-      <div style={{ marginTop: 24 }}>
-        <Tabs
-          t={t}
-          active={tab}
-          onChange={(k) => {
-            const next = k as TabKey;
-            // Top-nav Intelligence exits deep-link focus (same-tab re-click
-            // included). Deep-links set ids via setTab + setHighlightIntelIds
-            // and skip this path.
-            if (shouldClearIntelligenceFocusOnTopNav(next)) {
-              setHighlightIntelIds([]);
-            }
-            setTab(next);
+      {mobileNav ? null : (
+      <div className="company-page-chrome__tabs-slot">
+        <div ref={tabsSentinelRef} aria-hidden className="company-page-chrome__tabs-sentinel" />
+        {tabsPinned ? (
+          <div aria-hidden style={{ height: tabsBarHeight || undefined }} />
+        ) : null}
+        <div
+          ref={tabsBarRef}
+          className={`company-page-chrome__tabs${tabsPinned ? " is-pinned" : ""}`}
+          style={{
+            background: t.bg,
+            borderBottomColor: t.rule,
+            ["--company-tabs-bg" as string]: t.bg,
+            ...(tabsPinned && tabsPinBox
+              ? {
+                  left: tabsPinBox.left,
+                  width: tabsPinBox.width,
+                }
+              : null),
           }}
+        >
+          <Tabs
+            t={t}
+            active={tab}
+            onChange={onPublicNavChange}
+            tourHighlightKey={tabTourTarget}
+            onTourAnchorElChange={setTourTabAnchorEl}
+            items={publicNavItems}
+          />
+        </div>
+      </div>
+      )}
+      </div>
+
+      {mobileNav ? (
+        <CompanyBottomNav
+          t={t}
+          items={publicNavItems}
+          active={tab}
+          onChange={onPublicNavChange}
           tourHighlightKey={tabTourTarget}
           onTourAnchorElChange={setTourTabAnchorEl}
-          items={companyPublicNavItems({
-            isClaimedCompany: isFounderHome,
-            initiativeCount,
-            artifactCount: artifactBadgeCount,
-            dataRoomCount: dataRoomState.activeCount,
-          })}
         />
-      </div>
-      </div>
+      ) : null}
 
       {tour.overviewBuildActive && tab !== "overview" ? <BuildingOverviewStrip /> : null}
 
@@ -2064,20 +2125,14 @@ export function CompanyPublicView({
               signalCatalog={signalCatalog}
               recentObservations={signalObservationItems}
               allowAdvisorLinking={isFounderHome}
+              initialOverview={overviewInitial}
             />
           </div>
       ) : null}
 
       {tab === "profile" || (tab === "overview" && !isFounderHome) ? (
         <>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 10,
-              marginTop: 24,
-            }}
-          >
+          <div className="company-stat-grid">
             <StatCell label="Total Funding" value={fundingTotal ?? "—"} />
             <StatCell label="Funding Rounds" value={company.numFundingRounds ?? "—"} />
             <StatCell
@@ -2130,7 +2185,7 @@ export function CompanyPublicView({
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, marginTop: 24 }}>
+          <div className="company-profile-layout">
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {company.shortDescription ? (
                 <Card title="About">
@@ -2492,6 +2547,7 @@ function InvolvedAdvisorsCard({
   advisorPool: CompanyAdvisorSummary[];
   onGoToInitiatives: () => void;
 }) {
+  const phone = useNarrow(640);
   // Collect per-advisor engagements across initiatives. Same advisor linked
   // on multiple initiatives dedups into one card with N initiative chips.
   const engagements = useMemo(() => {
@@ -2535,22 +2591,20 @@ function InvolvedAdvisorsCard({
   return (
     <div
       style={{
-        background: t.panel,
-        border: `1px solid ${t.rule}`,
-        borderRadius: 8,
-        padding: 16,
+        ...framedPanelPadStyle(t),
       }}
     >
       <div
         style={{
+          alignItems: phone ? "stretch" : "flex-start",
           display: "flex",
+          flexDirection: phone ? "column" : "row",
+          gap: phone ? 12 : 16,
           justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 10,
+          marginBottom: 12,
         }}
       >
-        <div>
+        <div style={{ minWidth: 0, flex: "1 1 auto" }}>
           <div style={{ fontFamily: t.sans, fontSize: 14, fontWeight: 600, color: t.ink }}>
             Advisors on active initiatives
           </div>
@@ -2562,22 +2616,30 @@ function InvolvedAdvisorsCard({
           type="button"
           onClick={onGoToInitiatives}
           style={{
-            padding: "6px 12px",
-            background: "transparent",
-            color: t.inkSoft,
+            alignItems: "center",
+            background: phone ? (t.mode === "editorial" ? t.bg : t.panelAlt) : "transparent",
             border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            fontFamily: t.sans,
-            fontSize: 12,
+            borderRadius: 8,
+            color: t.ink,
             cursor: "pointer",
+            display: "inline-flex",
+            flexShrink: 0,
+            fontFamily: t.sans,
+            fontSize: phone ? 13 : 12,
+            fontWeight: 600,
+            justifyContent: "center",
+            minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+            padding: phone ? "10px 14px" : "6px 12px",
+            whiteSpace: "nowrap",
+            width: phone ? "100%" : "auto",
           }}
         >
-          Manage in Initiatives →
+          {phone ? "Open Initiatives" : "Manage in Initiatives →"}
         </button>
       </div>
 
       {engagements.length === 0 ? (
-        <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted }}>
+        <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, lineHeight: 1.45 }}>
           No advisors linked to any initiative yet. Open an initiative to link one.
         </div>
       ) : (
@@ -2704,7 +2766,7 @@ function AdvisorPoolDisclosure({
       style={{
         background: t.panel,
         border: `1px solid ${t.rule}`,
-        borderRadius: 8,
+        borderRadius: 12,
         padding: "10px 16px",
       }}
     >
@@ -2753,7 +2815,7 @@ function AdvisorsTab({
   const available = advisorPool.filter((p) => !linkedIds.has(p.id));
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+    <div className="company-split-2-1">
       <div>
         {advisors.length === 0 ? (
           <div
@@ -2960,22 +3022,20 @@ function ViewProfileButton({
   return (
     <button
       type="button"
+      className="company-page-chrome__primary-cta"
       onClick={onClick}
       title={label}
       style={{
-        alignItems: "center",
         background: accentChipBg(t),
         border: `1px solid ${accentChipBorder(t)}`,
-        borderRadius: 8,
         color: accentChipFg(t),
         cursor: "pointer",
-        display: "inline-flex",
         fontFamily: t.sans,
-        fontSize: 12.5,
+        fontSize: 13,
         fontWeight: 650,
-        gap: 7,
+        gap: 8,
         letterSpacing: "-0.01em",
-        padding: "7px 12px",
+        lineHeight: 1,
       }}
     >
       <span
@@ -3108,27 +3168,29 @@ function AddToListButton({
   );
 
   return (
-    <div ref={wrapperRef} style={{ position: "relative", display: "inline-block" }}>
+    <div ref={wrapperRef} style={{ position: "relative", display: "flex", flex: "1 1 auto", minWidth: 0 }}>
       <button
+        type="button"
+        className="company-page-chrome__primary-cta"
         onClick={() => setOpen((v) => !v)}
         title={addedCount > 0 ? "Manage lists" : "Add to list"}
         style={{
-          padding: "9px 12px",
-          borderRadius: 8,
-          border: `1px solid ${addedCount > 0 ? t.accent : t.rule}`,
+          width: "100%",
+          border: `1px solid ${addedCount > 0 ? accentChipBorder(t) : t.rule}`,
           fontFamily: t.sans,
-          fontSize: 12.5,
-          fontWeight: 600,
-          color: addedCount > 0 ? t.accent : t.ink,
-          background: addedCount > 0 ? `${t.accent}14` : t.panel,
+          fontSize: 13,
+          fontWeight: 650,
+          color: addedCount > 0 ? accentChipFg(t) : t.ink,
+          background: addedCount > 0 ? accentChipBg(t) : t.panel,
           cursor: "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          transition: "transform 120ms ease, background 200ms ease",
+          gap: 8,
+          lineHeight: 1,
+          letterSpacing: "-0.01em",
         }}
       >
-        <span style={{ fontSize: 13 }}>{addedCount > 0 ? "✓" : "+"}</span>
+        <span style={{ fontSize: 13, lineHeight: 1 }} aria-hidden>
+          {addedCount > 0 ? "✓" : "+"}
+        </span>
         {buttonLabel}
       </button>
       {open ? (
@@ -3226,6 +3288,8 @@ function artifactBadgeLabel(a: { kind: string; title: string }): string {
   const idx = a.title.indexOf(" — ");
   if (idx <= 0) return kindLabel(a.kind);
   const candidate = a.title.slice(0, idx).trim();
+  // Avoid repeating the playbook name when the title already starts with it.
+  if (candidate.length > 0 && a.title.startsWith(candidate)) return "Playbook";
   return candidate.length > 0 ? candidate : kindLabel(a.kind);
 }
 
@@ -3309,6 +3373,31 @@ function ResearchArtifactBody({
   );
 }
 
+function researchPreview(content: string): string {
+  const plain = content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[#>*_`\[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return "Open to read the full research artifact.";
+  return plain.length > 140 ? `${plain.slice(0, 140).trim()}…` : plain;
+}
+
+function researchKindGlyph(kind: string): string {
+  switch (kind) {
+    case "intelligence_brief":
+      return "✦";
+    case "diligence_report":
+      return "◎";
+    case "meeting_summary":
+      return "☰";
+    case "playbook_run":
+      return "▷";
+    default:
+      return "◇";
+  }
+}
+
 function BriefsTab({
   t,
   artifacts,
@@ -3325,100 +3414,210 @@ function BriefsTab({
   );
   if (artifacts.length === 0) {
     return (
-      <EmptyState
-        title="No research yet"
-        body={`Click "Generate brief" at the top of the page to produce a signal-driven briefing. Playbook runs, diligence reports, and other AI research artifacts also land here — they're account-wide and visible to every member.`}
-      />
+      <section className="fuel-company-tab" style={{ fontFamily: t.sans }}>
+        <div className="fuel-company-tab__head">
+          <div>
+            <p className="fuel-company-tab__eyebrow" style={{ color: t.accent }}>
+              AI library
+            </p>
+            <h2 className="fuel-company-tab__title" style={{ color: t.ink }}>
+              Research
+            </h2>
+            <p className="fuel-company-tab__subtitle" style={{ color: t.muted }}>
+              Briefs, playbook runs, and diligence reports for this company.
+            </p>
+          </div>
+        </div>
+        <div
+          style={{
+            alignItems: "center",
+            background: t.panel,
+            border: `1px solid ${t.borderSubtle}`,
+            borderRadius: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            padding: "40px 24px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              alignItems: "center",
+              background: `${t.accent}14`,
+              borderRadius: 14,
+              color: t.accent,
+              display: "flex",
+              fontSize: 18,
+              fontWeight: 700,
+              height: 48,
+              justifyContent: "center",
+              width: 48,
+            }}
+          >
+            ✦
+          </div>
+          <div style={{ fontFamily: t.sans, fontSize: 15, fontWeight: 700, color: t.ink }}>
+            No research yet
+          </div>
+          <div
+            style={{
+              color: t.muted,
+              fontFamily: t.sans,
+              fontSize: 13,
+              lineHeight: 1.5,
+              maxWidth: 420,
+            }}
+          >
+            Use Generate brief in AI Actions, or run a playbook — artifacts land here for the whole
+            account.
+          </div>
+        </div>
+      </section>
     );
   }
   return (
-    <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
-      {artifacts.map((a) => {
-        const open = openId === a.id;
-        return (
-          <div
-            key={a.id}
-            style={{
-              background: t.panel,
-              border: `1px solid ${t.rule}`,
-              borderRadius: 8,
-              padding: 16,
-            }}
-          >
-            <div
+    <section className="fuel-company-tab fuel-research-tab" style={{ fontFamily: t.sans }}>
+      <div className="fuel-company-tab__head fuel-research-tab__head">
+        <div style={{ minWidth: 0, flex: "1 1 220px" }}>
+          <p className="fuel-company-tab__eyebrow" style={{ color: t.accent }}>
+            AI library
+          </p>
+          <div className="fuel-research-tab__title-row">
+            <h2 className="fuel-company-tab__title" style={{ color: t.ink }}>
+              Research
+            </h2>
+            <span
+              className="fuel-company-tab__stat fuel-research-tab__count"
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                gap: 12,
-                marginBottom: open ? 12 : 0,
+                background: t.mode === "editorial" ? t.bg : t.panelAlt,
+                border: `1px solid ${t.rule}`,
+                color: t.muted,
               }}
             >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 2 }}>
-                  <Chip t={t} tone="accent">{artifactBadgeLabel(a)}</Chip>
-                  <span style={{ fontFamily: t.sans, fontSize: 11.5, color: t.muted }}>
-                    {a.authorEmail} · {formatDate(a.createdAt)}
-                  </span>
-                </div>
-                <div style={{ fontFamily: t.sans, fontSize: 14, fontWeight: 600, color: t.ink }}>
-                  {a.title}
-                </div>
-              </div>
-              <div style={{ display: "inline-flex", gap: 6, flexShrink: 0 }}>
-                <Link
-                  href={`/artifacts/${a.id}`}
-                  target="_blank"
-                  rel="noopener"
-                  title="Open full page — print or save as PDF"
-                  style={{
-                    padding: "6px 12px",
-                    background: "transparent",
-                    color: t.muted,
-                    border: `1px solid ${t.rule}`,
-                    borderRadius: 6,
-                    fontFamily: t.sans,
-                    fontSize: 11,
-                    cursor: "pointer",
-                    textDecoration: "none",
-                  }}
-                >
-                  Open ↗
-                </Link>
-                <button
-                  onClick={() => setOpenId(open ? null : a.id)}
-                  style={{
-                    padding: "6px 12px",
-                    background: "transparent",
-                    color: t.muted,
-                    border: `1px solid ${t.rule}`,
-                    borderRadius: 6,
-                    fontFamily: t.sans,
-                    fontSize: 11,
-                    cursor: "pointer",
-                  }}
-                >
-                  {open ? "Collapse" : "Expand"}
-                </button>
-              </div>
-            </div>
-            {open ? (
-              <ResearchArtifactBody
-                t={t}
-                artifact={a}
-                companyUuid={company.uuid}
-                createdSuggestionKeys={
-                  createdBriefSuggestionKeysByArtifact[a.id] ?? []
-                }
-              />
-            ) : null}
+              {artifacts.length} artifact{artifacts.length === 1 ? "" : "s"}
+            </span>
           </div>
-        );
-      })}
-      <div style={{ fontFamily: t.sans, fontSize: 11.5, color: t.muted, paddingTop: 4 }}>
-        Subject: <Link href={`/company/${company.uuid}`} style={{ color: t.accent }}>{company.name}</Link>
+          <p className="fuel-company-tab__subtitle fuel-research-tab__subtitle" style={{ color: t.muted }}>
+            Briefs, playbook runs, and diligence for{" "}
+            <Link href={`/company/${company.uuid}`} style={{ color: t.accent, textDecoration: "none" }}>
+              {company.name}
+            </Link>
+          </p>
+        </div>
       </div>
-    </div>
+
+      <div className="fuel-research-tab__list">
+        {artifacts.map((a) => {
+          const open = openId === a.id;
+          const isLight = t.mode === "editorial";
+          return (
+            <article
+              key={a.id}
+              className={`fuel-research-card${open ? " is-open" : ""}`}
+              style={{
+                background: t.panel,
+                border: `1px solid ${open ? `${t.accent}55` : t.borderSubtle}`,
+                boxShadow: open ? `0 8px 24px ${t.borderFaint}` : `0 1px 0 ${t.borderFaint}`,
+              }}
+            >
+              <button
+                type="button"
+                className="fuel-research-card__toggle"
+                aria-expanded={open}
+                onClick={() => setOpenId(open ? null : a.id)}
+                style={{ color: t.ink, fontFamily: t.sans }}
+              >
+                <div
+                  className="fuel-research-card__glyph"
+                  aria-hidden
+                  style={{
+                    background: `${t.accent}14`,
+                    color: t.accent,
+                  }}
+                >
+                  {researchKindGlyph(a.kind)}
+                </div>
+                <div className="fuel-research-card__main">
+                  <div className="fuel-research-card__meta">
+                    <Chip t={t} tone="accent">
+                      {artifactBadgeLabel(a)}
+                    </Chip>
+                    <span style={{ color: t.muted, fontFamily: t.sans, fontSize: 12 }}>
+                      {formatDate(a.createdAt)}
+                    </span>
+                    <span
+                      className="fuel-research-card__author-inline"
+                      style={{ color: t.mutedSoft, fontFamily: t.sans, fontSize: 12 }}
+                    >
+                      {a.authorEmail}
+                    </span>
+                  </div>
+                  <h3 className="fuel-research-card__title">{a.title}</h3>
+                  {!open ? (
+                    <p className="fuel-research-card__preview" style={{ color: t.inkSoft }}>
+                      {researchPreview(a.content)}
+                    </p>
+                  ) : null}
+                  <div className="fuel-research-card__cta-row">
+                    <span className="fuel-research-card__read-cta" style={{ color: t.accent }}>
+                      {open ? "Read less" : "Read more"}
+                      <span aria-hidden>{open ? " ↑" : " →"}</span>
+                    </span>
+                    <span
+                      className="fuel-research-card__author"
+                      style={{ color: t.mutedSoft }}
+                    >
+                      {a.authorEmail}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              {open ? (
+                <div className="fuel-research-card__body">
+                  <div
+                    className="fuel-research-card__body-inner"
+                    style={{
+                      background: isLight ? t.bg : t.panelAlt,
+                      border: `1px solid ${t.ruleSoft}`,
+                    }}
+                  >
+                    <ResearchArtifactBody
+                      t={t}
+                      artifact={a}
+                      companyUuid={company.uuid}
+                      createdSuggestionKeys={
+                        createdBriefSuggestionKeysByArtifact[a.id] ?? []
+                      }
+                    />
+                    <div className="fuel-research-card__body-foot">
+                      <Link
+                        href={`/artifacts/${a.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        title="Open full page — print or save as PDF"
+                        className="fuel-research-card__text-cta"
+                        style={{
+                          color: t.muted,
+                          fontFamily: t.sans,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          textDecoration: "none",
+                        }}
+                      >
+                        Open full page ↗
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -3978,7 +4177,7 @@ function PrivateMetricsTab({
           alignItems: "center",
           background: t.panel,
           border: `1px solid ${t.rule}`,
-          borderRadius: 8,
+          borderRadius: 12,
           padding: "12px 16px",
         }}
       >
@@ -4028,7 +4227,7 @@ function PrivateMetricsTab({
             style={{
               background: t.panel,
               border: `1px solid ${t.rule}`,
-              borderRadius: 8,
+              borderRadius: 12,
               padding: 16,
             }}
           >
@@ -4108,7 +4307,7 @@ function PrivateMetricsTab({
           style={{
             background: t.panel,
             border: `1px solid ${t.rule}`,
-            borderRadius: 8,
+            borderRadius: 12,
             padding: 16,
             display: "flex",
             flexDirection: "column",
@@ -4174,7 +4373,7 @@ function PrivateMetricsTab({
           style={{
             background: t.panel,
             border: `1px solid ${t.rule}`,
-            borderRadius: 8,
+            borderRadius: 12,
             padding: 16,
           }}
         >

@@ -117,6 +117,16 @@ export function onAccentText(t: Theme = SIGNAL): string {
   return t.mode === "editorial" ? "#FFFFFF" : t.bg;
 }
 
+/** York navy fill for create / brand icon CTAs — light ink, dark brand navy. */
+export function brandNavyFill(t: Theme): string {
+  return t.mode === "editorial" ? t.ink : THEMES.editorial.ink;
+}
+
+/** Foreground on {@link brandNavyFill}. */
+export function onBrandNavyText(_t: Theme): string {
+  return "#FFFFFF";
+}
+
 /** Accent pill foreground — mint on dark panels, brand green on light. */
 export function accentChipFg(t: Theme): string {
   return t.mode === "editorial" ? t.accent : "#A6E6D2";
@@ -137,6 +147,44 @@ export function panelCardSurface(t: Theme): {
   return {
     background: t.panel,
     border: `1px solid ${t.borderSubtle}`,
+  };
+}
+
+/** In-app framed card — 12px radius, 1px rule, panel fill (DESIGN.md Flat Frame). */
+export const FRAMED_PANEL_RADIUS = 12;
+
+export function framedPanelStyle(
+  t: Theme,
+  extra?: CSSProperties,
+): CSSProperties {
+  return {
+    background: t.panel,
+    border: `1px solid ${t.rule}`,
+    borderRadius: FRAMED_PANEL_RADIUS,
+    boxSizing: "border-box",
+    overflow: "hidden",
+    ...extra,
+  };
+}
+
+export function framedPanelPadStyle(
+  t: Theme,
+  extra?: CSSProperties,
+): CSSProperties {
+  return framedPanelStyle(t, { padding: 16, ...extra });
+}
+
+/** CSS custom properties for `.fuel-card` / stacked mobile lists. */
+export function themeSurfaceCssVars(t: Theme): CSSProperties {
+  return {
+    ["--fuel-bg" as string]: t.bg,
+    ["--fuel-panel" as string]: t.panel,
+    ["--fuel-panel-alt" as string]: t.panelAlt,
+    ["--fuel-rule" as string]: t.rule,
+    ["--fuel-rule-soft" as string]: t.ruleSoft,
+    ["--fuel-card-radius" as string]: `${FRAMED_PANEL_RADIUS}px`,
+    ["--fuel-card-gap" as string]: "10px",
+    ["--fuel-card-pad" as string]: "16px",
   };
 }
 

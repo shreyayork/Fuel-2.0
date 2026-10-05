@@ -22,7 +22,7 @@ export default async function PortfolioPage({
   const session = await getSession();
   const email = session?.email ?? "mike@york.ie";
   const account = await getActiveAccountForUser(email);
-  if (!account?.portfolioManagerEnabled) notFound();
+  if (!account) notFound();
 
   const { scope: scopeParam } = await searchParams;
   const scope: ScopeKey = (VALID_SCOPES as readonly string[]).includes(scopeParam ?? "")

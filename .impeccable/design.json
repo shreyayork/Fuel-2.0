@@ -1,0 +1,365 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-30T07:20:00.000Z",
+  "title": "Design System: Fuel",
+  "extensions": {
+    "colorMeta": {
+      "york-navy": {
+        "role": "primary",
+        "displayName": "York Navy",
+        "canonical": "#284256",
+        "tonalRamp": ["#0B141C", "#132130", "#1F3140", "#284256", "#3E5668", "#667987", "#A8B6C2", "#F4F6F8"]
+      },
+      "york-navy-soft": {
+        "role": "neutral",
+        "displayName": "York Navy Soft",
+        "canonical": "#3E5668",
+        "tonalRamp": ["#0F1A24", "#172632", "#284256", "#3E5668", "#667987", "#7D8E9C", "#B4BFC8", "#F1F3F6"]
+      },
+      "accent-teal": {
+        "role": "primary",
+        "displayName": "Accent Teal",
+        "canonical": "#00B48A",
+        "tonalRamp": ["#063D32", "#0A6B52", "#00B48A", "#2BB8A0", "#A6E6D2", "#D6F3EB", "rgba(0,180,138,0.18)", "rgba(0,180,138,0.08)"]
+      },
+      "accent-soft-light": {
+        "role": "primary",
+        "displayName": "Accent Soft Light",
+        "canonical": "#D6F3EB",
+        "tonalRamp": ["#0A6B52", "#00B48A", "#2BB8A0", "#A6E6D2", "#D6F3EB", "#E8F9F4", "#F3FCFA", "#FFFFFF"]
+      },
+      "accent-tint": {
+        "role": "primary",
+        "displayName": "Accent Tint",
+        "canonical": "rgba(0,180,138,0.08)",
+        "tonalRamp": ["rgba(0,180,138,0.45)", "rgba(0,180,138,0.28)", "rgba(0,180,138,0.18)", "rgba(0,180,138,0.14)", "rgba(0,180,138,0.08)", "rgba(0,180,138,0.05)", "rgba(0,180,138,0.03)", "rgba(0,180,138,0.01)"]
+      },
+      "accent-soft-dark": {
+        "role": "primary",
+        "displayName": "Accent Soft Dark",
+        "canonical": "rgba(0,180,138,0.18)",
+        "tonalRamp": ["rgba(0,180,138,0.45)", "rgba(0,180,138,0.28)", "rgba(0,180,138,0.18)", "rgba(0,180,138,0.14)", "rgba(0,180,138,0.08)", "#D6F3EB", "#E8F9F4", "#F3FCFA"]
+      },
+      "warn-gold": {
+        "role": "secondary",
+        "displayName": "Warn Gold",
+        "canonical": "#ECD67F",
+        "tonalRamp": ["#5C4510", "#8A6A18", "#B78A1D", "#D4B04A", "#ECD67F", "#F3E4A8", "#F8EFCB", "#FCF8E8"]
+      },
+      "warn-ink": {
+        "role": "secondary",
+        "displayName": "Warn Ink",
+        "canonical": "#B78A1D",
+        "tonalRamp": ["#5C4510", "#8A6A18", "#B78A1D", "#D4B04A", "#ECD67F", "#F3E4A8", "#F8EFCB", "#FCF8E8"]
+      },
+      "negative-light": {
+        "role": "neutral",
+        "displayName": "Negative Light",
+        "canonical": "#C94A3B",
+        "tonalRamp": ["#5C1C16", "#8A2E24", "#C94A3B", "#E05A4A", "#FF6B5B", "#FF9A90", "#FFCDC7", "#FFEDEA"]
+      },
+      "negative-dark": {
+        "role": "neutral",
+        "displayName": "Negative Dark",
+        "canonical": "#FF6B5B",
+        "tonalRamp": ["#5C1C16", "#8A2E24", "#C94A3B", "#E05A4A", "#FF6B5B", "#FF9A90", "#FFCDC7", "#FFEDEA"]
+      },
+      "editorial-bg": {
+        "role": "neutral",
+        "displayName": "Editorial Ground",
+        "canonical": "#F7F8FA",
+        "tonalRamp": ["#284256", "#667987", "#B4BFC8", "#E4E8EC", "#EFF2F5", "#F1F3F6", "#F7F8FA", "#FFFFFF"]
+      },
+      "editorial-panel": {
+        "role": "neutral",
+        "displayName": "Editorial Panel",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#E4E8EC", "#EFF2F5", "#F1F3F6", "#F7F8FA", "#FAFBFC", "#FCFCFD", "#FEFEFE", "#FFFFFF"]
+      },
+      "editorial-panel-alt": {
+        "role": "neutral",
+        "displayName": "Editorial Panel Alt",
+        "canonical": "#F1F3F6",
+        "tonalRamp": ["#B4BFC8", "#E4E8EC", "#EFF2F5", "#F1F3F6", "#F7F8FA", "#FAFBFC", "#FCFCFD", "#FFFFFF"]
+      },
+      "editorial-panel-inner": {
+        "role": "neutral",
+        "displayName": "Editorial Panel Inner",
+        "canonical": "#EFF2F5",
+        "tonalRamp": ["#B4BFC8", "#E4E8EC", "#EFF2F5", "#F1F3F6", "#F7F8FA", "#FAFBFC", "#FCFCFD", "#FFFFFF"]
+      },
+      "editorial-shell": {
+        "role": "neutral",
+        "displayName": "Editorial Shell",
+        "canonical": "#E4E8EC",
+        "tonalRamp": ["#667987", "#B4BFC8", "#E4E8EC", "#EFF2F5", "#F1F3F6", "#F7F8FA", "#FAFBFC", "#FFFFFF"]
+      },
+      "editorial-muted": {
+        "role": "neutral",
+        "displayName": "Editorial Muted",
+        "canonical": "#667987",
+        "tonalRamp": ["#284256", "#3E5668", "#667987", "#7D8E9C", "#A8B6C2", "#B4BFC8", "#D5DCE2", "#F4F6F8"]
+      },
+      "editorial-muted-soft": {
+        "role": "neutral",
+        "displayName": "Editorial Muted Soft",
+        "canonical": "#B4BFC8",
+        "tonalRamp": ["#3E5668", "#667987", "#7D8E9C", "#A8B6C2", "#B4BFC8", "#D5DCE2", "#E4E8EC", "#F7F8FA"]
+      },
+      "editorial-rule": {
+        "role": "neutral",
+        "displayName": "Editorial Rule",
+        "canonical": "#E4E8EC",
+        "tonalRamp": ["#B4BFC8", "#D5DCE2", "#E4E8EC", "#EFF2F5", "#F1F3F6", "#F7F8FA", "#FAFBFC", "#FFFFFF"]
+      },
+      "signal-bg": {
+        "role": "neutral",
+        "displayName": "Signal Ground",
+        "canonical": "#0F1A24",
+        "tonalRamp": ["#0B141C", "#0F1A24", "#132130", "#172632", "#1F3140", "#263947", "#3E5668", "#667987"]
+      },
+      "signal-panel": {
+        "role": "neutral",
+        "displayName": "Signal Panel",
+        "canonical": "#172632",
+        "tonalRamp": ["#0B141C", "#0F1A24", "#132130", "#172632", "#1F3140", "#263947", "#3E5668", "#667987"]
+      },
+      "signal-panel-alt": {
+        "role": "neutral",
+        "displayName": "Signal Panel Alt",
+        "canonical": "#1F3140",
+        "tonalRamp": ["#0F1A24", "#132130", "#172632", "#1F3140", "#263947", "#3E5668", "#667987", "#7D8E9C"]
+      },
+      "signal-panel-inner": {
+        "role": "neutral",
+        "displayName": "Signal Panel Inner",
+        "canonical": "#0B141C",
+        "tonalRamp": ["#060C12", "#0B141C", "#0F1A24", "#132130", "#172632", "#1F3140", "#263947", "#3E5668"]
+      },
+      "signal-shell": {
+        "role": "neutral",
+        "displayName": "Signal Shell",
+        "canonical": "#132130",
+        "tonalRamp": ["#0B141C", "#0F1A24", "#132130", "#172632", "#1F3140", "#263947", "#3E5668", "#667987"]
+      },
+      "signal-ink": {
+        "role": "neutral",
+        "displayName": "Signal Ink",
+        "canonical": "#F4F6F8",
+        "tonalRamp": ["#7D8E9C", "#A8B6C2", "#D5DCE2", "#E4E8EC", "#F1F3F6", "#F4F6F8", "#F7F8FA", "#FFFFFF"]
+      },
+      "signal-ink-soft": {
+        "role": "neutral",
+        "displayName": "Signal Ink Soft",
+        "canonical": "#D5DCE2",
+        "tonalRamp": ["#667987", "#7D8E9C", "#A8B6C2", "#D5DCE2", "#E4E8EC", "#F1F3F6", "#F4F6F8", "#FFFFFF"]
+      },
+      "signal-muted": {
+        "role": "neutral",
+        "displayName": "Signal Muted",
+        "canonical": "#A8B6C2",
+        "tonalRamp": ["#3E5668", "#667987", "#7D8E9C", "#A8B6C2", "#B4BFC8", "#D5DCE2", "#E4E8EC", "#F4F6F8"]
+      },
+      "signal-muted-soft": {
+        "role": "neutral",
+        "displayName": "Signal Muted Soft",
+        "canonical": "#7D8E9C",
+        "tonalRamp": ["#284256", "#3E5668", "#667987", "#7D8E9C", "#A8B6C2", "#B4BFC8", "#D5DCE2", "#F1F3F6"]
+      },
+      "signal-rule": {
+        "role": "neutral",
+        "displayName": "Signal Rule",
+        "canonical": "#263947",
+        "tonalRamp": ["#0F1A24", "#172632", "#1F3140", "#263947", "#3E5668", "#667987", "#7D8E9C", "#A8B6C2"]
+      },
+      "on-accent-light": {
+        "role": "neutral",
+        "displayName": "On Accent Light",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#B4BFC8", "#D5DCE2", "#E4E8EC", "#F1F3F6", "#F4F6F8", "#F7F8FA", "#FAFBFC", "#FFFFFF"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Super Admin task titles (AdminPageHeader)." },
+      "headline": { "displayName": "Headline", "purpose": "Frequent destination titles and modal titles." },
+      "title": { "displayName": "Title", "purpose": "Command-header page name and compact chrome titles." },
+      "body": { "displayName": "Body", "purpose": "Descriptions, table cells, and general UI copy." },
+      "label": { "displayName": "Mono Stamp", "purpose": "Nav group and section stamps — JetBrains Mono uppercase." }
+    },
+    "shadows": [
+      {
+        "name": "command-band",
+        "value": "0 8px 24px rgba(255,255,255,0.04)",
+        "purpose": "Signal command header separation from page ground (uses borderFaint / borderSubtle by mode)."
+      },
+      {
+        "name": "modal-lift",
+        "value": "0 16px 48px rgba(255,255,255,0.07)",
+        "purpose": "Admin modal panel lift over overlay."
+      },
+      {
+        "name": "frequent-hover",
+        "value": "0 8px 24px rgba(255,255,255,0.07)",
+        "purpose": "Frequent destination hover emphasis."
+      },
+      {
+        "name": "drawer-open",
+        "value": "12px 0 40px rgba(255,255,255,0.07)",
+        "purpose": "Mobile nav drawer cast when open."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-ease",
+        "value": "140ms ease",
+        "purpose": "Nav link, icon button, Frequent, and table row state transitions."
+      },
+      {
+        "name": "drawer-slide",
+        "value": "200ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Mobile nav drawer transform."
+      },
+      {
+        "name": "title-rule-draw",
+        "value": "560ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "AdminPageHeader teal underline draw-in; disabled under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      { "name": "xs", "value": "360px" },
+      { "name": "sm", "value": "480px" },
+      { "name": "md", "value": "768px" },
+      { "name": "nav", "value": "1024px" },
+      { "name": "lg", "value": "1200px" },
+      { "name": "xl", "value": "1366px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Accent-filled Super Admin action; 44px min height.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Save</button>",
+      "css": ".ds-btn-primary { align-items: center; background: #00B48A; border: 1px solid #00B48A; border-radius: 8px; color: #0F1A24; cursor: pointer; display: inline-flex; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 12.5px; font-weight: 650; gap: 6px; justify-content: center; min-height: 44px; padding: 0 14px; transition: background-color 140ms ease, border-color 140ms ease; } .ds-btn-primary:hover { filter: brightness(1.05); } .ds-btn-primary:focus-visible { outline: 2px solid #00B48A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Transparent bordered secondary action.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\">Cancel</button>",
+      "css": ".ds-btn-ghost { align-items: center; background: transparent; border: 1px solid #263947; border-radius: 8px; color: #D5DCE2; cursor: pointer; display: inline-flex; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 12.5px; font-weight: 550; justify-content: center; min-height: 44px; padding: 0 14px; transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.04); color: #F4F6F8; } .ds-btn-ghost:focus-visible { outline: 2px solid #00B48A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive action with negative tint fill.",
+      "html": "<button class=\"ds-btn-danger\" type=\"button\">Delete</button>",
+      "css": ".ds-btn-danger { align-items: center; background: rgba(255,107,91,0.08); border: 1px solid rgba(255,107,91,0.35); border-radius: 8px; color: #FF6B5B; cursor: pointer; display: inline-flex; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 12.5px; font-weight: 550; justify-content: center; min-height: 44px; padding: 0 14px; transition: background-color 140ms ease, border-color 140ms ease; } .ds-btn-danger:hover { background: rgba(255,107,91,0.14); } .ds-btn-danger:focus-visible { outline: 2px solid #00B48A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Admin Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Panel-alt field with rule border; 44px touch height.",
+      "html": "<input class=\"ds-input-field\" type=\"text\" placeholder=\"Search users\" />",
+      "css": ".ds-input-field { background: #1F3140; border: 1px solid #263947; border-radius: 8px; box-sizing: border-box; color: #F4F6F8; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 14px; min-height: 44px; padding: 0 12px; width: 100%; } .ds-input-field::placeholder { color: #7D8E9C; } .ds-input-field:focus { border-color: #00B48A; outline: none; box-shadow: 0 0 0 2px rgba(0,180,138,0.18); } .ds-input-field:focus-visible { outline: 2px solid #00B48A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Framed Panel",
+      "kind": "card",
+      "refersTo": "panel-framed",
+      "description": "12px framed container for All areas groups and tables.",
+      "html": "<div class=\"ds-panel-framed\"><div class=\"ds-panel-stamp\">PLATFORM</div><div class=\"ds-panel-body\">Users</div></div>",
+      "css": ".ds-panel-framed { background: #172632; border: 1px solid #263947; border-radius: 12px; overflow: hidden; } .ds-panel-stamp { color: #A8B6C2; font-family: \"JetBrains Mono\", ui-monospace, monospace; font-size: 10.5px; font-weight: 650; letter-spacing: 0.12em; padding: 12px 16px 4px; text-transform: uppercase; } .ds-panel-body { color: #F4F6F8; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 13.5px; font-weight: 650; padding: 12px 16px; }"
+    },
+    {
+      "name": "Frequent Destination",
+      "kind": "custom",
+      "refersTo": "frequent-destination",
+      "description": "Accent-led high-traffic Overview destination row.",
+      "html": "<a class=\"ds-frequent\" href=\"#\"><span class=\"ds-frequent-dot\" aria-hidden=\"true\"></span><span class=\"ds-frequent-copy\"><span class=\"ds-frequent-title\">Users</span><span class=\"ds-frequent-blurb\">Cognito signups, onboarding status, and workspace plans.</span></span><svg class=\"ds-frequent-chev\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" aria-hidden=\"true\"><path d=\"M6 3.5 10.5 8 6 12.5\" stroke=\"#A8B6C2\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></a>",
+      "css": ".ds-frequent { align-items: center; background: rgba(0,180,138,0.08); border: 1px solid rgba(0,180,138,0.33); border-radius: 12px; color: inherit; display: grid; gap: 12px; grid-template-columns: auto minmax(0,1fr) auto; padding: 16px 18px; text-decoration: none; transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease; } .ds-frequent:hover { border-color: #00B48A; box-shadow: 0 8px 24px rgba(255,255,255,0.07); } .ds-frequent:focus-visible { outline: 2px solid #00B48A; outline-offset: 2px; } .ds-frequent-dot { background: #00B48A; border-radius: 9px; height: 10px; width: 10px; } .ds-frequent-title { color: #F4F6F8; display: block; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; } .ds-frequent-blurb { color: #A8B6C2; display: block; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.4; margin-top: 4px; }"
+    },
+    {
+      "name": "Active Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Rail link with accent tint and inset accent ring.",
+      "html": "<a class=\"ds-nav-link is-active\" href=\"#\">Overview</a>",
+      "css": ".ds-nav-link { background: transparent; border-radius: 9px; color: #D5DCE2; display: block; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 13.5px; font-weight: 550; letter-spacing: -0.005em; min-height: 44px; padding: 11px 12px; text-decoration: none; transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease; } .ds-nav-link:hover:not(.is-active) { background: #172632; color: #F4F6F8; } .ds-nav-link.is-active { background: rgba(0,180,138,0.08); box-shadow: inset 0 0 0 1px rgba(0,180,138,0.33); color: #F4F6F8; font-weight: 650; letter-spacing: -0.015em; } .ds-nav-link:focus-visible { outline: 2px solid #00B48A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Command Header",
+      "kind": "nav",
+      "refersTo": "command-header",
+      "description": "Sticky Signal tower command band with teal bottom rule.",
+      "html": "<header class=\"ds-command-header\"><span class=\"ds-command-mark\" aria-hidden=\"true\"></span><div class=\"ds-command-text\"><div class=\"ds-command-title\">Overview</div><div class=\"ds-command-sub\">Super Admin · Platform</div></div></header>",
+      "css": ".ds-command-header { align-items: center; background: #0B141C; border-bottom: 2px solid #00B48A; box-shadow: 0 8px 24px rgba(255,255,255,0.04); display: flex; gap: 12px; min-height: 56px; padding: 0 16px; } .ds-command-mark { background: rgba(0,180,138,0.08); border: 1px solid rgba(0,180,138,0.4); border-radius: 10px; display: inline-block; height: 36px; width: 36px; } .ds-command-title { color: #F4F6F8; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; } .ds-command-sub { color: #A8B6C2; font-family: Inter, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 550; margin-top: 2px; }"
+    },
+    {
+      "name": "Mono Section Stamp",
+      "kind": "custom",
+      "refersTo": "label",
+      "description": "JetBrains Mono uppercase group/section stamp.",
+      "html": "<div class=\"ds-mono-stamp\">Frequent</div>",
+      "css": ".ds-mono-stamp { color: #A8B6C2; font-family: \"JetBrains Mono\", ui-monospace, monospace; font-size: 10.5px; font-weight: 650; letter-spacing: 0.12em; line-height: 1.2; margin-bottom: 8px; text-transform: uppercase; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Signal Tower",
+    "overview": "Fuel’s Super Admin is a control tower inside the established York IE world: a deep navy command band, a continuous teal mast on the rail, and accent-led destinations — not a gray equal-card settings dump. Operators orient from the sticky command header, jump frequent work through teal-framed destinations, then drill into mono-stamped area groups and tabular framed tables.\n\nThe system is dual-mode (`editorial` light / `signal` dark) from `apps/web/src/lib/theme.ts`. Super Admin defaults to Signal; editorial flips the command band to York navy ink with light panel text on that band. Density stays operational and scan-friendly. Gold appears only for warn. Teal marks structure (mast, header underline, selection, Frequent) — not decoration.\n\nConfirmed visual rejection: flat equal-weight admin tile grids as the Overview primary path.",
+    "keyCharacteristics": [
+      "York navy + teal accent + gold-for-warn only",
+      "Inter sans + JetBrains Mono group stamps",
+      "3px teal mast on panelAlt nav rail",
+      "Sticky command header with 2px teal bottom rule",
+      "Frequent accent destinations above All areas rows",
+      "Framed tabular tables (tabular-nums, sticky th, accent-tint row hover)"
+    ],
+    "rules": [
+      {
+        "name": "The Teal Mast Rule",
+        "body": "Teal structures the tower (3px rail mast, 2px header rule, 48×2px title underline, selection tint). Do not redistribute teal into decorative fills or equal card chrome.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold Is Warn Rule",
+        "body": "Gold (warn-gold / warn-ink) is reserved for warning and mark warmth — never for nav, Frequent, or positive status (positive reuses teal).",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Stamp Rule",
+        "body": "Group and section labels are JetBrains Mono, uppercase, wide tracking — not Inter eyebrows or decorative kickers.",
+        "section": "typography"
+      },
+      {
+        "name": "The Frequent-First Rule",
+        "body": "Highest-traffic paths lead as accent destinations; exhaustive areas follow as stamped grouped rows — never as a primary equal-tile grid.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Frame Rule",
+        "body": "Panels and tables are 1px rule borders + radius, not card stacks with multi-layer shadows at rest.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the 3px teal mast on the Super Admin rail and the 2px teal rule under the command header.",
+      "Do lead Overview with accent Frequent destinations, then mono-stamped All areas groups.",
+      "Do use JetBrains Mono uppercase stamps for nav/section groups; Inter for task titles and body.",
+      "Do frame data tables (12px radius, sticky th, tabular-nums, accent-tint row hover).",
+      "Do reserve gold for warn (and mark warmth); teal for positive and structural accent.",
+      "Do honor 44px touch minima and the 1024px nav breakpoint for rail vs drawer."
+    ],
+    "donts": [
+      "Don't present Super Admin Overview as an equal-weight gray tile grid.",
+      "Don't use gold as a second navigation or Frequent accent.",
+      "Don't replace mono group stamps with Inter eyebrows/kickers on tower surfaces.",
+      "Don't drop the command header’s deeper band (panelInner / ink) so it collapses into page ground.",
+      "Don't invent a third brand hue outside York navy / teal / gold (third-party marks excepted)."
+    ]
+  }
+}

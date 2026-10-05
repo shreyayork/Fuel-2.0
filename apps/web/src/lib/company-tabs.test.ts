@@ -15,7 +15,7 @@ describe("companyPublicNavItems", () => {
     });
     assert.deepEqual(
       items.map((i) => i.key),
-      ["overview", "intelligence", "initiatives", "research", "dataroom"],
+      ["overview", "intelligence", "dataroom", "initiatives", "research"],
     );
     assert.equal(items.find((i) => i.key === "dataroom")?.count, 3);
   });

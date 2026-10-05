@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import type { Theme } from "@/lib/theme";
+import { framedPanelPadStyle, framedPanelStyle } from "@/lib/theme";
 import type { Company, FuelDataset } from "@/lib/types";
 import { Chip, Logo, SectionHead } from "../atoms";
 import { G } from "../icons";
@@ -36,25 +37,42 @@ export function PipelineView({
 }) {
   const cos = data.companies.filter((c) => c.list === "pipeline");
   const byStage = STAGES.map((s) => ({ s, items: cos.filter((c) => c.hubspotStage === s) }));
-  const isEd = t.mode === "editorial";
 
   return (
-    <div>
+    <div className="fuel-page">
       <SectionHead
         t={t}
         title="Pipeline"
         subtitle={`${cos.length} active deals · synced with HubSpot`}
-        right={<button style={btn(t, true)}>{G.plus} Add company</button>}
+        right={
+          // Legacy fixture view — same icon create pattern as live list pages.
+          <button
+            type="button"
+            aria-label="Add company"
+            title="Add company"
+            style={{
+              ...btn(t, true),
+              height: 44,
+              justifyContent: "center",
+              minWidth: 44,
+              padding: 0,
+              width: 44,
+            }}
+          >
+            {G.plus}
+          </button>
+        }
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${STAGES.length}, 1fr)`, gap: 10 }}>
+      <div className="fuel-kanban">
+        <div className="fuel-kanban__track">
         {byStage.map((col) => (
           <div
             key={col.s}
+            className="fuel-kanban__col"
             style={{
-              background: t.panel,
-              border: `1px solid ${t.rule}`,
-              padding: 10,
+              ...framedPanelStyle(t, { padding: 10 }),
+              boxSizing: "border-box",
               minHeight: 380,
             }}
           >
@@ -92,11 +110,9 @@ export function PipelineView({
                     key={c.id}
                     onClick={() => onOpenCo(c)}
                     style={{
-                      background: isEd ? "#FFF" : t.panelAlt,
-                      border: `1px solid ${t.rule}`,
-                      padding: 12,
-                      marginBottom: 8,
+                      ...framedPanelPadStyle(t, { padding: 12 }),
                       cursor: "pointer",
+                      marginBottom: 8,
                     }}
                     onMouseEnter={(e) => {
                       (e.currentTarget as HTMLDivElement).style.borderColor = t.accent;
@@ -229,6 +245,7 @@ export function PipelineView({
             )}
           </div>
         ))}
+        </div>
       </div>
     </div>
   );

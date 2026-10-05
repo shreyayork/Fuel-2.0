@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { THEMES, type Theme, type ThemeMode } from "@/lib/theme";
 import type { Company, FuelDataset } from "@/lib/types";
@@ -55,6 +55,8 @@ export interface AppShellProps {
   accountList?: AccountOption[];
   activeAccountId?: string | null;
   activeAccountName?: string | null;
+  /** Workspace home (company overview / portfolio / watchlists). */
+  homePath?: string;
   /** Account-wide flag — when true, Pipeline + Portfolio nav items show. */
   portfolioManagerEnabled?: boolean;
   /** SSR-fetched recently viewed companies (DB-backed, claimed excluded). */
@@ -82,6 +84,7 @@ export function AppShell({
   accountList,
   activeAccountId,
   activeAccountName,
+  homePath = "/dashboard",
   portfolioManagerEnabled,
   initialRecentCompanies = [],
   initialCredits,
@@ -89,11 +92,14 @@ export function AppShell({
 }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [navPending, startTransition] = useTransition();
+  const [pendingNavKey, setPendingNavKey] = useState<string | null>(null);
   const [mode, setMode] = usePersistentState<ThemeMode>("fuel:theme", "signal");
 
   const navigate = useCallback(
-    (href: string) => {
+    (href: string, navKey?: string) => {
+      if (navKey) setPendingNavKey(navKey);
       window.dispatchEvent(new Event("fuel:nav-start"));
       startTransition(() => router.push(href));
     },
@@ -103,8 +109,20 @@ export function AppShell({
   // Derive eyebrow + activeNavKey from the pathname when not explicitly
   // passed. Lets every page.tsx skip wiring these — the shell figures it out.
   const derived = useMemo(() => deriveFromPath(pathname ?? "/", data), [pathname, data]);
-  const activeKey = activeNavKey ?? derived.activeNavKey;
+  const companyOverviewActive = isCompanyOverviewHome(
+    pathname ?? "/",
+    homePath,
+    searchParams.get("tab"),
+  );
+  const activeKey =
+    pendingNavKey ??
+    activeNavKey ??
+    (companyOverviewActive ? "overview" : derived.activeNavKey);
   const label = eyebrow ?? derived.eyebrow;
+
+  useEffect(() => {
+    setPendingNavKey(null);
+  }, [pathname]);
 
   const t: Theme = { ...THEMES[mode], mode };
 
@@ -134,7 +152,9 @@ export function AppShell({
   }, [activeAccountId]);
 
   // Every nav key maps to a real route. "engage" stays as a key for back-compat.
+  // Overview follows workspace home: company Overview tab (CM) or /overview (PM).
   const NAV_ROUTES: Record<string, string> = {
+    overview: homePath,
     pipeline: "/pipeline",
     portfolio: "/portfolio",
     watchlists: "/watchlists",
@@ -151,7 +171,7 @@ export function AppShell({
 
   const goToPage = (p: string) => {
     const route = NAV_ROUTES[p] ?? `/?page=${encodeURIComponent(p)}`;
-    navigate(route);
+    navigate(route, p);
   };
 
   const openCompany = (co: Company) => {
@@ -188,6 +208,7 @@ export function AppShell({
                     accountList={accountList}
                     activeAccountId={activeAccountId}
                     activeAccountName={activeAccountName}
+                    homePath={homePath}
                     portfolioManagerEnabled={portfolioManagerEnabled}
                     navPending={navPending}
                   >
@@ -211,6 +232,19 @@ interface DerivedPage {
   breadcrumb: BreadcrumbSegment[];
 }
 
+/** Founder home company with Overview tab selected (default tab). */
+function isCompanyOverviewHome(
+  pathname: string,
+  homePath: string,
+  tab: string | null,
+): boolean {
+  if (!homePath.startsWith("/company/")) return false;
+  const homeUuid = (homePath.split("/")[2] ?? "").split("?")[0] ?? "";
+  const pathUuid = pathname.split("/").filter(Boolean)[1] ?? "";
+  if (!homeUuid || homeUuid !== pathUuid) return false;
+  return tab == null || tab === "overview";
+}
+
 /**
  * Derive eyebrow + activeNavKey from pathname so individual pages don't
  * have to hard-code them. Company pages pull the subject's name from the
@@ -222,6 +256,12 @@ function deriveFromPath(pathname: string, data: FuelDataset): DerivedPage {
   switch (top) {
     case "":
       return { activeNavKey: "", eyebrow: "Dashboard", breadcrumb: [{ label: "Dashboard" }] };
+    case "overview":
+      return {
+        activeNavKey: "overview",
+        eyebrow: "Overview",
+        breadcrumb: [{ label: "Overview" }],
+      };
     case "pipeline":
       return { activeNavKey: "pipeline", eyebrow: "Pipeline", breadcrumb: [{ label: "Pipeline" }] };
     case "portfolio":

@@ -107,6 +107,7 @@ export function IntelligenceProvenanceDrawer({
         role="dialog"
         aria-modal="true"
         aria-label={`Intelligence provenance for ${title}`}
+        className="fuel-side-sheet"
         style={{
           ...documentHistorySidebarStyle(t),
           ...drawerPanelMotionStyle(visible, durationMs),

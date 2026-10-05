@@ -4,7 +4,7 @@ import type { Theme } from "@/lib/theme";
 /** Flat title row — matches Initiatives / Intelligence (design `.data-room-head`). */
 export function dataRoomHeadStyle(): CSSProperties {
   return {
-    alignItems: "flex-start",
+    alignItems: "center",
     display: "flex",
     gap: 16,
     justifyContent: "space-between",
@@ -272,12 +272,18 @@ export function documentNoticeActionStyle(t: Theme): CSSProperties {
   };
 }
 
+/**
+ * Right-edge detail sheet (Document history / Signal detail / provenance).
+ * Pair with class `fuel-side-sheet` so phone breakpoints go edge-to-edge
+ * (see `globals.css` — avoids max-width: 420 gutters on ~390px viewports).
+ */
 export function documentHistorySidebarStyle(t: Theme): CSSProperties {
   return {
     background: t.panel,
     borderLeft: `1px solid ${t.rule}`,
     bottom: 0,
     boxShadow: `-24px 0 60px ${t.overlay}`,
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     maxWidth: 420,

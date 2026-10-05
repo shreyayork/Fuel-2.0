@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition, type CSSProperties } from "react";
 import { removeCompanyAction } from "@/app/(app)/portfolio/actions";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import { useBreadcrumbOverride } from "../BreadcrumbContext";
 import { Chip, Logo } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import type { Theme } from "@/lib/theme";
+import { framedPanelPadStyle } from "@/lib/theme";
 import type { Watchlist, WatchlistCompany } from "@/db/schema";
 import { PlaybookPickerButton, type PlaybookPickerEntry } from "./PlaybookPickerButton";
 import type { TeamAccessOption } from "./watchlist-access-ui";
@@ -14,6 +16,13 @@ import {
   CompanyOverviewTrigger,
   PortfolioCompanyOverviewSheet,
 } from "./PortfolioCompanyOverviewSheet";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdActionsStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 
 /**
  * One signal, with its latest observation per company across the portfolio.
@@ -122,16 +131,25 @@ export function WatchlistDetail({
   routeContext: "portfolio" | "watchlist";
 }) {
   const t = useTheme();
+  const phone = useNarrow(BREAKPOINTS.md);
   const [, startTransition] = useTransition();
   const [overviewCompany, setOverviewCompany] = useState<{
     uuid: string;
     name: string | null;
   } | null>(null);
+  /** Phone: Companies first; Compare is a separate surface. */
+  const [phoneSection, setPhoneSection] = useState<"companies" | "compare">(
+    "companies",
+  );
 
   const isPortfolioKind = watchlist.kind === "portfolio";
   const listPath = routeContext === "portfolio" ? "/portfolio" : "/watchlists";
   const listLabel = routeContext === "portfolio" ? "portfolios" : "watchlists";
   const listBreadcrumbLabel = routeContext === "portfolio" ? "Portfolios" : "Watchlists";
+  const hasCompare =
+    isPortfolioKind && benchmarks != null && signalSeries.length > 0;
+  const showCompare = !phone || (hasCompare && phoneSection === "compare");
+  const showCompanies = !phone || !hasCompare || phoneSection === "companies";
 
   useBreadcrumbOverride(
     useMemo(
@@ -143,9 +161,64 @@ export function WatchlistDetail({
     ),
   );
 
+  const companyList =
+    companies.length === 0 ? (
+      <div
+        style={{
+          padding: phone ? 28 : 48,
+          textAlign: "center",
+          border: `1px dashed ${t.rule}`,
+          borderRadius: phone ? 12 : 0,
+          fontFamily: t.sans,
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 600, color: t.ink }}>No companies yet</div>
+        <div
+          style={{
+            fontSize: 13,
+            color: t.muted,
+            marginTop: 6,
+            lineHeight: 1.5,
+            maxWidth: 480,
+            margin: "6px auto 0",
+          }}
+        >
+          Use the search bar in the header to find companies, then click &ldquo;Add to list&rdquo; on
+          their profile. Or run the Fuel 1.0 migration to import existing lists.
+        </div>
+      </div>
+    ) : phone ? (
+      <div
+        className="fuel-portfolio-company-cards fuel-card-stack"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          overflow: "visible",
+          padding: 0,
+        }}
+      >
+        {companies.map((c) => (
+          <PortfolioCompanyMobileRow
+            key={c.companyUuid}
+            t={t}
+            company={c}
+            userEmail={userEmail}
+            canEdit={canEdit}
+            watchlistId={watchlist.id}
+            routeContext={routeContext}
+            onOpenOverview={() =>
+              setOverviewCompany({ uuid: c.companyUuid, name: c.name })
+            }
+            onRemove={(fd) => startTransition(() => removeCompanyAction(fd))}
+          />
+        ))}
+      </div>
+    ) : null;
+
   return (
     <>
-    <div>
+    <div className="fuel-page fuel-portfolio-detail">
       <Link
         href={listPath}
         style={{
@@ -153,10 +226,12 @@ export function WatchlistDetail({
           alignItems: "center",
           gap: 6,
           fontFamily: t.sans,
-          fontSize: 13,
+          fontSize: phone ? 14 : 13,
           color: t.muted,
           textDecoration: "none",
-          marginBottom: 16,
+          marginBottom: phone ? 10 : 16,
+          minHeight: TOUCH_TARGET_MIN,
+          paddingBlock: 4,
         }}
       >
         ← All {listLabel}
@@ -164,18 +239,20 @@ export function WatchlistDetail({
 
       <div
         style={{
-          padding: "20px 22px",
+          padding: phone ? "14px 14px 12px" : "20px 22px",
           background: t.panel,
           border: `1px solid ${t.rule}`,
-          marginBottom: 24,
+          borderRadius: phone ? 12 : 0,
+          marginBottom: phone ? 12 : 24,
         }}
       >
         <div
           style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: phone ? "stretch" : "flex-start",
             justifyContent: "space-between",
-            gap: 16,
+            gap: phone ? 10 : 16,
+            flexDirection: phone ? "column" : "row",
             flexWrap: "wrap",
           }}
         >
@@ -184,7 +261,7 @@ export function WatchlistDetail({
               style={{
                 margin: 0,
                 fontFamily: t.sans,
-                fontSize: 26,
+                fontSize: phone ? 22 : 26,
                 fontWeight: 700,
                 color: t.ink,
                 letterSpacing: "-0.02em",
@@ -193,39 +270,96 @@ export function WatchlistDetail({
             >
               {watchlist.name}
             </h1>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                flexWrap: "wrap",
-                marginTop: 8,
-                fontFamily: t.sans,
-                fontSize: 12,
-                color: t.muted,
-              }}
-            >
-              <Chip t={t} tone={isPortfolioKind ? "accent" : "ghost"}>
-                {isPortfolioKind
-                  ? `Portfolio${watchlist.fundName ? ` · ${watchlist.fundName}` : ""}`
-                  : "Watchlist"}
-              </Chip>
-              <Chip t={t} tone={watchlist.scope === "team" ? "accent" : "ghost"}>
-                {scopeLabel(watchlist.scope)}
-              </Chip>
-              <span>
-                {companies.length} {companies.length === 1 ? "company" : "companies"}
-              </span>
-              <span style={{ color: t.rule }}>·</span>
-              <span>Updated {relativeTime(watchlist.updatedAt)}</span>
-              <span style={{ color: t.rule }}>·</span>
-              <span>Owner {watchlist.ownerEmail === userEmail ? "you" : watchlist.ownerEmail}</span>
-              {watchlist.legacyId ? <Chip t={t} tone="ghost">Migrated</Chip> : null}
-            </div>
+            {phone ? (
+              <div
+                style={{
+                  marginTop: 8,
+                  fontFamily: t.sans,
+                  fontSize: 13,
+                  color: t.muted,
+                  lineHeight: 1.4,
+                }}
+              >
+                <span style={{ color: t.inkSoft, fontWeight: 600 }}>
+                  {companies.length}{" "}
+                  {companies.length === 1 ? "company" : "companies"}
+                </span>
+                {watchlist.fundName &&
+                !/^AUTO:/i.test(watchlist.fundName) &&
+                watchlist.fundName !== watchlist.name ? (
+                  <>
+                    <span style={{ color: t.rule }}> · </span>
+                    <span>{watchlist.fundName}</span>
+                  </>
+                ) : null}
+                <span style={{ color: t.rule }}> · </span>
+                <span>Updated {relativeTime(watchlist.updatedAt)}</span>
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    marginTop: 10,
+                    fontFamily: t.sans,
+                    fontSize: 12,
+                    color: t.muted,
+                  }}
+                >
+                  <Chip t={t} tone={isPortfolioKind ? "accent" : "ghost"}>
+                    {isPortfolioKind
+                      ? `Portfolio${watchlist.fundName ? ` · ${watchlist.fundName}` : ""}`
+                      : "Watchlist"}
+                  </Chip>
+                  <Chip t={t} tone={watchlist.scope === "team" ? "accent" : "ghost"}>
+                    {scopeLabel(watchlist.scope)}
+                  </Chip>
+                  <span>
+                    {companies.length}{" "}
+                    {companies.length === 1 ? "company" : "companies"}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    marginTop: 8,
+                    fontFamily: t.sans,
+                    fontSize: 12,
+                    color: t.muted,
+                  }}
+                >
+                  <span>Updated {relativeTime(watchlist.updatedAt)}</span>
+                  <span style={{ color: t.rule }}>·</span>
+                  <span>
+                    Owner{" "}
+                    {watchlist.ownerEmail === userEmail
+                      ? "you"
+                      : watchlist.ownerEmail}
+                  </span>
+                  {watchlist.legacyId ? (
+                    <Chip t={t} tone="ghost">Migrated</Chip>
+                  ) : null}
+                </div>
+              </>
+            )}
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {isPortfolioKind && availablePlaybooks.length > 0 ? (
+          {isPortfolioKind && availablePlaybooks.length > 0 ? (
+            <div
+              className={phone ? "fuel-portfolio-playbooks" : undefined}
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                alignSelf: phone ? "flex-start" : undefined,
+                width: phone ? "auto" : undefined,
+              }}
+            >
               <PlaybookPickerButton
                 subject={{
                   kind: "portfolio",
@@ -239,12 +373,67 @@ export function WatchlistDetail({
                 }}
                 playbooks={availablePlaybooks}
               />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {isPortfolioKind && benchmarks && signalSeries.length > 0 ? (
+      {phone && hasCompare ? (
+        <div
+          className="fuel-portfolio-section-tabs"
+          role="tablist"
+          aria-label="Portfolio sections"
+          style={{
+            ["--fuel-page-bg" as string]: t.bg,
+            background: t.panelAlt,
+            border: `1px solid ${t.rule}`,
+          }}
+        >
+          {(
+            [
+              { id: "companies" as const, label: "Companies", count: companies.length },
+              { id: "compare" as const, label: "Compare", count: null },
+            ] as const
+          ).map((tab) => {
+            const selected = phoneSection === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setPhoneSection(tab.id)}
+                className={
+                  selected
+                    ? "fuel-portfolio-section-tabs__btn is-active"
+                    : "fuel-portfolio-section-tabs__btn"
+                }
+                style={{
+                  background: selected ? t.panel : "transparent",
+                  color: selected ? t.ink : t.muted,
+                  border: selected ? `1px solid ${t.rule}` : "1px solid transparent",
+                  boxShadow: selected ? `0 1px 2px ${t.ink}14` : "none",
+                  fontFamily: t.sans,
+                }}
+              >
+                {tab.label}
+                {tab.count != null ? (
+                  <span
+                    style={{
+                      color: selected ? t.accent : t.mutedSoft,
+                      fontFeatureSettings: '"tnum" 1',
+                    }}
+                  >
+                    {tab.count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {showCompare ? (
         <PortfolioBenchmarksPanel
           t={t}
           watchlistId={watchlist.id}
@@ -253,54 +442,30 @@ export function WatchlistDetail({
           signalSeries={signalSeries}
           signalCatalog={signalCatalog}
           companyCount={companies.length}
-          benchmarks={benchmarks}
+          benchmarks={benchmarks!}
+          phone={phone}
         />
       ) : null}
 
-      {companies.length === 0 ? (
-        <div
-          style={{
-            padding: 48,
-            textAlign: "center",
-            border: `1px dashed ${t.rule}`,
-            fontFamily: t.sans,
-          }}
-        >
-          <div style={{ fontSize: 14, fontWeight: 600, color: t.ink }}>No companies yet</div>
-          <div style={{ fontSize: 13, color: t.muted, marginTop: 6, lineHeight: 1.5, maxWidth: 480, margin: "6px auto 0" }}>
-            Use the search bar in the header to find companies, then click &ldquo;Add to list&rdquo; on
-            their profile. Or run the Fuel 1.0 migration to import existing lists.
-          </div>
-        </div>
-      ) : (
-        <div style={{ background: t.panel, border: `1px solid ${t.rule}`, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      {showCompanies ? (
+        companyList
+      ) : null}
+
+      {!phone && companies.length > 0 ? (
+        <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
+          <table className="fuel-data-table" style={dataTableStyle()}>
             <thead>
               <tr>
-                {["Company", "Added", "Added by", ""].map((h, i) => (
-                  <th
-                    key={h || i}
-                    style={{
-                      textAlign: i === 3 ? "right" : "left",
-                      padding: "10px 14px",
-                      fontFamily: t.sans,
-                      fontSize: 11,
-                      fontWeight: 500,
-                      color: t.muted,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                      borderBottom: `1px solid ${t.rule}`,
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
+                <th style={dataThStyle(t)}>Company</th>
+                <th style={dataThStyle(t)}>Added</th>
+                <th style={dataThStyle(t)}>Added by</th>
+                <th style={dataThStyle(t, { align: "right" })}></th>
               </tr>
             </thead>
             <tbody>
               {companies.map((c) => (
                 <tr key={c.companyUuid}>
-                  <td style={{ padding: "12px 14px", borderBottom: `1px solid ${t.ruleSoft}` }}>
+                  <td style={dataTdStyle(t, { top: false })}>
                     {routeContext === "portfolio" ? (
                       <CompanyOverviewTrigger
                         t={t}
@@ -350,35 +515,13 @@ export function WatchlistDetail({
                       </Link>
                     )}
                   </td>
-                  <td
-                    style={{
-                      padding: "12px 14px",
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                      fontFamily: t.mono,
-                      fontSize: 11,
-                      color: t.muted,
-                    }}
-                  >
+                  <td style={dataTdStyle(t, { mono: true, top: false })}>
                     {relativeTime(c.addedAt)}
                   </td>
-                  <td
-                    style={{
-                      padding: "12px 14px",
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                      fontFamily: t.sans,
-                      fontSize: 12,
-                      color: t.muted,
-                    }}
-                  >
+                  <td style={dataTdStyle(t, { top: false })}>
                     {c.addedByEmail === userEmail ? "you" : (c.addedByEmail ?? "—")}
                   </td>
-                  <td
-                    style={{
-                      padding: "12px 14px",
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                      textAlign: "right",
-                    }}
-                  >
+                  <td style={dataTdActionsStyle(t)}>
                     {canEdit ? (
                       <form
                         action={(fd) => startTransition(() => removeCompanyAction(fd))}
@@ -408,7 +551,7 @@ export function WatchlistDetail({
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
     </div>
     <PortfolioCompanyOverviewSheet
       t={t}
@@ -418,6 +561,178 @@ export function WatchlistDetail({
       companyName={overviewCompany?.name ?? null}
     />
     </>
+  );
+}
+
+function PortfolioCompanyMobileRow({
+  t,
+  company: c,
+  userEmail,
+  canEdit,
+  watchlistId,
+  routeContext,
+  onOpenOverview,
+  onRemove,
+}: {
+  t: Theme;
+  company: WatchlistCompany;
+  userEmail: string;
+  canEdit: boolean;
+  watchlistId: string;
+  routeContext: "portfolio" | "watchlist";
+  onOpenOverview: () => void;
+  onRemove: (fd: FormData) => void;
+}) {
+  const name = c.name ?? c.companyUuid.slice(0, 8);
+  const logo = (
+    <Logo
+      t={t}
+      co={{
+        logo: (c.name ?? "??").slice(0, 2).toUpperCase(),
+        name: c.name ?? undefined,
+        uuid: c.companyUuid,
+      }}
+      size={32}
+    />
+  );
+
+  const openControl =
+    routeContext === "portfolio" ? (
+      <CompanyOverviewTrigger
+        t={t}
+        onOpen={onOpenOverview}
+        style={{ flex: 1, minWidth: 0, minHeight: TOUCH_TARGET_MIN }}
+      >
+        {logo}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontFamily: t.sans,
+              fontSize: 15,
+              fontWeight: 650,
+              color: t.ink,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {name}
+          </div>
+          <div
+            style={{
+              marginTop: 2,
+              fontFamily: t.sans,
+              fontSize: 12,
+              color: t.muted,
+            }}
+          >
+            Added {relativeTime(c.addedAt) || "—"}
+            {c.addedByEmail
+              ? ` · ${c.addedByEmail === userEmail ? "you" : c.addedByEmail}`
+              : ""}
+          </div>
+        </div>
+        <span
+          aria-hidden
+          style={{
+            color: t.mutedSoft,
+            fontSize: 18,
+            lineHeight: 1,
+            flexShrink: 0,
+            paddingInline: 4,
+          }}
+        >
+          ›
+        </span>
+      </CompanyOverviewTrigger>
+    ) : (
+      <Link
+        href={`/company/${c.companyUuid}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          color: t.ink,
+          textDecoration: "none",
+          minWidth: 0,
+          flex: 1,
+          minHeight: TOUCH_TARGET_MIN,
+        }}
+      >
+        {logo}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontFamily: t.sans,
+              fontSize: 15,
+              fontWeight: 650,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {name}
+          </div>
+          <div
+            style={{
+              marginTop: 2,
+              fontFamily: t.sans,
+              fontSize: 12,
+              color: t.muted,
+            }}
+          >
+            Added {relativeTime(c.addedAt) || "—"}
+          </div>
+        </div>
+        <span
+          aria-hidden
+          style={{ color: t.mutedSoft, fontSize: 18, lineHeight: 1, flexShrink: 0 }}
+        >
+          ›
+        </span>
+      </Link>
+    );
+
+  return (
+    <article
+      className="fuel-portfolio-company-card"
+      style={{
+        ...framedPanelPadStyle(t, { padding: "12px 14px" }),
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      {openControl}
+      {canEdit ? (
+        <form action={onRemove} style={{ display: "inline-flex", flexShrink: 0 }}>
+          <input type="hidden" name="watchlistId" value={watchlistId} />
+          <input type="hidden" name="companyUuid" value={c.companyUuid} />
+          <button
+            type="submit"
+            aria-label={`Remove ${name}`}
+            title="Remove from list"
+            style={{
+              width: TOUCH_TARGET_MIN,
+              height: TOUCH_TARGET_MIN,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "transparent",
+              border: "none",
+              borderRadius: 8,
+              color: t.mutedSoft,
+              cursor: "pointer",
+              fontSize: 20,
+              lineHeight: 1,
+              fontFamily: t.sans,
+            }}
+          >
+            ×
+          </button>
+        </form>
+      ) : null}
+    </article>
   );
 }
 
@@ -493,6 +808,7 @@ function PortfolioBenchmarksPanel({
   signalCatalog,
   companyCount,
   benchmarks,
+  phone = false,
 }: {
   t: Theme;
   watchlistId: string;
@@ -504,6 +820,7 @@ function PortfolioBenchmarksPanel({
   signalCatalog: PortfolioSignalCatalogEntry[];
   companyCount: number;
   benchmarks: PortfolioBenchmarks;
+  phone?: boolean;
 }) {
   const benchByMetric = useMemo(
     () => new Map(benchmarks.rows.map((r) => [r.metric, r])),
@@ -525,6 +842,8 @@ function PortfolioBenchmarksPanel({
     ? selectedMetricIds
     : defaultMetricIds;
   const [configuring, setConfiguring] = useState(false);
+  // Phone: one metric at a time — a full stack of ranked boards is noise.
+  const [focusMetricId, setFocusMetricId] = useState<string | null>(null);
 
   // One MetricSpec per active id. For signals on the hardcoded
   // PORTFOLIO_METRICS list, reuse their spec (preserves grouping + the
@@ -563,69 +882,147 @@ function PortfolioBenchmarksPanel({
     [signalSeries, catalogById, benchByMetric, activeSpecs],
   );
 
+  const phoneFocusId =
+    focusMetricId && activeSpecs.some((s) => s.metricId === focusMetricId)
+      ? focusMetricId
+      : (activeSpecs[0]?.metricId ?? null);
+  const phoneSpecs = phone
+    ? activeSpecs.filter((s) => s.metricId === phoneFocusId)
+    : activeSpecs;
+
+  const renderStrip = (spec: MetricSpec) => {
+    const bench = benchByMetric.get(spec.metricId);
+    const series = seriesBySignal.get(spec.metricId);
+    const allPoints = series ? series.points : [];
+    // Count metrics can't be negative — strip flagged values from
+    // the strip and surface them in the data-quality footer.
+    const nonNegativeOnly = spec.unit === "count";
+    const points = nonNegativeOnly
+      ? allPoints.filter((p) => p.value >= 0)
+      : allPoints;
+    const flagged = nonNegativeOnly ? allPoints.length - points.length : 0;
+    return (
+      <DistributionStrip
+        key={spec.metricId}
+        t={t}
+        spec={spec}
+        bench={bench ?? null}
+        points={points}
+        flaggedCount={flagged}
+        phone={phone}
+      />
+    );
+  };
+
   return (
     <div
       style={{
-        marginBottom: 24,
-        padding: 20,
+        marginBottom: phone ? 16 : 24,
+        padding: phone ? 16 : 20,
         background: t.panel,
         border: `1px solid ${t.rule}`,
+        borderRadius: phone ? 14 : 0,
       }}
     >
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: phone ? "stretch" : "center",
           justifyContent: "space-between",
           gap: 12,
+          flexDirection: phone ? "column" : "row",
           flexWrap: "wrap",
           marginBottom: 6,
         }}
       >
-        <div>
+        <div style={{ minWidth: 0 }}>
+          {!phone ? (
+            <div
+              style={{
+                fontFamily: t.sans,
+                fontSize: 11,
+                fontWeight: 600,
+                color: t.accent,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
+              Benchmark distribution
+            </div>
+          ) : null}
           <div
             style={{
               fontFamily: t.sans,
-              fontSize: 11,
-              fontWeight: 600,
-              color: t.accent,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
+              fontSize: phone ? 20 : 18,
+              fontWeight: 700,
+              color: t.ink,
+              marginTop: phone ? 0 : 4,
+              letterSpacing: "-0.02em",
             }}
           >
-            Benchmark distribution
+            {phone ? "This fund vs similar companies" : "How the portfolio stacks up"}
           </div>
-          <div style={{ fontFamily: t.sans, fontSize: 18, fontWeight: 700, color: t.ink, marginTop: 4 }}>
-            How the portfolio stacks up
-          </div>
-          <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, marginTop: 4, lineHeight: 1.5 }}>
-            Each dot is one company&apos;s latest reading on the signal. The band shows the cohort&apos;s
-            bottom 25% → top 10%. Hover dots for details.
+          <div
+            style={{
+              fontFamily: t.sans,
+              fontSize: phone ? 13 : 12,
+              color: t.muted,
+              marginTop: 4,
+              lineHeight: 1.45,
+            }}
+          >
+            {phone
+              ? "Choose a metric. Green means ahead of similar companies; amber means behind."
+              : "Each company shows how it sits versus the cohort mid-point. Each dot is one company; the band is the cohort range. Hover dots for details."}
             {companyCount > withData.length && signalSeries.length > 0
-              ? ` Some companies are missing data on one or more selected signals.`
+              ? phone
+                ? " Some companies are missing readings."
+                : ` Some companies are missing data on one or more selected signals.`
               : ""}
           </div>
         </div>
-        <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-          <PortfolioCohortPicker t={t} current={benchmarks.cohortKey} cohorts={benchmarks.allCohorts} />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: phone ? "column" : "row",
+            gap: 8,
+            alignItems: phone ? "stretch" : "center",
+            width: phone ? "100%" : undefined,
+          }}
+        >
+          <PortfolioCohortPicker
+            t={t}
+            current={benchmarks.cohortKey}
+            cohorts={benchmarks.allCohorts}
+            phone={phone}
+          />
           {canEdit ? (
             <button
               type="button"
               onClick={() => setConfiguring((v) => !v)}
               title="Pick which metrics this portfolio surfaces"
               style={{
-                padding: "5px 10px",
+                padding: phone ? "10px 4px" : "5px 10px",
+                minHeight: phone ? TOUCH_TARGET_MIN : undefined,
                 fontFamily: t.sans,
-                fontSize: 11,
-                fontWeight: 500,
-                background: configuring ? t.panelAlt : "transparent",
-                color: t.inkSoft,
-                border: `1px solid ${t.rule}`,
-                borderRadius: 6,
+                fontSize: phone ? 13 : 11,
+                fontWeight: phone ? 600 : 500,
+                background: phone
+                  ? "transparent"
+                  : configuring
+                    ? t.panelAlt
+                    : "transparent",
+                color: phone ? t.accent : t.inkSoft,
+                border: phone ? "none" : `1px solid ${t.rule}`,
+                borderRadius: 8,
                 cursor: "pointer",
+                width: phone ? "auto" : undefined,
+                alignSelf: phone ? "flex-start" : undefined,
+                textDecoration: phone ? "underline" : undefined,
+                textUnderlineOffset: phone ? 3 : undefined,
               }}
             >
-              {configuring ? "Done" : "Configure metrics"}
+              {configuring ? "Done" : phone ? "Edit metrics" : "Configure metrics"}
             </button>
           ) : null}
         </div>
@@ -647,37 +1044,63 @@ function PortfolioBenchmarksPanel({
         </div>
       ) : (
         <>
-          <PortfolioScorecard t={t} summary={summary} />
+          <PortfolioScorecard t={t} summary={summary} phone={phone} />
+
+          {phone && activeSpecs.length > 1 ? (
+            <div
+              className="fuel-portfolio-metric-tabs"
+              style={{ ["--fuel-page-bg" as string]: t.panel }}
+              role="tablist"
+              aria-label="Metrics"
+            >
+              {activeSpecs.map((spec) => {
+                const selected = spec.metricId === phoneFocusId;
+                const n = seriesBySignal.get(spec.metricId)?.points.length ?? 0;
+                return (
+                  <button
+                    key={spec.metricId}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setFocusMetricId(spec.metricId)}
+                    className={
+                      selected
+                        ? "fuel-portfolio-metric-tabs__chip is-active"
+                        : "fuel-portfolio-metric-tabs__chip"
+                    }
+                    style={{
+                      background: selected ? `${t.accent}18` : t.panelAlt,
+                      color: selected ? t.ink : t.muted,
+                      border: `1px solid ${selected ? t.accent : t.rule}`,
+                      fontFamily: t.sans,
+                    }}
+                  >
+                    <span>{spec.label}</span>
+                    <span
+                      style={{
+                        color: selected ? t.accent : t.mutedSoft,
+                        fontFeatureSettings: '"tnum" 1',
+                      }}
+                    >
+                      {n}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
           <div
             style={{
-              marginTop: 16,
+              marginTop: phone ? 14 : 16,
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 360px), 1fr))",
-              gap: 18,
+              gridTemplateColumns: phone
+                ? "minmax(0, 1fr)"
+                : "repeat(auto-fill, minmax(min(100%, 360px), 1fr))",
+              gap: phone ? 0 : 18,
             }}
           >
-            {activeSpecs.map((spec) => {
-              const bench = benchByMetric.get(spec.metricId);
-              const series = seriesBySignal.get(spec.metricId);
-              const allPoints = series ? series.points : [];
-              // Count metrics can't be negative — strip flagged values from
-              // the strip and surface them in the data-quality footer.
-              const nonNegativeOnly = spec.unit === "count";
-              const points = nonNegativeOnly
-                ? allPoints.filter((p) => p.value >= 0)
-                : allPoints;
-              const flagged = nonNegativeOnly ? allPoints.length - points.length : 0;
-              return (
-                <DistributionStrip
-                  key={spec.metricId}
-                  t={t}
-                  spec={spec}
-                  bench={bench ?? null}
-                  points={points}
-                  flaggedCount={flagged}
-                />
-              );
-            })}
+            {(phone ? phoneSpecs : activeSpecs).map(renderStrip)}
           </div>
         </>
       )}
@@ -955,15 +1378,120 @@ function buildPortfolioSummaryFromSeries(
   };
 }
 
-function PortfolioScorecard({ t, summary }: { t: Theme; summary: PortfolioSummary }) {
+function PortfolioScorecard({
+  t,
+  summary,
+  phone = false,
+}: {
+  t: Theme;
+  summary: PortfolioSummary;
+  phone?: boolean;
+}) {
+  if (phone) {
+    const lines: Array<{ label: string; value: string; hint: string }> = [
+      {
+        label: "Beating peers",
+        value: `${summary.metricsAboveCohortP50} of ${summary.totalMetrics}`,
+        hint: "metrics where this fund is ahead of similar companies",
+      },
+      {
+        label: "Strongest company",
+        value: summary.topPerformer?.name ?? "None yet",
+        hint: summary.topPerformer
+          ? `Leads on ${summary.topPerformer.metricCount} ${summary.topPerformer.metricCount === 1 ? "metric" : "metrics"}`
+          : "No company is clearly ahead yet",
+      },
+      {
+        label: "Needs a look",
+        value:
+          summary.watchlist.count === 0
+            ? "None"
+            : `${summary.watchlist.count} ${summary.watchlist.count === 1 ? "company" : "companies"}`,
+        hint:
+          summary.watchlist.sample.length > 0
+            ? summary.watchlist.sample.map((s) => s.name).join(", ")
+            : "Nobody is trailing on multiple metrics",
+      },
+    ];
+    return (
+      <div
+        style={{
+          marginTop: 14,
+          display: "flex",
+          flexDirection: "column",
+          border: `1px solid ${t.rule}`,
+          borderRadius: 12,
+          overflow: "hidden",
+        }}
+      >
+        {lines.map((line, i) => (
+          <div
+            key={line.label}
+            style={{
+              background: t.panelAlt,
+              borderTop: i === 0 ? "none" : `1px solid ${t.ruleSoft}`,
+              padding: "12px 14px",
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: t.sans,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: t.muted,
+                }}
+              >
+                {line.label}
+              </div>
+              <div
+                style={{
+                  fontFamily: t.sans,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: t.ink,
+                  letterSpacing: "-0.02em",
+                  textAlign: "right",
+                  minWidth: 0,
+                }}
+              >
+                {line.value}
+              </div>
+            </div>
+            <div
+              style={{
+                fontFamily: t.sans,
+                fontSize: 12,
+                color: t.mutedSoft,
+                marginTop: 4,
+                lineHeight: 1.35,
+              }}
+            >
+              {line.hint}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const cardStyle = (accentColor: string): CSSProperties => ({
     flex: 1,
     minWidth: 200,
     padding: "12px 14px",
-    background: t.panel,
+    background: t.panelAlt,
     border: `1px solid ${t.rule}`,
-    borderLeft: `3px solid ${accentColor}`,
-    borderRadius: 6,
+    borderLeft: `2px solid ${accentColor}`,
+    borderRadius: 8,
+    boxSizing: "border-box",
   });
   return (
     <div
@@ -971,25 +1499,58 @@ function PortfolioScorecard({ t, summary }: { t: Theme; summary: PortfolioSummar
         marginTop: 18,
         display: "flex",
         gap: 10,
+        flexDirection: "row",
         flexWrap: "wrap",
       }}
     >
       <div style={cardStyle(t.accent)}>
-        <div style={{ fontFamily: t.mono, fontSize: 10, color: t.mutedSoft, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <div
+          style={{
+            fontFamily: t.mono,
+            fontSize: 10,
+            color: t.mutedSoft,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          }}
+        >
           Above cohort p50
         </div>
-        <div style={{ fontFamily: t.sans, fontSize: 22, fontWeight: 700, color: t.ink, marginTop: 2 }}>
+        <div
+          style={{
+            fontFamily: t.sans,
+            fontSize: 22,
+            fontWeight: 700,
+            color: t.ink,
+            marginTop: 2,
+          }}
+        >
           {summary.metricsAboveCohortP50}/{summary.totalMetrics}
         </div>
         <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 2 }}>
           metrics where the portfolio median beats the cohort
         </div>
       </div>
-      <div style={cardStyle("#FFE66A")}>
-        <div style={{ fontFamily: t.mono, fontSize: 10, color: t.mutedSoft, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div style={cardStyle(t.warn)}>
+        <div
+          style={{
+            fontFamily: t.mono,
+            fontSize: 10,
+            color: t.mutedSoft,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          }}
+        >
           Top performer
         </div>
-        <div style={{ fontFamily: t.sans, fontSize: 18, fontWeight: 600, color: t.ink, marginTop: 2 }}>
+        <div
+          style={{
+            fontFamily: t.sans,
+            fontSize: 18,
+            fontWeight: 600,
+            color: t.ink,
+            marginTop: 2,
+          }}
+        >
           {summary.topPerformer ? summary.topPerformer.name : "—"}
         </div>
         <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 2 }}>
@@ -998,11 +1559,27 @@ function PortfolioScorecard({ t, summary }: { t: Theme; summary: PortfolioSummar
             : "No clear leader yet"}
         </div>
       </div>
-      <div style={cardStyle(summary.watchlist.count > 0 ? "#FF7A59" : t.rule)}>
-        <div style={{ fontFamily: t.mono, fontSize: 10, color: t.mutedSoft, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div style={cardStyle(summary.watchlist.count > 0 ? t.warn : t.rule)}>
+        <div
+          style={{
+            fontFamily: t.mono,
+            fontSize: 10,
+            color: t.mutedSoft,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          }}
+        >
           On watchlist
         </div>
-        <div style={{ fontFamily: t.sans, fontSize: 22, fontWeight: 700, color: t.ink, marginTop: 2 }}>
+        <div
+          style={{
+            fontFamily: t.sans,
+            fontSize: 22,
+            fontWeight: 700,
+            color: t.ink,
+            marginTop: 2,
+          }}
+        >
           {summary.watchlist.count}
         </div>
         <div style={{ fontFamily: t.sans, fontSize: 11, color: t.muted, marginTop: 2 }}>
@@ -1019,10 +1596,12 @@ function PortfolioCohortPicker({
   t,
   current,
   cohorts,
+  phone = false,
 }: {
   t: Theme;
   current: string | null;
   cohorts: PortfolioBenchmarks["allCohorts"];
+  phone?: boolean;
 }) {
   if (cohorts.length === 0) return null;
   const label = (c: PortfolioBenchmarks["allCohorts"][number]) => {
@@ -1037,15 +1616,18 @@ function PortfolioCohortPicker({
   return (
     <label
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
+        display: phone ? "flex" : "inline-flex",
+        flexDirection: phone ? "column" : "row",
+        alignItems: phone ? "stretch" : "center",
+        gap: phone ? 6 : 6,
         fontFamily: t.sans,
-        fontSize: 11,
+        fontSize: phone ? 12 : 11,
         color: t.muted,
+        width: phone ? "100%" : undefined,
+        minWidth: 0,
       }}
     >
-      cohort
+      {phone ? "Compare to" : "Cohort"}
       <select
         defaultValue={current ?? ""}
         onChange={(e) => {
@@ -1056,15 +1638,18 @@ function PortfolioCohortPicker({
           window.location.href = url.toString();
         }}
         style={{
-          padding: "4px 6px",
-          borderRadius: 6,
+          padding: phone ? "12px 12px" : "4px 6px",
+          minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+          borderRadius: 8,
           border: `1px solid ${t.rule}`,
           background: t.panelAlt,
           color: t.ink,
           fontFamily: t.sans,
-          fontSize: 11,
+          fontSize: phone ? 16 : 11,
           cursor: "pointer",
-          maxWidth: 300,
+          maxWidth: phone ? "100%" : 300,
+          width: phone ? "100%" : undefined,
+          boxSizing: "border-box",
         }}
       >
         {cohorts.map((c) => (
@@ -1123,6 +1708,32 @@ const QUARTILE_LABEL: Record<Quartile, string> = {
   unknown: "no cohort baseline",
 };
 
+/** Short, plain status for phone — no percentile jargon. */
+const QUARTILE_PLAIN: Record<Quartile, string> = {
+  leader: "Leading",
+  above: "Strong",
+  in: "On pace",
+  below: "Behind",
+  lagging: "Lagging",
+  unknown: "No baseline",
+};
+
+function quartileTone(t: Theme, q: Quartile): string {
+  switch (q) {
+    case "leader":
+    case "above":
+      return t.accent;
+    case "in":
+      return t.muted;
+    case "below":
+      return t.warn;
+    case "lagging":
+      return t.warn;
+    default:
+      return t.mutedSoft;
+  }
+}
+
 /** Compute the median of a numeric array. */
 function median(arr: number[]): number | null {
   if (arr.length === 0) return null;
@@ -1159,18 +1770,507 @@ function groupDots(
   return out;
 }
 
+/**
+ * Phone-first metric board: one clear hero (yours vs cohort) + a flat
+ * ranked list. Replaces the desktop hover-dot strip on narrow viewports.
+ */
+function MobileMetricRanking({
+  t,
+  spec,
+  bench,
+  dots,
+  flaggedCount,
+  portfolioP50,
+  widthPct,
+}: {
+  t: Theme;
+  spec: MetricSpec;
+  bench: PortfolioBenchmarks["rows"][number] | null;
+  dots: Array<{
+    companyUuid: string;
+    name: string | null;
+    value: number;
+    quartile: Quartile;
+  }>;
+  flaggedCount: number;
+  portfolioP50: number | null;
+  widthPct: (v: number) => number;
+}) {
+  const inverted = bench?.invertedGood === true;
+  const ranked = [...dots].sort((a, b) =>
+    inverted ? a.value - b.value : b.value - a.value,
+  );
+
+  let vsCohort: string | null = null;
+  let vsAhead = false;
+  if (portfolioP50 != null && bench?.p50 != null && bench.p50 !== 0) {
+    vsAhead = inverted
+      ? portfolioP50 < bench.p50
+      : portfolioP50 > bench.p50;
+    const ratio = Math.abs(portfolioP50 / bench.p50);
+    const pct = Math.abs((portfolioP50 - bench.p50) / bench.p50) * 100;
+    if (pct < 2) {
+      vsCohort = "About even with similar companies";
+    } else if (ratio >= 1.5) {
+      vsCohort = vsAhead
+        ? `${ratio.toFixed(1)}× better than similar companies`
+        : `${ratio.toFixed(1)}× behind similar companies`;
+    } else {
+      vsCohort = vsAhead
+        ? `${pct.toFixed(0)}% better than similar companies`
+        : `${pct.toFixed(0)}% behind similar companies`;
+    }
+  }
+
+  const cohortMark =
+    bench?.p50 != null ? Math.max(0, Math.min(100, widthPct(bench.p50))) : null;
+  const yoursMark =
+    portfolioP50 != null
+      ? Math.max(0, Math.min(100, widthPct(portfolioP50)))
+      : null;
+
+  return (
+    <div className="fuel-portfolio-metric-mobile" style={{ minWidth: 0 }}>
+      {bench?.p50 != null && portfolioP50 != null ? (
+        <div
+          style={{
+            padding: "16px 14px",
+            borderRadius: 14,
+            background: `linear-gradient(160deg, ${
+              vsCohort && !vsAhead ? `${t.warn}22` : `${t.accent}18`
+            } 0%, ${t.panelAlt} 55%)`,
+            border: `1px solid ${t.rule}`,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: t.sans,
+              fontSize: 15,
+              fontWeight: 700,
+              color: t.ink,
+              letterSpacing: "-0.015em",
+              marginBottom: 12,
+            }}
+          >
+            {spec.label}
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: t.sans,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: vsCohort ? (vsAhead ? t.accent : t.warn) : t.muted,
+                }}
+              >
+                This fund
+              </div>
+              <div
+                style={{
+                  fontFamily: t.mono,
+                  fontSize: 26,
+                  fontWeight: 700,
+                  color: vsCohort ? (vsAhead ? t.accent : t.ink) : t.ink,
+                  letterSpacing: "-0.03em",
+                  fontFeatureSettings: '"tnum" 1',
+                  lineHeight: 1.15,
+                  marginTop: 4,
+                }}
+              >
+                {fmtValue(portfolioP50, spec.unit)}
+              </div>
+            </div>
+            <div style={{ minWidth: 0, textAlign: "right" }}>
+              <div
+                style={{
+                  fontFamily: t.sans,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: t.muted,
+                }}
+              >
+                Similar companies
+              </div>
+              <div
+                style={{
+                  fontFamily: t.mono,
+                  fontSize: 22,
+                  fontWeight: 650,
+                  color: t.inkSoft,
+                  letterSpacing: "-0.02em",
+                  fontFeatureSettings: '"tnum" 1',
+                  lineHeight: 1.15,
+                  marginTop: 4,
+                }}
+              >
+                {fmtValue(bench.p50, spec.unit)}
+              </div>
+            </div>
+          </div>
+
+          {/* Marker track — pins only (no fill) so “lower is better” metrics
+              don’t look healthier just because the bar is longer. */}
+          <div
+            style={{
+              position: "relative",
+              marginTop: 16,
+              height: 10,
+              borderRadius: 999,
+              background: t.panel,
+              border: `1px solid ${t.ruleSoft}`,
+            }}
+            aria-hidden
+          >
+            {cohortMark != null ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `calc(${cohortMark}% - 1.5px)`,
+                  top: -4,
+                  bottom: -4,
+                  width: 3,
+                  borderRadius: 2,
+                  background: t.ink,
+                  opacity: 0.4,
+                }}
+              />
+            ) : null}
+            {yoursMark != null ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `calc(${yoursMark}% - 6px)`,
+                  top: -5,
+                  width: 12,
+                  height: 12,
+                  borderRadius: 999,
+                  background: vsCohort
+                    ? vsAhead
+                      ? t.accent
+                      : t.warn
+                    : t.accent,
+                  border: `2px solid ${t.panel}`,
+                  boxSizing: "border-box",
+                }}
+              />
+            ) : null}
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 8,
+              fontFamily: t.sans,
+              fontSize: 11,
+              color: t.mutedSoft,
+            }}
+          >
+            <span>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: vsCohort && !vsAhead ? t.warn : t.accent,
+                  marginRight: 5,
+                  verticalAlign: "middle",
+                }}
+              />
+              This fund
+            </span>
+            <span>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 3,
+                  height: 10,
+                  background: t.ink,
+                  opacity: 0.4,
+                  marginRight: 5,
+                  verticalAlign: "middle",
+                }}
+              />
+              Similar companies
+            </span>
+          </div>
+
+          {vsCohort ? (
+            <div
+              style={{
+                marginTop: 12,
+                fontFamily: t.sans,
+                fontSize: 14,
+                fontWeight: 600,
+                color: vsAhead ? t.accent : t.warn,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {vsCohort}
+            </div>
+          ) : null}
+          {inverted ? (
+            <div
+              style={{
+                marginTop: 4,
+                fontFamily: t.sans,
+                fontSize: 12,
+                color: t.muted,
+              }}
+            >
+              Lower is better for this metric
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          style={{
+            fontFamily: t.sans,
+            fontSize: 18,
+            fontWeight: 700,
+            color: t.ink,
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {spec.label}
+          {inverted ? (
+            <span
+              style={{
+                display: "block",
+                marginTop: 4,
+                fontSize: 12,
+                fontWeight: 500,
+                color: t.muted,
+              }}
+            >
+              Lower is better
+            </span>
+          ) : null}
+        </div>
+      )}
+
+      <div
+        style={{
+          marginTop: 18,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: 8,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: t.sans,
+            fontSize: 13,
+            fontWeight: 700,
+            color: t.ink,
+          }}
+        >
+          Ranked companies
+        </div>
+        <div
+          style={{
+            fontFamily: t.sans,
+            fontSize: 12,
+            color: t.muted,
+          }}
+        >
+          {ranked.length} ranked
+          {flaggedCount > 0 ? ` · ${flaggedCount} skipped` : ""}
+          {cohortMark != null ? " · tick = similar companies" : ""}
+        </div>
+      </div>
+
+      {ranked.length === 0 ? (
+        <div
+          style={{
+            marginTop: 14,
+            padding: "20px 8px",
+            textAlign: "center",
+            fontFamily: t.sans,
+            fontSize: 13,
+            color: t.mutedSoft,
+          }}
+        >
+          No readings for this metric yet
+        </div>
+      ) : (
+        <ol
+          style={{
+            listStyle: "none",
+            margin: "8px 0 0",
+            padding: 0,
+          }}
+        >
+          {ranked.map((row, i) => {
+            const tone = quartileTone(t, row.quartile);
+            const fill = Math.max(4, Math.min(100, widthPct(row.value)));
+            const status = QUARTILE_PLAIN[row.quartile];
+            return (
+              <li
+                key={row.companyUuid}
+                style={{
+                  borderTop: i === 0 ? `1px solid ${t.rule}` : undefined,
+                  borderBottom: `1px solid ${t.ruleSoft}`,
+                }}
+              >
+                <Link
+                  href={`/company/${row.companyUuid}`}
+                  style={{
+                    display: "block",
+                    textDecoration: "none",
+                    color: "inherit",
+                    padding: "12px 2px 14px",
+                    minHeight: TOUCH_TARGET_MIN,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
+                      <span
+                        style={{
+                          flexShrink: 0,
+                          width: 26,
+                          height: 26,
+                          borderRadius: 999,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontFamily: t.mono,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: i === 0 ? t.bg : t.muted,
+                          background: i === 0 ? t.accent : t.panelAlt,
+                          fontFeatureSettings: '"tnum" 1',
+                        }}
+                      >
+                        {i + 1}
+                      </span>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontFamily: t.sans,
+                            fontSize: 15,
+                            fontWeight: 650,
+                            color: t.ink,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {row.name ?? row.companyUuid.slice(0, 8)}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 2,
+                            fontFamily: t.sans,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: tone,
+                          }}
+                        >
+                          {status}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontFamily: t.mono,
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: t.ink,
+                        flexShrink: 0,
+                        fontFeatureSettings: '"tnum" 1',
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {fmtValue(row.value, spec.unit)}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      position: "relative",
+                      marginTop: 10,
+                      height: 8,
+                      borderRadius: 999,
+                      background: t.panelAlt,
+                    }}
+                    aria-hidden
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: `${fill}%`,
+                        background: tone,
+                        borderRadius: 999,
+                        opacity: 0.9,
+                      }}
+                    />
+                    {cohortMark != null ? (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: `calc(${cohortMark}% - 1px)`,
+                          top: -2,
+                          bottom: -2,
+                          width: 2,
+                          borderRadius: 1,
+                          background: t.ink,
+                          opacity: 0.4,
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 function DistributionStrip({
   t,
   spec,
   bench,
   points,
   flaggedCount,
+  phone = false,
 }: {
   t: Theme;
   spec: MetricSpec;
   bench: PortfolioBenchmarks["rows"][number] | null;
   points: Array<{ companyUuid: string; name: string | null; value: number }>;
   flaggedCount: number;
+  phone?: boolean;
 }) {
   // Axis domain: include cohort percentiles + actual values so outliers
   // stay visible. For non-negative units (FTE count) clamp the floor at 0.
@@ -1198,6 +2298,20 @@ function DistributionStrip({
   const dots = points.map((p) => ({ ...p, quartile: classifyQuartile(p.value, bench) }));
   // Portfolio median (for the secondary p50 line vs cohort).
   const portfolioP50 = median(points.map((p) => p.value));
+
+  if (phone) {
+    return (
+      <MobileMetricRanking
+        t={t}
+        spec={spec}
+        bench={bench}
+        dots={dots}
+        flaggedCount={flaggedCount}
+        portfolioP50={portfolioP50}
+        widthPct={width}
+      />
+    );
+  }
 
   const isInverted = bench?.invertedGood === true;
   const sorted = [...points].sort((a, b) => a.value - b.value);

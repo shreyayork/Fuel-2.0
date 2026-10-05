@@ -33,12 +33,56 @@ export function sourcesHeaderStyle(t: Theme): CSSProperties {
 export function timelinePanelStyle(t: Theme): CSSProperties {
   return {
     background: t.panel,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 8,
+    border: `1px solid ${t.borderSubtle}`,
+    borderRadius: 12,
+    boxShadow:
+      t.mode === "editorial" ? "0 1px 0 rgba(40,66,86,0.04)" : "none",
     display: "flex",
     flexDirection: "column",
     gap: 12,
     padding: 16,
+  };
+}
+
+export function companyTabPrimaryBtnStyle(t: Theme): CSSProperties {
+  return {
+    alignItems: "center",
+    background: t.ink,
+    border: `1px solid ${t.ink}`,
+    borderRadius: 10,
+    boxSizing: "border-box",
+    color: t.mode === "editorial" ? t.panel : t.bg,
+    cursor: "pointer",
+    display: "inline-flex",
+    fontFamily: t.sans,
+    fontSize: 12.5,
+    fontWeight: 650,
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 40,
+    padding: "0 14px",
+    whiteSpace: "nowrap",
+  };
+}
+
+export function companyTabSecondaryBtnStyle(t: Theme): CSSProperties {
+  return {
+    alignItems: "center",
+    background: t.panel,
+    border: `1px solid ${t.rule}`,
+    borderRadius: 10,
+    boxSizing: "border-box",
+    color: t.inkSoft,
+    cursor: "pointer",
+    display: "inline-flex",
+    fontFamily: t.sans,
+    fontSize: 12.5,
+    fontWeight: 600,
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 40,
+    padding: "0 14px",
+    whiteSpace: "nowrap",
   };
 }
 
@@ -166,6 +210,33 @@ export function inputStyle(t: Theme): CSSProperties {
     fontSize: 12,
     padding: "8px 10px",
     width: "100%",
+  };
+}
+
+/** Feed toolbar search — icon inset, full-width friendly, ≥44px touch. */
+export function feedSearchFieldStyle(t: Theme): CSSProperties {
+  return {
+    ...inputStyle(t),
+    borderRadius: 10,
+    fontFamily: t.sans,
+    fontSize: 16,
+    minHeight: 44,
+    paddingLeft: 40,
+    paddingRight: 12,
+    width: "100%",
+  };
+}
+
+export function feedSearchIconStyle(t: Theme): CSSProperties {
+  return {
+    color: t.mutedSoft,
+    fontSize: 15,
+    left: 14,
+    lineHeight: 1,
+    pointerEvents: "none",
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
   };
 }
 

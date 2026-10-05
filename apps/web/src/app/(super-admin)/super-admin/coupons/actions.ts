@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import {
   archiveCouponCampaign,
   createCouponCampaign,
@@ -30,8 +30,7 @@ export type CouponsActionResult =
 
 async function requireSuperAdmin(): Promise<string> {
   const session = await getSession();
-  const devEmail = process.env.COGNITO_USER_POOL_ID ? null : "mike@york.ie";
-  if (!isSuperAdmin(session, devEmail)) redirect("/");
+  if (!isSuperAdmin(session, superAdminDevEmail())) redirect("/");
   return session?.email ?? "mike@york.ie";
 }
 

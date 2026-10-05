@@ -7,6 +7,7 @@ import { SentryUserContext } from "@/components/SentryUserContext";
 import { getDb } from "@/db/client";
 import type { FuelDataset } from "@/db/queries";
 import { getSession } from "@/lib/auth/session";
+import { resolveAuthenticatedHomePath } from "@/lib/auth/home-path";
 import { getCurrentUser } from "@/lib/current-user";
 import { listAccountsForUser, getActiveAccountForUser } from "@/lib/accounts";
 import { countAdvisors } from "@/lib/advisors";
@@ -37,13 +38,13 @@ const EMPTY_DATA: FuelDataset = {
 };
 
 /**
- * Sidebar counts. Advisors use `countAdvisors` so the badge matches /advisors
- * (instance-level SuperAdmin rows ∪ account-owned). Investors stay a simple
- * account-scoped count; service_providers keeps its visibility helper.
+ * Sidebar counts for investor + founder nav badges.
+ * Advisors: instance-level ∪ account-owned. Investors: bookmarks.
+ * Providers: visibility helper. Pipeline: deals on the account.
  */
 async function getSidebarCounts(accountId: string) {
   const db = await getDb();
-  const [advisors, investorRows, providers] = await Promise.all([
+  const [advisors, investorRows, providers, pipelineRows] = await Promise.all([
     countAdvisors(accountId),
     db.execute(sql`
       SELECT count(*)::int AS investors
@@ -51,12 +52,19 @@ async function getSidebarCounts(accountId: string) {
       WHERE account_id = ${accountId}
     `),
     countServiceProviders(accountId),
+    db.execute(sql`
+      SELECT count(*)::int AS pipeline
+      FROM pipeline_companies
+      WHERE account_id = ${accountId}
+    `),
   ]);
   const investorRow = investorRows.rows[0] as { investors?: number } | undefined;
+  const pipelineRow = pipelineRows.rows[0] as { pipeline?: number } | undefined;
   return {
     advisors,
     investors: investorRow?.investors ?? 0,
     serviceProviders: providers,
+    pipeline: pipelineRow?.pipeline ?? 0,
   };
 }
 
@@ -95,11 +103,17 @@ export default async function AuthenticatedLayout({
   if (requireAuth && !account) {
     redirect("/onboard");
   }
-  const countsPromise = account
-    ? getSidebarCounts(account.id)
-    : Promise.resolve({ advisors: 0, investors: 0, serviceProviders: 0 });
-  const [initialRecentCompanies, initialCredits] = account
+  const emptyCounts = {
+    advisors: 0,
+    investors: 0,
+    serviceProviders: 0,
+    pipeline: 0,
+  };
+  // Resolve counts before paint so investor nav badges (Pipeline / Network)
+  // aren't stuck at 0 while the streamed promise settles — needed for mobile QA.
+  const [sidebarCounts, initialRecentCompanies, initialCredits] = account
     ? await Promise.all([
+        getSidebarCounts(account.id),
         listRecentCompanies({
           userEmail: email,
           accountId: account.id,
@@ -121,12 +135,12 @@ export default async function AuthenticatedLayout({
           subscribedBilling,
         })),
       ])
-    : [[], null];
+    : [emptyCounts, [], null];
   return (
     <AppShell
       data={EMPTY_DATA}
       currentUser={currentUser}
-      countsPromise={countsPromise}
+      counts={sidebarCounts}
       initialCredits={initialCredits}
       initialRecentCompanies={initialRecentCompanies}
       groups={sessionGroups(session)}
@@ -138,6 +152,7 @@ export default async function AuthenticatedLayout({
       }))}
       activeAccountId={account?.id ?? null}
       activeAccountName={account?.name ?? null}
+      homePath={resolveAuthenticatedHomePath(account)}
       portfolioManagerEnabled={account?.portfolioManagerEnabled ?? false}
     >
       {session ? <SentryUserContext userId={session.sub} email={session.email} /> : null}

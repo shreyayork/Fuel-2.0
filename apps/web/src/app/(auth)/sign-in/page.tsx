@@ -45,72 +45,108 @@ export default async function SignInPage({
   const googleUrl = buildAuthorizeUrl(safeNext);
   const initialMode = mode === "signup" ? "signup" : "signin";
   const initialEmail = sanitizeEmailParam(email);
+  // Local design preview: always skip Cognito + field validation so Sign in /
+  // Sign up advance to the next screen with empty or partial fields.
+  const designPreview = true;
 
   return (
     <main
+      className="auth-page"
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background:
           "radial-gradient(ellipse at top, #142535 0%, #0F1A24 45%, #0B141C 100%)",
         color: "#F4F6F8",
         fontFamily: "Inter, -apple-system, system-ui, sans-serif",
         display: "flex",
         flexDirection: "column",
+        paddingTop: "var(--safe-top)",
+        paddingBottom: "var(--safe-bottom)",
+        paddingLeft: "var(--safe-left)",
+        paddingRight: "var(--safe-right)",
       }}
     >
       <header
+        className="auth-header"
         style={{
-          padding: "20px 32px",
+          padding: "12px var(--gutter)",
           borderBottom: "1px solid rgba(38,57,71,0.55)",
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-start",
           alignItems: "center",
+          gap: 16,
           background: "rgba(15,26,36,0.6)",
           backdropFilter: "saturate(140%) blur(8px)",
+          flexShrink: 0,
+          minHeight: "var(--header-h)",
+          boxSizing: "border-box",
         }}
       >
+        {/* Back lives leading-edge (left) — not trailing; brand follows. */}
+        <Link
+          href="/"
+          style={{
+            color: "#8A99A6",
+            fontSize: 13,
+            textDecoration: "none",
+            minHeight: 44,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            flexShrink: 0,
+          }}
+        >
+          ← Back to home
+        </Link>
+        <span
+          aria-hidden
+          style={{
+            width: 1,
+            height: 20,
+            background: "rgba(38,57,71,0.85)",
+            flexShrink: 0,
+          }}
+        />
         <Link
           href="/"
           style={{
             textDecoration: "none",
             display: "inline-flex",
             alignItems: "center",
+            minHeight: 44,
           }}
         >
           <BrandMark size={24} />
         </Link>
-        <Link
-          href="/"
-          style={{ color: "#8A99A6", fontSize: 13, textDecoration: "none" }}
-        >
-          ← Back to home
-        </Link>
       </header>
 
       <div
+        className="auth-body"
         style={{
           flex: 1,
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) minmax(0, 480px)",
           gap: 0,
+          minHeight: 0,
         }}
       >
-        {/* Left rail: value prop. Collapses on narrow viewports via media-CSS
-            since inline styles can't do breakpoints — see <style> below. */}
+        {/* Left rail: value prop. Adaptive via media-CSS below. */}
         <aside className="auth-left-rail" style={leftRailStyle}>
           <ValueProp />
         </aside>
 
-        {/* Right rail: the actual form, mounted as a client component so it
-            can manage tab toggles + multi-step verification flow. */}
+        {/* Right rail: the actual form */}
         <section
+          className="auth-form-rail"
           style={{
-            padding: "56px 48px",
+            padding: "clamp(28px, 6vw, 56px) clamp(16px, 4vw, 48px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             background: "rgba(11,20,28,0.5)",
             borderLeft: "1px solid rgba(38,57,71,0.55)",
+            minWidth: 0,
+            overflowY: "auto",
           }}
         >
           <div style={{ width: "100%", maxWidth: AUTH_FORM_MAX_WIDTH }}>
@@ -119,16 +155,61 @@ export default async function SignInPage({
               initialMode={initialMode}
               nextPath={safeNext}
               initialEmail={initialEmail}
-              error={error ?? null}
+              error={designPreview ? null : (error ?? null)}
+              designPreview={designPreview}
             />
           </div>
         </section>
       </div>
 
       <style>{`
-        @media (max-width: 880px) {
+        /* Phone portrait — form only, full width */
+        @media (max-width: 880px) and (orientation: portrait) {
           .auth-left-rail { display: none !important; }
-          main > div { grid-template-columns: 1fr !important; }
+          .auth-body { grid-template-columns: 1fr !important; }
+          .auth-form-rail { border-left: none !important; }
+        }
+        /* Phone / small landscape — compact two-pane when width allows */
+        @media (max-width: 880px) and (orientation: landscape) {
+          .auth-left-rail { display: none !important; }
+          .auth-body { grid-template-columns: 1fr !important; }
+          .auth-form-rail {
+            border-left: none !important;
+            padding-top: 20px !important;
+            padding-bottom: 20px !important;
+          }
+        }
+        /* Tablet landscape — keep dual pane, tighter padding */
+        @media (min-width: 881px) and (max-width: 1100px) and (orientation: landscape) {
+          .auth-body { grid-template-columns: minmax(0, 1fr) minmax(0, 420px) !important; }
+          .auth-left-rail { padding: 32px 28px !important; }
+          .auth-form-rail { padding: 28px 24px !important; }
+        }
+        /* Short landscape — compact chrome; form stays reachable */
+        @media (orientation: landscape) and (max-height: 500px) {
+          .auth-header { padding-block: 8px !important; min-height: 48px !important; }
+          .auth-left-rail h1 { font-size: var(--fs-h2) !important; }
+          .auth-left-rail p { font-size: 14px !important; margin: 12px 0 16px !important; }
+          .auth-form-rail {
+            padding-top: 16px !important;
+            padding-bottom: 16px !important;
+            align-items: flex-start !important;
+          }
+        }
+        .auth-name-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        @media (max-width: 420px) {
+          .auth-name-row { grid-template-columns: 1fr !important; }
+        }
+        @media (pointer: coarse) {
+          .auth-form-rail input,
+          .auth-form-rail button,
+          .auth-form-rail a {
+            min-height: 48px;
+          }
         }
       `}</style>
     </main>

@@ -7,6 +7,7 @@ const ZERO_COUNTS: SidebarCounts = {
   advisors: 0,
   serviceProviders: 0,
   investors: 0,
+  pipeline: 0,
 };
 
 const SidebarCountsContext = createContext<SidebarCounts>(ZERO_COUNTS);

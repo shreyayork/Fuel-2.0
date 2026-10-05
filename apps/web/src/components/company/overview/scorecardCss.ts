@@ -237,6 +237,16 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   transform: rotate(-90deg);
 }
 
+.sc-adv-featured-collapsed-hint {
+  color: var(--text-2);
+  flex: 1 1 100%;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin: 0;
+  order: 5;
+}
+
 .sc-adv-featured {
   position: relative;
   z-index: 1;
@@ -274,7 +284,7 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
 .sc-adv-rec-spotlight {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 .sc-adv-rec-title {
@@ -284,80 +294,187 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
+.sc-adv-rec-count {
+  background: var(--accent-dim);
+  border-radius: 99px;
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  margin-left: auto;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+.sc-adv-rec-empty {
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
 .sc-adv-rec-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .sc-adv-rec-item {
-  align-items: flex-start;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-}
-.sc-adv-rec-num {
   align-items: center;
-  background: var(--accent-dim);
-  border: 1px solid var(--accent-line);
-  border-radius: 50%;
-  color: var(--accent);
-  display: inline-flex;
-  font-size: 11.5px;
-  font-weight: 700;
-  height: 24px;
-  justify-content: center;
-  line-height: 1;
-  width: 24px;
+  background: var(--panel-inset);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 8px 12px;
+  grid-template-columns: 36px minmax(0, 1fr) 10px;
+  min-height: 44px;
+  padding: 12px;
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  width: 100%;
 }
-.sc-adv-rec-num.is-done {
-  background: rgba(61, 214, 140, 0.18);
-  border-color: rgba(61, 214, 140, 0.48);
+.sc-adv-rec-item:hover {
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 33%, var(--border));
+}
+.sc-adv-rec-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sc-adv-rec-item.is-next {
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+.sc-adv-rec-item.is-next:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel-inset));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--border) 70%, transparent);
+}
+.sc-adv-rec-item.is-done {
+  background: transparent;
+  border-color: var(--border);
+  opacity: 1;
+}
+.sc-adv-rec-item.is-done:hover {
+  background: var(--surface-3);
+  box-shadow: none;
+}
+.sc-adv-rec-item.is-disabled,
+.sc-adv-rec-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.sc-adv-rec-mark {
+  align-items: center;
+  background: var(--surface-3);
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-2);
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 36px;
+  justify-content: center;
+  margin-top: 0;
+  width: 36px;
+}
+.sc-adv-rec-item.is-next .sc-adv-rec-mark {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 0;
+  color: var(--accent);
+}
+.sc-adv-rec-item.is-done .sc-adv-rec-mark {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 0;
   color: var(--accent);
 }
 .sc-adv-rec-body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 .sc-adv-rec-name {
   color: var(--text-1);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.35;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.sc-adv-rec-item.is-done .sc-adv-rec-name {
+  color: var(--text-3);
+  font-weight: 550;
 }
 .sc-adv-rec-sub {
   color: var(--text-3);
-  font-size: 11.5px;
+  display: block;
+  font-size: 12px;
   line-height: 1.4;
   margin: 0;
 }
-.sc-adv-rec-cta {
-  align-self: center;
-  background: transparent;
-  border: 0;
-  color: var(--accent);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 0;
-  white-space: nowrap;
+.sc-adv-rec-meter-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
 }
-.sc-adv-rec-cta:hover { text-decoration: underline; }
-.sc-adv-rec-cta.is-disabled,
-.sc-adv-rec-cta:disabled {
+.sc-adv-rec-meter {
+  background: var(--surface-3);
+  border-radius: 99px;
+  display: block;
+  flex: 1;
+  height: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.sc-adv-rec-meter-fill {
+  background: var(--accent);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  max-width: 100%;
+}
+.sc-adv-rec-meter-count {
   color: var(--text-3);
-  cursor: not-allowed;
-  opacity: 0.55;
-  text-decoration: none;
-  pointer-events: none;
+  flex-shrink: 0;
+  font-family: ${t.mono};
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
-.sc-adv-rec-cta.is-disabled:hover,
-.sc-adv-rec-cta:disabled:hover { text-decoration: none; }
+.sc-adv-rec-cta {
+  color: var(--accent);
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.sc-adv-rec-item.is-done .sc-adv-rec-cta {
+  color: var(--text-3);
+  font-weight: 550;
+}
+.sc-adv-rec-chev {
+  border-right: 1.6px solid currentColor;
+  border-top: 1.6px solid currentColor;
+  color: var(--text-3);
+  display: inline-block;
+  flex-shrink: 0;
+  height: 7px;
+  margin-top: 0;
+  transform: rotate(45deg);
+  width: 7px;
+}
+.sc-adv-rec-item.is-next .sc-adv-rec-chev {
+  color: var(--accent);
+}
+.sc-adv-rec-item.is-done .sc-adv-rec-chev {
+  color: var(--text-4);
+}
 
 @media (max-width: 1080px) {
   .sc-adv-featured.sc-adv-featured-split { grid-template-columns: 1fr; }
@@ -436,19 +553,18 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   cursor: pointer;
   display: grid;
   font: inherit;
-  gap: 8px;
+  gap: 6px 10px;
   grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 76px;
+  min-height: 0;
   padding: 10px 12px;
   text-align: left;
-  transition: border-color 0.14s, box-shadow 0.14s, transform 0.14s;
+  transition: border-color 0.14s, background 0.14s;
 }
 
 .sc-adv-focus-card:hover,
 .sc-adv-focus-card:focus-visible {
-  box-shadow: 0 1px 6px color-mix(in srgb, var(--sc-focus-accent, var(--accent)) 16%, transparent);
+  border-color: color-mix(in srgb, var(--sc-focus-accent, var(--accent)) 45%, var(--border));
   outline: none;
-  transform: translateY(-1px);
 }
 
 .sc-adv-focus-card.is-good {
@@ -472,7 +588,8 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
 .sc-adv-focus-card-copy {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
@@ -488,6 +605,14 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   -webkit-line-clamp: 2;
 }
 
+.sc-adv-focus-card-title-short {
+  display: none;
+}
+
+.sc-adv-focus-card-title-full {
+  display: inline;
+}
+
 .sc-adv-focus-card-meta {
   color: var(--text-3);
   font-size: 10.5px;
@@ -499,36 +624,32 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   white-space: nowrap;
 }
 
-.sc-adv-focus-ring {
-  height: 44px;
-  position: relative;
-  width: 44px;
-  flex-shrink: 0;
-}
-
-.sc-adv-focus-ring svg {
+.sc-adv-focus-bar-track {
+  background: color-mix(in srgb, var(--sc-focus-accent, var(--accent)) 18%, var(--surface-2));
+  border-radius: 99px;
   display: block;
+  height: 6px;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.sc-adv-focus-ring-track {
-  stroke: color-mix(in srgb, var(--sc-focus-accent, var(--accent)) 22%, var(--surface-2));
+.sc-adv-focus-bar-fill {
+  background: var(--sc-focus-accent, var(--accent));
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  max-width: 100%;
 }
 
-.sc-adv-focus-ring-progress {
-  stroke: var(--sc-focus-accent, var(--accent));
-}
-
-.sc-adv-focus-ring-label {
-  align-items: center;
+.sc-adv-focus-bar-pct {
   color: var(--text-1);
-  display: flex;
-  font-size: 10px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  inset: 0;
-  justify-content: center;
+  font-weight: 750;
   letter-spacing: -0.02em;
-  position: absolute;
+  line-height: 1;
+  min-width: 2.4em;
+  text-align: right;
 }
 
 .sc-adv-focus + .sc-adv {
@@ -560,6 +681,107 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
 
 @media (max-width: 860px) {
   .sc-adv-focus-grid { grid-template-columns: 1fr; }
+}
+
+/* Phone: keep the three focus rings visible — compact 3-up, not hidden. */
+@media (max-width: 767px) {
+  .sc-adv-focus {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 14px;
+    min-width: 0;
+  }
+
+  .sc-adv-focus > .sc-adv-rec-title {
+    display: none;
+  }
+
+  .sc-adv-focus-grid {
+    gap: 6px;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .sc-adv-focus-card {
+    align-items: center;
+    gap: 8px 10px;
+    grid-template-columns: 3.25rem minmax(0, 1fr) 2rem;
+    justify-items: stretch;
+    min-height: 44px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .sc-adv-focus-card-copy {
+    align-items: flex-start;
+    gap: 0;
+    grid-column: auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .sc-adv-focus-card-title {
+    -webkit-line-clamp: 1;
+    display: block;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .sc-adv-focus-card-title-full {
+    display: none;
+  }
+
+  .sc-adv-focus-card-title-short {
+    display: inline;
+  }
+
+  .sc-adv-focus-card-meta {
+    display: none;
+  }
+
+  .sc-adv-rec-item {
+    gap: 8px 10px;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    padding: 11px 12px;
+  }
+
+  .sc-adv-rec-name,
+  .sc-adv-rec-sub {
+    overflow-wrap: anywhere;
+  }
+
+  .sc-adv-rec-go {
+    max-width: none;
+  }
+
+  .sc-adv-rec-sub {
+    display: none;
+  }
+
+  .sc-overview-advisor-wrap .sc-adv-featured-brief-col,
+  .sc-overview-advisor-wrap .sc-adv-featured-rec-col {
+    padding: 12px;
+  }
+
+  .sc-overview-advisor-wrap .sc-adv-featured-toggle {
+    padding: 12px 14px;
+  }
+
+  .sc-wiki-expand-btn {
+    flex: 1 1 100%;
+    justify-content: center;
+    margin-left: 0;
+    min-height: 44px;
+  }
+
+  .sc-wiki-summary-compact {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+  }
 }
 
 .sc-cat-header-btn {
@@ -677,8 +899,8 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
 .sc-overview-tracks-glance {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-top: 4px;
+  gap: 12px;
+  padding-top: 0;
 }
 
 .sc-glance-row {
@@ -758,21 +980,6 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   width: 100%;
 }
 
-.sc-glance-header-bar-start {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.sc-glance-header-bar-links {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .sc-glance-header-bar-end {
   align-items: center;
   display: flex;
@@ -794,34 +1001,6 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
 }
 
 /* Track cards — 3-column glance layout (Design ScorecardV2 sc-glance-row--ref) */
-.sc-glance-meta-badges {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.sc-glance-meta-badge {
-  appearance: none;
-  background: ${isLight ? "#f4f6f8" : "var(--panel-inset)"};
-  border: 1px solid ${isLight ? "#e4e8ec" : "var(--panel-border)"};
-  border-radius: 999px;
-  color: var(--text-2);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  padding: 6px 12px;
-  transition: background 0.14s, border-color 0.14s, color 0.14s;
-  white-space: nowrap;
-}
-
-.sc-glance-meta-badge:hover {
-  border-color: color-mix(in srgb, var(--fuel-accent, #00B48A) 35%, var(--panel-border));
-  color: var(--text-1);
-}
-
 .sc-glance-row.sc-glance-row--ref {
   align-items: stretch;
   background: ${isLight ? "var(--panel)" : "var(--surface-2)"};
@@ -889,6 +1068,11 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   min-height: 188px;
 }
 
+/* Keeps mid + improve as grid children on desktop when wrapped for a11y ids. */
+.sc-glance-row--ref .sc-glance-track-details {
+  display: contents;
+}
+
 .sc-glance-row--ref .sc-glance-track-lead {
   align-items: flex-start;
   border-right: 1px solid var(--panel-border);
@@ -910,15 +1094,123 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   padding-top: 4px;
 }
 
+.sc-glance-row--ref .sc-glance-track-lead-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+}
+
+.sc-glance-row--ref .sc-glance-track-lead-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .sc-glance-row--ref .sc-glance-track-title-link {
   color: var(--text-1);
   display: block;
+  flex: 1 1 auto;
   font-size: 14px;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.3;
   margin: 0;
+  min-width: 0;
   overflow-wrap: break-word;
+}
+
+.sc-glance-row--ref .sc-glance-track-title-short {
+  display: none;
+}
+
+.sc-glance-row--ref .sc-glance-track-title-full {
+  display: inline;
+}
+
+.sc-glance-row--ref .sc-glance-track-status-inline {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.sc-glance-row--ref .sc-glance-track-collapsed-hint {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text-2);
+  display: -webkit-box;
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 4px 0 0;
+  overflow: hidden;
+}
+
+.sc-glance-row--ref .sc-glance-track-title-btn {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.sc-glance-row--ref .sc-glance-track-title-btn:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
+.sc-glance-row--ref .sc-glance-track-expand {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: none;
+  flex-shrink: 0;
+  font: inherit;
+  justify-content: center;
+  line-height: 1;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  transition: background 0.14s, color 0.14s, transform 0.2s;
+}
+
+.sc-glance-row--ref .sc-glance-track-expand:hover {
+  background: color-mix(in srgb, var(--text-1) 6%, transparent);
+  color: var(--text-1);
+}
+
+.sc-glance-row--ref .sc-glance-track-expand:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
+.sc-glance-row--ref .sc-glance-track-expand-chev {
+  display: inline-flex;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.2s;
+}
+
+.sc-glance-row--ref.is-collapsed .sc-glance-track-expand-chev {
+  transform: rotate(-90deg);
 }
 
 .sc-glance-row--ref .sc-glance-track-focus {
@@ -1801,12 +2093,36 @@ ${
 }
 
 @media (max-width: 960px) {
+  /* Denser Overview stack: advisor → tracks, and between track cards. */
+  .fuel-overview.scorecard-v2,
+  .fuel-overview,
+  .scorecard-v2 {
+    gap: 16px;
+  }
+
+  .sc-adv-featured-wrap {
+    margin-bottom: 0;
+  }
+
+  .sc-overview-tracks,
+  .sc-overview-tracks-glance {
+    gap: 10px;
+  }
+
   .sc-glance-row.sc-glance-row--ref {
     padding: 0;
   }
 
   .sc-glance-row--ref .sc-glance-track-body {
     grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  /* Stack details below lead when accordion wrapper is present. */
+  .sc-glance-row--ref .sc-glance-track-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
 
   .sc-glance-row--ref .sc-glance-track-lead,
@@ -1815,16 +2131,103 @@ ${
     border-bottom: 1px solid var(--panel-border);
   }
 
+  .sc-glance-row--ref.is-collapsed .sc-glance-track-lead {
+    align-items: flex-start;
+    border-bottom: 0;
+    cursor: pointer;
+    gap: 12px;
+    min-height: 72px;
+    padding: 12px;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-track-lead-copy {
+    gap: 2px;
+    justify-content: flex-start;
+    padding-top: 2px;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-track-title-link {
+    font-size: 13.5px;
+    line-height: 1.25;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-track-title-short {
+    display: inline;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-track-title-full {
+    display: none;
+  }
+
+  /* Status moves beside the title; hide under-ring status to save height. */
+  .sc-glance-row--ref.is-collapsed .sc-glance-ring-status {
+    display: none;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-ring-wrap--ref {
+    padding-top: 0;
+    width: 44px;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-ring-wrap--ref .sc-glance-ring-trigger,
+  .sc-glance-row--ref.is-collapsed .sc-glance-ring-wrap--ref .sc-glance-ring-svg-wrap {
+    height: 44px;
+    width: 44px;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-ring-wrap--ref .sc-glance-ring-label strong {
+    font-size: 14px;
+  }
+
+  .sc-glance-row--ref.is-expanded .sc-glance-track-lead {
+    padding: 16px 14px;
+  }
+
+  .sc-glance-row--ref.is-expanded .sc-glance-track-title-short {
+    display: none;
+  }
+
+  .sc-glance-row--ref.is-expanded .sc-glance-track-title-full {
+    display: inline;
+  }
+
+  .sc-glance-row--ref .sc-glance-track-mid,
+  .sc-glance-row--ref .sc-glance-track-improve-panel {
+    padding: 14px 16px;
+  }
+
+  .sc-glance-row--ref .sc-glance-track-expand {
+    display: inline-flex;
+  }
+
+  .sc-glance-row--ref:not(.is-collapsed) .sc-glance-ring-wrap--ref {
+    width: 72px;
+  }
+
+  .sc-glance-row--ref:not(.is-collapsed) .sc-glance-ring-wrap--ref .sc-glance-ring-trigger,
+  .sc-glance-row--ref:not(.is-collapsed) .sc-glance-ring-wrap--ref .sc-glance-ring-svg-wrap {
+    height: 72px;
+    width: 72px;
+  }
+
+  .sc-glance-row--ref .sc-glance-ring-wrap--ref .sc-glance-ring {
+    height: 100%;
+    width: 100%;
+  }
+
+  .sc-glance-row--ref:not(.is-collapsed) .sc-glance-ring-wrap--ref .sc-glance-ring-label strong {
+    font-size: 20px;
+  }
+
+  .sc-glance-row--ref:not(.is-collapsed) .sc-glance-ring-status {
+    max-width: 72px;
+  }
+
   .sc-glance-row--ref > .sc-glance-header-bar {
     align-items: stretch;
     flex-direction: column;
     gap: 10px;
-  }
-
-  .sc-glance-row--ref .sc-glance-header-bar-start,
-  .sc-glance-row--ref .sc-glance-meta-badges {
-    min-width: 0;
-    width: 100%;
+    padding: 12px 16px;
   }
 
   .sc-glance-row--ref .sc-glance-header-bar-end {
@@ -1840,9 +2243,145 @@ ${
     white-space: normal;
   }
 
-  .sc-glance-meta-badges {
-    justify-content: flex-start;
-    max-width: none;
+  .sc-glance-header-bar .sc-glance-details-link {
+    min-height: 44px;
+    padding: 10px 0;
+  }
+
+  /* Loading skeleton mirrors collapsed phone height. */
+  .sc-glance-row-skeleton .sc-glance-header-bar,
+  .sc-glance-row-skeleton .sc-glance-track-mid,
+  .sc-glance-row-skeleton .sc-glance-track-improve-panel,
+  .sc-glance-row-skeleton .sc-skel-stack {
+    display: none;
+  }
+
+  .sc-glance-row-skeleton .sc-glance-track-lead {
+    align-items: center;
+    border-bottom: 0;
+    gap: 12px;
+    min-height: 64px;
+    padding: 10px 12px;
+  }
+}
+
+/* Phone: three track cards read as unique compositions, not identical clones. */
+@media (max-width: 767px) {
+  .sc-overview-tracks,
+  .sc-overview-tracks-glance {
+    gap: 14px;
+  }
+
+  .sc-glance-row--ref.is-track-dev,
+  .sc-glance-row--ref.is-track-mkt,
+  .sc-glance-row--ref.is-track-rev {
+    border-radius: 14px;
+  }
+
+  /* Zone 1 — action toolbar */
+  .sc-glance-row--ref > .sc-glance-header-bar {
+    background: ${isLight ? "var(--panel-inset, #f1f3f6)" : "var(--panel-inset)"};
+    border-bottom: 0;
+    gap: 12px;
+    margin: 0;
+    padding: 12px 14px 10px;
+  }
+
+  .sc-glance-row--ref.is-track-dev > .sc-glance-header-bar {
+    background: color-mix(in srgb, var(--fuel-accent, #00b48a) 8%, ${isLight ? "#fff" : "var(--surface-2)"});
+  }
+
+  .sc-glance-row--ref.is-track-mkt > .sc-glance-header-bar {
+    background: color-mix(in srgb, var(--text-1) 7%, ${isLight ? "#fff" : "var(--surface-2)"});
+  }
+
+  .sc-glance-row--ref.is-track-rev > .sc-glance-header-bar {
+    background: color-mix(in srgb, var(--status-watch, #ecd67f) 14%, ${isLight ? "#fff" : "var(--surface-2)"});
+  }
+
+  .sc-glance-row--ref .sc-glance-header-bar-end {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    justify-content: space-between;
+  }
+
+  .sc-glance-header-bar .sc-glance-details-link {
+    background: color-mix(in srgb, var(--fuel-accent, #00b48a) 12%, transparent);
+    border-radius: 10px;
+    min-height: 40px;
+    padding: 8px 12px;
+    text-decoration: none;
+  }
+
+  /* Zone 2 — score + narrative */
+  .sc-glance-row--ref:not(.is-collapsed) .sc-glance-track-lead {
+    align-items: flex-start;
+    background: ${isLight ? "#fff" : "var(--surface-2)"};
+    border-bottom: 0;
+    gap: 14px;
+    padding: 16px 14px 14px;
+  }
+
+  .sc-glance-row--ref.is-track-dev:not(.is-collapsed) .sc-glance-track-lead {
+    background: color-mix(in srgb, var(--fuel-accent, #00b48a) 4%, ${isLight ? "#fff" : "var(--surface-2)"});
+  }
+
+  .sc-glance-row--ref.is-track-mkt:not(.is-collapsed) .sc-glance-track-lead {
+    background: color-mix(in srgb, var(--text-1) 3.5%, ${isLight ? "#fff" : "var(--surface-2)"});
+  }
+
+  .sc-glance-row--ref.is-track-rev:not(.is-collapsed) .sc-glance-track-lead {
+    background: color-mix(in srgb, var(--status-watch, #ecd67f) 7%, ${isLight ? "#fff" : "var(--surface-2)"});
+  }
+
+  .sc-glance-row--ref:not(.is-collapsed) .sc-glance-track-title-link {
+    font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+
+  .sc-glance-row--ref:not(.is-collapsed) .sc-glance-track-focus {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  /* Zone 3 — insight panels as distinct stacked cards */
+  .sc-glance-row--ref .sc-glance-track-details {
+    background: ${isLight ? "var(--panel-inset, #f7f8fa)" : "var(--panel-inset)"};
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 12px 14px;
+  }
+
+  .sc-glance-row--ref .sc-glance-track-mid,
+  .sc-glance-row--ref .sc-glance-track-improve-panel {
+    background: ${isLight ? "#fff" : "var(--panel)"};
+    border: 1px solid var(--panel-border);
+    border-bottom: 1px solid var(--panel-border) !important;
+    border-radius: 12px;
+    margin: 0;
+    padding: 12px 14px;
+  }
+
+  .sc-glance-row--ref .sc-glance-track-mid {
+    border-color: color-mix(in srgb, var(--fuel-accent, #00b48a) 28%, var(--panel-border));
+  }
+
+  .sc-glance-row--ref .sc-glance-track-improve-panel {
+    background: color-mix(in srgb, var(--status-watch, #ecd67f) 10%, ${isLight ? "#fff" : "var(--panel)"});
+    border-color: color-mix(in srgb, var(--status-watch, #ecd67f) 40%, var(--panel-border));
+    border-top: 1px solid color-mix(in srgb, var(--status-watch, #ecd67f) 40%, var(--panel-border));
+  }
+
+  .sc-glance-row--ref .sc-glance-insight-block.is-compact .sc-cat-sw-list {
+    gap: 8px;
+  }
+
+  .sc-glance-row--ref .sc-glance-insight-block.is-compact .sc-cat-sw-list li {
+    font-size: 13px;
+    line-height: 1.35;
   }
 }
 
@@ -3349,6 +3888,10 @@ ${
 }
 
 .sc-adv-rec-title-row .sc-adv-rec-title {
+  margin: 0;
+}
+
+.sc-adv-rec-spotlight > .sc-adv-rec-title-row {
   margin: 0;
 }
 

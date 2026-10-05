@@ -16,6 +16,8 @@ export const RecommendedActionSchema = z.object({
   cta: z.string(),
   done: z.boolean(),
   action_type: z.enum(["benchmark", "sources", "details"]),
+  progressFilled: z.number().int().nonnegative().optional(),
+  progressTotal: z.number().int().positive().optional(),
 });
 
 export const StrengthWeaknessSchema = z.object({

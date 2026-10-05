@@ -12,18 +12,19 @@ export function PeopleView({ t, data }: { t: Theme; data: FuelDataset }) {
   ];
 
   return (
-    <div>
+    <div className="fuel-page">
       <SectionHead t={t} title="People" subtitle="Internal team and extended network" />
       {groups.map((g) => (
-        <div key={g.k} style={{ marginBottom: 36 }}>
+        <div key={g.k} style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
             <h3
               style={{
                 margin: 0,
                 fontFamily: t.sans,
                 fontWeight: 600,
-                fontSize: 20,
+                fontSize: 18,
                 letterSpacing: "-0.015em",
+                color: t.ink,
               }}
             >
               {g.label}
@@ -54,7 +55,12 @@ export function PeopleView({ t, data }: { t: Theme; data: FuelDataset }) {
               return (
                 <div
                   key={p.id}
-                  style={{ background: t.panel, border: `1px solid ${t.rule}`, padding: 16 }}
+                  style={{
+                    background: t.panel,
+                    border: `1px solid ${t.rule}`,
+                    borderRadius: 12,
+                    padding: 16,
+                  }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Avatar t={t} person={p} size={40} />

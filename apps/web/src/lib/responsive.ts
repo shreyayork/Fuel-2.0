@@ -51,7 +51,13 @@ export function useMediaQuery(
     const update = () => setMatches(mq.matches);
     update();
     mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+    // Some embeds change the viewport without firing MQL "change" (devtools
+    // device mode, certain webviews). Resize keeps React state aligned with CSS.
+    window.addEventListener("resize", update);
+    return () => {
+      mq.removeEventListener("change", update);
+      window.removeEventListener("resize", update);
+    };
   }, [query]);
 
   return matches;
@@ -65,6 +71,37 @@ export function useMobileNav(): boolean {
 /** True below tablet landscape / desktop content density. */
 export function useNarrow(breakpoint: number = BREAKPOINTS.md): boolean {
   return useMediaQuery(mqMax(breakpoint - 1));
+}
+
+/** True in landscape orientation (phone or tablet rotated). */
+export function useLandscape(): boolean {
+  return useMediaQuery("(orientation: landscape)");
+}
+
+/** Phone rotated / any very short viewport (skill landscape-short). */
+export function useLandscapeShort(): boolean {
+  return useMediaQuery("(orientation: landscape) and (max-height: 500px)");
+}
+
+/**
+ * Combined viewport hint for adaptive marketing/auth layouts.
+ * Prefer CSS for layout; use this only for behavior (e.g. stacked vs side-by-side data fetch UI).
+ */
+export function useAdaptiveLayout() {
+  const phone = useMediaQuery(mqMax(BREAKPOINTS.md - 1));
+  const tablet = useMediaQuery(
+    `(min-width: ${BREAKPOINTS.md}px) and (max-width: ${BREAKPOINTS.nav - 1}px)`,
+  );
+  const landscape = useLandscape();
+  const shortLandscape = useLandscapeShort();
+  return {
+    phone,
+    tablet,
+    landscape,
+    shortLandscape,
+    /** Compact chrome: phone portrait, or short landscape viewport. */
+    compact: phone || shortLandscape,
+  };
 }
 
 /** CSS Grid track list that never forces page overflow on narrow screens. */

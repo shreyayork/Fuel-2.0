@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import type { Theme } from "@/lib/theme";
+import { framedPanelPadStyle } from "@/lib/theme";
 import type { Company, FuelDataset } from "@/lib/types";
 import { Avatar, Chip, Label, Logo, SectionHead, Sparkline } from "../atoms";
+import { FilterMenu, PageToolbar } from "../ToolbarActions";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 
 type Filter = "all" | "cont" | "once";
 
@@ -29,40 +32,42 @@ export function InitiativesView({
         title="Initiatives"
         subtitle="Active value creation — continuous services, one-time projects, and playbook runs"
         right={
-          <div
-            style={{
-              display: "flex",
-              gap: 0,
-              border: `1px solid ${t.rule}`,
-              borderRadius: 3,
-              overflow: "hidden",
-            }}
-          >
-            {(
-              [
-                { k: "all", l: "All · " + all.length },
-                { k: "cont", l: "Continuous · " + cont.length },
-                { k: "once", l: "Project · " + once.length },
-              ] as const
-            ).map((o) => (
-              <button
-                key={o.k}
-                onClick={() => setFilter(o.k as Filter)}
-                style={{
-                  background: filter === o.k ? t.ink : "transparent",
-                  color: filter === o.k ? t.bg : t.inkSoft,
-                  border: "none",
-                  padding: "8px 14px",
-                  cursor: "pointer",
-                  fontFamily: t.sans,
-                  fontSize: 12,
-                  fontWeight: 500,
-                }}
-              >
-                {o.l}
-              </button>
-            ))}
-          </div>
+          <PageToolbar
+            t={t}
+            filter={
+              <FilterMenu t={t} activeCount={filter === "all" ? 0 : 1}>
+                {(
+                  [
+                    { k: "all", l: `All · ${all.length}` },
+                    { k: "cont", l: `Continuous · ${cont.length}` },
+                    { k: "once", l: `Project · ${once.length}` },
+                  ] as const
+                ).map((o) => (
+                  <button
+                    key={o.k}
+                    type="button"
+                    onClick={() => setFilter(o.k as Filter)}
+                    style={{
+                      background: filter === o.k ? t.accentTint : t.panelAlt,
+                      border: `1px solid ${filter === o.k ? `${t.accent}66` : t.rule}`,
+                      borderRadius: 8,
+                      color: t.ink,
+                      cursor: "pointer",
+                      fontFamily: t.sans,
+                      fontSize: 13,
+                      fontWeight: filter === o.k ? 650 : 500,
+                      minHeight: TOUCH_TARGET_MIN,
+                      padding: "0 12px",
+                      textAlign: "left",
+                      width: "100%",
+                    }}
+                  >
+                    {o.l}
+                  </button>
+                ))}
+              </FilterMenu>
+            }
+          />
         }
       />
 
@@ -75,17 +80,15 @@ export function InitiativesView({
           return (
             <div
               key={e.id}
+              className="fuel-list-card"
               onClick={() => onOpenCo(co)}
               style={{
-                background: t.panel,
-                border: `1px solid ${t.rule}`,
-                borderLeft: `3px solid ${isCont ? t.accent : t.inkSoft}`,
-                padding: "16px 20px",
-                display: "grid",
-                gridTemplateColumns: "minmax(240px, 1.6fr) 1.2fr 1fr 0.8fr",
-                gap: 20,
+                ...framedPanelPadStyle(t, { padding: "16px 20px" }),
                 alignItems: "center",
                 cursor: "pointer",
+                display: "grid",
+                gap: 20,
+                gridTemplateColumns: "minmax(240px, 1.6fr) 1.2fr 1fr 0.8fr",
               }}
               onMouseEnter={(ev) => {
                 (ev.currentTarget as HTMLDivElement).style.background = t.panelAlt;

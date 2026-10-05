@@ -4,7 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { isSuperAdmin } from "@/lib/auth/superadmin";
+import { isSuperAdmin, superAdminDevEmail } from "@/lib/auth/superadmin";
 import {
   buildLinkedInEnhancePatch,
   deleteInstanceAdvisor,
@@ -18,12 +18,8 @@ import type { Advisor } from "@/db/schema";
 
 async function requireSuperAdmin(): Promise<string> {
   const session = await getSession();
-  // Match layout.tsx: local (no Cognito) has no session cookie, so fall
-  // back to the default dev user — otherwise isSuperAdmin(session) is
-  // false and we bounce to "/" before the upsert runs.
-  const devEmail = process.env.COGNITO_USER_POOL_ID ? null : "mike@york.ie";
-  if (!isSuperAdmin(session, devEmail)) redirect("/");
-  return session?.email ?? "mike@york.ie";
+  if (!isSuperAdmin(session, superAdminDevEmail())) redirect("/");
+  return session?.email ?? superAdminDevEmail() ?? "mike@york.ie";
 }
 
 function parseTags(raw: FormDataEntryValue | null): string[] | null {

@@ -26,9 +26,17 @@ function label(t: ReturnType<typeof useTheme>): React.CSSProperties {
 function Card({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
   const t = useTheme();
   return (
-    <div style={{ background: t.panel, border: `1px solid ${t.rule}`, padding: 20, marginBottom: 16 }}>
+    <div
+      style={{
+        background: t.panel,
+        border: `1px solid ${t.rule}`,
+        borderRadius: 12,
+        marginBottom: 16,
+        padding: 20,
+      }}
+    >
       <div
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 8, flexWrap: "wrap" }}
       >
         <div style={{ fontFamily: t.sans, fontSize: 15, fontWeight: 600, color: t.ink }}>{title}</div>
         {right ? <div style={{ fontSize: 11, color: t.muted, letterSpacing: "0.04em" }}>{right}</div> : null}
@@ -40,7 +48,10 @@ function Card({ title, right, children }: { title: string; right?: React.ReactNo
 
 function Field({ t, name, children }: { t: ReturnType<typeof useTheme>; name: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", gap: 14, padding: "8px 0", borderTop: `1px solid ${t.ruleSoft}` }}>
+    <div
+      className="fuel-profile-field"
+      style={{ display: "flex", gap: 14, padding: "10px 0", borderTop: `1px solid ${t.ruleSoft}` }}
+    >
       <div style={{ ...label(t), width: 140, flexShrink: 0, paddingTop: 2 }}>{name}</div>
       <div style={{ fontFamily: t.sans, fontSize: 13, color: t.ink, minWidth: 0, flex: 1, lineHeight: 1.5 }}>
         {children}
@@ -83,14 +94,16 @@ export function ProfileView({
       )}
 
       <div
+        className="fuel-profile-hero"
         style={{
-          display: "flex",
           alignItems: "center",
-          gap: 20,
-          padding: 20,
           background: t.panel,
           border: `1px solid ${t.rule}`,
+          borderRadius: 12,
+          display: "flex",
+          gap: 20,
           marginBottom: 24,
+          padding: 20,
         }}
       >
         <Avatar t={t} person={{ name: user.name ?? user.email, avatar: user.initials }} size={64} />
@@ -111,12 +124,12 @@ export function ProfileView({
             {role ? <Chip t={t} tone="ghost">{role}</Chip> : null}
           </div>
           {user.name ? (
-            <div style={{ fontFamily: t.sans, fontSize: 13, color: t.muted, marginTop: 4 }}>
+            <div style={{ fontFamily: t.sans, fontSize: 13, color: t.muted, marginTop: 4, overflowWrap: "anywhere" }}>
               {user.email}
             </div>
           ) : null}
         </div>
-        <form action="/sign-out" method="GET">
+        <form className="fuel-profile-hero__signout" action="/sign-out" method="GET">
           <button
             type="submit"
             style={{
@@ -136,7 +149,7 @@ export function ProfileView({
         </form>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="fuel-grid-2">
         <div>
           <Card title="Account">
             <div>
@@ -157,7 +170,7 @@ export function ProfileView({
           </Card>
 
           <Card title="Your AI usage" right="this month">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="fuel-grid-kpi">
               <div>
                 <div style={{ ...label(t), marginBottom: 4 }}>Tokens</div>
                 <div

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useAgentDrawer } from "../AgentDrawer";
 import { useTheme } from "../ThemeContext";
 import {
+  accentChipBg,
   accentChipBorder,
   accentChipFg,
   type Theme,
@@ -94,8 +95,16 @@ export function AiActionsMenu({
     if (!open && !showPicker) return;
     if (tourActive) return;
     const onDocClick = (e: MouseEvent) => {
-      if (!wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target as Node)) closeAll();
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      // Sheet portals to document.body — treat it as inside the menu.
+      if (
+        target instanceof Element &&
+        target.closest(".fuel-playbook-sheet")
+      ) {
+        return;
+      }
+      closeAll();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -138,12 +147,16 @@ export function AiActionsMenu({
   return (
     <div
       ref={wrapRef}
-      style={{ position: "relative", display: "inline-block", zIndex: tourActive ? 130 : undefined }}
+      className="company-page-chrome__icon-cta"
+      style={{ zIndex: tourActive ? 130 : undefined }}
       onMouseEnter={() => {
+        // Touch devices: open via tap only (Responsive Skill — no hover-only).
+        if (window.matchMedia("(hover: none)").matches) return;
         cancelClose();
         setOpen(true);
       }}
       onMouseLeave={() => {
+        if (window.matchMedia("(hover: none)").matches) return;
         if (!showPickerRef.current) scheduleClose();
       }}
     >
@@ -210,6 +223,10 @@ export function AiActionsMenu({
           runPlaybook={runPlaybook}
           subject={subject}
           totalCount={kindFiltered.length}
+          onClose={() => {
+            setShowPicker(false);
+            setQuery("");
+          }}
         />
       ) : null}
     </div>
@@ -265,22 +282,15 @@ Keep each section tight. When you use a private signal, attribute the category (
 
 function triggerStyle(t: Theme): CSSProperties {
   return {
-    padding: "9px 12px",
-    borderRadius: 8,
     border: `1px solid ${accentChipBorder(t)}`,
-    background: `${t.accent}0F`,
+    background: accentChipBg(t),
     color: accentChipFg(t),
     fontFamily: t.sans,
-    fontSize: 12.5,
+    fontSize: 15,
     fontWeight: 600,
     cursor: "pointer",
     letterSpacing: 0,
-    flexShrink: 0,
-    lineHeight: 1.2,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 40,
+    lineHeight: 1,
   };
 }
 
@@ -291,14 +301,15 @@ function dropdownStyle(t: Theme): CSSProperties {
     right: 0,
     background: t.panel,
     border: `1px solid ${t.rule}`,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 4,
     display: "flex",
     flexDirection: "column",
     gap: 2,
-    minWidth: 180,
+    minWidth: 200,
+    maxWidth: "min(280px, calc(100vw - 24px))",
     zIndex: 200,
-    boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+    boxShadow: `0 10px 28px ${t.overlay}`,
   };
 }
 
@@ -311,14 +322,15 @@ function itemStyle(
     background: highlight ? t.panelAlt : "transparent",
     border: "none",
     color: highlight ? t.ink : t.inkSoft,
-    padding: "8px 12px",
-    borderRadius: 6,
+    padding: "12px 14px",
+    borderRadius: 8,
     fontFamily: t.sans,
-    fontSize: 12.5,
-    fontWeight: 500,
+    fontSize: 14,
+    fontWeight: 550,
     cursor: "pointer",
     textAlign: "left",
     width: "100%",
+    minHeight: 44,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",

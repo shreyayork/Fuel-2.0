@@ -6,63 +6,51 @@ import { TeaserWidget } from "./TeaserWidget";
 import { HowItWorks } from "./HowItWorks";
 import { FinalCta } from "./FinalCta";
 import { MarketingFooter } from "./Footer";
+import { marketingResponsiveCss } from "./responsiveCss";
+import {
+  marketingAtmosphereCss,
+  marketingGetStartedLink,
+  marketingHeaderBar,
+  marketingHeaderInner,
+  marketingPageShell,
+  marketingTheme as t,
+} from "./styles";
 
 /**
- * Top-level marketing landing. Dark, polished, founder-facing. Force the
- * `signal` palette via inline styles — root layout is theme-agnostic.
- *
- * Composition lives in distinct components so each section can iterate
- * without hauling the rest. Order is deliberate: Hero (token-streamed
- * headline + dual CTAs), WalkthroughLoop (3 scripted agent scenes),
- * TeaserWidget (one cached cohort stat, generates curiosity),
- * HowItWorks (3-step explainer), Footer.
+ * Public marketing landing — cinematic SIGNAL atmosphere + product-led hero.
  */
 export function MarketingLanding() {
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(ellipse at top, #142535 0%, #0F1A24 45%, #0B141C 100%)",
-        color: "#F4F6F8",
-        fontFamily: "Inter, -apple-system, system-ui, sans-serif",
-        overflow: "hidden",
-      }}
-    >
-      <MarketingHeader />
-      <Hero />
-      <WalkthroughLoop />
-      <TeaserWidget />
-      <HowItWorks />
-      <FinalCta />
-      <MarketingFooter />
+    <main style={marketingPageShell()}>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `${marketingAtmosphereCss()}${marketingResponsiveCss()}`,
+        }}
+      />
+      <div className="mkt-atmosphere" aria-hidden>
+        <div className="mkt-atmosphere__base" />
+        <div className="mkt-atmosphere__beam" />
+        <div className="mkt-atmosphere__grid" />
+        <div className="mkt-atmosphere__grain" />
+      </div>
+      <div className="mkt-content">
+        <MarketingHeader />
+        <Hero />
+        <TrustStrip />
+        <WalkthroughLoop />
+        <TeaserWidget />
+        <HowItWorks />
+        <FinalCta />
+        <MarketingFooter />
+      </div>
     </main>
   );
 }
 
 function MarketingHeader() {
   return (
-    <header
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
-        backdropFilter: "saturate(140%) blur(10px)",
-        WebkitBackdropFilter: "saturate(140%) blur(10px)",
-        background: "rgba(15, 26, 36, 0.72)",
-        borderBottom: "1px solid rgba(38, 57, 71, 0.55)",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1180,
-          margin: "0 auto",
-          padding: "14px 32px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+    <header style={marketingHeaderBar()}>
+      <div className="mkt-header-inner" style={marketingHeaderInner()}>
         <Link
           href="/"
           style={{
@@ -71,39 +59,85 @@ function MarketingHeader() {
             alignItems: "center",
           }}
         >
-          <BrandMark size={26} />
+          <BrandMark
+            size={26}
+            color={t.accent}
+            ink={t.ink}
+            muted={t.mutedSoft}
+            fontFamily={t.sans}
+          />
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <Link
-            href="/sign-in"
+            href={`/sign-in?next=${encodeURIComponent("/onboard")}`}
             style={{
-              color: "#CBD3DB",
+              color: t.inkSoft,
               fontSize: 14,
               textDecoration: "none",
               fontWeight: 500,
+              minHeight: 44,
+              display: "inline-flex",
+              alignItems: "center",
+              paddingInline: 4,
             }}
           >
             Sign in
           </Link>
           <Link
-            href="/sign-in?next=/onboard?cta=benchmark"
-            style={{
-              padding: "8px 14px",
-              borderRadius: 999,
-              background: "linear-gradient(135deg, #00B48A 0%, #00A07B 100%)",
-              color: "#0F1A24",
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-              border: "1px solid #00B48A",
-              boxShadow:
-                "0 4px 14px rgba(0,180,138,0.30), 0 1px 0 rgba(255,255,255,0.10) inset",
-            }}
+            className="mkt-header-cta"
+            href={`/sign-in?mode=signup&next=${encodeURIComponent("/onboard?cta=benchmark")}`}
+            style={marketingGetStartedLink()}
           >
             Get started
           </Link>
         </div>
       </div>
     </header>
+  );
+}
+
+function TrustStrip() {
+  const items = [
+    "Peer cohorts",
+    "Live signals",
+    "AI playbooks",
+    "York IE portfolio DNA",
+  ];
+  return (
+    <div
+      style={{
+        padding: "28px var(--gutter) 8px",
+        maxWidth: 1200,
+        margin: "0 auto",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: "10px 28px",
+          padding: "18px 0",
+          borderTop: `1px solid ${t.borderSubtle}`,
+          borderBottom: `1px solid ${t.borderSubtle}`,
+        }}
+      >
+        {items.map((label) => (
+          <span
+            key={label}
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              letterSpacing: 0.4,
+              color: t.muted,
+              fontFamily: t.mono,
+              textTransform: "uppercase",
+            }}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

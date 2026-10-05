@@ -11,15 +11,12 @@ export default async function PipelinePage() {
   const session = await getSession();
   const email = session?.email ?? "mike@york.ie";
   const account = await getActiveAccountForUser(email);
-  // Gated by the account-wide portfolio_manager feature flag.
-  if (!account?.portfolioManagerEnabled) notFound();
+  if (!account) notFound();
 
-  const [syncedPipelines, hubspotConn] = account
-    ? await Promise.all([
-        listEnabledPipelinesWithCompanies({ accountId: account.id }),
-        getIntegration({ accountId: account.id, provider: "hubspot" }),
-      ])
-    : [[], null];
+  const [syncedPipelines, hubspotConn] = await Promise.all([
+    listEnabledPipelinesWithCompanies({ accountId: account.id }),
+    getIntegration({ accountId: account.id, provider: "hubspot" }),
+  ]);
   const hubspotPortalId = hubspotConn?.accountExternalId ?? null;
 
   return (

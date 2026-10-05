@@ -557,13 +557,10 @@ function Context({ t, co, signals }: { t: Theme; co: Company; signals: CompanySi
         ).map((s, i) => (
           <div
             key={i}
+            className="fuel-signal-row"
             style={{
               padding: "16px 20px",
               borderBottom: `1px solid ${t.ruleSoft}`,
-              display: "grid",
-              gridTemplateColumns: "80px 90px 1fr",
-              gap: 16,
-              alignItems: "center",
             }}
           >
             <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted, fontWeight: 500 }}>
@@ -600,6 +597,7 @@ function InitiativesTab({
           color: t.muted,
           background: t.panel,
           border: `1px solid ${t.rule}`,
+          borderRadius: 12,
         }}
       >
         NO ACTIVE INITIATIVES
@@ -614,12 +612,12 @@ function InitiativesTab({
           style={{
             background: t.panel,
             border: `1px solid ${t.rule}`,
-            borderLeft: `3px solid ${e.kind === "continuous" ? t.accent : t.inkSoft}`,
+            borderRadius: 12,
             padding: 20,
             marginBottom: 10,
           }}
         >
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 20, alignItems: "center" }}>
+          <div className="fuel-grid-3" style={{ alignItems: "center", gap: 20 }}>
             <div>
               <Chip t={t} tone={e.kind === "continuous" ? "accent" : "ghost"}>
                 {e.kind === "continuous" ? "Continuous" : "Project"}
@@ -696,12 +694,11 @@ function DataRoom({ t }: { t: Theme }) {
     { name: "SOC 2 Evidence.zip", kind: "ZIP", size: "28 MB", by: "ER", when: "1mo ago" },
   ];
   return (
-    <div style={{ background: t.panel, border: `1px solid ${t.rule}` }}>
+    <div className="fuel-table-wrap" style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 12 }}>
       <div
+        className="fuel-dataroom-row"
         style={{
-          display: "grid",
-          gridTemplateColumns: "40px 2fr 100px 100px 100px 80px",
-          padding: "12px 20px",
+          padding: "12px 16px",
           borderBottom: `1px solid ${t.rule}`,
           fontFamily: t.sans,
           fontSize: 11,
@@ -719,12 +716,10 @@ function DataRoom({ t }: { t: Theme }) {
       {files.map((f, i) => (
         <div
           key={i}
+          className="fuel-dataroom-row"
           style={{
-            display: "grid",
-            gridTemplateColumns: "40px 2fr 100px 100px 100px 80px",
-            padding: "14px 20px",
+            padding: "14px 16px",
             borderBottom: i === files.length - 1 ? "none" : `1px solid ${t.ruleSoft}`,
-            alignItems: "center",
             cursor: "pointer",
           }}
         >

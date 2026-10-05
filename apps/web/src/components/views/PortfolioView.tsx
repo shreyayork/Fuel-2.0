@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { Theme } from "@/lib/theme";
 import type { Company, FuelDataset } from "@/lib/types";
+import { TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import {
   Chip,
   Dot,
@@ -12,6 +13,12 @@ import {
   Sparkline,
 } from "../atoms";
 import { G } from "../icons";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 
 function btn(t: Theme, active: boolean): CSSProperties {
   return {
@@ -19,19 +26,16 @@ function btn(t: Theme, active: boolean): CSSProperties {
     alignItems: "center",
     gap: 6,
     background: active ? t.ink : t.panel,
-    color: active ? t.bg : t.inkSoft,
+    color: active ? (t.mode === "editorial" ? t.panel : t.bg) : t.inkSoft,
     border: `1px solid ${active ? t.ink : t.rule}`,
-    padding: "7px 12px",
+    padding: "0 12px",
     borderRadius: 8,
     fontFamily: t.sans,
     fontSize: 12,
-    fontWeight: 500,
+    fontWeight: 600,
     cursor: "pointer",
+    minHeight: TOUCH_TARGET_MIN,
   };
-}
-
-function td(): CSSProperties {
-  return { padding: 16, verticalAlign: "middle" };
 }
 
 export function PortfolioView({
@@ -44,7 +48,14 @@ export function PortfolioView({
   onOpenCo: (co: Company) => void;
 }) {
   const cos = data.companies.filter((c) => c.list === "portfolio");
+  const phone = useNarrow();
   const [view, setView] = useState<"table" | "grid">("table");
+  const [viewTouched, setViewTouched] = useState(false);
+
+  useEffect(() => {
+    if (viewTouched) return;
+    setView(phone ? "grid" : "table");
+  }, [phone, viewTouched]);
 
   const totalArr = cos.reduce((s, c) => s + c.arr, 0);
   const avgGrowth = Math.round(cos.reduce((s, c) => s + c.arrGrowth, 0) / cos.length);
@@ -53,17 +64,31 @@ export function PortfolioView({
   const atRisk = cos.filter((c) => (c.runway ?? 999) < 12).length;
 
   return (
-    <div>
+    <div className="fuel-page">
       <SectionHead
         t={t}
         title="Portfolio"
         subtitle={`${cos.length} active holdings · live performance`}
         right={
           <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => setView("table")} style={btn(t, view === "table")}>
+            <button
+              type="button"
+              onClick={() => {
+                setViewTouched(true);
+                setView("table");
+              }}
+              style={btn(t, view === "table")}
+            >
               {G.list} Table
             </button>
-            <button onClick={() => setView("grid")} style={btn(t, view === "grid")}>
+            <button
+              type="button"
+              onClick={() => {
+                setViewTouched(true);
+                setView("grid");
+              }}
+              style={btn(t, view === "grid")}
+            >
               {G.grid} Grid
             </button>
           </div>
@@ -156,20 +181,15 @@ function PortfolioTable({
   ];
 
   return (
-    <div className="fuel-table-wrap" style={{ background: t.panel, border: `1px solid ${t.rule}` }}>
-      <table style={{ width: "100%", minWidth: 720, borderCollapse: "collapse", fontFamily: t.sans }}>
+    <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
+      <table className="fuel-data-table" style={{ ...dataTableStyle(), minWidth: 720 }}>
         <thead>
-          <tr style={{ borderBottom: `1px solid ${t.rule}` }}>
+          <tr>
             {cols.map((c) => (
               <th
                 key={c.k}
                 style={{
-                  textAlign: c.right ? "right" : "left",
-                  padding: "14px 16px",
-                  fontFamily: t.sans,
-                  fontSize: 11,
-                  color: t.muted,
-                  fontWeight: 500,
+                  ...dataThStyle(t, c.right ? { numeric: true } : undefined),
                   width: c.w,
                 }}
               >
@@ -186,15 +206,9 @@ function PortfolioTable({
               <tr
                 key={c.id}
                 onClick={() => onOpenCo(c)}
-                style={{ borderBottom: `1px solid ${t.ruleSoft}`, cursor: "pointer" }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLTableRowElement).style.background = t.panelAlt;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLTableRowElement).style.background = "transparent";
-                }}
+                style={{ cursor: "pointer" }}
               >
-                <td style={td()}>
+                <td style={dataTdStyle(t, { top: false })}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Logo t={t} co={c} size={32} />
                     <div>
@@ -215,11 +229,11 @@ function PortfolioTable({
                     </div>
                   </div>
                 </td>
-                <td style={td()}>
+                <td style={dataTdStyle(t, { top: false })}>
                   <div style={{ fontSize: 13, color: t.ink, fontWeight: 500 }}>{c.stage}</div>
                   <div style={{ fontSize: 12, color: t.muted, marginTop: 2 }}>{c.industry}</div>
                 </td>
-                <td style={{ ...td(), textAlign: "right" }}>
+                <td style={dataTdStyle(t, { numeric: true, top: false })}>
                   <div
                     style={{
                       fontFamily: t.sans,
@@ -232,35 +246,18 @@ function PortfolioTable({
                     {"$" + (c.arr / 1e6).toFixed(1) + "M"}
                   </div>
                 </td>
-                <td style={{ ...td(), textAlign: "right" }}>
+                <td style={dataTdStyle(t, { numeric: true, top: false })}>
                   <span style={{ fontFamily: t.sans, fontSize: 13, fontWeight: 500, color: t.positive }}>
                     {"+" + c.arrGrowth + "%"}
                   </span>
                 </td>
-                <td
-                  style={{
-                    ...td(),
-                    textAlign: "right",
-                    fontFamily: t.sans,
-                    fontSize: 13,
-                    fontFeatureSettings: '"tnum" 1',
-                  }}
-                >
+                <td style={dataTdStyle(t, { numeric: true, top: false })}>
                   {c.nrr + "%"}
                 </td>
-                <td
-                  style={{
-                    ...td(),
-                    textAlign: "right",
-                    fontFamily: t.sans,
-                    fontSize: 13,
-                    color: t.inkSoft,
-                    fontFeatureSettings: '"tnum" 1',
-                  }}
-                >
+                <td style={dataTdStyle(t, { numeric: true, top: false })}>
                   {"$" + ((c.burn ?? 0) / 1000).toFixed(0) + "K"}
                 </td>
-                <td style={{ ...td(), textAlign: "right" }}>
+                <td style={dataTdStyle(t, { numeric: true, top: false })}>
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Dot color={runwayTone} size={6} />
                     <span style={{ fontFamily: t.sans, fontSize: 13, color: runwayTone, fontWeight: 500 }}>
@@ -268,7 +265,7 @@ function PortfolioTable({
                     </span>
                   </div>
                 </td>
-                <td style={td()}>
+                <td style={dataTdStyle(t, { top: false })}>
                   <Sparkline
                     data={[
                       c.arrGrowth * 0.6,
@@ -304,19 +301,24 @@ function PortfolioGrid({
   onOpenCo: (co: Company) => void;
 }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))", gap: 14 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: 12 }}>
       {cos.map((c) => {
         const runway = c.runway ?? 999;
         return (
-          <div
+          <button
+            type="button"
             key={c.id}
             onClick={() => onOpenCo(c)}
-            style={{ background: t.panel, border: `1px solid ${t.rule}`, padding: 18, cursor: "pointer" }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = t.accent;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = t.rule;
+            style={{
+              background: t.panel,
+              border: `1px solid ${t.rule}`,
+              borderRadius: 12,
+              cursor: "pointer",
+              display: "block",
+              fontFamily: t.sans,
+              padding: 16,
+              textAlign: "left",
+              width: "100%",
             }}
           >
             <div
@@ -325,24 +327,25 @@ function PortfolioGrid({
                 justifyContent: "space-between",
                 alignItems: "flex-start",
                 marginBottom: 14,
+                gap: 10,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                 <Logo t={t} co={c} size={36} />
-                <div>
-                  <div style={{ fontFamily: t.sans, fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: t.ink, fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em" }}>
                     {c.name}
                   </div>
-                  <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted }}>
+                  <div style={{ color: t.muted, fontSize: 12, marginTop: 2 }}>
                     {c.stage} · {c.industry}
                   </div>
                 </div>
               </div>
               <Chip t={t} tone={runway < 12 ? "warn" : "positive"}>
-                {runway + "mo runway"}
+                {runway + "mo"}
               </Chip>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 8 }}>
+            <div className="fuel-grid-kpi" style={{ marginTop: 8 }}>
               <Metric t={t} label="ARR" value={"$" + (c.arr / 1e6).toFixed(1) + "M"} sub={"+" + c.arrGrowth + "%"} />
               <Metric
                 t={t}
@@ -361,7 +364,7 @@ function PortfolioGrid({
                 thick={1.4}
               />
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

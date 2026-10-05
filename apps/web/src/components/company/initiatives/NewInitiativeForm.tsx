@@ -70,7 +70,7 @@ export function NewInitiativeForm({
       {sourceArtifactId ? (
         <input type="hidden" name="sourceArtifactId" value={sourceArtifactId} />
       ) : null}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 120px", gap: 10 }}>
+      <div className="fuel-grid-3">
         <input
           name="name"
           placeholder="Initiative name"
@@ -109,7 +109,7 @@ export function NewInitiativeForm({
         disabled={submitting}
         style={{ ...initiativeInputStyle(t), fontFamily: t.sans, resize: "vertical" }}
       />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 10 }}>
+      <div className="fuel-grid-2">
         <input
           name="ownerEmail"
           placeholder="Owner email (defaults to you)"

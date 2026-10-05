@@ -41,8 +41,9 @@ export function isLegacyTabAlias(tabParam: string | undefined): boolean {
 }
 
 /**
- * Company public top-nav tabs. Data Room only when the company is claimed
- * (`isClaimedCompanyProfile` / founder home).
+ * Company public tabs (desktop top nav / mobile bottom bar). Data Room only
+ * when the company is claimed (`isClaimedCompanyProfile` / founder home).
+ * Order: Overview, Intelligence, Data Room, Initiatives, Research.
  */
 export function companyPublicNavItems(opts: {
   isClaimedCompany: boolean;
@@ -53,6 +54,15 @@ export function companyPublicNavItems(opts: {
   const items: CompanyPublicNavTabItem[] = [
     { key: "overview", label: "Overview" },
     { key: "intelligence", label: "Intelligence" },
+    ...(opts.isClaimedCompany
+      ? [
+          {
+            key: "dataroom" as const,
+            label: "Data Room",
+            count: opts.dataRoomCount || undefined,
+          },
+        ]
+      : []),
     {
       key: "initiatives",
       label: "Initiatives",
@@ -64,13 +74,6 @@ export function companyPublicNavItems(opts: {
       count: opts.artifactCount || undefined,
     },
   ];
-  if (opts.isClaimedCompany) {
-    items.push({
-      key: "dataroom",
-      label: "Data Room",
-      count: opts.dataRoomCount || undefined,
-    });
-  }
   return items;
 }
 

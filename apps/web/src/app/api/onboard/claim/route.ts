@@ -4,8 +4,10 @@ import { getSession } from "@/lib/auth/session";
 import {
   InvalidSignupEmailError,
   UserAlreadyHasAccountError,
+  getActiveAccountForUser,
   provisionCompanyAccount,
 } from "@/lib/accounts";
+import { resolveAuthenticatedHomePath } from "@/lib/auth/home-path";
 import { hasAnyBenchmarkInput } from "@/lib/onboard/benchmark-fields";
 import { ClaimBody } from "@/lib/onboard/claim-body-schema";
 import { enrichClaimProfileWithWizard } from "@/lib/onboard/claim-profile";
@@ -22,6 +24,7 @@ import { mapOnboardingToAnswers } from "@/lib/overview/onboarding-field-map";
 import { extraDetailQuestionIds } from "@/lib/overview/detail-question-catalog";
 import { upsertDetailAnswers } from "@/lib/overview/sync-answers";
 import { awardEligibleProfileCredits } from "@/lib/overview/award-profile-credits";
+import { persistProfileEarn } from "@/lib/credits/queries";
 import {
   findActiveOnboardEnrichmentRun,
   getOwnedOnboardEnrichmentRun,
@@ -243,8 +246,35 @@ export async function POST(req: Request): Promise<Response> {
       return NextResponse.json({ error: "blocked_provider" }, { status: 400 });
     }
     if (e instanceof UserAlreadyHasAccountError) {
+      // Local design / re-claim: still send the user into the CTA-specific
+      // workspace instead of dumping them on the marketing site (`/`).
+      const account = await getActiveAccountForUser(email);
+      const flowType = parsed.flowType === "investor" ? "investor" : "operating";
+      const designPreview = process.env.COGNITO_USER_POOL_ID == null;
+      const setupIncomplete =
+        parsed.setupIncomplete === true || (designPreview && flowType === "operating");
+      if (account && setupIncomplete && flowType === "operating") {
+        await persistProfileEarn(account.id, {
+          setupIncomplete: true,
+          profilePromptDismissed: false,
+        }).catch(() => undefined);
+      }
+      const redirect =
+        account?.primaryCompanyUuid
+          ? resolveOnboardClaimRedirect({
+              flowType,
+              // Prefer Overview + Complete Profile over Intelligence on re-claim.
+              cta:
+                designPreview && parsed.cta === "benchmark"
+                  ? "explore"
+                  : parsed.cta,
+              companyUuid: account.primaryCompanyUuid,
+              cohortKey: parsed.cohortKey?.trim() || null,
+              setupIncomplete,
+            })
+          : resolveAuthenticatedHomePath(account);
       return NextResponse.json(
-        { error: "already_has_account" },
+        { error: "already_has_account", redirect },
         { status: 409 },
       );
     }

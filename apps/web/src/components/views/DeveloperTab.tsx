@@ -9,6 +9,13 @@ import {
   dismissNewTokenAction,
 } from "@/app/(app)/account/developer/actions";
 import type { McpApiToken } from "@/db/schema";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdActionsStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 
 function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return "—";
@@ -98,13 +105,15 @@ export function DeveloperTab({
         </div>
       ) : null}
 
-      <div style={{ background: t.panel, border: `1px solid ${t.rule}`, padding: 20 }}>
+      <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 12, padding: 20 }}>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "baseline",
             marginBottom: 4,
+            flexWrap: "wrap",
+            gap: 8,
           }}
         >
           <div style={{ fontFamily: t.sans, fontSize: 15, fontWeight: 600, color: t.ink }}>
@@ -120,22 +129,26 @@ export function DeveloperTab({
         </div>
 
         <form
+          className="fuel-developer-token-form"
           action={(fd) => startTransition(() => createMcpTokenAction(fd))}
-          style={{ display: "flex", gap: 8, marginBottom: 18 }}
+          style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}
         >
           <input
             name="name"
             placeholder="Token label (e.g. Claude desktop)"
             required
             style={{
-              flex: 1,
-              padding: "8px 10px",
+              flex: "1 1 200px",
+              minWidth: 0,
+              padding: "10px 12px",
               background: t.panelAlt,
               color: t.ink,
               border: `1px solid ${t.rule}`,
-              borderRadius: 6,
+              borderRadius: 8,
               fontFamily: t.sans,
-              fontSize: 13,
+              fontSize: 16,
+              minHeight: 44,
+              boxSizing: "border-box",
             }}
           />
           <select
@@ -143,13 +156,16 @@ export function DeveloperTab({
             defaultValue="90"
             aria-label="Expiration"
             style={{
-              padding: "8px 10px",
+              flex: "0 1 180px",
+              padding: "10px 12px",
               background: t.panelAlt,
               color: t.ink,
               border: `1px solid ${t.rule}`,
-              borderRadius: 6,
+              borderRadius: 8,
               fontFamily: t.sans,
-              fontSize: 13,
+              fontSize: 16,
+              minHeight: 44,
+              boxSizing: "border-box",
             }}
           >
             <option value="30">Expires in 30 days</option>
@@ -160,15 +176,20 @@ export function DeveloperTab({
           <button
             type="submit"
             style={{
-              padding: "8px 14px",
+              alignItems: "center",
               background: t.ink,
-              color: t.bg,
               border: `1px solid ${t.ink}`,
-              borderRadius: 6,
-              fontFamily: t.sans,
-              fontSize: 12,
-              fontWeight: 500,
+              borderRadius: 8,
+              color: t.bg,
               cursor: "pointer",
+              display: "inline-flex",
+              fontFamily: t.sans,
+              fontSize: 13,
+              fontWeight: 600,
+              justifyContent: "center",
+              minHeight: 44,
+              padding: "10px 16px",
+              whiteSpace: "nowrap",
             }}
           >
             Generate token
@@ -180,120 +201,70 @@ export function DeveloperTab({
             No tokens yet.
           </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["Name", "Prefix", "Created", "Expires", "Last used", ""].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      textAlign: "left",
-                      padding: "8px 10px",
-                      fontFamily: t.sans,
-                      fontSize: 11,
-                      color: t.muted,
-                      borderBottom: `1px solid ${t.rule}`,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((tk) => {
-                const exp = expiryLabel(tk.expiresAt);
-                return (
-                <tr key={tk.id}>
-                  <td
-                    style={{
-                      padding: "10px",
-                      fontFamily: t.sans,
-                      fontSize: 13,
-                      color: t.ink,
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                    }}
-                  >
-                    {tk.name}
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px",
-                      fontFamily: t.mono,
-                      fontSize: 12,
-                      color: t.muted,
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                    }}
-                  >
-                    {tk.tokenPrefix}…
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px",
-                      fontFamily: t.sans,
-                      fontSize: 12,
-                      color: t.muted,
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                    }}
-                  >
-                    {fmtDate(tk.createdAt)}
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px",
-                      fontFamily: t.sans,
-                      fontSize: 12,
-                      color: exp.expired ? t.warn : t.muted,
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                      fontWeight: exp.expired ? 600 : 400,
-                    }}
-                  >
-                    {exp.expired ? `Expired ${exp.text}` : exp.text}
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px",
-                      fontFamily: t.sans,
-                      fontSize: 12,
-                      color: t.muted,
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                    }}
-                  >
-                    {fmtDate(tk.lastUsedAt)}
-                  </td>
-                  <td
-                    style={{
-                      padding: "10px",
-                      borderBottom: `1px solid ${t.ruleSoft}`,
-                      textAlign: "right",
-                    }}
-                  >
-                    <form action={(fd) => startTransition(() => revokeMcpTokenAction(fd))}>
-                      <input type="hidden" name="id" value={tk.id} />
-                      <button
-                        type="submit"
-                        style={{
-                          padding: "4px 10px",
-                          background: "transparent",
-                          color: t.muted,
-                          border: `1px solid ${t.rule}`,
-                          borderRadius: 6,
-                          fontFamily: t.sans,
-                          fontSize: 11,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Revoke
-                      </button>
-                    </form>
-                  </td>
+          <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
+            <table className="fuel-data-table" style={dataTableStyle()}>
+              <thead>
+                <tr>
+                  <th style={dataThStyle(t)}>Name</th>
+                  <th style={dataThStyle(t)}>Prefix</th>
+                  <th style={dataThStyle(t)}>Created</th>
+                  <th style={dataThStyle(t)}>Expires</th>
+                  <th style={dataThStyle(t)}>Last used</th>
+                  <th style={dataThStyle(t, { align: "right" })}></th>
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {visible.map((tk) => {
+                  const exp = expiryLabel(tk.expiresAt);
+                  return (
+                  <tr key={tk.id}>
+                    <td style={dataTdStyle(t, { primary: true, top: false })}>
+                      {tk.name}
+                    </td>
+                    <td style={dataTdStyle(t, { mono: true, top: false })}>
+                      {tk.tokenPrefix}…
+                    </td>
+                    <td style={dataTdStyle(t, { top: false })}>
+                      {fmtDate(tk.createdAt)}
+                    </td>
+                    <td
+                      style={{
+                        ...dataTdStyle(t, { top: false }),
+                        color: exp.expired ? t.warn : t.muted,
+                        fontWeight: exp.expired ? 600 : 400,
+                      }}
+                    >
+                      {exp.expired ? `Expired ${exp.text}` : exp.text}
+                    </td>
+                    <td style={dataTdStyle(t, { top: false })}>
+                      {fmtDate(tk.lastUsedAt)}
+                    </td>
+                    <td style={dataTdActionsStyle(t)}>
+                      <form action={(fd) => startTransition(() => revokeMcpTokenAction(fd))}>
+                        <input type="hidden" name="id" value={tk.id} />
+                        <button
+                          type="submit"
+                          style={{
+                            padding: "4px 10px",
+                            background: "transparent",
+                            color: t.muted,
+                            border: `1px solid ${t.rule}`,
+                            borderRadius: 6,
+                            fontFamily: t.sans,
+                            fontSize: 11,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Revoke
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

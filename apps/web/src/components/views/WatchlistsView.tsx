@@ -1,11 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition, type CSSProperties, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import type { Theme } from "@/lib/theme";
+import { framedPanelPadStyle } from "@/lib/theme";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import { Chip, Logo, SectionHead, Tabs } from "../atoms";
 import { G } from "../icons";
+import {
+  CreateIconButton,
+  FilterMenu,
+  PageToolbar,
+} from "../ToolbarActions";
 import type { WatchlistListItem } from "@/lib/watchlists";
 import {
   createWatchlistAction,
@@ -21,6 +35,13 @@ import {
   TeamAccessPicker,
   type TeamAccessOption,
 } from "./watchlist-access-ui";
+import {
+  dataTableFrameStyle,
+  dataTableStyle,
+  dataTdActionsStyle,
+  dataTdStyle,
+  dataThStyle,
+} from "./adminStyles";
 
 type ScopeKey = "all" | "mine" | "shared" | "starred";
 type ScopeValue = "private" | "account" | "team";
@@ -52,33 +73,6 @@ function btn(t: Theme, primary = false): CSSProperties {
   };
 }
 
-function th(t: Theme, align: "left" | "right" = "left"): CSSProperties {
-  return {
-    padding: "10px 12px",
-    textAlign: align,
-    fontFamily: t.sans,
-    fontSize: 11,
-    fontWeight: 500,
-    color: t.muted,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    borderBottom: `1px solid ${t.rule}`,
-    whiteSpace: "nowrap",
-  };
-}
-
-function td(t: Theme, align: "left" | "right" = "left"): CSSProperties {
-  return {
-    padding: "14px 12px",
-    verticalAlign: "middle",
-    textAlign: align,
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.ink,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-  };
-}
-
 function editingRowStyle(t: Theme): CSSProperties {
   return {
     outline: `1px solid ${t.accent}55`,
@@ -87,43 +81,109 @@ function editingRowStyle(t: Theme): CSSProperties {
   };
 }
 
-function CompanyStack({ t, items, max = 4 }: { t: Theme; items: WatchlistListItem["companyPreview"]; max?: number }) {
+function formatFundName(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const auto = trimmed.replace(/^AUTO:FUND:/i, "").replace(/:/g, " ").trim();
+  if (!auto) return null;
+  return auto
+    .split(/\s+/)
+    .map((part) =>
+      part.length <= 3
+        ? part.toUpperCase()
+        : part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
+    )
+    .join(" ");
+}
+
+function CompanyStack({
+  t,
+  items,
+  extraCount = 0,
+  max = 4,
+  size = 22,
+  overlap = true,
+  listHref,
+}: {
+  t: Theme;
+  items: WatchlistListItem["companyPreview"];
+  extraCount?: number;
+  max?: number;
+  size?: number;
+  overlap?: boolean;
+  listHref?: string;
+}) {
   const shown = items.slice(0, max);
-  const extra = items.length - shown.length;
+  const extra = Math.max(0, extraCount, items.length - shown.length);
+  const extraStyle: CSSProperties = {
+    alignItems: "center",
+    background: t.panelAlt,
+    border: `1px solid ${t.rule}`,
+    borderRadius: 6,
+    boxSizing: "border-box",
+    color: t.inkSoft,
+    display: "inline-flex",
+    flexShrink: 0,
+    fontFamily: t.sans,
+    fontSize: 12,
+    fontWeight: 700,
+    height: size,
+    justifyContent: "center",
+    letterSpacing: "-0.02em",
+    lineHeight: 1,
+    marginLeft: overlap ? -7 : 4,
+    minWidth: size,
+    outline: `2px solid ${t.panel}`,
+    padding: "0 4px",
+    position: "relative",
+    textDecoration: "none",
+    width: extra > 9 ? "auto" : size,
+    zIndex: shown.length + 1,
+  };
+  const extraLabel = extra > 99 ? "99+" : `+${extra}`;
+  const extraAria = `View ${extra} more ${extra === 1 ? "company" : "companies"}`;
+
   return (
-    <div style={{ display: "inline-flex", alignItems: "center" }}>
+    <div
+      className="fuel-watchlist-company-stack"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        flexShrink: 0,
+        gap: overlap ? 0 : 4,
+      }}
+    >
       {shown.map((c, i) => (
         <div
           key={c.uuid}
+          title={c.name ?? c.uuid}
           style={{
-            marginLeft: i === 0 ? 0 : -8,
+            marginLeft: overlap && i > 0 ? -7 : 0,
             outline: `2px solid ${t.panel}`,
             borderRadius: 6,
-            zIndex: shown.length - i,
+            position: "relative",
+            zIndex: i + 1,
+            overflow: "hidden",
           }}
         >
           <Logo
             t={t}
             co={{ logo: (c.name ?? "??").slice(0, 2).toUpperCase(), name: c.name ?? undefined, uuid: c.uuid }}
-            size={22}
+            size={size}
           />
         </div>
       ))}
       {extra > 0 ? (
-        <span
-          style={{
-            marginLeft: -6,
-            padding: "2px 6px",
-            fontFamily: t.mono,
-            fontSize: 11,
-            color: t.muted,
-            background: t.panelAlt,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-          }}
-        >
-          +{extra}
-        </span>
+        listHref ? (
+          <Link href={listHref} aria-label={extraAria} style={extraStyle}>
+            {extraLabel}
+          </Link>
+        ) : (
+          <span aria-hidden style={extraStyle}>
+            {extraLabel}
+          </span>
+        )
       ) : null}
     </div>
   );
@@ -152,12 +212,17 @@ function StarToggle({
         type="submit"
         disabled={pending}
         style={{
+          alignItems: "center",
           background: "transparent",
           border: "none",
-          cursor: "pointer",
-          fontSize: 16,
           color: starred ? t.warn : t.mutedSoft,
+          cursor: "pointer",
+          display: "inline-flex",
+          fontSize: 18,
+          justifyContent: "center",
           lineHeight: 1,
+          minHeight: TOUCH_TARGET_MIN,
+          minWidth: TOUCH_TARGET_MIN,
           padding: 0,
         }}
         title={starred ? "Starred" : "Star"}
@@ -240,6 +305,7 @@ export function WatchlistsView({
   const [editPending, startEdit] = useTransition();
   const [, startDelete] = useTransition();
   const { showToast } = useToast();
+  const phone = useNarrow(BREAKPOINTS.md);
 
   useEffect(() => {
     setActiveScope(scope);
@@ -366,37 +432,102 @@ export function WatchlistsView({
           ? "Nothing shared with you yet."
           : "No lists match this filter.";
 
+  const filterActiveCount =
+    (activeScope !== "all" ? 1 : 0) + (search.trim() ? 1 : 0);
+
   return (
-    <div>
+    <div className="fuel-page">
       <SectionHead
         t={t}
         title={kindPlural}
         right={
-          <button
-            onClick={() => {
-              setShowCreate((v) => !v);
-              if (editingId) cancelEdit();
-            }}
-            aria-expanded={showCreate}
-            style={btn(t, true)}
-          >
-            {G.plus} {showCreate ? "Cancel" : `New ${kindLabel.toLowerCase()}`}
-          </button>
+          <PageToolbar
+            t={t}
+            filter={
+              <FilterMenu t={t} activeCount={filterActiveCount}>
+                <Tabs
+                  t={t}
+                  active={activeScope}
+                  onChange={(k) => {
+                    const next = k as ScopeKey;
+                    setActiveScope(next);
+                    syncScopeToUrl(next);
+                  }}
+                  items={[
+                    { key: "all", label: "All", count: counts.all },
+                    { key: "mine", label: "Mine", count: counts.mine },
+                    { key: "shared", label: "Shared", count: counts.shared },
+                    { key: "starred", label: "Starred", count: counts.starred },
+                  ]}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: t.muted,
+                    padding: "6px 10px",
+                    border: `1px solid ${t.rule}`,
+                    borderRadius: 8,
+                    background: t.panelAlt,
+                    minWidth: 0,
+                  }}
+                >
+                  {G.search}
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Name, owner, or team"
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      outline: "none",
+                      fontFamily: t.sans,
+                      fontSize: phone ? 16 : 13,
+                      color: t.ink,
+                      width: "100%",
+                      minWidth: 0,
+                      flex: 1,
+                      minHeight: TOUCH_TARGET_MIN - 12,
+                    }}
+                  />
+                </div>
+              </FilterMenu>
+            }
+            create={
+              <CreateIconButton
+                t={t}
+                label={
+                  showCreate
+                    ? "Cancel create"
+                    : `New ${kindLabel.toLowerCase()}`
+                }
+                active={showCreate}
+                onClick={() => {
+                  setShowCreate((v) => !v);
+                  if (editingId) cancelEdit();
+                }}
+              />
+            }
+          />
         }
       />
 
       {showCreate ? (
         <form
           onSubmit={onCreateSubmit}
+          className="fuel-watchlist-create"
           style={{
             display: "flex",
             gap: 10,
-            alignItems: "center",
-            padding: 14,
+            alignItems: phone ? "stretch" : "center",
+            padding: phone ? 14 : 14,
             background: t.panel,
             border: `1px solid ${t.rule}`,
+            borderRadius: phone ? 12 : 0,
             marginBottom: 14,
             flexWrap: "wrap",
+            flexDirection: phone ? "column" : "row",
           }}
         >
           <input type="hidden" name="kind" value={kind} />
@@ -408,14 +539,22 @@ export function WatchlistsView({
             }
             required
             disabled={createPending}
-            style={{ flex: 1, minWidth: 200 }}
+            style={{
+              flex: 1,
+              minWidth: phone ? 0 : 200,
+              width: phone ? "100%" : undefined,
+              fontSize: phone ? 16 : undefined,
+            }}
           />
           {kind === "portfolio" ? (
             <SurfaceField
               name="fundName"
               placeholder="Fund label (optional)"
               disabled={createPending}
-              style={{ width: 160 }}
+              style={{
+                width: phone ? "100%" : 160,
+                fontSize: phone ? 16 : undefined,
+              }}
             />
           ) : null}
           {kind === "portfolio" ? (
@@ -427,7 +566,13 @@ export function WatchlistsView({
               required
               disabled={createPending}
               aria-label="Stage / cohort"
-              style={{ cursor: "pointer", minWidth: 140 }}
+              style={{
+                cursor: "pointer",
+                minWidth: phone ? 0 : 140,
+                width: phone ? "100%" : undefined,
+                fontSize: phone ? 16 : undefined,
+                minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+              }}
             >
               <option value="">Stage (required)</option>
               <option value="Pre-seed">Pre-seed</option>
@@ -457,7 +602,12 @@ export function WatchlistsView({
               if (next !== "team") setCreateTeamIds([]);
             }}
             disabled={createPending}
-            style={{ cursor: "pointer" }}
+            style={{
+              cursor: "pointer",
+              width: phone ? "100%" : undefined,
+              fontSize: phone ? 16 : undefined,
+              minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+            }}
           >
             <option value="private">Private</option>
             <option value="account">Workspace</option>
@@ -478,245 +628,197 @@ export function WatchlistsView({
             disabled={
               createPending || (kind === "portfolio" && !createCohort)
             }
-            style={btn(t, true)}
+            style={{
+              ...btn(t, true),
+              width: phone ? "100%" : undefined,
+              minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+              justifyContent: "center",
+            }}
           >
             {createPending ? "Creating…" : "Create"}
           </button>
         </form>
       ) : null}
 
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          gap: 12,
-          marginBottom: 14,
-          minWidth: 0,
-        }}
-      >
-        <Tabs
-          t={t}
-          active={activeScope}
-          onChange={(k) => {
-            const next = k as ScopeKey;
-            setActiveScope(next);
-            syncScopeToUrl(next);
-          }}
-          items={[
-            { key: "all", label: "All", count: counts.all },
-            { key: "mine", label: "Mine", count: counts.mine },
-            { key: "shared", label: "Shared", count: counts.shared },
-            { key: "starred", label: "Starred", count: counts.starred },
-          ]}
-        />
+      {phone ? (
         <div
+          className="fuel-watchlist-cards fuel-card-stack"
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: 8,
-            color: t.muted,
-            padding: "6px 10px",
-            border: `1px solid ${t.rule}`,
-            borderRadius: 8,
-            background: t.panel,
-            minWidth: 0,
-            flex: "1 1 160px",
-            maxWidth: "100%",
+            flexDirection: "column",
+            gap: 10,
+            overflow: "visible",
+            padding: 0,
           }}
         >
-          {G.search}
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by name, owner, or team"
-            style={{
-              border: "none",
-              background: "transparent",
-              outline: "none",
-              fontFamily: t.sans,
-              fontSize: 13,
-              color: t.ink,
-              width: "100%",
-              minWidth: 0,
-              flex: 1,
-            }}
-          />
-        </div>
-      </div>
+          {filtered.map((w) => {
+            const detail = accessDetail(w, userEmail, teamNameById);
+            const isOwner = w.ownerEmail === userEmail;
+            const isEditing = editingId === w.id;
+            const ownerLabel = isOwner ? "You" : w.ownerEmail.split("@")[0];
 
-      <div className="fuel-table-wrap" style={{ background: t.panel, border: `1px solid ${t.rule}` }}>
-        <table style={{ width: "100%", minWidth: 640, borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={th(t)}>Name</th>
-              <th style={th(t)}>Access</th>
-              <th style={th(t)}>Companies</th>
-              <th style={th(t)}>Owner</th>
-              <th style={th(t, "right")}>Updated</th>
-              <th style={th(t, "right")}>★</th>
-              <th style={th(t, "right")}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((w) => {
-              const detail = accessDetail(w, userEmail, teamNameById);
-              const isOwner = w.ownerEmail === userEmail;
-              const isEditing = editingId === w.id;
-
-              if (isEditing) {
-                return (
-                  <tr key={w.id} style={editingRowStyle(t)}>
-                    <td style={td(t)}>
-                      <SurfaceField
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        disabled={editPending}
-                        aria-label="Watchlist name"
-                        style={{ width: "100%", minWidth: 140 }}
-                      />
-                    </td>
-                    <td style={td(t)} colSpan={2}>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 10,
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <SurfaceField
-                          as="select"
-                          value={editScope}
-                          onChange={(e) => {
-                            const next = e.target.value as ScopeValue;
-                            if (next === "team" && availableTeams.length === 0) {
-                              showToast({
-                                message: "Create a Team first before using Team visibility.",
-                                variant: "error",
-                              });
-                              setEditScope("private");
-                              setEditTeamIds([]);
-                              return;
-                            }
-                            setEditScope(next);
-                            if (next !== "team") setEditTeamIds([]);
-                          }}
-                          disabled={editPending}
-                          aria-label="Visibility"
-                          style={{ cursor: "pointer" }}
-                        >
-                          <option value="private">Private</option>
-                          <option value="account">Workspace</option>
-                          <option value="team">Team</option>
-                        </SurfaceField>
-                        {editScope === "team" && availableTeams.length > 0 ? (
-                          <TeamAccessPicker
-                            teams={availableTeams}
-                            value={editTeamIds}
-                            onChange={setEditTeamIds}
-                            name=""
-                            disabled={editPending}
-                            variant="inline"
-                          />
-                        ) : null}
-                      </div>
-                    </td>
-                    <td style={td(t)}>
-                      <div style={{ fontSize: 13 }}>You</div>
-                    </td>
-                    <td style={td(t, "right")}>
-                      <span style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>
-                        {relativeTime(w.updatedAt)}
-                      </span>
-                    </td>
-                    <td style={td(t, "right")}>
-                      <StarToggle t={t} watchlistId={w.id} starred={w.follower?.starred === true} />
-                    </td>
-                    <td style={{ ...td(t, "right"), whiteSpace: "nowrap" }}>
-                      <div style={{ display: "inline-flex", gap: 6 }}>
-                        <CompactActionButton
-                          tone="primary"
-                          iconOnly
-                          disabled={editPending}
-                          ariaLabel="Save"
-                          title="Save"
-                          onClick={() => onSaveEdit(w.id, w.name)}
-                        >
-                          {G.check}
-                        </CompactActionButton>
-                        <CompactActionButton
-                          iconOnly
-                          disabled={editPending}
-                          ariaLabel="Cancel"
-                          title="Cancel"
-                          onClick={cancelEdit}
-                        >
-                          {G.close}
-                        </CompactActionButton>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              }
-
+            if (isEditing) {
               return (
-                <tr key={w.id}>
-                  <td style={td(t)}>
+                <article
+                  key={w.id}
+                  className="fuel-watchlist-card"
+                  style={{
+                    ...framedPanelPadStyle(t),
+                    ...editingRowStyle(t),
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    overflow: "visible",
+                  }}
+                >
+                  <SurfaceField
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    disabled={editPending}
+                    aria-label="Watchlist name"
+                    style={{ width: "100%" }}
+                  />
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    <SurfaceField
+                      as="select"
+                      value={editScope}
+                      onChange={(e) => {
+                        const next = e.target.value as ScopeValue;
+                        if (next === "team" && availableTeams.length === 0) {
+                          showToast({
+                            message: "Create a Team first before using Team visibility.",
+                            variant: "error",
+                          });
+                          setEditScope("private");
+                          setEditTeamIds([]);
+                          return;
+                        }
+                        setEditScope(next);
+                        if (next !== "team") setEditTeamIds([]);
+                      }}
+                      disabled={editPending}
+                      aria-label="Visibility"
+                      style={{ cursor: "pointer", flex: "1 1 140px" }}
+                    >
+                      <option value="private">Private</option>
+                      <option value="account">Workspace</option>
+                      <option value="team">Team</option>
+                    </SurfaceField>
+                    {editScope === "team" && availableTeams.length > 0 ? (
+                      <TeamAccessPicker
+                        teams={availableTeams}
+                        value={editTeamIds}
+                        onChange={setEditTeamIds}
+                        name=""
+                        disabled={editPending}
+                        variant="inline"
+                      />
+                    ) : null}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <CompactActionButton
+                      tone="primary"
+                      disabled={editPending}
+                      ariaLabel="Save"
+                      title="Save"
+                      onClick={() => onSaveEdit(w.id, w.name)}
+                    >
+                      {G.check} Save
+                    </CompactActionButton>
+                    <CompactActionButton
+                      disabled={editPending}
+                      ariaLabel="Cancel"
+                      title="Cancel"
+                      onClick={cancelEdit}
+                    >
+                      Cancel
+                    </CompactActionButton>
+                  </div>
+                </article>
+              );
+            }
+
+            const updated = relativeTime(w.updatedAt);
+            const companyHref = `${detailBasePath}/${w.id}`;
+            const companyCountLabel =
+              w.companyCount === 1 ? "1 company" : `${w.companyCount} companies`;
+
+            return (
+                <article
+                  key={w.id}
+                  className="fuel-watchlist-card"
+                  style={{
+                    ...framedPanelPadStyle(t),
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    overflow: "visible",
+                  }}
+                >
+                <div
+                  style={{
+                    alignItems: "flex-start",
+                    display: "flex",
+                    gap: 10,
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <Link
-                      href={`${detailBasePath}/${w.id}`}
-                      style={{ color: t.ink, textDecoration: "none", fontWeight: 600 }}
+                      href={companyHref}
+                      style={{
+                        color: t.ink,
+                        display: "block",
+                        fontFamily: t.sans,
+                        fontSize: 16,
+                        fontWeight: 650,
+                        letterSpacing: "-0.01em",
+                        lineHeight: 1.3,
+                        textDecoration: "none",
+                      }}
                     >
                       {w.name}
                     </Link>
-                    {w.kind === "portfolio" ? (
-                      <span
-                        style={{
-                          marginLeft: 8,
-                          fontSize: 10,
-                          letterSpacing: "0.06em",
-                          textTransform: "uppercase",
-                          color: t.accent,
-                          fontWeight: 600,
-                        }}
-                      >
-                        · portfolio{w.fundName ? ` · ${w.fundName}` : ""}
+                    <div
+                      style={{
+                        alignItems: "center",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        marginTop: 6,
+                      }}
+                    >
+                      <span title={detail}>
+                        <Chip t={t} tone={scopeTone(w.scope)}>
+                          {scopeLabel(w.scope)}
+                        </Chip>
                       </span>
-                    ) : null}
-                  </td>
-                  <td style={td(t)} title={detail}>
-                    <Chip t={t} tone={scopeTone(w.scope)}>{scopeLabel(w.scope)}</Chip>
-                  </td>
-                  <td style={td(t)}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <CompanyStack t={t} items={w.companyPreview} />
-                      <span style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>
-                        {w.companyCount}
-                      </span>
+                      {w.kind === "portfolio" ? (
+                        <span
+                          style={{
+                            color: t.accent,
+                            fontFamily: t.sans,
+                            fontSize: 13,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {formatFundName(w.fundName) ?? "Portfolio"}
+                        </span>
+                      ) : null}
                     </div>
-                  </td>
-                  <td style={td(t)}>
-                    <div style={{ fontSize: 13 }}>
-                      {isOwner ? "You" : w.ownerEmail.split("@")[0]}
-                    </div>
-                    {!isOwner ? (
-                      <div style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
-                        {w.ownerEmail}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td style={td(t, "right")}>
-                    <span style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>
-                      {relativeTime(w.updatedAt)}
-                    </span>
-                  </td>
-                  <td style={td(t, "right")}>
+                  </div>
+                  <div
+                    style={{
+                      alignItems: "center",
+                      display: "flex",
+                      flexShrink: 0,
+                      gap: 2,
+                      minHeight: TOUCH_TARGET_MIN,
+                    }}
+                  >
                     <StarToggle t={t} watchlistId={w.id} starred={w.follower?.starred === true} />
-                  </td>
-                  <td style={{ ...td(t, "right"), whiteSpace: "nowrap" }}>
                     {isOwner ? (
-                      <div style={{ display: "inline-flex", gap: 6 }}>
+                      <>
                         <CompactActionButton
                           iconOnly
                           ariaLabel="Edit"
@@ -746,38 +848,352 @@ export function WatchlistsView({
                             {G.trash}
                           </CompactActionButton>
                         </form>
-                      </div>
-                    ) : (
-                      <span style={{ fontFamily: t.sans, fontSize: 12, color: t.muted }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {filtered.length === 0 ? (
-          <div
-            style={{
-              padding: 40,
-              fontFamily: t.sans,
-              fontSize: 13,
-              color: t.muted,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 12,
-            }}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+
+                {w.companyCount > 0 ? (
+                  <Link
+                    href={companyHref}
+                    className="fuel-watchlist-card-companies"
+                    aria-label={`View ${companyCountLabel} in ${w.name}`}
+                    style={{
+                      background: t.panelAlt,
+                      border: `1px solid ${t.rule}`,
+                      borderRadius: 10,
+                      color: t.ink,
+                      padding: "10px 12px",
+                    }}
+                  >
+                    <CompanyStack
+                      t={t}
+                      items={w.companyPreview}
+                      extraCount={Math.max(0, w.companyCount - 3)}
+                      max={3}
+                      size={28}
+                      overlap
+                    />
+                    <span
+                      className="fuel-watchlist-card-companies-count"
+                      style={{
+                        color: t.ink,
+                        fontFamily: t.sans,
+                        fontSize: 14,
+                        fontWeight: 650,
+                      }}
+                    >
+                      {companyCountLabel}
+                    </span>
+                    <span
+                      aria-hidden
+                      style={{
+                        color: t.muted,
+                        display: "inline-flex",
+                        flexShrink: 0,
+                        marginLeft: "auto",
+                      }}
+                    >
+                      {G.arrow}
+                    </span>
+                  </Link>
+                ) : (
+                  <div
+                    className="fuel-watchlist-card-companies"
+                    style={{
+                      background: t.panelAlt,
+                      border: `1px dashed ${t.rule}`,
+                      borderRadius: 10,
+                      color: t.muted,
+                      fontFamily: t.sans,
+                      fontSize: 14,
+                      padding: "10px 12px",
+                    }}
+                  >
+                    No companies yet
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    color: t.muted,
+                    fontFamily: t.sans,
+                    fontSize: 13,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {ownerLabel}
+                  {updated ? ` · ${updated}` : ""}
+                </div>
+              </article>
+            );
+          })}
+          {filtered.length === 0 ? (
+            <div
+              style={{
+                alignItems: "center",
+                color: t.muted,
+                display: "flex",
+                flexDirection: "column",
+                fontFamily: t.sans,
+                fontSize: 13,
+                gap: 12,
+                padding: 40,
+              }}
+            >
+              <span>{emptyMessage}</span>
+              {showEmptyCta ? (
+                <CreateIconButton
+                  t={t}
+                  label={`New ${kindLabel.toLowerCase()}`}
+                  onClick={() => setShowCreate(true)}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="fuel-data-table-frame fuel-table-wrap" style={dataTableFrameStyle(t)}>
+          <table
+            className="fuel-data-table fuel-watchlist-table"
+            style={{ ...dataTableStyle(), minWidth: 720 }}
           >
-            <span>{emptyMessage}</span>
-            {showEmptyCta ? (
-              <button type="button" onClick={() => setShowCreate(true)} style={btn(t, true)}>
-                {G.plus} New {kindLabel.toLowerCase()}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+            <thead>
+              <tr>
+                <th style={dataThStyle(t)}>Name</th>
+                <th style={dataThStyle(t)}>Access</th>
+                <th style={dataThStyle(t)}>Companies</th>
+                <th style={dataThStyle(t)}>Owner</th>
+                <th style={dataThStyle(t, { align: "right" })}>Updated</th>
+                <th style={dataThStyle(t, { align: "right" })}>★</th>
+                <th style={dataThStyle(t, { align: "right" })}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((w) => {
+                const detail = accessDetail(w, userEmail, teamNameById);
+                const isOwner = w.ownerEmail === userEmail;
+                const isEditing = editingId === w.id;
+
+                if (isEditing) {
+                  return (
+                    <tr key={w.id} style={editingRowStyle(t)}>
+                      <td style={dataTdStyle(t, { top: false })}>
+                        <SurfaceField
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          disabled={editPending}
+                          aria-label="Watchlist name"
+                          style={{ width: "100%", minWidth: 140 }}
+                        />
+                      </td>
+                      <td style={dataTdStyle(t, { top: false })} colSpan={2}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 10,
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <SurfaceField
+                            as="select"
+                            value={editScope}
+                            onChange={(e) => {
+                              const next = e.target.value as ScopeValue;
+                              if (next === "team" && availableTeams.length === 0) {
+                                showToast({
+                                  message: "Create a Team first before using Team visibility.",
+                                  variant: "error",
+                                });
+                                setEditScope("private");
+                                setEditTeamIds([]);
+                                return;
+                              }
+                              setEditScope(next);
+                              if (next !== "team") setEditTeamIds([]);
+                            }}
+                            disabled={editPending}
+                            aria-label="Visibility"
+                            style={{ cursor: "pointer" }}
+                          >
+                            <option value="private">Private</option>
+                            <option value="account">Workspace</option>
+                            <option value="team">Team</option>
+                          </SurfaceField>
+                          {editScope === "team" && availableTeams.length > 0 ? (
+                            <TeamAccessPicker
+                              teams={availableTeams}
+                              value={editTeamIds}
+                              onChange={setEditTeamIds}
+                              name=""
+                              disabled={editPending}
+                              variant="inline"
+                            />
+                          ) : null}
+                        </div>
+                      </td>
+                      <td style={dataTdStyle(t, { top: false })}>
+                        <div style={{ fontSize: 13 }}>You</div>
+                      </td>
+                      <td style={dataTdStyle(t, { align: "right", mono: true, top: false })}>
+                        {relativeTime(w.updatedAt)}
+                      </td>
+                      <td style={dataTdStyle(t, { align: "right", top: false })}>
+                        <StarToggle t={t} watchlistId={w.id} starred={w.follower?.starred === true} />
+                      </td>
+                      <td style={dataTdActionsStyle(t)}>
+                        <div style={{ display: "inline-flex", gap: 6 }}>
+                          <CompactActionButton
+                            tone="primary"
+                            iconOnly
+                            disabled={editPending}
+                            ariaLabel="Save"
+                            title="Save"
+                            onClick={() => onSaveEdit(w.id, w.name)}
+                          >
+                            {G.check}
+                          </CompactActionButton>
+                          <CompactActionButton
+                            iconOnly
+                            disabled={editPending}
+                            ariaLabel="Cancel"
+                            title="Cancel"
+                            onClick={cancelEdit}
+                          >
+                            {G.close}
+                          </CompactActionButton>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return (
+                  <tr key={w.id}>
+                    <td style={dataTdStyle(t, { primary: true, top: false })}>
+                      <Link
+                        href={`${detailBasePath}/${w.id}`}
+                        style={{ color: t.ink, textDecoration: "none", fontWeight: 600 }}
+                      >
+                        {w.name}
+                      </Link>
+                      {w.kind === "portfolio" ? (
+                        <span
+                          style={{
+                            marginLeft: 8,
+                            fontSize: 10,
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            color: t.accent,
+                            fontWeight: 600,
+                          }}
+                        >
+                          · portfolio{w.fundName ? ` · ${w.fundName}` : ""}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td style={dataTdStyle(t, { top: false })} title={detail}>
+                      <Chip t={t} tone={scopeTone(w.scope)}>
+                        {scopeLabel(w.scope)}
+                      </Chip>
+                    </td>
+                    <td style={dataTdStyle(t, { top: false })}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <CompanyStack
+                          t={t}
+                          items={w.companyPreview}
+                          extraCount={Math.max(0, w.companyCount - 4)}
+                          listHref={`${detailBasePath}/${w.id}`}
+                        />
+                        <span style={{ fontFamily: t.mono, fontSize: 11, color: t.muted }}>
+                          {w.companyCount}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={dataTdStyle(t, { top: false })}>
+                      <div style={{ fontSize: 13 }}>
+                        {isOwner ? "You" : w.ownerEmail.split("@")[0]}
+                      </div>
+                      {!isOwner ? (
+                        <div style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
+                          {w.ownerEmail}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td style={dataTdStyle(t, { align: "right", mono: true, top: false })}>
+                      {relativeTime(w.updatedAt)}
+                    </td>
+                    <td style={dataTdStyle(t, { align: "right", top: false })}>
+                      <StarToggle t={t} watchlistId={w.id} starred={w.follower?.starred === true} />
+                    </td>
+                    <td style={dataTdActionsStyle(t)}>
+                      {isOwner ? (
+                        <div style={{ display: "inline-flex", gap: 6 }}>
+                          <CompactActionButton
+                            iconOnly
+                            ariaLabel="Edit"
+                            title="Edit"
+                            onClick={() => {
+                              setShowCreate(false);
+                              beginEdit(w);
+                            }}
+                          >
+                            {G.edit}
+                          </CompactActionButton>
+                          <form
+                            action={(fd) => startDelete(() => deleteWatchlistAction(fd))}
+                            style={{ display: "inline" }}
+                            onSubmit={(e) => {
+                              if (!confirm(`Delete "${w.name}"?`)) e.preventDefault();
+                            }}
+                          >
+                            <input type="hidden" name="id" value={w.id} />
+                            <input type="hidden" name="returnTo" value={detailBasePath} />
+                            <CompactActionButton
+                              type="submit"
+                              iconOnly
+                              ariaLabel={`Delete ${w.name}`}
+                              title="Delete"
+                            >
+                              {G.trash}
+                            </CompactActionButton>
+                          </form>
+                        </div>
+                      ) : (
+                        <span style={{ fontFamily: t.sans, fontSize: 12, color: t.muted }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filtered.length === 0 ? (
+            <div
+              style={{
+                padding: 40,
+                fontFamily: t.sans,
+                fontSize: 13,
+                color: t.muted,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <span>{emptyMessage}</span>
+              {showEmptyCta ? (
+                <CreateIconButton
+                  t={t}
+                  label={`New ${kindLabel.toLowerCase()}`}
+                  onClick={() => setShowCreate(true)}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

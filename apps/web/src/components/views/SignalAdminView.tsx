@@ -3,62 +3,36 @@
 import { useState, useTransition } from "react";
 import type { Theme } from "@/lib/theme";
 import type { Signal } from "@/db/schema";
-import { Chip, SectionHead } from "../atoms";
+import { Chip } from "../atoms";
+import { AdminPageHeader } from "./AdminPageHeader";
+import { AdminStatsStrip } from "./AdminChrome";
 import { useTheme } from "../ThemeContext";
 import {
+  adminBtnStyle,
+  adminEmptyStyle,
+  adminInputStyle,
+  adminModalOverlayStyle,
+  adminModalPanelStyle,
+  adminModalTitleStyle,
+  adminPageStyle,
+  adminSectionLabelStyle,
+  adminTableFrameStyle,
+  adminTableScrollStyle,
+  adminTableStyle,
+  adminTdActionsStyle,
+  adminTdStyle,
+  adminThStyle,
+} from "./adminStyles";
+import {
   upsertSignalAction,
-  deleteSignalAction,
-} from "@/app/(super-admin)/super-admin/signals/actions";
+  deleteSignalAction} from "@/app/(super-admin)/super-admin/signals/actions";
 
 const KINDS = ["quantitative", "qualitative", "boolean"] as const;
 const UNITS = ["usd", "pct", "months", "count", "ratio", "days", "score"] as const;
 type Kind = (typeof KINDS)[number];
 
-function button(t: Theme, variant: "primary" | "ghost" | "danger" = "ghost"): React.CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-    danger: { bg: "transparent", color: t.warn, border: t.warn },
-  } as const;
-  const v = map[variant];
-  return {
-    padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: "pointer",
-  };
-}
 
-function input(t: Theme, multiline = false): React.CSSProperties {
-  return {
-    padding: "8px 10px",
-    background: t.panelAlt,
-    color: t.ink,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 6,
-    fontFamily: t.sans,
-    fontSize: 13,
-    width: "100%",
-    minHeight: multiline ? 72 : undefined,
-    resize: multiline ? "vertical" : undefined,
-  };
-}
 
-function cellBase(t: Theme): React.CSSProperties {
-  return {
-    padding: "10px 12px",
-    fontFamily: t.sans,
-    fontSize: 13,
-    color: t.inkSoft,
-    borderBottom: `1px solid ${t.ruleSoft}`,
-    verticalAlign: "top",
-  };
-}
 
 export function SignalAdminView({ rows }: { rows: Signal[] }) {
   const t = useTheme();
@@ -86,120 +60,108 @@ export function SignalAdminView({ rows }: { rows: Signal[] }) {
     byCategory.set(r.category, arr);
   }
   const categories = Array.from(byCategory.keys()).sort();
+  const kinds = new Map<string, number>();
+  for (const r of rows) {
+    kinds.set(r.kind, (kinds.get(r.kind) ?? 0) + 1);
+  }
 
   return (
-    <div>
-      <SectionHead
+    <div className="fuel-admin-page" style={adminPageStyle()}>
+      <AdminPageHeader
         t={t}
-        title="Signals · Admin"
-        subtitle="The global signal catalog. Every context ingest extracts observations against these."
-        right={
-          <button onClick={openNew} style={button(t, "primary")}>
+        title="Signals"
+        description="Global metrics and observations extracted from every context item."
+        actions={
+          <button onClick={openNew} style={adminBtnStyle(t, "primary")}>
             + New signal
           </button>
         }
       />
 
+      <AdminStatsStrip
+        t={t}
+        items={[
+          { label: "Signals", value: rows.length },
+          { label: "Categories", value: categories.length },
+          {
+            label: "Kinds",
+            value: kinds.size,
+            footnote: Array.from(kinds.entries())
+              .map(([k, n]) => `${k} ${n}`)
+              .slice(0, 3)
+              .join(" · "),
+          },
+        ]}
+      />
+
       {rows.length === 0 ? (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            background: t.panel,
-            border: `1px solid ${t.rule}`,
-            fontFamily: t.sans,
-            fontSize: 13,
-            color: t.muted,
-          }}
-        >
-          No signals defined yet.
-        </div>
+        <div style={adminEmptyStyle(t)}>No signals defined yet.</div>
       ) : (
         categories.map((cat) => (
           <div key={cat} style={{ marginTop: 18 }}>
-            <div
-              style={{
-                fontFamily: t.sans,
-                fontSize: 11,
-                fontWeight: 600,
-                color: t.muted,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                marginBottom: 8,
-              }}
-            >
-              {cat}
-            </div>
-            <div style={{ background: t.panel, border: `1px solid ${t.rule}`, borderRadius: 6 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    {["Signal", "ID", "Kind", "Unit", "Better", "Order", ""].map((h) => (
-                      <th
-                        key={h}
-                        style={{
-                          textAlign: "left",
-                          padding: "10px 12px",
-                          fontFamily: t.sans,
-                          fontSize: 10,
-                          color: t.muted,
-                          borderBottom: `1px solid ${t.rule}`,
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(byCategory.get(cat) ?? []).map((r) => (
-                    <tr key={r.id}>
-                      <td style={cellBase(t)}>
-                        <div
-                          style={{ fontFamily: t.sans, fontSize: 13, fontWeight: 600, color: t.ink }}
+            <div style={adminSectionLabelStyle(t)}>{cat}</div>
+            <div className="fuel-admin-table-frame" style={adminTableFrameStyle(t)}>
+              <div className="fuel-admin-table-wrap" style={adminTableScrollStyle()}>
+                <table className="fuel-admin-table" style={adminTableStyle()}>
+                  <thead>
+                    <tr>
+                      {["Signal", "ID", "Kind", "Unit", "Better", "Order", ""].map((h) => (
+                        <th
+                          key={h}
+                          style={adminThStyle(t, h === "Order" ? { numeric: true } : undefined)}
                         >
-                          {r.label}
-                        </div>
-                        {r.description ? (
-                          <div
-                            style={{
-                              fontFamily: t.sans,
-                              fontSize: 11,
-                              color: t.muted,
-                              marginTop: 2,
-                            }}
-                          >
-                            {r.description.slice(0, 100)}
-                            {r.description.length > 100 ? "…" : ""}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td style={{ ...cellBase(t), fontFamily: t.mono, fontSize: 11 }}>{r.id}</td>
-                      <td style={cellBase(t)}>
-                        <Chip t={t} tone={r.kind === "quantitative" ? "accent" : "ghost"}>
-                          {r.kind}
-                        </Chip>
-                      </td>
-                      <td style={cellBase(t)}>{r.unit ?? <span style={{ color: t.mutedSoft }}>—</span>}</td>
-                      <td style={cellBase(t)}>
-                        {r.kind === "quantitative"
-                          ? r.invertedGood
-                            ? "lower"
-                            : "higher"
-                          : <span style={{ color: t.mutedSoft }}>—</span>}
-                      </td>
-                      <td style={cellBase(t)}>{r.displayOrder}</td>
-                      <td style={{ ...cellBase(t), textAlign: "right" }}>
-                        <button onClick={() => openEdit(r)} style={button(t, "ghost")}>
-                          Edit
-                        </button>
-                      </td>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {(byCategory.get(cat) ?? []).map((r) => (
+                      <tr key={r.id}>
+                        <td style={adminTdStyle(t)}>
+                          <div
+                            style={{ fontFamily: t.sans, fontSize: 13, fontWeight: 600, color: t.ink }}
+                          >
+                            {r.label}
+                          </div>
+                          {r.description ? (
+                            <div
+                              style={{
+                                fontFamily: t.sans,
+                                fontSize: 11,
+                                color: t.muted,
+                                marginTop: 2}}
+                            >
+                              {r.description.slice(0, 100)}
+                              {r.description.length > 100 ? "…" : ""}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td style={adminTdStyle(t, { mono: true })}>{r.id}</td>
+                        <td style={adminTdStyle(t)}>
+                          <Chip t={t} tone={r.kind === "quantitative" ? "accent" : "ghost"}>
+                            {r.kind}
+                          </Chip>
+                        </td>
+                        <td style={adminTdStyle(t)}>{r.unit ?? <span style={{ color: t.mutedSoft }}>—</span>}</td>
+                        <td style={adminTdStyle(t)}>
+                          {r.kind === "quantitative"
+                            ? r.invertedGood
+                              ? "lower"
+                              : "higher"
+                            : <span style={{ color: t.mutedSoft }}>—</span>}
+                        </td>
+                        <td style={adminTdStyle(t, { numeric: true })}>{r.displayOrder}</td>
+                        <td style={adminTdActionsStyle(t)}>
+                          <button onClick={() => openEdit(r)} style={adminBtnStyle(t, "ghost")}>
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         ))
@@ -213,8 +175,7 @@ export function SignalAdminView({ rows }: { rows: Signal[] }) {
 function SignalModal({
   t,
   row,
-  onClose,
-}: {
+  onClose}: {
   t: Theme;
   row: Signal | null;
   onClose: () => void;
@@ -233,8 +194,7 @@ function SignalModal({
         alignItems: "flex-start",
         justifyContent: "center",
         padding: "48px 16px",
-        zIndex: 100,
-      }}
+        zIndex: 100}}
     >
       <form
         onClick={(e) => e.stopPropagation()}
@@ -252,8 +212,7 @@ function SignalModal({
           borderRadius: 8,
           padding: 22,
           display: "grid",
-          gap: 12,
-        }}
+          gap: 12}}
       >
         <div style={{ fontFamily: t.sans, fontSize: 14, fontWeight: 600, color: t.ink }}>
           {row ? "Edit signal" : "New signal"}
@@ -266,14 +225,13 @@ function SignalModal({
             placeholder="e.g. arr_usd"
             required
             style={{
-              ...input(t),
+              ...adminInputStyle(t),
               fontFamily: t.mono,
-              opacity: row ? 0.7 : 1,
-            }}
+              opacity: row ? 0.7 : 1}}
           />
         </Field>
         <Field t={t} label="Label">
-          <input name="label" defaultValue={row?.label ?? ""} required style={input(t)} />
+          <input name="label" defaultValue={row?.label ?? ""} required style={adminInputStyle(t)} />
         </Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field t={t} label="Kind">
@@ -281,7 +239,7 @@ function SignalModal({
               name="kind"
               value={kind}
               onChange={(e) => setKind(e.target.value as Kind)}
-              style={input(t)}
+              style={adminInputStyle(t)}
             >
               {KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -296,14 +254,14 @@ function SignalModal({
               defaultValue={row?.category ?? ""}
               placeholder="growth / retention / …"
               required
-              style={input(t)}
+              style={adminInputStyle(t)}
             />
           </Field>
         </div>
         {kind === "quantitative" ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
             <Field t={t} label="Unit">
-              <select name="unit" defaultValue={row?.unit ?? ""} style={input(t)}>
+              <select name="unit" defaultValue={row?.unit ?? ""} style={adminInputStyle(t)}>
                 <option value="">—</option>
                 {UNITS.map((u) => (
                   <option key={u} value={u}>
@@ -317,7 +275,7 @@ function SignalModal({
                 name="displayOrder"
                 type="number"
                 defaultValue={row?.displayOrder ?? 0}
-                style={input(t)}
+                style={adminInputStyle(t)}
               />
             </Field>
             <Field t={t} label="Direction">
@@ -329,8 +287,7 @@ function SignalModal({
                   fontFamily: t.sans,
                   fontSize: 12,
                   color: t.inkSoft,
-                  padding: "8px 0",
-                }}
+                  padding: "8px 0"}}
               >
                 <input
                   type="checkbox"
@@ -347,7 +304,7 @@ function SignalModal({
               name="displayOrder"
               type="number"
               defaultValue={row?.displayOrder ?? 0}
-              style={input(t)}
+              style={adminInputStyle(t)}
             />
           </Field>
         )}
@@ -355,7 +312,7 @@ function SignalModal({
           <textarea
             name="description"
             defaultValue={row?.description ?? ""}
-            style={input(t, true)}
+            style={adminInputStyle(t, { multiline: true })}
           />
         </Field>
         <Field
@@ -365,7 +322,7 @@ function SignalModal({
           <textarea
             name="extractionHint"
             defaultValue={row?.extractionHint ?? ""}
-            style={input(t, true)}
+            style={adminInputStyle(t, { multiline: true })}
           />
         </Field>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
@@ -373,10 +330,10 @@ function SignalModal({
             <DeleteButton t={t} id={row.id} onDone={onClose} />
           ) : null}
           <div style={{ flex: 1 }} />
-          <button type="button" onClick={onClose} style={button(t, "ghost")}>
+          <button type="button" onClick={onClose} style={adminBtnStyle(t, "ghost")}>
             Cancel
           </button>
-          <button type="submit" disabled={pending} style={button(t, "primary")}>
+          <button type="submit" disabled={pending} style={adminBtnStyle(t, "primary")}>
             {pending ? "Saving…" : row ? "Save changes" : "Create"}
           </button>
         </div>
@@ -396,8 +353,7 @@ function Field({ t, label, children }: { t: Theme; label: string; children: Reac
           color: t.muted,
           marginBottom: 4,
           textTransform: "uppercase",
-          letterSpacing: "0.04em",
-        }}
+          letterSpacing: "0.04em"}}
       >
         {label}
       </div>
@@ -422,7 +378,7 @@ function DeleteButton({ t, id, onDone }: { t: Theme; id: string; onDone: () => v
       <button
         type="submit"
         disabled={pending}
-        style={button(t, "danger")}
+        style={adminBtnStyle(t, "danger")}
         onClick={(e) => {
           if (!confirm(`Delete signal "${id}"? Observations referencing it will be cascaded.`)) {
             e.preventDefault();

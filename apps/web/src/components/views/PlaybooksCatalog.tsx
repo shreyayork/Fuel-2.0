@@ -4,8 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { PLAYBOOK_CATEGORIES } from "@/lib/playbooks-constants";
+import { TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import { Chip, SectionHead, Tabs, type TabItem } from "../atoms";
+import { FilterMenu, PageToolbar } from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
+import { framedPanelPadStyle, framedPanelStyle } from "@/lib/theme";
 
 export interface PlaybookCard {
   id: string;
@@ -46,6 +49,7 @@ export function PlaybooksCatalog({
   totalCount: number;
 }) {
   const t = useTheme();
+  const compact = useNarrow();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -99,90 +103,103 @@ export function PlaybooksCatalog({
     };
   }, [q, activeQuery, activeCategory, pushFilters]);
 
+  const countLabel = `${totalCount} playbook${totalCount === 1 ? "" : "s"}`;
+  const subtitle = compact
+    ? countLabel
+    : `${countLabel} · Fuel AI runbooks for diligence, pricing, audits, and planning`;
+
   return (
-    <div>
+    <div className="fuel-playbooks-catalog">
       <SectionHead
         t={t}
         title="Playbooks"
-        subtitle={`${totalCount} playbook${totalCount === 1 ? "" : "s"} · runbooks Fuel AI executes against a company using its signal context — diligence, pricing reviews, audits, planning frameworks. Pick one from the catalog; Fuel reads the company's context + benchmarks and produces an artifact you can act on.`}
-      />
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
-        <input
-          placeholder="Search playbooks by title, description, or tag…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              submitSearch();
+        subtitle={subtitle}
+        right={
+          <PageToolbar
+            t={t}
+            filter={
+              <FilterMenu
+                t={t}
+                activeCount={(activeCategory ? 1 : 0) + (q.trim() ? 1 : 0)}
+              >
+                <input
+                  aria-label="Search playbooks"
+                  placeholder="Search playbooks…"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      submitSearch();
+                    }
+                  }}
+                  style={{
+                    background: t.panelAlt,
+                    border: `1px solid ${t.rule}`,
+                    borderRadius: 8,
+                    color: t.ink,
+                    fontFamily: t.sans,
+                    fontSize: 14,
+                    minHeight: TOUCH_TARGET_MIN,
+                    padding: "0 12px",
+                    width: "100%",
+                  }}
+                />
+                {q ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQ("");
+                      pushFilters("", activeCategory);
+                    }}
+                    style={{
+                      alignSelf: "flex-start",
+                      background: "transparent",
+                      border: "none",
+                      color: t.accent,
+                      cursor: "pointer",
+                      fontFamily: t.sans,
+                      fontSize: 13,
+                      fontWeight: 650,
+                      minHeight: TOUCH_TARGET_MIN,
+                      padding: "0 4px",
+                    }}
+                  >
+                    Clear search
+                  </button>
+                ) : null}
+                <Tabs
+                  t={t}
+                  items={CATEGORY_TABS}
+                  active={activeTab}
+                  onChange={(key) => pushFilters(q, key === ALL_TAB ? null : key)}
+                />
+              </FilterMenu>
             }
-          }}
-          style={{
-            flex: 1,
-            minWidth: 220,
-            padding: "8px 12px",
-            background: t.panelAlt,
-            color: t.ink,
-            border: `1px solid ${t.rule}`,
-            borderRadius: 6,
-            fontFamily: t.sans,
-            fontSize: 13,
-          }}
-        />
-        {q ? (
-          <button
-            type="button"
-            onClick={() => {
-              setQ("");
-              pushFilters("", activeCategory);
-            }}
-            style={{
-              padding: "6px 10px",
-              background: "transparent",
-              color: t.muted,
-              border: `1px solid ${t.rule}`,
-              borderRadius: 6,
-              fontFamily: t.sans,
-              fontSize: 12,
-              cursor: "pointer",
-            }}
-          >
-            Clear
-          </button>
-        ) : null}
-      </div>
-
-      <div style={{ marginBottom: 18 }}>
-        <Tabs
-          t={t}
-          items={CATEGORY_TABS}
-          active={activeTab}
-          onChange={(key) => pushFilters(q, key === ALL_TAB ? null : key)}
-        />
-      </div>
+          />
+        }
+      />
 
       {tree.length === 0 ? (
         <div
           style={{
+            ...framedPanelStyle(t),
+            color: t.muted,
+            fontFamily: t.sans,
             padding: 36,
             textAlign: "center",
-            background: t.panel,
-            border: `1px dashed ${t.rule}`,
-            borderRadius: 8,
-            fontFamily: t.sans,
-            color: t.muted,
           }}
         >
           No playbooks match your filters.
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 22 }}>
+        <div style={{ display: "grid", gap: compact ? 16 : 22 }}>
           {tree.map((node) => (
             <CategoryBlock
               key={node.category}
               node={node}
               showCategoryHeading={activeTab === ALL_TAB}
+              compact={compact}
             />
           ))}
         </div>
@@ -194,9 +211,11 @@ export function PlaybooksCatalog({
 function CategoryBlock({
   node,
   showCategoryHeading,
+  compact,
 }: {
   node: PlaybookTreeNode;
   showCategoryHeading: boolean;
+  compact: boolean;
 }) {
   const t = useTheme();
   return (
@@ -204,49 +223,57 @@ function CategoryBlock({
       {showCategoryHeading ? (
         <div
           style={{
-            fontFamily: t.sans,
-            fontSize: 11,
-            color: t.muted,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            marginBottom: 8,
-            display: "flex",
-            gap: 10,
             alignItems: "center",
+            color: t.muted,
+            display: "flex",
+            fontFamily: t.mono,
+            fontSize: 10.5,
+            fontWeight: 650,
+            gap: 10,
+            letterSpacing: "0.12em",
+            marginBottom: compact ? 8 : 10,
+            textTransform: "uppercase",
           }}
         >
           <span>{node.category}</span>
-          <span style={{ flex: 1, height: 1, background: t.ruleSoft }} />
+          <span style={{ background: t.ruleSoft, flex: 1, height: 1 }} />
         </div>
       ) : null}
-      <div style={{ display: "grid", gap: 18 }}>
+      <div style={{ display: "grid", gap: compact ? 12 : 18 }}>
         {node.subcategories.map((sub, i) => (
           <div key={`${node.category}-${sub.name ?? "_none"}-${i}`}>
             {sub.name ? (
               <div
                 style={{
+                  color: t.inkSoft,
                   fontFamily: t.sans,
                   fontSize: 12,
-                  color: t.inkSoft,
                   fontWeight: 600,
-                  marginBottom: 8,
+                  marginBottom: compact ? 6 : 8,
                 }}
               >
                 {sub.name}
               </div>
             ) : null}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 340px), 1fr))",
-                gap: 10,
-              }}
-            >
-              {sub.playbooks.map((p) => (
-                <PlaybookCardView key={p.id} p={p} />
-              ))}
-            </div>
+            {compact ? (
+              <div className="fuel-card-stack">
+                {sub.playbooks.map((p) => (
+                  <PlaybookCardView key={p.id} p={p} />
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 340px), 1fr))",
+                }}
+              >
+                {sub.playbooks.map((p) => (
+                  <PlaybookCardView key={p.id} p={p} />
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -260,13 +287,10 @@ function PlaybookCardView({ p }: { p: PlaybookCard }) {
     <Link
       href={`/playbooks/${p.slug}`}
       style={{
-        textDecoration: "none",
+        ...framedPanelPadStyle(t, { padding: 14 }),
         color: "inherit",
-        background: t.panel,
-        border: `1px solid ${t.rule}`,
-        borderRadius: 8,
-        padding: 14,
         display: "block",
+        textDecoration: "none",
         transition: "border-color 150ms ease",
       }}
       onMouseEnter={(e) => {
@@ -276,46 +300,56 @@ function PlaybookCardView({ p }: { p: PlaybookCard }) {
         (e.currentTarget as HTMLAnchorElement).style.borderColor = t.rule;
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+      <div
+        style={{
+          alignItems: "baseline",
+          display: "flex",
+          gap: 8,
+          justifyContent: "space-between",
+          marginBottom: 6,
+        }}
+      >
         <span
           style={{
+            color: t.ink,
             fontFamily: t.sans,
             fontSize: 14,
             fontWeight: 600,
-            color: t.ink,
             letterSpacing: "-0.005em",
           }}
         >
           {p.title}
         </span>
-        {p.visibility === "global" ? (
-          <Chip t={t} tone="ghost">global</Chip>
-        ) : (
+        {p.visibility !== "global" ? (
           <Chip t={t} tone="accent">custom</Chip>
-        )}
+        ) : null}
       </div>
       <div
         style={{
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: 2,
+          color: t.muted,
+          display: "-webkit-box",
           fontFamily: t.sans,
           fontSize: 12.5,
-          color: t.muted,
           lineHeight: 1.45,
+          overflow: "hidden",
         }}
       >
         {p.description}
       </div>
       {p.tags && p.tags.length > 0 ? (
-        <div style={{ marginTop: 8, display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {p.tags.slice(0, 4).map((tag) => (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+          {p.tags.slice(0, 3).map((tag) => (
             <span
               key={tag}
               style={{
-                fontFamily: t.mono,
-                fontSize: 10.5,
-                color: t.muted,
-                padding: "2px 6px",
                 background: t.panelAlt,
                 borderRadius: 3,
+                color: t.muted,
+                fontFamily: t.mono,
+                fontSize: 10.5,
+                padding: "2px 6px",
               }}
             >
               {tag}
