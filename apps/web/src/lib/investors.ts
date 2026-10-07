@@ -34,6 +34,14 @@ export async function listBookmarksWithCompanyProfiles(
   const rows = await listBookmarks(accountId);
   if (rows.length === 0) return [];
 
+  const endpoint = process.env.FUEL_DATA_OPENSEARCH_ENDPOINT?.trim();
+  if (!endpoint) {
+    return rows.map((r) => ({
+      ...r,
+      hasCompanyProfile: false,
+    }));
+  }
+
   const companyByInvestorId = await resolveCompanyUuidsForInvestors(
     rows.map((r) => ({ id: r.investorId, name: r.investorName })),
   );

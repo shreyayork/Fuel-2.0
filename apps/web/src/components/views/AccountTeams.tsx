@@ -17,14 +17,19 @@ import {
   isTeamNameTaken,
 } from "@/lib/teams/team-name";
 import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
-import { Chip, Tabs } from "../atoms";
+import { Chip } from "../atoms";
 import { G } from "../icons";
 import {
   CreateIconButton,
+  FilterGroup,
   FilterMenu,
+  FilterOption,
   PageToolbar,
 } from "../ToolbarActions";
+import { AddScreenShell } from "@/components/drawer/AddScreenShell";
+import { addScreenPrimaryBtnStyle } from "@/components/drawer/styles";
 import { useTheme } from "../ThemeContext";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import { useToast } from "../toast/ToastProvider";
 import {
   CompactActionButton,
@@ -176,11 +181,9 @@ export function AccountTeams({
   }, [teams, filter, me]);
 
   const primaryBtn: CSSProperties = {
+    ...ctaPrimaryStyle(t),
     alignItems: "center",
-    background: t.ink,
-    border: `1px solid ${t.ink}`,
     borderRadius: 8,
-    color: t.bg,
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -220,38 +223,39 @@ export function AccountTeams({
           <PageToolbar
             t={t}
             filter={
-              <FilterMenu t={t} activeCount={filter === "all" ? 0 : 1}>
-                <Tabs
-                  t={t}
-                  active={filter}
-                  onChange={(k) => setFilter(k as MembershipFilter)}
-                  items={[
-                    {
-                      key: "all",
-                      label: phone ? "All" : "All teams",
-                      count: counts.all,
-                    },
-                    {
-                      key: "mine",
-                      label: phone ? "Mine" : "I'm on",
-                      count: counts.mine,
-                    },
-                    {
-                      key: "other",
-                      label: phone ? "Other" : "Other teams",
-                      count: counts.other,
-                    },
-                  ]}
-                />
+              <FilterMenu
+                t={t}
+                activeCount={filter === "all" ? 0 : 1}
+                onClear={() => setFilter("all")}
+              >
+                <FilterGroup t={t} title="Teams">
+                    {(
+                      [
+                        { key: "all" as const, label: phone ? "All" : "All teams", count: counts.all },
+                        { key: "mine" as const, label: phone ? "Mine" : "I'm on", count: counts.mine },
+                        { key: "other" as const, label: phone ? "Other" : "Other teams", count: counts.other },
+                      ]
+                    ).map((item) => (
+                      <FilterOption
+                        key={item.key}
+                        t={t}
+                        selected={filter === item.key}
+                        onSelect={() => setFilter(item.key)}
+                        trailing={item.count}
+                      >
+                        {item.label}
+                      </FilterOption>
+                    ))}
+                </FilterGroup>
               </FilterMenu>
             }
             create={
               canManage ? (
                 <CreateIconButton
                   t={t}
-                  label={showCreate ? "Cancel create" : "New team"}
-                  active={showCreate}
-                  onClick={toggleCreate}
+                  label="New team"
+                  active={phone ? false : showCreate}
+                  onClick={phone ? openCreate : toggleCreate}
                 />
               ) : undefined
             }
@@ -260,6 +264,85 @@ export function AccountTeams({
       ) : null}
 
       {canManage && showCreate ? (
+        phone ? (
+          <AddScreenShell
+            t={t}
+            title="New team"
+            onClose={() => { setShowCreate(false); setNameError(null); }}
+            footer={
+              <button
+                type="submit"
+                form="team-create-form"
+                disabled={createPending}
+                style={addScreenPrimaryBtnStyle(t, {
+                  cursor: createPending ? "wait" : "pointer",
+                  opacity: createPending ? 0.7 : 1,
+                })}
+              >
+                {createPending ? "Creating…" : "Create team"}
+              </button>
+            }
+          >
+            <form
+              id="team-create-form"
+              className="fuel-account-teams__create"
+              onSubmit={onCreateSubmit}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+            >
+              <p
+                style={{
+                  color: t.muted,
+                  fontFamily: t.sans,
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                  margin: 0,
+                }}
+              >
+                Name the team and optionally add members now.
+              </p>
+              <input type="hidden" name="accountId" value={accountId} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <SurfaceField
+                  name="name"
+                  placeholder="Team name"
+                  required
+                  autoFocus
+                  aria-label="Team name"
+                  aria-invalid={nameError ? true : undefined}
+                  aria-describedby={nameError ? "team-name-error" : undefined}
+                  onChange={() => {
+                    if (nameError) setNameError(null);
+                  }}
+                  style={{
+                    width: "100%",
+                    borderColor: nameError ? t.negative : undefined,
+                  }}
+                />
+                {nameError ? (
+                  <span
+                    id="team-name-error"
+                    role="alert"
+                    style={{ fontFamily: t.sans, fontSize: 12, color: t.negative, lineHeight: 1.4 }}
+                  >
+                    {nameError}
+                  </span>
+                ) : null}
+              </div>
+              <MemberChipPicker
+                members={accountMembers}
+                value={createMembers}
+                onChange={setCreateMembers}
+                name="memberEmails"
+                disabled={createPending}
+                placeholder="Add members…"
+              />
+            </form>
+          </AddScreenShell>
+        ) : (
         <form
           className="fuel-account-teams__create"
           onSubmit={onCreateSubmit}
@@ -374,6 +457,7 @@ export function AccountTeams({
             </button>
           </div>
         </form>
+        )
       ) : null}
 
       {/* Zero teams: calm empty state — no filter tabs, no empty table headers */}

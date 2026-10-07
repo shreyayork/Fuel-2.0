@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { accentGradient, framedPanelPadStyle, framedPanelStyle, onAccentText, type Theme } from "@/lib/theme";
+import { ctaAiStyle, framedPanelStyle, groupCardStyle, groupItemStyle, type Theme } from "@/lib/theme";
 import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import {
   addPipelineDealToFuelAction,
@@ -11,7 +11,7 @@ import {
   toggleStageVisibilityAction,
 } from "@/app/(app)/pipeline/actions";
 import { Chip, Logo, SectionHead } from "../atoms";
-import { FilterMenu, PageToolbar } from "../ToolbarActions";
+import { FilterGroup, FilterMenu, FilterOption, FilterSearch, PageToolbar } from "../ToolbarActions";
 
 export interface SyncedPipeline {
   config: {
@@ -233,150 +233,58 @@ export function SyncedPipelineView({
             t={t}
             extra={phone ? null : <Chip t={t} tone="ghost">{config.provider}</Chip>}
             filter={
-              <FilterMenu t={t} activeCount={filterActiveCount}>
+              <FilterMenu
+                t={t}
+                activeCount={filterActiveCount}
+                onClear={() => {
+                  setQuery("");
+                  if (phone) {
+                    setActiveStageId(visible[0]?.stage.id ?? null);
+                    if (pipelines.length > 1 && onSelectPipeline && pipelines[0]) {
+                      onSelectPipeline(pipelines[0].key);
+                    }
+                  }
+                }}
+              >
                 {phone && pipelines.length > 1 && onSelectPipeline ? (
-                  <div
-                    role="tablist"
-                    aria-label="Synced pipelines"
-                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    {pipelines.map((tab) => {
-                      const selected = tab.key === (activePipelineId ?? config.id);
-                      return (
-                        <button
+                  <FilterGroup t={t} title="Pipeline">
+                    {pipelines.map((tab) => (
+                        <FilterOption
                           key={tab.key}
-                          type="button"
-                          role="tab"
-                          aria-selected={selected}
-                          onClick={() => onSelectPipeline(tab.key)}
-                          style={{
-                            alignItems: "center",
-                            background: selected ? t.accentTint : "transparent",
-                            border: `1px solid ${selected ? `${t.accent}66` : t.rule}`,
-                            borderRadius: 8,
-                            color: selected ? t.ink : t.muted,
-                            cursor: "pointer",
-                            display: "flex",
-                            fontFamily: t.sans,
-                            fontSize: 13,
-                            fontWeight: selected ? 650 : 500,
-                            justifyContent: "space-between",
-                            minHeight: TOUCH_TARGET_MIN,
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            width: "100%",
-                          }}
+                          t={t}
+                          selected={tab.key === (activePipelineId ?? config.id)}
+                          onSelect={() => onSelectPipeline(tab.key)}
                         >
                           {tab.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                        </FilterOption>
+                    ))}
+                  </FilterGroup>
                 ) : null}
                 {phone ? (
-                  <div
-                    role="tablist"
-                    aria-label="Pipeline stages"
-                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    {visible.map((col) => {
-                      const selected = col.stage.id === resolvedStageId;
-                      return (
-                        <button
+                  <FilterGroup t={t} title="Stage">
+                    {visible.map((col) => (
+                        <FilterOption
                           key={col.stage.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={selected}
-                          onClick={() => setActiveStageId(col.stage.id)}
-                          style={{
-                            alignItems: "center",
-                            background: selected ? t.accentTint : "transparent",
-                            border: `1px solid ${selected ? `${t.accent}66` : t.rule}`,
-                            borderRadius: 8,
-                            color: selected ? t.ink : t.muted,
-                            cursor: "pointer",
-                            display: "flex",
-                            fontFamily: t.sans,
-                            fontSize: 13,
-                            fontWeight: selected ? 650 : 500,
-                            justifyContent: "space-between",
-                            minHeight: TOUCH_TARGET_MIN,
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            width: "100%",
-                          }}
+                          t={t}
+                          selected={col.stage.id === resolvedStageId}
+                          onSelect={() => setActiveStageId(col.stage.id)}
+                          trailing={col.totalCount}
                         >
-                          <span>{col.stage.label}</span>
-                          <span
-                            style={{
-                              color: selected ? t.accent : t.mutedSoft,
-                              fontFamily: t.mono,
-                              fontSize: 12,
-                              fontWeight: 650,
-                            }}
-                          >
-                            {col.totalCount}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          {col.stage.label}
+                        </FilterOption>
+                    ))}
+                  </FilterGroup>
                 ) : null}
-                <input
-                  className="fuel-pipeline-search"
-                  placeholder="Search deals…"
-                  aria-label="Search deals"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  style={{
-                    padding: "10px 12px",
-                    background: t.panelAlt,
-                    color: t.ink,
-                    border: `1px solid ${t.rule}`,
-                    borderRadius: 8,
-                    fontFamily: t.sans,
-                    fontSize: 16,
-                    opacity: searching ? 0.7 : 1,
-                    minHeight: TOUCH_TARGET_MIN,
-                    width: "100%",
-                  }}
-                />
-                {query ? (
-                  <button
-                    type="button"
-                    onClick={() => setQuery("")}
-                    style={{
-                      alignSelf: "flex-start",
-                      background: "transparent",
-                      border: "none",
-                      color: t.accent,
-                      cursor: "pointer",
-                      fontFamily: t.sans,
-                      fontSize: 13,
-                      fontWeight: 650,
-                      minHeight: TOUCH_TARGET_MIN,
-                      padding: "0 4px",
-                    }}
-                  >
-                    Clear search
-                  </button>
-                ) : null}
-                {phone ? (
-                  <Link
-                    href="/account/integrations/hubspot"
-                    style={{
-                      color: t.muted,
-                      fontFamily: t.sans,
-                      fontSize: 13,
-                      fontWeight: 550,
-                      minHeight: TOUCH_TARGET_MIN,
-                      padding: "8px 2px",
-                      textDecoration: "none",
-                    }}
-                  >
-                    Manage pipelines →
-                  </Link>
-                ) : null}
+                <FilterGroup t={t} title="Search">
+                  <FilterSearch
+                    t={t}
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search deals…"
+                    aria-label="Search deals"
+                    style={{ opacity: searching ? 0.7 : 1 }}
+                  />
+                </FilterGroup>
               </FilterMenu>
             }
           />
@@ -634,26 +542,16 @@ function StageColumn({
 
   return (
     <div
-      className={phone ? "fuel-pipeline-stage-panel" : "fuel-kanban__col"}
-      style={{
-        background: t.panel,
-        border: `1px solid ${t.rule}`,
-        borderRadius: 12,
-        boxSizing: "border-box",
+      className={phone ? "fuel-pipeline-stage-panel fuel-group" : "fuel-kanban__col fuel-group"}
+      style={groupCardStyle(t, {
         display: "flex",
         flexDirection: "column",
         minHeight: phone ? undefined : 380,
-        width: phone ? "100%" : undefined,
         padding: phone ? 14 : 10,
-      }}
+        width: phone ? "100%" : undefined,
+      })}
     >
-      <div
-        style={{
-          paddingBottom: 10,
-          marginBottom: 10,
-          borderBottom: `1px solid ${t.rule}`,
-        }}
-      >
+      <div className="fuel-group__head" style={{ marginBottom: 10 }}>
         <div
           style={{
             display: "flex",
@@ -754,6 +652,7 @@ function StageColumn({
         </div>
       ) : (
         <div
+          className="fuel-group__body"
           style={{
             display: "flex",
             flexDirection: "column",
@@ -828,13 +727,11 @@ function DealCard({
   hubspotPortalId: string | null;
   phone?: boolean;
 }) {
-  const isEd = t.mode === "editorial";
   return (
     <DealCardInner
       t={t}
       c={c}
       hubspotPortalId={hubspotPortalId}
-      isEd={isEd}
       phone={phone}
     />
   );
@@ -866,13 +763,11 @@ function DealCardInner({
   t,
   c,
   hubspotPortalId,
-  isEd,
   phone = false,
 }: {
   t: Theme;
   c: SyncedPipeline["companies"][number];
   hubspotPortalId: string | null;
-  isEd: boolean;
   phone?: boolean;
 }) {
   const title = c.companyName || c.dealName || "Untitled deal";
@@ -883,9 +778,9 @@ function DealCardInner({
 
   const card = (
     <div
+      className="fuel-group__item"
       style={{
-        ...framedPanelPadStyle(t, { padding: phone ? "14px 14px" : "10px 12px" }),
-        background: isEd ? t.panel : t.panelAlt,
+        ...groupItemStyle(t, { padding: phone ? "14px 14px" : "10px 12px" }),
         cursor: isMatched ? "pointer" : "default",
         transition: "border-color 120ms ease",
       }}
@@ -1046,17 +941,22 @@ function DealCardInner({
             <button
               type="submit"
               disabled={adding}
+              className={adding ? undefined : "fuel-cta-ai"}
               style={{
+                ...(adding
+                  ? {
+                      background: t.panelAlt,
+                      border: `1px solid ${t.rule}`,
+                      color: t.muted,
+                    }
+                  : ctaAiStyle(t)),
                 padding: phone ? "10px 14px" : "2px 8px",
                 minHeight: phone ? TOUCH_TARGET_MIN : undefined,
                 borderRadius: 6,
-                border: "none",
                 fontFamily: t.sans,
                 fontSize: phone ? 13 : 10,
                 fontWeight: 600,
-                color: onAccentText(t),
                 cursor: adding ? "default" : "pointer",
-                background: adding ? t.panelAlt : accentGradient(t),
                 opacity: adding ? 0.5 : 1,
               }}
             >

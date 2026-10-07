@@ -3,21 +3,22 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { Theme } from "@/lib/theme";
-import { framedPanelPadStyle } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, framedPanelPadStyle } from "@/lib/theme";
 import type { AdvisorWithLinkedCount } from "@/lib/advisors";
 import { Chip, SectionHead } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import { CreateIconButton, PageToolbar } from "../ToolbarActions";
+import { AddScreenShell } from "@/components/drawer/AddScreenShell";
+import { addScreenPrimaryBtnStyle } from "@/components/drawer/styles";
+import { BREAKPOINTS, useNarrow } from "@/lib/responsive";
 import { createAdvisorAction } from "@/app/(app)/advisors/actions";
 
 function button(t: Theme, variant: "primary" | "ghost" = "ghost"): React.CSSProperties {
   return {
+    ...(variant === "primary" ? ctaPrimaryStyle(t) : ctaTertiaryStyle(t)),
     alignItems: "center",
-    background: variant === "primary" ? t.ink : "transparent",
-    border: `1px solid ${variant === "primary" ? t.ink : t.rule}`,
     borderRadius: 8,
     boxSizing: "border-box",
-    color: variant === "primary" ? t.bg : t.inkSoft,
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -302,6 +303,41 @@ function AdvisorCard({ t, advisor }: { t: Theme; advisor: AdvisorWithLinkedCount
 
 function AddAdvisorModal({ t, onClose }: { t: Theme; onClose: () => void }) {
   const [isPending, startTransition] = useTransition();
+  const phone = useNarrow(BREAKPOINTS.md);
+  const form = (
+    <AdvisorForm
+      t={t}
+      formId="add-advisor-form"
+      hideSubmit={phone}
+      isPending={isPending}
+      onSubmit={(fd) => startTransition(() => createAdvisorAction(fd))}
+    />
+  );
+
+  if (phone) {
+    return (
+      <AddScreenShell
+        t={t}
+        title="Add advisor"
+        onClose={onClose}
+        footer={
+          <button
+            type="submit"
+            form="add-advisor-form"
+            disabled={isPending}
+            style={addScreenPrimaryBtnStyle(t, {
+              cursor: isPending ? "wait" : "pointer",
+              opacity: isPending ? 0.7 : 1,
+            })}
+          >
+            {isPending ? "Saving…" : "Save advisor"}
+          </button>
+        }
+      >
+        {form}
+      </AddScreenShell>
+    );
+  }
 
   return (
     <div
@@ -330,7 +366,7 @@ function AddAdvisorModal({ t, onClose }: { t: Theme; onClose: () => void }) {
             marginBottom: 16,
           }}
         >
-          <div style={{ fontFamily: t.sans, fontSize: 17, fontWeight: 700, color: t.ink, letterSpacing: "-0.02em" }}>
+          <div style={{ fontFamily: t.sans, fontSize: 17, fontWeight: 700, color: t.ink, letterSpacing: "-0.02em", flex: 1 }}>
             Add advisor
           </div>
           <button type="button" onClick={onClose} style={button(t, "ghost")}>
@@ -338,11 +374,7 @@ function AddAdvisorModal({ t, onClose }: { t: Theme; onClose: () => void }) {
           </button>
         </div>
 
-        <AdvisorForm
-          t={t}
-          isPending={isPending}
-          onSubmit={(fd) => startTransition(() => createAdvisorAction(fd))}
-        />
+        {form}
       </div>
     </div>
   );
@@ -352,13 +384,21 @@ function AdvisorForm({
   t,
   isPending,
   onSubmit,
+  formId,
+  hideSubmit = false,
 }: {
   t: Theme;
   isPending: boolean;
   onSubmit: (fd: FormData) => void;
+  formId?: string;
+  hideSubmit?: boolean;
 }) {
   return (
-    <form action={onSubmit} style={{ marginTop: 14, display: "grid", gap: 10 }}>
+    <form
+      id={formId}
+      action={onSubmit}
+      style={{ marginTop: hideSubmit ? 0 : 14, display: "grid", gap: 10 }}
+    >
       <Row t={t} label="Name *">
         <input name="name" required style={input(t)} />
       </Row>
@@ -388,11 +428,13 @@ function AdvisorForm({
           <input type="checkbox" name="publicCard" /> Allow anonymous viewers at /advisor/&lt;id&gt;/card
         </label>
       </Row>
-      <div style={{ marginTop: 8 }}>
-        <button type="submit" disabled={isPending} style={button(t, "primary")}>
-          {isPending ? "Saving…" : "Save advisor"}
-        </button>
-      </div>
+      {hideSubmit ? null : (
+        <div style={{ marginTop: 8 }}>
+          <button type="submit" disabled={isPending} style={button(t, "primary")}>
+            {isPending ? "Saving…" : "Save advisor"}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

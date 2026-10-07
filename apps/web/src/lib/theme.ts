@@ -117,14 +117,61 @@ export function onAccentText(t: Theme = SIGNAL): string {
   return t.mode === "editorial" ? "#FFFFFF" : t.bg;
 }
 
-/** York navy fill for create / brand icon CTAs — light ink, dark brand navy. */
-export function brandNavyFill(t: Theme): string {
-  return t.mode === "editorial" ? t.ink : THEMES.editorial.ink;
+/** York navy fill for primary / create CTAs — never Overview charcoal `ink`. */
+export function brandNavyFill(_t: Theme): string {
+  return THEMES.editorial.ink;
 }
 
 /** Foreground on {@link brandNavyFill}. */
 export function onBrandNavyText(_t: Theme): string {
   return "#FFFFFF";
+}
+
+/** Teal → gold fill used only for Ask Fuel / AI controls. */
+export function aiCtaGradient(): string {
+  return `linear-gradient(135deg, ${THEMES.editorial.accent} 0%, ${THEMES.signal.warn} 100%)`;
+}
+
+/** Navy ink on the AI gradient (same as the header Ask Fuel control). */
+export function onAiCtaText(): string {
+  return THEMES.editorial.ink;
+}
+
+/** Filled primary action — York navy, white label. */
+export function ctaPrimaryStyle(
+  t: Theme,
+  extra?: CSSProperties,
+): CSSProperties {
+  const bg = brandNavyFill(t);
+  return {
+    background: bg,
+    border: `1px solid ${bg}`,
+    color: onBrandNavyText(t),
+    ...extra,
+  };
+}
+
+/** Ask Fuel / AI action — teal → gold brand gradient. */
+export function ctaAiStyle(_t: Theme, extra?: CSSProperties): CSSProperties {
+  return {
+    background: aiCtaGradient(),
+    border: "none",
+    color: onAiCtaText(),
+    ...extra,
+  };
+}
+
+/** Ghost / tertiary action — transparent with a hairline. */
+export function ctaTertiaryStyle(
+  t: Theme,
+  extra?: CSSProperties,
+): CSSProperties {
+  return {
+    background: "transparent",
+    border: `1px solid ${t.rule}`,
+    color: t.ink,
+    ...extra,
+  };
 }
 
 /** Accent pill foreground — mint on dark panels, brand green on light. */
@@ -174,6 +221,40 @@ export function framedPanelPadStyle(
   return framedPanelStyle(t, { padding: 16, ...extra });
 }
 
+/** Pipeline-style group: one BG card, heading inside, items sit on the fill. */
+export function groupCardStyle(t: Theme, extra?: CSSProperties): CSSProperties {
+  return framedPanelStyle(t, {
+    overflow: "visible",
+    padding: 14,
+    ...extra,
+  });
+}
+
+export function groupCardHeadStyle(t: Theme, extra?: CSSProperties): CSSProperties {
+  return {
+    alignItems: "center",
+    borderBottom: `1px solid ${t.rule}`,
+    display: "flex",
+    gap: 8,
+    justifyContent: "space-between",
+    marginBottom: 10,
+    minWidth: 0,
+    paddingBottom: 10,
+    ...extra,
+  };
+}
+
+/** Inner tile on a group surface — panel fill + hairline only (not a gray well). */
+export function groupItemStyle(t: Theme, extra?: CSSProperties): CSSProperties {
+  return {
+    background: t.panel,
+    border: `1px solid ${t.rule}`,
+    borderRadius: 10,
+    boxSizing: "border-box",
+    ...extra,
+  };
+}
+
 /** CSS custom properties for `.fuel-card` / stacked mobile lists. */
 export function themeSurfaceCssVars(t: Theme): CSSProperties {
   return {
@@ -185,6 +266,14 @@ export function themeSurfaceCssVars(t: Theme): CSSProperties {
     ["--fuel-card-radius" as string]: `${FRAMED_PANEL_RADIUS}px`,
     ["--fuel-card-gap" as string]: "10px",
     ["--fuel-card-pad" as string]: "16px",
+    ["--fuel-section-gap" as string]: "20px",
+    ["--fuel-section-head-gap" as string]: "12px",
+    ["--fuel-cta-primary-bg" as string]: brandNavyFill(t),
+    ["--fuel-cta-primary-fg" as string]: onBrandNavyText(t),
+    ["--fuel-cta-ai-bg" as string]: aiCtaGradient(),
+    ["--fuel-cta-ai-fg" as string]: onAiCtaText(),
+    ["--fuel-cta-tertiary-fg" as string]: t.ink,
+    ["--fuel-cta-tertiary-bd" as string]: t.rule,
   };
 }
 

@@ -94,15 +94,6 @@ export function CategoryGlanceRow({
               : undefined
           }
         >
-          <GlanceScoreRing
-            category={category}
-            score={category.score}
-            isOpen={popoverOpen}
-            onToggle={() => setPopoverOpen((v) => !v)}
-            companyUuid={companyUuid}
-            updatedAt={updatedAt}
-            className="sc-glance-ring-wrap--ref"
-          />
           <div className="sc-glance-track-lead-copy">
             <div className="sc-glance-track-lead-head">
               <div className="sc-glance-track-lead-text">
@@ -133,11 +124,9 @@ export function CategoryGlanceRow({
                     </>
                   )}
                 </h3>
-                {accordion && !showDetails ? (
-                  <p className="sc-glance-track-status-inline" style={{ color: statusColor }}>
-                    {category.statusLabel}
-                  </p>
-                ) : null}
+                <p className="sc-glance-track-status-inline" style={{ color: statusColor }}>
+                  {category.statusLabel}
+                </p>
               </div>
               {accordion ? (
                 <button
@@ -161,13 +150,15 @@ export function CategoryGlanceRow({
                 </button>
               ) : null}
             </div>
-            {accordion && !showDetails ? (
-              <p className="sc-glance-track-collapsed-hint">
-                {category.focusNarrative?.trim()
-                  ? category.focusNarrative.trim()
-                  : "Tap to see strengths, gaps, and what to do next"}
-              </p>
-            ) : null}
+            <GlanceScoreRing
+              category={category}
+              score={category.score}
+              isOpen={popoverOpen}
+              onToggle={() => setPopoverOpen((v) => !v)}
+              companyUuid={companyUuid}
+              updatedAt={updatedAt}
+              variant="bar"
+            />
             {showDetails && category.focusNarrative ? (
               <GlanceFocusText text={category.focusNarrative} />
             ) : null}

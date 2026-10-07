@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { TOUCH_TARGET_MIN } from "@/lib/responsive";
-import type { Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, type Theme } from "@/lib/theme";
 
 export { drawerCloseBtnStyle } from "@/components/drawer/styles";
 
@@ -33,12 +33,10 @@ export function initiativesHeadActionsStyle(): CSSProperties {
 /** Design `.initiatives-primary-btn` */
 export function primaryBtnStyle(t: Theme): CSSProperties {
   return {
+    ...ctaPrimaryStyle(t),
     alignItems: "center",
-    background: t.ink,
-    border: `1px solid ${t.ink}`,
     borderRadius: 10,
     boxSizing: "border-box",
-    color: t.mode === "editorial" ? t.panel : t.bg,
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -53,9 +51,8 @@ export function primaryBtnStyle(t: Theme): CSSProperties {
 /** Design `.initiatives-secondary-btn` */
 export function secondaryBtnStyle(t: Theme): CSSProperties {
   return {
+    ...ctaTertiaryStyle(t),
     alignItems: "center",
-    background: t.panel,
-    border: `1px solid ${t.rule}`,
     borderRadius: 10,
     boxSizing: "border-box",
     color: t.inkSoft,
@@ -67,37 +64,6 @@ export function secondaryBtnStyle(t: Theme): CSSProperties {
     justifyContent: "center",
     minHeight: 40,
     padding: "0 14px",
-  };
-}
-
-/** Design `.initiatives-status-toggle` */
-export function statusToggleStyle(t: Theme): CSSProperties {
-  return {
-    background: t.panelAlt,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 10,
-    display: "inline-flex",
-    gap: 4,
-    padding: 4,
-    width: "fit-content",
-  };
-}
-
-/** Design `.initiatives-status-toggle-btn` / `.is-active` */
-export function statusToggleBtnStyle(t: Theme, active: boolean): CSSProperties {
-  return {
-    alignItems: "center",
-    background: active ? `${t.accent}24` : "transparent",
-    border: 0,
-    borderRadius: 8,
-    color: active ? t.ink : t.muted,
-    cursor: "pointer",
-    display: "inline-flex",
-    fontFamily: t.sans,
-    fontSize: 12.5,
-    fontWeight: 500,
-    gap: 8,
-    padding: "8px 12px",
   };
 }
 

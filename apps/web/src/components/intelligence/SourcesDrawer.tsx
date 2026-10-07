@@ -17,7 +17,8 @@ import {
   ListPagination,
   type ListPageSize,
 } from "@/components/ui/ListPagination";
-import { drawerCloseBtnStyle } from "@/components/drawer/styles";
+import { BackNav } from "@/components/atoms";
+import { drawerCloseBtnStyle, mobileAddScreenStyle } from "@/components/drawer/styles";
 import { ghostButtonStyle } from "./styles";
 
 export type IntelligenceSourceListItem = {
@@ -221,74 +222,51 @@ export function SourcesDrawer({
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Close sources"
-        onClick={onClose}
-        style={{
-          background: t.overlay,
-          border: "none",
-          bottom: 0,
-          cursor: "pointer",
-          left: 0,
-          position: "fixed",
-          right: 0,
-          top: 0,
-          zIndex: 70,
-          ...drawerScrimMotionStyle(visible, durationMs),
-        }}
-      />
+      {sheet ? null : (
+        <button
+          type="button"
+          aria-label="Close sources"
+          onClick={onClose}
+          style={{
+            background: t.overlay,
+            border: "none",
+            bottom: 0,
+            cursor: "pointer",
+            left: 0,
+            position: "fixed",
+            right: 0,
+            top: 0,
+            zIndex: 70,
+            ...drawerScrimMotionStyle(visible, durationMs),
+          }}
+        />
+      )}
       <aside
         role="dialog"
         aria-modal="true"
         aria-label="Sources"
+        className={sheet ? "fuel-add-screen" : undefined}
         style={{
           background: t.panel,
           ...(sheet
-            ? {
-                borderRadius: "16px 16px 0 0",
-                borderTop: `1px solid ${t.rule}`,
-                bottom: 0,
-                boxShadow: `0 -16px 48px ${t.overlay}`,
-                left: 0,
-                maxHeight: "min(88vh, 720px)",
-                right: 0,
-                top: "auto",
-                width: "100%",
-              }
+            ? mobileAddScreenStyle(t, { zIndex: 90 })
             : {
                 borderLeft: `1px solid ${t.rule}`,
                 bottom: 0,
                 boxShadow: `-24px 0 60px ${t.overlay}`,
                 maxWidth: 420,
+                position: "fixed",
                 right: 0,
                 top: 0,
                 width: "min(100vw, 420px)",
+                zIndex: 71,
               }),
           display: "flex",
           flexDirection: "column",
-          position: "fixed",
-          zIndex: 71,
-          ...drawerPanelMotionStyle(visible, durationMs, {
-            from: sheet ? "bottom" : "right",
-          }),
+          ...(!sheet ? { position: "fixed", zIndex: 71 } : null),
+          ...drawerPanelMotionStyle(visible, durationMs, { from: "right" }),
         }}
       >
-        {sheet ? (
-          <div
-            aria-hidden
-            style={{
-              alignSelf: "center",
-              background: t.rule,
-              borderRadius: 999,
-              flexShrink: 0,
-              height: 4,
-              marginTop: 8,
-              width: 36,
-            }}
-          />
-        ) : null}
-
         <header
           style={{
             alignItems: "flex-start",
@@ -297,10 +275,11 @@ export function SourcesDrawer({
             display: "flex",
             gap: 12,
             justifyContent: "space-between",
-            padding: sheet ? "10px 16px 12px" : "14px 16px",
+            padding: sheet ? "8px 12px 12px" : "14px 16px",
           }}
         >
-          <div style={{ minWidth: 0 }}>
+          {sheet ? <BackNav t={t} label="Back" iconOnly onClick={onClose} /> : null}
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ alignItems: "baseline", display: "flex", flexWrap: "wrap", gap: "4px 10px" }}>
               <h2
                 style={{
@@ -338,15 +317,17 @@ export function SourcesDrawer({
               Notes stay as reference · docs can extract signals
             </p>
           </div>
-          <button
-            type="button"
-            className="fuel-drawer-close"
-            aria-label="Close"
-            onClick={onClose}
-            style={drawerCloseBtnStyle(t)}
-          >
-            <CloseIcon />
-          </button>
+          {sheet ? null : (
+            <button
+              type="button"
+              className="fuel-drawer-close"
+              aria-label="Close"
+              onClick={onClose}
+              style={drawerCloseBtnStyle(t)}
+            >
+              <CloseIcon />
+            </button>
+          )}
         </header>
 
         <div

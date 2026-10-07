@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import type { Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, type Theme } from "@/lib/theme";
 import type { InvestorProfile } from "@/lib/fuel-data";
-import { Chip, Label, SectionHead } from "../atoms";
+import { BackNav, Chip, Label, SectionHead } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import {
   bookmarkInvestorAction,
@@ -13,12 +13,10 @@ import {
 
 function button(t: Theme, variant: "primary" | "ghost" = "ghost"): React.CSSProperties {
   return {
+    ...(variant === "primary" ? ctaPrimaryStyle(t) : ctaTertiaryStyle(t)),
     alignItems: "center",
-    background: variant === "primary" ? t.ink : "transparent",
-    border: `1px solid ${variant === "primary" ? t.ink : t.rule}`,
     borderRadius: 8,
     boxSizing: "border-box",
-    color: variant === "primary" ? t.bg : t.inkSoft,
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -51,22 +49,7 @@ export function InvestorProfileView({
 
   return (
     <div className="fuel-page">
-      <div>
-        <Link
-          href="/investors"
-          style={{
-            alignItems: "center",
-            color: t.muted,
-            display: "inline-flex",
-            fontFamily: t.sans,
-            fontSize: 13,
-            minHeight: 44,
-            textDecoration: "none",
-          }}
-        >
-          ← All investors
-        </Link>
-      </div>
+      <BackNav t={t} href="/investors" label="All investors" />
 
       <div
         className="fuel-network-hero"

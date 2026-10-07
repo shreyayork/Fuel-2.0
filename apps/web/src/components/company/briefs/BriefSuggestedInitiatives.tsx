@@ -76,6 +76,7 @@ function SuggestionRow({
   return (
     <div
       data-suggestion-key={suggestionKey}
+      className="fuel-accent-rail-card"
       style={{
         background: t.panelAlt,
         border: `1px solid ${t.rule}`,

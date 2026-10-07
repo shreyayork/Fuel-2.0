@@ -11,7 +11,7 @@ import {
   type TourPopoverPlacement,
 } from "@/lib/workspace-tour/popover-position";
 import { useTheme } from "../ThemeContext";
-import { accentGradient, onAccentText, type Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, type Theme } from "@/lib/theme";
 
 const POPOVER_WIDTH = 306;
 const PAGE_MARGIN = TOUR_POPOVER_PAGE_MARGIN;
@@ -464,10 +464,8 @@ export function GuidedTourOverlay({
               type="button"
               onClick={onNext}
               style={{
-                background: accentGradient(t),
-                border: "none",
+                ...ctaPrimaryStyle(t),
                 borderRadius: 8,
-                color: onAccentText(t),
                 cursor: "pointer",
                 fontFamily: t.sans,
                 fontSize: 11,
@@ -488,10 +486,8 @@ export function GuidedTourOverlay({
 
 function secondaryBtn(t: Theme) {
   return {
-    background: "transparent",
-    border: `1px solid ${t.rule}`,
+    ...ctaTertiaryStyle(t),
     borderRadius: 8,
-    color: t.inkSoft,
     cursor: "pointer",
     fontFamily: t.sans,
     fontSize: 11,

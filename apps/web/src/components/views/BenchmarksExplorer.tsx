@@ -1,11 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
-import { TOUCH_TARGET_MIN } from "@/lib/responsive";
-import { Chip, SectionHead } from "../atoms";
-import { FilterMenu, PageToolbar } from "../ToolbarActions";
+import { useMemo, useState } from "react";
+import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
+import { applyClientSearchPatch, useClientSearchQuery } from "@/lib/use-url-synced-tab";
+import { usePathname } from "next/navigation";
+import { SectionHead } from "../atoms";
+import { FilterGroup, FilterMenu, PageToolbar } from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
+import { groupCardHeadStyle, groupCardStyle, groupItemStyle } from "@/lib/theme";
 
 export interface CohortSummary {
   cohortKey: string;
@@ -89,7 +91,7 @@ function prettify(s: string): string {
 
 export function BenchmarksExplorer({
   cohorts,
-  activeCohortKey,
+  activeCohortKey: initialCohortKey,
   allRows,
   metricDefs,
 }: {
@@ -99,14 +101,22 @@ export function BenchmarksExplorer({
   metricDefs: MetricDef[];
 }) {
   const t = useTheme();
-  const router = useRouter();
-  const [, startTransition] = useTransition();
+  const pathname = usePathname();
+  const search = useClientSearchQuery();
+  const phone = useNarrow(BREAKPOINTS.md);
 
   // Dimension filters (narrow the cohort sidebar).
   const [businessModel, setBusinessModel] = useState<string | null>(null);
   const [stage, setStage] = useState<string | null>(null);
   const [geo, setGeo] = useState<string | null>(null);
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
+
+  const cohortKeys = useMemo(() => cohorts.map((c) => c.cohortKey), [cohorts]);
+  const activeCohortKey = (() => {
+    const fromUrl = search.get("cohort");
+    if (fromUrl && cohortKeys.includes(fromUrl)) return fromUrl;
+    return initialCohortKey ?? cohortKeys[0] ?? null;
+  })();
 
   const filteredCohorts = useMemo(() => {
     return cohorts.filter((c) => {
@@ -135,9 +145,7 @@ export function BenchmarksExplorer({
   const metricByKey = new Map(activeRows.map((m) => [m.metric, m]));
 
   const pickCohort = (key: string) => {
-    startTransition(() => {
-      router.push(`/benchmarks?cohort=${encodeURIComponent(key)}`);
-    });
+    applyClientSearchPatch(pathname, { cohort: key }, "push");
   };
 
   // Unique filter options from the full cohort list.
@@ -158,73 +166,64 @@ export function BenchmarksExplorer({
           <PageToolbar
             t={t}
             filter={
-              <FilterMenu t={t} activeCount={filterActiveCount}>
-                <div
-                  style={{
-                    alignItems: "center",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 8,
-                  }}
-                >
-                  <span
-                    style={{
-                      color: t.muted,
-                      fontFamily: t.sans,
-                      fontSize: 12,
-                      fontWeight: 650,
-                    }}
-                  >
-                    Dimensions
-                  </span>
-                  {filterActiveCount > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBusinessModel(null);
-                        setStage(null);
-                        setGeo(null);
-                      }}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: t.accent,
-                        cursor: "pointer",
-                        fontFamily: t.sans,
-                        fontSize: 13,
-                        fontWeight: 650,
-                        minHeight: TOUCH_TARGET_MIN,
-                        padding: "0 4px",
-                      }}
-                    >
-                      Clear
-                    </button>
-                  ) : null}
-                </div>
-                <div className="fuel-benchmarks__filters" style={{ padding: 0 }}>
-                  <FilterSelect
-                    t={t}
-                    label="Model"
-                    value={businessModel}
-                    options={models}
-                    onChange={setBusinessModel}
-                  />
-                  <FilterSelect
-                    t={t}
-                    label="Stage"
-                    value={stage}
-                    options={stages}
-                    onChange={setStage}
-                  />
-                  <FilterSelect
-                    t={t}
-                    label="Geo"
-                    value={geo}
-                    options={geos}
-                    onChange={setGeo}
-                  />
-                </div>
-                {filteredCohorts.length === 0 ? (
+              <FilterMenu
+                t={t}
+                activeCount={filterActiveCount}
+                onClear={() => {
+                  setBusinessModel(null);
+                  setStage(null);
+                  setGeo(null);
+                }}
+              >
+                {phone ? (
+                  <FilterGroup t={t} title="Peer group">
+                    {filteredCohorts.length === 0 ? (
+                      <div
+                        style={{
+                          color: t.muted,
+                          fontFamily: t.sans,
+                          fontSize: 14,
+                        }}
+                      >
+                        No peer groups match these filters.
+                      </div>
+                    ) : (
+                      <CohortFilter
+                        t={t}
+                        cohorts={filteredCohorts}
+                        activeCohortKey={activeCohortKey}
+                        onPick={pickCohort}
+                        dense
+                      />
+                    )}
+                  </FilterGroup>
+                ) : null}
+                <FilterGroup t={t} title="Dimensions">
+                  <div className="fuel-benchmarks__filters" style={{ padding: 0 }}>
+                    <FilterSelect
+                      t={t}
+                      label="Model"
+                      value={businessModel}
+                      options={models}
+                      onChange={setBusinessModel}
+                    />
+                    <FilterSelect
+                      t={t}
+                      label="Stage"
+                      value={stage}
+                      options={stages}
+                      onChange={setStage}
+                    />
+                    <FilterSelect
+                      t={t}
+                      label="Geo"
+                      value={geo}
+                      options={geos}
+                      onChange={setGeo}
+                    />
+                  </div>
+                </FilterGroup>
+                {!phone && filteredCohorts.length === 0 ? (
                   <div
                     style={{
                       color: t.muted,
@@ -234,14 +233,7 @@ export function BenchmarksExplorer({
                   >
                     No peer groups match these filters.
                   </div>
-                ) : (
-                  <CohortFilter
-                    t={t}
-                    cohorts={filteredCohorts}
-                    activeCohortKey={activeCohortKey}
-                    onPick={pickCohort}
-                  />
-                )}
+                ) : null}
               </FilterMenu>
             }
           />
@@ -249,46 +241,43 @@ export function BenchmarksExplorer({
       />
 
       <div className="fuel-benchmarks__layout">
-        {/* Metric cards */}
-        <div className="fuel-benchmarks__main" style={{ minWidth: 0 }}>
-          {activeCohort ? (
-            <div
-              className="fuel-benchmarks__active-head"
-              style={{
-                alignItems: "center",
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 8,
-                marginBottom: 14,
-              }}
-            >
-              <span
-                style={{
-                  color: t.ink,
-                  fontFamily: t.sans,
-                  fontSize: 17,
-                  fontWeight: 700,
-                  letterSpacing: "-0.01em",
-                  lineHeight: 1.3,
-                  minWidth: 0,
-                }}
-              >
-                {labelForCohort(activeCohort)}
-              </span>
-              <Chip t={t} tone="ghost">
-                n={activeCohort.sampleSize ?? "?"}
-              </Chip>
-              {activeCohort.dimensions.geo ? (
-                <Chip t={t} tone="ghost">{activeCohort.dimensions.geo.toUpperCase()}</Chip>
-              ) : null}
-            </div>
+        <div
+          className="fuel-benchmarks__main fuel-group"
+          style={groupCardStyle(t, { minWidth: 0 })}
+        >
+          <div className="fuel-group__head" style={groupCardHeadStyle(t)}>
+            <span className="fuel-group__title" style={{ color: t.ink, fontFamily: t.sans, fontSize: 14 }}>
+              {phone && activeCohort
+                ? labelForCohort(activeCohort)
+                : "Peer group"}
+            </span>
+            <span className="fuel-group__meta" style={{ color: t.muted, fontFamily: t.sans, fontSize: 12 }}>
+              {phone && activeCohort?.sampleSize != null
+                ? `n=${activeCohort.sampleSize}`
+                : filteredCohorts.length}
+            </span>
+          </div>
+
+          {phone ? null : filteredCohorts.length === 0 ? (
+            <p style={{ color: t.muted, fontFamily: t.sans, fontSize: 13, margin: "0 0 10px" }}>
+              No peer groups match these filters.
+            </p>
           ) : (
-            <p style={{ color: t.muted, fontFamily: t.sans, fontSize: 13, margin: "0 0 14px" }}>
+            <CohortFilter
+              t={t}
+              cohorts={filteredCohorts}
+              activeCohortKey={activeCohortKey}
+              onPick={pickCohort}
+            />
+          )}
+
+          {activeCohort || phone ? null : (
+            <p style={{ color: t.muted, fontFamily: t.sans, fontSize: 13, margin: "0 0 4px" }}>
               Select a cohort to inspect percentile bands.
             </p>
           )}
 
-          <div className="fuel-benchmarks__metrics">
+          <div className="fuel-benchmarks__metrics fuel-group__body">
             {metricDefs.map((def) => {
               const row = metricByKey.get(def.id) ?? null;
               return (
@@ -323,7 +312,7 @@ export function BenchmarksExplorer({
               fontFamily: t.sans,
               fontSize: 11,
               lineHeight: 1.45,
-              marginTop: 14,
+              marginTop: 12,
             }}
           >
             Synthetic seed data. Real cohort aggregation from our portfolio + Bright Data + paid
@@ -340,131 +329,74 @@ function CohortFilter({
   cohorts,
   activeCohortKey,
   onPick,
+  dense = false,
 }: {
   t: ReturnType<typeof useTheme>;
   cohorts: CohortSummary[];
   activeCohortKey: string | null;
   onPick: (key: string) => void;
+  /** Compact styling for the filter sheet. */
+  dense?: boolean;
 }) {
-  const useSelect = cohorts.length > 8;
   return (
-    <div className="fuel-benchmarks__cohort-filter">
-      <div
-        style={{
-          color: t.muted,
-          fontFamily: t.sans,
-          fontSize: 12,
-          fontWeight: 650,
-          margin: "12px 4px 8px",
-        }}
-      >
-        Peer group
-      </div>
-      {useSelect ? (
-        <label
-          className="fuel-benchmarks__filter-field"
-          style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, padding: "0 4px" }}
-        >
-          <span style={{ display: "block", position: "relative" }}>
-            <select
-              aria-label="Peer group"
-              value={activeCohortKey ?? ""}
-              onChange={(e) => {
-                if (e.target.value) onPick(e.target.value);
-              }}
-              style={{
-                WebkitAppearance: "none",
-                appearance: "none",
-                backgroundColor: t.panelAlt,
-                border: `1px solid ${t.rule}`,
-                borderRadius: 8,
-                color: t.ink,
-                cursor: "pointer",
-                fontFamily: t.sans,
-                fontSize: 14,
-                fontWeight: 650,
-                minHeight: TOUCH_TARGET_MIN,
-                padding: "0 32px 0 12px",
-                width: "100%",
-              }}
-            >
-              {cohorts.map((c) => (
-                <option key={c.cohortKey} value={c.cohortKey}>
-                  {labelForCohort(c)}
-                  {c.sampleSize != null ? ` · n=${c.sampleSize}` : ""}
-                </option>
-              ))}
-            </select>
-            <span
-              aria-hidden
-              style={{
-                borderBottom: `1.5px solid ${t.muted}`,
-                borderRight: `1.5px solid ${t.muted}`,
-                height: 7,
-                pointerEvents: "none",
-                position: "absolute",
-                right: 14,
-                top: "50%",
-                transform: "translateY(-65%) rotate(45deg)",
-                width: 7,
-              }}
-            />
-          </span>
-        </label>
-      ) : (
-        <div
-          className="fuel-benchmarks__cohorts"
-          role="radiogroup"
+    <label
+      className="fuel-benchmarks__cohort-filter"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        marginBottom: dense ? 0 : 10,
+        minWidth: 0,
+        width: "100%",
+      }}
+    >
+      <span style={{ display: "block", position: "relative" }}>
+        <select
           aria-label="Peer group"
+          value={activeCohortKey ?? ""}
+          onChange={(e) => {
+            if (e.target.value) onPick(e.target.value);
+          }}
+          style={{
+            WebkitAppearance: "none",
+            appearance: "none",
+            backgroundColor: dense ? t.panelAlt : t.panel,
+            border: `1px solid ${t.rule}`,
+            borderRadius: dense ? 8 : 10,
+            color: t.ink,
+            cursor: "pointer",
+            fontFamily: t.sans,
+            fontSize: 14,
+            fontWeight: 650,
+            minHeight: TOUCH_TARGET_MIN,
+            padding: "0 32px 0 12px",
+            width: "100%",
+          }}
         >
-          {cohorts.map((c) => {
-            const active = c.cohortKey === activeCohortKey;
-            const sample = c.sampleSize != null ? `n=${c.sampleSize}` : null;
-            return (
-              <button
-                key={c.cohortKey}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => onPick(c.cohortKey)}
-                style={{
-                  alignItems: "center",
-                  background: active ? t.accentSoft : t.panelAlt,
-                  border: `1px solid ${active ? t.accent : t.rule}`,
-                  borderRadius: 999,
-                  color: t.ink,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  flexWrap: "wrap",
-                  fontFamily: t.sans,
-                  fontSize: 13,
-                  fontWeight: active ? 700 : 550,
-                  gap: 6,
-                  justifyContent: "flex-start",
-                  minHeight: TOUCH_TARGET_MIN,
-                  padding: "8px 12px",
-                  textAlign: "left",
-                }}
-              >
-                <span>{labelForCohort(c)}</span>
-                {sample ? (
-                  <span
-                    style={{
-                      color: t.muted,
-                      fontFamily: t.mono,
-                      fontSize: 12,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {sample}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+          {activeCohortKey ? null : <option value="">Select a peer group</option>}
+          {cohorts.map((c) => (
+            <option key={c.cohortKey} value={c.cohortKey}>
+              {labelForCohort(c)}
+              {c.sampleSize != null ? ` · n=${c.sampleSize}` : ""}
+            </option>
+          ))}
+        </select>
+        <span
+          aria-hidden
+          style={{
+            borderBottom: `1.5px solid ${t.muted}`,
+            borderRight: `1.5px solid ${t.muted}`,
+            height: 7,
+            pointerEvents: "none",
+            position: "absolute",
+            right: 14,
+            top: "50%",
+            transform: "translateY(-65%) rotate(45deg)",
+            width: 7,
+          }}
+        />
+      </span>
+    </label>
   );
 }
 
@@ -597,15 +529,11 @@ function MetricAcrossCohortsPanel({
 
   return (
     <div
-      className="fuel-benchmarks__drill"
-      style={{
-        background: t.panel,
-        border: `1px solid ${t.accent}55`,
-        borderRadius: 12,
-        boxShadow: `0 8px 24px ${t.borderFaint}`,
-        marginTop: 18,
+      className="fuel-benchmarks__drill fuel-group__item"
+      style={groupItemStyle(t, {
+        marginTop: 12,
         padding: 16,
-      }}
+      })}
     >
       <div className="fuel-benchmarks__drill-head">
         <div style={{ minWidth: 0 }}>
@@ -760,15 +688,11 @@ function MetricCard({
   return (
     <button
       type="button"
-      className={`fuel-benchmarks__metric${expanded ? " is-expanded" : ""}`}
+      className={`fuel-benchmarks__metric fuel-group__item${expanded ? " is-expanded" : ""}`}
       onClick={onToggle}
       aria-expanded={expanded}
       disabled={!onToggle}
-      style={{
-        background: t.panel,
-        border: `1px solid ${expanded ? `${t.accent}66` : t.rule}`,
-        borderRadius: 12,
-        boxShadow: expanded ? `0 8px 24px ${t.borderFaint}` : "none",
+      style={groupItemStyle(t, {
         cursor: onToggle ? "pointer" : "default",
         display: "block",
         fontFamily: t.sans,
@@ -776,7 +700,8 @@ function MetricCard({
         textAlign: "left",
         transition: "border-color 120ms ease",
         width: "100%",
-      }}
+        ...(expanded ? { borderColor: `${t.accent}66` } : {}),
+      })}
     >
       <div
         style={{

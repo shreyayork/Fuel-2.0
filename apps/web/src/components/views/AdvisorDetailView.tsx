@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import type { Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, type Theme } from "@/lib/theme";
 import type { Advisor } from "@/db/schema";
-import { Chip, Label, SectionHead } from "../atoms";
+import { BackNav, Chip, Label, SectionHead } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import {
   deleteAdvisorAction,
@@ -20,19 +20,21 @@ export type AdvisorLinkedCompany = {
 };
 
 function button(t: Theme, variant: "primary" | "ghost" | "danger" = "ghost"): React.CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-    danger: { bg: "transparent", color: t.warn, border: t.warn },
-  } as const;
-  const v = map[variant];
+  const chrome =
+    variant === "primary"
+      ? ctaPrimaryStyle(t)
+      : variant === "ghost"
+        ? ctaTertiaryStyle(t)
+        : {
+            background: "transparent",
+            border: `1px solid ${t.warn}`,
+            color: t.warn,
+          };
   return {
+    ...chrome,
     alignItems: "center",
-    background: v.bg,
-    border: `1px solid ${v.border}`,
     borderRadius: 8,
     boxSizing: "border-box",
-    color: v.color,
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -77,23 +79,8 @@ export function AdvisorDetailView({
     typeof window !== "undefined" ? `${window.location.origin}/advisor/${advisor.id}/card` : "";
 
   return (
-    <div className="fuel-page">
-      <div>
-        <Link
-          href="/advisors"
-          style={{
-            alignItems: "center",
-            color: t.muted,
-            display: "inline-flex",
-            fontFamily: t.sans,
-            fontSize: 13,
-            minHeight: 44,
-            textDecoration: "none",
-          }}
-        >
-          ← All advisors
-        </Link>
-      </div>
+    <div className="fuel-page fuel-advisor-detail">
+      <BackNav t={t} href="/advisors" label="All advisors" />
 
       <SectionHead
         t={t}

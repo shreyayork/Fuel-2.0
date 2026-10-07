@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useRef, useState } from "react";
 import { useAgentDrawer } from "../AgentDrawer";
-import { Chip, SectionHead } from "../atoms";
+import { BackNav, Chip, SectionHead } from "../atoms";
 import { FuelMark } from "../FuelMark";
 import { useTheme } from "../ThemeContext";
 import { THEMES } from "@/lib/theme";
@@ -171,18 +170,21 @@ ${subjectHint}`);
           }}
         />
       ) : null}
-      <div style={{ marginBottom: 14, fontFamily: t.sans, fontSize: 12.5 }}>
-        <Link href="/playbooks" style={{ color: t.muted, textDecoration: "none" }}>
-          ← Playbooks
-        </Link>
-        <span style={{ color: t.mutedSoft, margin: "0 6px" }}>/</span>
-        <span style={{ color: t.muted }}>{playbook.category}</span>
-        {playbook.subcategory ? (
-          <>
-            <span style={{ color: t.mutedSoft, margin: "0 6px" }}>/</span>
-            <span style={{ color: t.muted }}>{playbook.subcategory}</span>
-          </>
-        ) : null}
+      <div
+        style={{
+          alignItems: "center",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "6px 10px",
+          marginBottom: 14,
+        }}
+      >
+        <BackNav t={t} href="/playbooks" label="Playbooks" />
+        <span style={{ color: t.mutedSoft, fontFamily: t.sans, fontSize: 13 }}>·</span>
+        <span style={{ color: t.muted, fontFamily: t.sans, fontSize: 13 }}>
+          {playbook.category}
+          {playbook.subcategory ? ` · ${playbook.subcategory}` : ""}
+        </span>
       </div>
 
       <SectionHead
@@ -357,7 +359,7 @@ function MarkdownBody({ content, t }: { content: string; t: ReturnType<typeof us
         .pb-md :global(strong) { font-weight: 600; }
         .pb-md :global(code) { font-family: ${t.mono}; font-size: 12.5px; background: ${t.panelAlt}; padding: 1px 5px; border-radius: 3px; }
         .pb-md :global(pre) { background: ${t.panelAlt}; border: 1px solid ${t.rule}; border-radius: 6px; padding: 12px 14px; overflow-x: auto; font-family: ${t.mono}; font-size: 12.5px; }
-        .pb-md :global(blockquote) { margin: 12px 0; padding: 4px 14px; border-left: 3px solid ${t.accent}; color: ${t.inkSoft}; font-style: italic; }
+        .pb-md :global(blockquote) { margin: 12px 0; padding: 10px 14px; background: ${t.panelAlt}; border-radius: 8px; color: ${t.inkSoft}; font-style: italic; }
         .pb-md :global(hr) { border: none; border-top: 1px solid ${t.ruleSoft}; margin: 18px 0; }
       `}</style>
       <div className="pb-md">

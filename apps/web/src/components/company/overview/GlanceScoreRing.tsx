@@ -225,6 +225,7 @@ export function GlanceScoreRing({
   companyUuid,
   updatedAt,
   className,
+  variant = "ring",
 }: {
   category: OverviewApiResponse["categories"][0];
   score: number;
@@ -233,6 +234,7 @@ export function GlanceScoreRing({
   companyUuid: string;
   updatedAt?: string | null;
   className?: string;
+  variant?: "ring" | "bar";
 }) {
   const ringColor = overviewScoreTierColor(score);
   const size = 88;
@@ -364,22 +366,56 @@ export function GlanceScoreRing({
     />
   ) : null;
 
+  const triggerProps = {
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-expanded": isOpen,
+    "aria-label": `Track health ${score}, ${category.statusLabel}. Click to ${
+      isOpen ? "hide" : "show"
+    } score breakdown.`,
+    title: "Click for score breakdown",
+    onClick: togglePopover,
+    onKeyDown: (e: ReactKeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") togglePopover(e);
+    },
+  };
+
+  if (variant === "bar") {
+    const clamped = Math.min(100, Math.max(0, Math.round(score)));
+    return (
+      <div className={`sc-glance-score-bar-wrap ${className ?? ""}`}>
+        <div
+          ref={triggerRef}
+          className={`sc-glance-score-bar-trigger${isOpen ? " is-open" : ""}`}
+          {...triggerProps}
+        >
+          <span
+            className="sc-glance-score-bar-track"
+            role="meter"
+            aria-valuenow={clamped}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <span
+              className="sc-glance-score-bar-fill"
+              style={{ width: `${clamped}%`, background: ringColor }}
+            />
+          </span>
+          <strong className="sc-glance-score-bar-value" style={{ color: ringColor }}>
+            {clamped}
+          </strong>
+          {popoverNode}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`sc-glance-ring-wrap ${className ?? "sc-glance-ring-wrap--lead"}`}>
       <div
         ref={triggerRef}
         className={`sc-glance-ring-trigger${isOpen ? " is-open" : ""}`}
-        role="button"
-        tabIndex={0}
-        aria-expanded={isOpen}
-        aria-label={`Track health ${score}, ${category.statusLabel}. Click to ${
-          isOpen ? "hide" : "show"
-        } score breakdown.`}
-        title="Click for score breakdown"
-        onClick={togglePopover}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") togglePopover(e);
-        }}
+        {...triggerProps}
       >
         <div
           className="sc-glance-ring-svg-wrap"

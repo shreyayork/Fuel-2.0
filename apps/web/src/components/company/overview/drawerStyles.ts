@@ -3,7 +3,7 @@
  * Design/src/app/PatriotPayJourney.css (detail, benchmark, add-sources drawers).
  */
 import type { CSSProperties } from "react";
-import { accentGradient, type Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, type Theme } from "@/lib/theme";
 import {
   OVERVIEW_STATUS,
   OVERVIEW_THEME,
@@ -607,17 +607,11 @@ export function detailBtnStyle(
     });
   }
   if (variant === "secondary") {
-    return merge(base, {
-      background: opts?.hovered ? t.panelAlt : t.panel,
-      border: `1px solid ${overviewBorderStrong(t)}`,
-      color: t.ink,
+    return merge(base, ctaTertiaryStyle(t), {
+      background: opts?.hovered ? t.panelAlt : "transparent",
     });
   }
-  return merge(base, {
-    background: accentGradient(t),
-    border: "1px solid transparent",
-    color: "#07131c",
-  });
+  return merge(base, ctaPrimaryStyle(t));
 }
 
 /* ─── Benchmark / Add Sources (shared bench chrome) ─── */
@@ -912,9 +906,6 @@ export function benchActionBtnStyle(
       opacity: disabled ? 0.55 : 1,
     };
   }
-  // Design light: primary navy (`t.ink`); dark: mint accent
-  const saveBg = light ? t.ink : t.accent;
-  const saveFg = light ? t.panel : "#042018";
   return {
     fontFamily: t.sans,
     fontSize: 13,
@@ -922,10 +913,7 @@ export function benchActionBtnStyle(
     padding: "9px 16px",
     borderRadius: 7,
     cursor: disabled ? "default" : "pointer",
-    border: `1px solid ${saveBg}`,
-    background: saveBg,
-    color: saveFg,
-    filter: hovered && !disabled ? (light ? "brightness(0.9)" : "brightness(1.08)") : undefined,
-    opacity: disabled ? 0.55 : 1,
+    ...ctaPrimaryStyle(t),
+    opacity: disabled ? 0.55 : hovered && !disabled ? 0.92 : 1,
   };
 }

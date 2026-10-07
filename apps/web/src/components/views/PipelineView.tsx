@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import type { Theme } from "@/lib/theme";
-import { framedPanelPadStyle, framedPanelStyle } from "@/lib/theme";
+import { groupCardStyle, groupItemStyle } from "@/lib/theme";
 import type { Company, FuelDataset } from "@/lib/types";
 import { Chip, Logo, SectionHead } from "../atoms";
 import { G } from "../icons";
@@ -69,23 +69,14 @@ export function PipelineView({
         {byStage.map((col) => (
           <div
             key={col.s}
-            className="fuel-kanban__col"
-            style={{
-              ...framedPanelStyle(t, { padding: 10 }),
+            className="fuel-kanban__col fuel-group"
+            style={groupCardStyle(t, {
               boxSizing: "border-box",
               minHeight: 380,
-            }}
+              padding: 10,
+            })}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingBottom: 10,
-                borderBottom: `1px solid ${t.rule}`,
-                marginBottom: 10,
-              }}
-            >
+            <div className="fuel-group__head">
               <div
                 style={{
                   fontFamily: t.sans,
@@ -110,7 +101,7 @@ export function PipelineView({
                     key={c.id}
                     onClick={() => onOpenCo(c)}
                     style={{
-                      ...framedPanelPadStyle(t, { padding: 12 }),
+                      ...groupItemStyle(t, { padding: 12 }),
                       cursor: "pointer",
                       marginBottom: 8,
                     }}

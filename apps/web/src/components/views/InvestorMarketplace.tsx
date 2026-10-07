@@ -11,11 +11,11 @@ import {
 } from "react";
 import { useUrlSyncedTab } from "@/lib/use-url-synced-tab";
 import type { Theme } from "@/lib/theme";
-import { framedPanelPadStyle } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, framedPanelPadStyle } from "@/lib/theme";
 import type { NetworkInvestor, InvestorBookmarkView } from "@/lib/investors";
-import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
+import { BREAKPOINTS, useNarrow } from "@/lib/responsive";
 import { Chip, Label, SectionHead } from "../atoms";
-import { FilterMenu, PageToolbar } from "../ToolbarActions";
+import { FilterGroup, FilterMenu, FilterOption, FilterSearch, PageToolbar } from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
 import {
   bookmarkInvestorAction,
@@ -82,12 +82,10 @@ function InvestorLogo({ t, investor }: { t: Theme; investor: NetworkInvestor }) 
 
 function button(t: Theme, variant: "primary" | "ghost" = "ghost"): CSSProperties {
   return {
+    ...(variant === "primary" ? ctaPrimaryStyle(t) : ctaTertiaryStyle(t)),
     alignItems: "center",
-    background: variant === "primary" ? t.ink : "transparent",
-    border: `1px solid ${variant === "primary" ? t.ink : t.rule}`,
     borderRadius: 8,
     boxSizing: "border-box",
-    color: variant === "primary" ? t.bg : t.inkSoft,
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -96,21 +94,6 @@ function button(t: Theme, variant: "primary" | "ghost" = "ghost"): CSSProperties
     justifyContent: "center",
     minHeight: 44,
     padding: "8px 14px",
-  };
-}
-
-function input(t: Theme): CSSProperties {
-  return {
-    background: t.panelAlt,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 8,
-    boxSizing: "border-box",
-    color: t.ink,
-    fontFamily: t.sans,
-    fontSize: 16,
-    minHeight: 44,
-    padding: "10px 12px",
-    width: "100%",
   };
 }
 
@@ -213,53 +196,43 @@ export function InvestorMarketplace({
               <FilterMenu
                 t={t}
                 activeCount={(tab !== "network" ? 1 : 0) + (query.trim() ? 1 : 0)}
+                onClear={() => {
+                  setTab("network");
+                  setQuery("");
+                }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  {(
-                    [
-                      { k: "network", label: "Network" },
-                      {
-                        k: "bookmarks",
-                        label: `Bookmarked · ${bookmarks.length}`,
-                      },
-                    ] as const
-                  ).map((o) => (
-                    <button
-                      key={o.k}
-                      type="button"
-                      onClick={() => setTab(o.k)}
-                      style={{
-                        background: tab === o.k ? t.accentTint : t.panelAlt,
-                        border: `1px solid ${tab === o.k ? `${t.accent}66` : t.rule}`,
-                        borderRadius: 8,
-                        color: t.ink,
-                        cursor: "pointer",
-                        fontFamily: t.sans,
-                        fontSize: 13,
-                        fontWeight: tab === o.k ? 650 : 500,
-                        minHeight: TOUCH_TARGET_MIN,
-                        padding: "0 12px",
-                        textAlign: "left",
-                      }}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
+                <FilterGroup t={t} title="View">
+                    {(
+                      [
+                        { k: "network", label: "Network" },
+                        {
+                          k: "bookmarks",
+                          label: "Bookmarked",
+                          n: bookmarks.length,
+                        },
+                      ] as const
+                    ).map((o) => (
+                      <FilterOption
+                        key={o.k}
+                        t={t}
+                        selected={tab === o.k}
+                        onSelect={() => setTab(o.k)}
+                        trailing={"n" in o ? o.n : undefined}
+                      >
+                        {o.label}
+                      </FilterOption>
+                    ))}
+                </FilterGroup>
                 {tab === "network" ? (
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Investor or company…"
-                    aria-label="Filter investors"
-                    style={{ ...input(t), width: "100%" }}
-                  />
+                  <FilterGroup t={t} title="Search">
+                    <FilterSearch
+                      t={t}
+                      value={query}
+                      onChange={setQuery}
+                      placeholder="Investor or company…"
+                      aria-label="Filter investors"
+                    />
+                  </FilterGroup>
                 ) : null}
               </FilterMenu>
             }

@@ -15,6 +15,7 @@ import {
   passwordStrength,
 } from "@/lib/auth/password-policy";
 import { useTheme } from "../ThemeContext";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import { useToast } from "../toast/ToastProvider";
 
 export function ChangePasswordCard() {
@@ -247,10 +248,8 @@ export function ChangePasswordCard() {
           type="submit"
           disabled={pending}
           style={{
+            ...ctaPrimaryStyle(t),
             padding: "8px 14px",
-            background: t.ink,
-            color: t.bg,
-            border: `1px solid ${t.ink}`,
             borderRadius: 6,
             fontFamily: t.sans,
             fontSize: 12,

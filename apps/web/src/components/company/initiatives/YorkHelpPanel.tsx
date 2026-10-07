@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { accentGradient, onAccentText, type Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, type Theme } from "@/lib/theme";
 import type { InitiativeYorkHelpSummary } from "@/components/views/CompanyPublicView";
 import { useMarketingBannerDismissDays } from "@/components/york-partner/YorkPartnerNudge";
 import {
@@ -190,9 +190,8 @@ export function YorkHelpPanel({
             rel="noopener noreferrer"
             style={{
               alignItems: "center",
-              background: accentGradient(t),
+              ...ctaPrimaryStyle(t),
               borderRadius: 8,
-              color: onAccentText(t),
               display: "inline-flex",
               fontFamily: t.sans,
               fontSize: 12.5,

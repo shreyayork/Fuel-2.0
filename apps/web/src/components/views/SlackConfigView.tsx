@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Chip, SectionHead } from "../atoms";
 import { useTheme } from "../ThemeContext";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import { toggleSlackChannelAction } from "@/app/(app)/account/integrations/slack/actions";
 import {
   dataTableFrameStyle,
@@ -81,10 +82,9 @@ export function SlackConfigView({
           <Link
             href="/api/integrations/slack/install"
             style={{
+              ...ctaPrimaryStyle(t),
               display: "inline-block",
               padding: "8px 14px",
-              background: t.ink,
-              color: t.bg,
               borderRadius: 6,
               fontFamily: t.sans,
               fontSize: 13,

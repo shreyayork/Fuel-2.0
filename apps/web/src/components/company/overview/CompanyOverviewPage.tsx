@@ -24,7 +24,7 @@ import {
   overviewTrackSectionId,
   type OverviewCategoryId,
 } from "@/lib/overview/constants";
-import { patchSearchParams } from "@/lib/use-url-synced-tab";
+import { applyClientSearchPatch } from "@/lib/use-url-synced-tab";
 import {
   approveOverviewInitiative,
   fetchOverview,
@@ -165,13 +165,9 @@ export function CompanyOverviewPage({
 
   const replaceQuery = useCallback(
     (patch: Record<string, string | null>) => {
-      const qs = patchSearchParams(searchParams, patch);
-      const next = qs ? `${pathname}?${qs}` : pathname;
-      const current = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-      if (next === current) return;
-      router.replace(next, { scroll: false });
+      applyClientSearchPatch(pathname, patch, "replace");
     },
-    [pathname, router, searchParams],
+    [pathname],
   );
 
   const openDrawer = useCallback((step: DetailDrawerStep = "profile") => {
@@ -375,10 +371,11 @@ export function CompanyOverviewPage({
 
     if (!changed) return;
     const query = next.toString();
-    router.replace(`/company/${companyUuid}${query ? `?${query}` : ""}`, {
-      scroll: false,
-    });
-  }, [companyUuid, credits?.snapshot, router, searchParams]);
+    const url = `/company/${companyUuid}${query ? `?${query}` : ""}`;
+    if (`${window.location.pathname}${window.location.search}` !== url) {
+      window.history.replaceState(window.history.state, "", url);
+    }
+  }, [companyUuid, credits?.snapshot, searchParams]);
 
   const dismissProfilePrompt = useCallback(() => {
     setPromptOpen(false);
@@ -458,7 +455,7 @@ export function CompanyOverviewPage({
       onNavigateTab(tab);
       return;
     }
-    window.location.href = `/company/${companyUuid}?tab=${tab}`;
+    applyClientSearchPatch(`/company/${companyUuid}`, { tab }, "push");
   };
 
   const openCategory = useCallback(

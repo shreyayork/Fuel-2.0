@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCreditsOptional } from "@/components/credits/CreditProvider";
 import { DEFAULT_FREE_MONTHLY_LIMIT, computeEarnedCredits } from "@/lib/credits/profile-modules";
 import { useOverviewTheme } from "./overview-theme";
-import { benchActionBtnStyle } from "./drawerStyles";
+import { ctaPrimaryStyle, ctaTertiaryStyle } from "@/lib/theme";
 import { HoverBtn } from "./drawerShared";
 
 const PROMPT_CSS = `
@@ -200,6 +200,11 @@ export function ProfileCompletionPrompt({
 }) {
   const t = useOverviewTheme();
   const credits = useCreditsOptional();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -215,7 +220,7 @@ export function ProfileCompletionPrompt({
     };
   }, [open, onContinue]);
 
-  if (!open || typeof document === "undefined") return null;
+  if (!open || !mounted) return null;
 
   const planMonthlyLimit = credits?.snapshot?.planMonthlyLimit ?? DEFAULT_FREE_MONTHLY_LIMIT;
   const earned = credits?.snapshot
@@ -359,7 +364,16 @@ export function ProfileCompletionPrompt({
           <HoverBtn
             type="button"
             className="fuel-profile-prompt-btn"
-            styleFor={(hovered) => benchActionBtnStyle(t, "cancel", { hovered })}
+            styleFor={(hovered) => ({
+              ...ctaTertiaryStyle(t),
+              borderRadius: 8,
+              cursor: "pointer",
+              fontFamily: t.sans,
+              fontSize: 13,
+              fontWeight: 550,
+              opacity: hovered ? 0.88 : 1,
+              padding: "9px 16px",
+            })}
             onClick={onContinue}
           >
             Continue to Overview
@@ -368,7 +382,16 @@ export function ProfileCompletionPrompt({
             type="button"
             className="fuel-profile-prompt-btn"
             autoFocus
-            styleFor={(hovered) => benchActionBtnStyle(t, "save", { hovered })}
+            styleFor={(hovered) => ({
+              ...ctaPrimaryStyle(t),
+              borderRadius: 8,
+              cursor: "pointer",
+              fontFamily: t.sans,
+              fontSize: 13,
+              fontWeight: 600,
+              opacity: hovered ? 0.92 : 1,
+              padding: "9px 16px",
+            })}
             onClick={onCompleteProfile}
           >
             Complete My Profile

@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
-import type { Theme } from "@/lib/theme";
-import { dataRoomSecondaryButtonStyle } from "@/components/data-room/styles";
+import { ctaPrimaryStyle, ctaTertiaryStyle, type Theme } from "@/lib/theme";
 
 export function sourcesPanelStyle(t: Theme): CSSProperties {
   return {
@@ -46,12 +45,10 @@ export function timelinePanelStyle(t: Theme): CSSProperties {
 
 export function companyTabPrimaryBtnStyle(t: Theme): CSSProperties {
   return {
+    ...ctaPrimaryStyle(t),
     alignItems: "center",
-    background: t.ink,
-    border: `1px solid ${t.ink}`,
     borderRadius: 10,
     boxSizing: "border-box",
-    color: t.mode === "editorial" ? t.panel : t.bg,
     cursor: "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -67,9 +64,8 @@ export function companyTabPrimaryBtnStyle(t: Theme): CSSProperties {
 
 export function companyTabSecondaryBtnStyle(t: Theme): CSSProperties {
   return {
+    ...ctaTertiaryStyle(t),
     alignItems: "center",
-    background: t.panel,
-    border: `1px solid ${t.rule}`,
     borderRadius: 10,
     boxSizing: "border-box",
     color: t.inkSoft,
@@ -279,10 +275,8 @@ export function intelligenceDrawerInputCss(t: Theme): string {
 
 export function ghostButtonStyle(t: Theme): CSSProperties {
   return {
-    background: "transparent",
-    border: `1px solid ${t.rule}`,
+    ...ctaTertiaryStyle(t),
     borderRadius: 6,
-    color: t.inkSoft,
     cursor: "pointer",
     fontFamily: t.sans,
     fontSize: 12,
@@ -292,7 +286,15 @@ export function ghostButtonStyle(t: Theme): CSSProperties {
 }
 
 export function primaryButtonStyle(t: Theme, disabled = false): CSSProperties {
-  return dataRoomSecondaryButtonStyle(t, { disabled });
+  return {
+    ...ctaPrimaryStyle(t),
+    cursor: disabled ? "not-allowed" : "pointer",
+    fontFamily: t.sans,
+    fontSize: 12,
+    fontWeight: 600,
+    opacity: disabled ? 0.55 : 1,
+    padding: "8px 12px",
+  };
 }
 
 /** Outlined trigger aligned with design `signals-log-intelligence-btn`. */

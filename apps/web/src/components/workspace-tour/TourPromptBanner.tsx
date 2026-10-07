@@ -1,7 +1,7 @@
 "use client";
 
 import { MagicShimmer } from "@/components/ai/MagicShimmer";
-import { accentGradient, onAccentText } from "@/lib/theme";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import { useTheme } from "../ThemeContext";
 
 const bannerShell = {
@@ -141,10 +141,8 @@ export function TourPromptBanner({
           type="button"
           onClick={onStartTour}
           style={{
-            background: accentGradient(t),
-            border: "none",
+            ...ctaPrimaryStyle(t),
             borderRadius: 7,
-            color: onAccentText(t),
             cursor: "pointer",
             fontFamily: t.sans,
             fontSize: 11.5,

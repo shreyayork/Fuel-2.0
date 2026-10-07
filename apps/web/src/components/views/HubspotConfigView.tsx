@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { Chip } from "../atoms";
 import { useTheme } from "../ThemeContext";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import { DatePicker } from "../ui/DatePicker";
 import {
   togglePipelineAction,
@@ -213,11 +214,9 @@ export function HubspotConfigView({
         <Link
           href="/account/integrations"
           style={{
+            ...ctaPrimaryStyle(t),
             display: "inline-block",
             padding: "8px 14px",
-            background: t.ink,
-            color: t.bg,
-            border: `1px solid ${t.ink}`,
             borderRadius: 6,
             fontFamily: t.sans,
             fontSize: 12,

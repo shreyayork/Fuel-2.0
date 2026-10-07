@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTransition } from "react";
 import { Chip } from "../atoms";
 import { useTheme } from "../ThemeContext";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import { disconnectIntegrationAction } from "@/app/(app)/account/integrations/actions";
 import type { IntegrationConnection } from "@/db/schema";
 
@@ -156,11 +157,9 @@ export function IntegrationsTab({
                 <Link
                   href={p.configurePath}
                   style={{
+                    ...ctaPrimaryStyle(t),
                     alignItems: "center",
-                    background: t.ink,
-                    border: `1px solid ${t.ink}`,
                     borderRadius: 8,
-                    color: t.bg,
                     display: "inline-flex",
                     fontFamily: t.sans,
                     fontSize: 13,

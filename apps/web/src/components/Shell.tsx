@@ -15,7 +15,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
-import { THEMES, themeSurfaceCssVars, type Theme, type ThemeMode } from "@/lib/theme";
+import { aiCtaGradient, onAiCtaText, themeSurfaceCssVars, type Theme, type ThemeMode } from "@/lib/theme";
 import type { FuelDataset } from "@/lib/types";
 import { useBreadcrumbTrail } from "./BreadcrumbContext";
 import { useAgentDrawer } from "./AgentDrawer";
@@ -1468,24 +1468,20 @@ function AskAiButton({ t, compact = false }: { t: Theme; compact?: boolean }) {
   const { openDrawer, busy } = useAgentDrawer();
   const tour = useWorkspaceTourOptional();
   const tourHighlight = tour?.activeTarget === "ask-fuel-ai";
-  // Navy ink on the teal→gold CTA — default FuelMark teal/gold vanishes on it.
-  const onGradInk = THEMES.editorial.ink;
-  // Keep bright brand gold endpoint (editorial `warn` is darkened for text AA).
-  const gradGold = THEMES.signal.warn;
+  const onGradInk = onAiCtaText();
   return (
     <button
       onClick={openDrawer}
       title="Ask Fuel AI (⌘J)"
       aria-label="Ask Fuel AI"
       data-tour-target="ask-fuel-ai"
-      className={tourHighlight ? "fuel-tour-highlight" : undefined}
+      className={tourHighlight ? "fuel-cta-ai fuel-tour-highlight" : "fuel-cta-ai"}
       style={{
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         boxSizing: "border-box",
         gap: 6,
-        // Match CompanySearch + Tour header CTA height (TOUCH_TARGET_MIN).
         height: TOUCH_TARGET_MIN,
         minWidth: TOUCH_TARGET_MIN,
         padding: compact ? 0 : "0 12px",
@@ -1497,7 +1493,7 @@ function AskAiButton({ t, compact = false }: { t: Theme; compact?: boolean }) {
         color: onGradInk,
         border: "none",
         cursor: "pointer",
-        background: `linear-gradient(135deg, ${t.accent} 0%, ${gradGold} 100%)`,
+        background: aiCtaGradient(),
         boxShadow: busy ? `0 0 0 2px ${t.accent}59` : "none",
         transition: "box-shadow 220ms ease, transform 120ms ease",
         flexShrink: 0,

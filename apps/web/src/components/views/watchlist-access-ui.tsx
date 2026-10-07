@@ -117,9 +117,12 @@ export function SurfaceField({
 }) {
   const t = useTheme();
   const [focused, setFocused] = useState(false);
+  const { borderColor: styleBorderColor, ...restStyle } = style ?? {};
   const shared: CSSProperties = {
     background: t.panel,
-    border: `1px solid ${focused ? t.accent : t.rule}`,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: styleBorderColor ?? (focused ? t.accent : t.rule),
     borderRadius: 6,
     color: t.ink,
     fontFamily: t.sans,
@@ -127,7 +130,7 @@ export function SurfaceField({
     outline: focused ? `2px solid ${t.accent}44` : "none",
     outlineOffset: 1,
     padding: "8px 10px",
-    ...style,
+    ...restStyle,
   };
 
   if (as === "select") {

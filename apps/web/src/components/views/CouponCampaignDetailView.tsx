@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type CSSProperties } from "react";
-import type { Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, type Theme } from "@/lib/theme";
 import type { CouponCampaign, CouponRecipient } from "@/db/schema";
 import type { CampaignStats } from "@/lib/credits/coupon-campaigns";
 import { campaignBlocksModifications } from "@/lib/credits/coupon-campaign-status";
-import { Chip } from "../atoms";
+import { BackNav, Chip } from "../atoms";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useTheme } from "../ThemeContext";
 import { useToast } from "../toast/ToastProvider";
@@ -33,17 +32,19 @@ function button(
   variant: "primary" | "ghost" | "danger" = "ghost",
   opts?: { disabled?: boolean },
 ): CSSProperties {
-  const map = {
-    primary: { bg: t.ink, color: t.bg, border: t.ink },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-    danger: { bg: "transparent", color: t.warn, border: t.warn },
-  } as const;
-  const v = map[variant];
+  const chrome =
+    variant === "primary"
+      ? ctaPrimaryStyle(t)
+      : variant === "ghost"
+        ? ctaTertiaryStyle(t)
+        : {
+            background: "transparent",
+            border: `1px solid ${t.warn}`,
+            color: t.warn,
+          };
   return {
+    ...chrome,
     padding: "6px 12px",
-    background: v.bg,
-    color: v.color,
-    border: `1px solid ${v.border}`,
     borderRadius: 6,
     fontFamily: t.sans,
     fontSize: 12,
@@ -250,17 +251,7 @@ export function CouponCampaignDetailView({
 
   return (
     <div>
-      <Link
-        href="/super-admin/coupons"
-        style={{
-          fontFamily: t.sans,
-          fontSize: 12,
-          color: t.muted,
-          textDecoration: "none",
-        }}
-      >
-        ← Coupons
-      </Link>
+      <BackNav t={t} href="/super-admin/coupons" label="Coupons" style={{ marginBottom: 8 }} />
       <div
         style={{
           marginTop: 8,

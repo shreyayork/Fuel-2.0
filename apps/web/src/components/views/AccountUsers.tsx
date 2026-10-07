@@ -9,6 +9,7 @@ import {
   setRoleAction,
 } from "@/app/(app)/account/actions";
 import { TOUCH_TARGET_MIN } from "@/lib/responsive";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import { Chip, Avatar } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import type { AccountMember } from "@/db/schema";
@@ -111,12 +112,10 @@ export function AccountUsers({
               className="fuel-account-invite__submit"
               type="submit"
               style={{
+                ...ctaPrimaryStyle(t),
                 alignItems: "center",
-                background: t.ink,
-                border: `1px solid ${t.ink}`,
                 borderRadius: 8,
                 boxSizing: "border-box",
-                color: t.bg,
                 cursor: "pointer",
                 display: "inline-flex",
                 fontFamily: t.sans,

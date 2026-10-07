@@ -3,7 +3,7 @@
  * Prefer these over per-view one-offs so every /super-admin surface feels one product.
  */
 import type { CSSProperties } from "react";
-import { framedPanelStyle, onAccentText, type Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, framedPanelStyle, type Theme } from "@/lib/theme";
 import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 
 export type AdminBtnVariant = "primary" | "ghost" | "danger";
@@ -24,23 +24,21 @@ export function adminBtnStyle(
   variant: AdminBtnVariant = "ghost",
   opts?: { disabled?: boolean },
 ): CSSProperties {
-  const map = {
-    primary: {
-      bg: t.accent,
-      color: onAccentText(t),
-      border: t.accent,
-    },
-    ghost: { bg: "transparent", color: t.inkSoft, border: t.rule },
-    danger: { bg: `${t.negative}14`, color: t.negative, border: `${t.negative}59` },
-  } as const;
-  const v = map[variant];
+  const chrome =
+    variant === "primary"
+      ? ctaPrimaryStyle(t)
+      : variant === "ghost"
+        ? ctaTertiaryStyle(t)
+        : {
+            background: `${t.negative}14`,
+            border: `1px solid ${t.negative}59`,
+            color: t.negative,
+          };
   return {
+    ...chrome,
     alignItems: "center",
-    background: v.bg,
-    border: `1px solid ${v.border}`,
     borderRadius: 8,
     boxSizing: "border-box",
-    color: v.color,
     cursor: opts?.disabled ? "not-allowed" : "pointer",
     display: "inline-flex",
     fontFamily: t.sans,

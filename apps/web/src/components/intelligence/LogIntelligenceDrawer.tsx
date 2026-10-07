@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Theme } from "@/lib/theme";
-import { BREAKPOINTS, TOUCH_TARGET_MIN, mqMax, useMediaQuery } from "@/lib/responsive";
+import { BREAKPOINTS, mqMax, useMediaQuery } from "@/lib/responsive";
 import {
   drawerPanelMotionStyle,
   drawerScrimMotionStyle,
   useDrawerPresence,
 } from "@/components/drawer/motion";
-import { drawerCloseBtnStyle } from "@/components/drawer/styles";
+import { AddScreenShell } from "@/components/drawer/AddScreenShell";
+import { addScreenPrimaryBtnStyle, drawerCloseBtnStyle } from "@/components/drawer/styles";
 import {
   manualObservationValuePlaceholder,
   parseManualObservationValue,
@@ -204,138 +205,14 @@ export function LogIntelligenceDrawer({
       />
     );
 
-  return (
+  const formFields = (
     <>
-      <button
-        type="button"
-        aria-label="Close log intelligence"
-        onClick={onClose}
-        style={{
-          background: t.overlay,
-          border: "none",
-          bottom: 0,
-          cursor: "pointer",
-          left: 0,
-          position: "fixed",
-          right: 0,
-          top: 0,
-          zIndex: 70,
-          ...drawerScrimMotionStyle(visible, durationMs),
-        }}
-      />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-label="Log intelligence"
-        style={{
-          background: t.panel,
-          ...(sheet
-            ? {
-                borderRadius: "16px 16px 0 0",
-                borderTop: `1px solid ${t.rule}`,
-                bottom: 0,
-                boxShadow: `0 -16px 48px ${t.overlay}`,
-                left: 0,
-                maxHeight: "min(92vh, 720px)",
-                right: 0,
-                top: "auto",
-                width: "100%",
-              }
-            : {
-                borderLeft: `1px solid ${t.rule}`,
-                bottom: 0,
-                boxShadow: `-24px 0 60px ${t.overlay}`,
-                maxWidth: 520,
-                right: 0,
-                top: 0,
-                width: "min(100vw, 520px)",
-              }),
-          display: "flex",
-          flexDirection: "column",
-          position: "fixed",
-          zIndex: 71,
-          ...drawerPanelMotionStyle(visible, durationMs, {
-            from: sheet ? "bottom" : "right",
-          }),
-        }}
-      >
-        {sheet ? (
-          <div
-            aria-hidden
-            style={{
-              alignSelf: "center",
-              background: t.rule,
-              borderRadius: 999,
-              flexShrink: 0,
-              height: 4,
-              marginTop: 8,
-              width: 36,
-            }}
-          />
-        ) : null}
-
-        <header
-          style={{
-            alignItems: "flex-start",
-            background: sheet ? t.panel : t.panelAlt,
-            borderBottom: `1px solid ${t.ruleSoft}`,
-            display: "flex",
-            gap: 12,
-            justifyContent: "space-between",
-            padding: sheet ? "10px 16px 12px" : "16px 18px",
-          }}
-        >
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <h2
-              style={{
-                color: t.ink,
-                fontFamily: t.sans,
-                fontSize: 16,
-                fontWeight: 700,
-                margin: 0,
-              }}
-            >
-              Log intelligence
-            </h2>
-            <p
-              style={{
-                color: t.muted,
-                fontFamily: t.sans,
-                fontSize: 12,
-                lineHeight: 1.4,
-                margin: "4px 0 0",
-              }}
-            >
-              {sheet
-                ? "Pick a signal, enter the value, and it lands on the timeline."
-                : "Record a metric value against a catalog signal. Select the signal and enter the value — it will appear in your intelligence timeline."}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="fuel-drawer-close"
-            aria-label="Close"
-            onClick={onClose}
-            style={drawerCloseBtnStyle(t)}
-          >
-            <CloseIcon />
-          </button>
-        </header>
-
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflow: "auto",
-            padding: sheet ? "14px 16px" : 18,
-          }}
-        >
           <style dangerouslySetInnerHTML={{ __html: intelligenceDrawerInputCss(t) }} />
 
           <div
             style={{
               display: "grid",
-              gap: sheet ? 12 : 10,
+              gap: sheet ? 16 : 10,
               gridTemplateColumns: sheet
                 ? "minmax(0, 1fr)"
                 : "minmax(0, 1fr) minmax(120px, 140px)",
@@ -437,37 +314,141 @@ export function LogIntelligenceDrawer({
               style={{ ...drawerFormInputStyle(t), resize: "vertical", width: "100%" }}
             />
           </label>
+    </>
+  );
+
+  if (sheet) {
+    return (
+      <AddScreenShell
+        t={t}
+        title="Log intelligence"
+        onClose={onClose}
+        zIndex={90}
+        footer={
+          <button
+            type="button"
+            disabled={!canSubmit || pending}
+            onClick={() => void submit()}
+            style={addScreenPrimaryBtnStyle(t, {
+              cursor: !canSubmit || pending ? "not-allowed" : "pointer",
+              opacity: !canSubmit || pending ? 0.45 : 1,
+            })}
+          >
+            {pending ? "Logging…" : "Log intelligence"}
+          </button>
+        }
+      >
+        {formFields}
+      </AddScreenShell>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close log intelligence"
+        onClick={onClose}
+        style={{
+          background: t.overlay,
+          border: "none",
+          bottom: 0,
+          cursor: "pointer",
+          left: 0,
+          position: "fixed",
+          right: 0,
+          top: 0,
+          zIndex: 70,
+          ...drawerScrimMotionStyle(visible, durationMs),
+        }}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Log intelligence"
+        style={{
+          background: t.panel,
+          borderLeft: `1px solid ${t.rule}`,
+          bottom: 0,
+          boxShadow: `-24px 0 60px ${t.overlay}`,
+          display: "flex",
+          flexDirection: "column",
+          maxWidth: 520,
+          position: "fixed",
+          right: 0,
+          top: 0,
+          width: "min(100vw, 520px)",
+          zIndex: 71,
+          ...drawerPanelMotionStyle(visible, durationMs, { from: "right" }),
+        }}
+      >
+        <header
+          style={{
+            alignItems: "flex-start",
+            background: t.panel,
+            borderBottom: `1px solid ${t.ruleSoft}`,
+            display: "flex",
+            gap: 12,
+            justifyContent: "space-between",
+            padding: "16px 18px",
+          }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2
+              style={{
+                color: t.ink,
+                fontFamily: t.sans,
+                fontSize: 16,
+                fontWeight: 700,
+                margin: 0,
+              }}
+            >
+              Log intelligence
+            </h2>
+            <p
+              style={{
+                color: t.muted,
+                fontFamily: t.sans,
+                fontSize: 12,
+                lineHeight: 1.4,
+                margin: "4px 0 0",
+              }}
+            >
+              Record a metric value against a catalog signal. Select the signal and enter the value — it will appear in your intelligence timeline.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="fuel-drawer-close"
+            aria-label="Close"
+            onClick={onClose}
+            style={drawerCloseBtnStyle(t)}
+          >
+            <CloseIcon />
+          </button>
+        </header>
+
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            padding: 18,
+          }}
+        >
+          {formFields}
         </div>
 
         <footer
           style={{
             ...benchActionsStyle(t),
-            gap: sheet ? 10 : 8,
-            padding: sheet
-              ? "12px 16px calc(12px + env(safe-area-inset-bottom, 0px))"
-              : "14px 18px",
-            ...(sheet
-              ? {
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1.4fr",
-                }
-              : null),
+            gap: 8,
+            padding: "14px 18px",
           }}
         >
           <HoverBtn
             type="button"
-            styleFor={(hovered) => ({
-              ...benchActionBtnStyle(t, "cancel", { hovered }),
-              ...(sheet
-                ? {
-                    alignItems: "center",
-                    display: "inline-flex",
-                    justifyContent: "center",
-                    minHeight: TOUCH_TARGET_MIN,
-                    width: "100%",
-                  }
-                : null),
-            })}
+            styleFor={(hovered) => benchActionBtnStyle(t, "cancel", { hovered })}
             onClick={onClose}
           >
             Cancel
@@ -475,21 +456,12 @@ export function LogIntelligenceDrawer({
           <HoverBtn
             type="button"
             disabled={!canSubmit || pending}
-            styleFor={(hovered) => ({
-              ...benchActionBtnStyle(t, "save", {
+            styleFor={(hovered) =>
+              benchActionBtnStyle(t, "save", {
                 hovered,
                 disabled: !canSubmit || pending,
-              }),
-              ...(sheet
-                ? {
-                    alignItems: "center",
-                    display: "inline-flex",
-                    justifyContent: "center",
-                    minHeight: TOUCH_TARGET_MIN,
-                    width: "100%",
-                  }
-                : null),
-            })}
+              })
+            }
             onClick={() => void submit()}
           >
             {pending ? "Logging…" : "Log intelligence"}

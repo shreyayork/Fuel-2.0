@@ -1,4 +1,9 @@
-import { accentGradient, SIGNAL, type Theme } from "@/lib/theme";
+import {
+  aiCtaGradient,
+  brandNavyFill,
+  onAiCtaText,
+  type Theme,
+} from "@/lib/theme";
 import {
   OVERVIEW_THEME,
   overviewAccentLine,
@@ -20,9 +25,9 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
     var(--surface-2)`;
   const ringFallback = isLight ? "rgba(18, 184, 134, 0.12)" : "rgba(63,224,164,0.10)";
   // Design `.ask-ai-btn` (fuleDesign / PatriotPayJourney) — York teal → gold.
-  const openBriefGradient = accentGradient(SIGNAL);
-  const openBriefHoverGradient = `linear-gradient(135deg, ${SIGNAL.accent} 0%, ${SIGNAL.warn} 72%)`;
-  const openBriefInk = "#0a1a12";
+  const openBriefGradient = aiCtaGradient();
+  const openBriefHoverGradient = aiCtaGradient();
+  const openBriefInk = onAiCtaText();
 
   return `
 .fuel-overview.scorecard-v2,
@@ -58,9 +63,9 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   --panel-muted: var(--text-3);
   --panel-strong: var(--text-1);
   --panel-inset: ${isLight ? "#ffffff" : "rgba(10, 20, 28, 0.35)"};
-  --btn-primary-bg: ${isLight ? t.ink : t.accent};
-  --btn-primary-text: ${isLight ? "#ffffff" : "#042018"};
-  --btn-primary-border: ${isLight ? t.ink : t.accent};
+  --btn-primary-bg: ${brandNavyFill(t)};
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: ${brandNavyFill(t)};
   color-scheme: ${isLight ? "light" : "dark"};
   font-family: ${t.sans};
 }
@@ -685,6 +690,20 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
 
 /* Phone: keep the three focus rings visible — compact 3-up, not hidden. */
 @media (max-width: 767px) {
+  .fuel-overview,
+  .scorecard-v2 {
+    gap: var(--fuel-section-gap, 20px);
+  }
+
+  .sc-overview-tracks,
+  .sc-overview-tracks-glance {
+    gap: var(--fuel-card-gap, 10px);
+  }
+
+  .sc-adv-featured-wrap {
+    margin: 0 0 var(--fuel-section-gap, 20px);
+  }
+
   .sc-adv-focus {
     display: flex;
     gap: 8px;
@@ -1074,14 +1093,62 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
 }
 
 .sc-glance-row--ref .sc-glance-track-lead {
-  align-items: flex-start;
+  align-items: stretch;
   border-right: 1px solid var(--panel-border);
   display: flex;
-  flex-direction: row;
-  gap: 16px;
+  flex-direction: column;
+  gap: 10px;
   justify-content: flex-start;
   min-width: 0;
-  padding: 30px 20px 22px;
+  padding: 22px 20px 20px;
+}
+
+.sc-glance-score-bar-wrap {
+  min-width: 0;
+  width: 100%;
+}
+
+.sc-glance-score-bar-trigger {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  min-height: 28px;
+  outline: none;
+  width: 100%;
+}
+
+.sc-glance-score-bar-trigger:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
+.sc-glance-score-bar-track {
+  background: color-mix(in srgb, var(--text-1) 8%, var(--surface-2, var(--panel)));
+  border-radius: 99px;
+  display: block;
+  flex: 1 1 auto;
+  height: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sc-glance-score-bar-fill {
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  max-width: 100%;
+}
+
+.sc-glance-score-bar-value {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  min-width: 1.5em;
+  text-align: right;
 }
 
 .sc-glance-row--ref .sc-glance-track-lead-copy {
@@ -1138,17 +1205,6 @@ export function overviewScorecardCss(t: Theme = OVERVIEW_THEME): string {
   letter-spacing: 0.01em;
   line-height: 1.25;
   margin: 0;
-}
-
-.sc-glance-row--ref .sc-glance-track-collapsed-hint {
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  color: var(--text-2);
-  display: -webkit-box;
-  font-size: 13px;
-  line-height: 1.4;
-  margin: 4px 0 0;
-  overflow: hidden;
 }
 
 .sc-glance-row--ref .sc-glance-track-title-btn {
@@ -2132,18 +2188,31 @@ ${
   }
 
   .sc-glance-row--ref.is-collapsed .sc-glance-track-lead {
-    align-items: flex-start;
+    align-items: stretch;
     border-bottom: 0;
     cursor: pointer;
-    gap: 12px;
-    min-height: 72px;
-    padding: 12px;
+    gap: 8px;
+    min-height: 0;
+    padding: 14px;
   }
 
   .sc-glance-row--ref.is-collapsed .sc-glance-track-lead-copy {
-    gap: 2px;
+    gap: 8px;
     justify-content: flex-start;
-    padding-top: 2px;
+    padding-top: 0;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-score-bar-track {
+    height: 6px;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-score-bar-value {
+    font-size: 16px;
+  }
+
+  .sc-glance-row--ref.is-collapsed .sc-glance-track-expand {
+    min-height: 36px;
+    min-width: 36px;
   }
 
   .sc-glance-row--ref.is-collapsed .sc-glance-track-title-link {
@@ -2317,10 +2386,10 @@ ${
 
   /* Zone 2 — score + narrative */
   .sc-glance-row--ref:not(.is-collapsed) .sc-glance-track-lead {
-    align-items: flex-start;
+    align-items: stretch;
     background: ${isLight ? "#fff" : "var(--surface-2)"};
     border-bottom: 0;
-    gap: 14px;
+    gap: 10px;
     padding: 16px 14px 14px;
   }
 

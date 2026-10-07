@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, type Theme } from "@/lib/theme";
 import type {
   CompanySignalObservation,
   InitiativeMilestoneSummary,
@@ -440,10 +440,8 @@ function LinkSignalForm({
       <button
         type="submit"
         style={{
+          ...ctaPrimaryStyle(t),
           padding: "6px 12px",
-          background: t.ink,
-          color: t.bg,
-          border: `1px solid ${t.ink}`,
           borderRadius: 4,
           fontFamily: t.sans,
           fontSize: 12,
@@ -654,10 +652,8 @@ export function InitiativeMilestonesPanel({
         <button
           type="submit"
           style={{
+            ...ctaPrimaryStyle(t),
             padding: "6px 12px",
-            background: t.ink,
-            color: t.bg,
-            border: `1px solid ${t.ink}`,
             borderRadius: 4,
             fontFamily: t.sans,
             fontSize: 12,

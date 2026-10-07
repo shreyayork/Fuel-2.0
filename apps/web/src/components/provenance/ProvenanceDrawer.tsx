@@ -278,7 +278,7 @@ function ProvenanceBody({
             style={{
               margin: 0,
               padding: "10px 14px",
-              borderLeft: `3px solid ${t.accent}`,
+              border: `1px solid ${t.rule}`,
               background: t.panelAlt,
               fontFamily: t.serif,
               fontSize: 13,
@@ -407,7 +407,7 @@ function SourceFallback({
           Recorded directly on the company&apos;s quarterly form. View all
           submissions on the{" "}
           <a
-            href={`/company/${companyUuid}#updates`}
+            href={`/company/${companyUuid}?tab=profile#updates`}
             style={{ color: t.accent, textDecoration: "none" }}
           >
             company profile
@@ -536,7 +536,7 @@ function ContextItemCard({
           {expanded ? "Hide content" : "Show content"}
         </button>
         <a
-          href={`/company/${companyUuid}?tab=private#ctx-${item.id}`}
+          href={`/company/${companyUuid}?tab=intelligence#ctx-${item.id}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{

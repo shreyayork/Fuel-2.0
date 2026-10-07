@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
-import type { Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, type Theme } from "@/lib/theme";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 
 /** Flat title row — matches Initiatives / Intelligence (design `.data-room-head`). */
 export function dataRoomHeadStyle(): CSSProperties {
@@ -23,7 +24,7 @@ export function dataRoomHeadActionsStyle(): CSSProperties {
   };
 }
 
-/** Outlined accent trigger — matches demo `data-room-add-custom-btn` / secondary. */
+/** Ghost / tertiary trigger — hairline rule, no mint fill. */
 export function dataRoomSecondaryButtonStyle(
   t: Theme,
   opts?: { disabled?: boolean; isOpen?: boolean; hovered?: boolean },
@@ -32,11 +33,10 @@ export function dataRoomSecondaryButtonStyle(
   const isOpen = opts?.isOpen ?? false;
   const hovered = opts?.hovered ?? false;
   return {
+    ...ctaTertiaryStyle(t),
     alignItems: "center",
-    background: isOpen || hovered ? `${t.accent}29` : t.accentTint,
-    border: `1px solid ${isOpen || hovered ? `${t.accent}61` : `${t.accent}3D`}`,
+    background: isOpen || hovered ? t.panelAlt : "transparent",
     borderRadius: 6,
-    color: hovered || isOpen ? t.accent : t.accent,
     cursor: disabled ? "not-allowed" : "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -57,11 +57,11 @@ export function dataRoomPrimaryButtonStyle(
   const disabled = opts?.disabled ?? false;
   const active = (opts?.hovered ?? false) || (opts?.isOpen ?? false);
   return {
+    ...ctaPrimaryStyle(t),
     alignItems: "center",
-    background: active ? t.inkSoft : t.ink,
-    border: `1px solid ${active ? t.inkSoft : t.ink}`,
+    background: active ? t.inkSoft : undefined,
+    border: active ? `1px solid ${t.inkSoft}` : undefined,
     borderRadius: 8,
-    color: t.bg,
     cursor: disabled ? "not-allowed" : "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -180,19 +180,69 @@ export function dataRoomMenuOptionStyle(
   };
 }
 
+export function dataRoomDropzoneStyle(
+  t: Theme,
+  opts?: { active?: boolean; hasFile?: boolean },
+): CSSProperties {
+  const active = opts?.active ?? false;
+  const hasFile = opts?.hasFile ?? false;
+  return {
+    alignItems: "center",
+    background: active ? `${t.accent}14` : t.bg,
+    border: `1px dashed ${active ? t.accent : t.rule}`,
+    borderRadius: 12,
+    boxSizing: "border-box",
+    color: t.ink,
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    fontFamily: t.sans,
+    gap: 6,
+    justifyContent: "center",
+    minHeight: hasFile ? 96 : 168,
+    padding: "20px 16px",
+    textAlign: "center",
+    width: "100%",
+  };
+}
+
+export function dataRoomTypeChipStyle(
+  t: Theme,
+  opts?: { selected?: boolean; onFile?: boolean },
+): CSSProperties {
+  const selected = opts?.selected ?? false;
+  const onFile = opts?.onFile ?? false;
+  return {
+    alignItems: "center",
+    background: selected ? `${t.accent}14` : t.panel,
+    border: `1px solid ${selected ? t.accent : t.rule}`,
+    borderRadius: 10,
+    boxSizing: "border-box",
+    color: t.ink,
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    fontFamily: t.sans,
+    gap: 2,
+    justifyContent: "center",
+    minHeight: TOUCH_TARGET_MIN,
+    padding: "10px 12px",
+    textAlign: "left",
+    width: "100%",
+    ...(onFile && !selected ? { background: `${t.accent}0F` } : null),
+  };
+}
+
 export function dataRoomUploadBtnStyle(
   t: Theme,
   opts?: { processing?: boolean; disabled?: boolean; hovered?: boolean },
 ): CSSProperties {
   const disabled = opts?.disabled ?? false;
-  const hovered = opts?.hovered ?? false;
   return {
+    ...ctaPrimaryStyle(t),
     alignItems: "center",
-    background: hovered ? `${t.accent}2E` : `${t.accent}1A`,
-    border: `1px solid ${hovered ? `${t.accent}61` : `${t.accent}3D`}`,
     borderRadius: 6,
     boxSizing: "border-box",
-    color: hovered ? t.ink : t.accent,
     cursor: disabled ? "not-allowed" : "pointer",
     display: "inline-flex",
     fontFamily: t.sans,
@@ -202,6 +252,7 @@ export function dataRoomUploadBtnStyle(
     justifyContent: "center",
     lineHeight: 1,
     opacity: disabled ? 0.45 : opts?.processing ? 0.7 : 1,
+    padding: 0,
     width: 28,
   };
 }

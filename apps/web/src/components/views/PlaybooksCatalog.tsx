@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { PLAYBOOK_CATEGORIES } from "@/lib/playbooks-constants";
-import { TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
-import { Chip, SectionHead, Tabs, type TabItem } from "../atoms";
-import { FilterMenu, PageToolbar } from "../ToolbarActions";
+import { useNarrow } from "@/lib/responsive";
+import { Chip, SectionHead, type TabItem } from "../atoms";
+import { FilterGroup, FilterMenu, FilterOption, FilterSearch, PageToolbar } from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
-import { framedPanelPadStyle, framedPanelStyle } from "@/lib/theme";
+import { framedPanelStyle, groupCardStyle, groupCardHeadStyle, groupItemStyle } from "@/lib/theme";
 
 export interface PlaybookCard {
   id: string;
@@ -121,59 +121,40 @@ export function PlaybooksCatalog({
               <FilterMenu
                 t={t}
                 activeCount={(activeCategory ? 1 : 0) + (q.trim() ? 1 : 0)}
+                onClear={() => {
+                  setQ("");
+                  pushFilters("", null);
+                }}
               >
-                <input
-                  aria-label="Search playbooks"
-                  placeholder="Search playbooks…"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      submitSearch();
-                    }
-                  }}
-                  style={{
-                    background: t.panelAlt,
-                    border: `1px solid ${t.rule}`,
-                    borderRadius: 8,
-                    color: t.ink,
-                    fontFamily: t.sans,
-                    fontSize: 14,
-                    minHeight: TOUCH_TARGET_MIN,
-                    padding: "0 12px",
-                    width: "100%",
-                  }}
-                />
-                {q ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQ("");
-                      pushFilters("", activeCategory);
+                <FilterGroup t={t} title="Search">
+                  <FilterSearch
+                    t={t}
+                    value={q}
+                    onChange={setQ}
+                    placeholder="Search playbooks…"
+                    aria-label="Search playbooks"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        submitSearch();
+                      }
                     }}
-                    style={{
-                      alignSelf: "flex-start",
-                      background: "transparent",
-                      border: "none",
-                      color: t.accent,
-                      cursor: "pointer",
-                      fontFamily: t.sans,
-                      fontSize: 13,
-                      fontWeight: 650,
-                      minHeight: TOUCH_TARGET_MIN,
-                      padding: "0 4px",
-                    }}
-                  >
-                    Clear search
-                  </button>
-                ) : null}
-                <Tabs
-                  t={t}
-                  items={CATEGORY_TABS}
-                  active={activeTab}
-                  onChange={(key) => pushFilters(q, key === ALL_TAB ? null : key)}
-                />
+                  />
+                </FilterGroup>
+                <FilterGroup t={t} title="Category">
+                    {CATEGORY_TABS.map((tab) => (
+                      <FilterOption
+                        key={tab.key}
+                        t={t}
+                        selected={activeTab === tab.key}
+                        onSelect={() =>
+                          pushFilters(q, tab.key === ALL_TAB ? null : tab.key)
+                        }
+                      >
+                        {tab.label}
+                      </FilterOption>
+                    ))}
+                </FilterGroup>
               </FilterMenu>
             }
           />
@@ -241,28 +222,28 @@ function CategoryBlock({
       ) : null}
       <div style={{ display: "grid", gap: compact ? 12 : 18 }}>
         {node.subcategories.map((sub, i) => (
-          <div key={`${node.category}-${sub.name ?? "_none"}-${i}`}>
-            {sub.name ? (
-              <div
-                style={{
-                  color: t.inkSoft,
-                  fontFamily: t.sans,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: compact ? 6 : 8,
-                }}
-              >
-                {sub.name}
-              </div>
-            ) : null}
+          <div
+            key={`${node.category}-${sub.name ?? "_none"}-${i}`}
+            className="fuel-group"
+            style={groupCardStyle(t)}
+          >
+            <div className="fuel-group__head" style={groupCardHeadStyle(t)}>
+              <span className="fuel-group__title" style={{ color: t.ink, fontFamily: t.sans, fontSize: 14 }}>
+                {sub.name ?? node.category}
+              </span>
+              <span className="fuel-group__meta" style={{ color: t.muted, fontFamily: t.sans, fontSize: 12 }}>
+                {sub.playbooks.length}
+              </span>
+            </div>
             {compact ? (
-              <div className="fuel-card-stack">
+              <div className="fuel-card-stack fuel-group__body">
                 {sub.playbooks.map((p) => (
                   <PlaybookCardView key={p.id} p={p} />
                 ))}
               </div>
             ) : (
               <div
+                className="fuel-group__body"
                 style={{
                   display: "grid",
                   gap: 10,
@@ -286,18 +267,12 @@ function PlaybookCardView({ p }: { p: PlaybookCard }) {
   return (
     <Link
       href={`/playbooks/${p.slug}`}
+      className="fuel-group__item"
       style={{
-        ...framedPanelPadStyle(t, { padding: 14 }),
+        ...groupItemStyle(t, { padding: 14 }),
         color: "inherit",
         display: "block",
         textDecoration: "none",
-        transition: "border-color 150ms ease",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLAnchorElement).style.borderColor = t.accent;
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLAnchorElement).style.borderColor = t.rule;
       }}
     >
       <div

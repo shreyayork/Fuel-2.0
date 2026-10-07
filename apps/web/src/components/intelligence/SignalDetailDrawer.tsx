@@ -130,6 +130,15 @@ export function SignalDetailDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open || !sheet) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open, sheet]);
+
   if (!mounted || !displayItem || !portalReady) return null;
 
   const hasHistory = displaySiblings.length > 1;
@@ -153,102 +162,138 @@ export function SignalDetailDrawer({
     display: "inline-flex",
     flexShrink: 0,
     fontFamily: t.sans,
-    fontSize: sheet ? 12 : 11,
+    fontSize: 11,
     fontWeight: 600,
     justifyContent: "center",
-    minHeight: sheet ? TOUCH_TARGET_MIN : undefined,
-    minWidth: sheet ? TOUCH_TARGET_MIN : undefined,
-    padding: sheet ? "0 12px" : "6px 10px",
+    padding: "6px 10px",
   };
 
   return createPortal(
     <>
-      <button
-        type="button"
-        aria-label="Close signal detail"
-        style={{
-          ...documentHistoryScrimStyle(t),
-          ...drawerScrimMotionStyle(visible, durationMs),
-        }}
-        onClick={onClose}
-      />
+      {sheet ? null : (
+        <button
+          type="button"
+          aria-label="Close signal detail"
+          style={{
+            ...documentHistoryScrimStyle(t),
+            ...drawerScrimMotionStyle(visible, durationMs),
+          }}
+          onClick={onClose}
+        />
+      )}
       <aside
         role="dialog"
         aria-modal="true"
         aria-label="Signal detail"
-        className="fuel-side-sheet"
+        className={sheet ? "fuel-signal-screen" : "fuel-side-sheet"}
         style={{
           ...(sheet
             ? {
-                background: t.panel,
-                borderRadius: "16px 16px 0 0",
-                borderTop: `1px solid ${t.rule}`,
+                background: t.bg,
                 bottom: 0,
-                boxShadow: `0 -16px 48px ${t.overlay}`,
                 boxSizing: "border-box",
                 display: "flex",
                 flexDirection: "column",
                 left: 0,
-                maxHeight: "min(92vh, 720px)",
                 overflow: "hidden",
+                paddingTop: "env(safe-area-inset-top, 0px)",
                 position: "fixed",
                 right: 0,
-                top: "auto",
+                top: 0,
                 width: "100%",
-                zIndex: 60,
+                zIndex: 90,
               }
             : documentHistorySidebarStyle(t)),
           ...drawerPanelMotionStyle(visible, durationMs, {
-            from: sheet ? "bottom" : "right",
+            from: "right",
           }),
         }}
       >
-        {sheet ? (
-          <div
-            aria-hidden
-            style={{
-              alignSelf: "center",
-              background: t.rule,
-              borderRadius: 999,
-              flexShrink: 0,
-              height: 4,
-              marginTop: 8,
-              width: 36,
-            }}
-          />
-        ) : null}
-
         <div
           style={{
             alignItems: "center",
             background: t.panel,
             borderBottom: `1px solid ${t.rule}`,
-            display: "flex",
+            display: "grid",
             flexShrink: 0,
-            gap: 12,
-            justifyContent: "space-between",
-            padding: sheet ? "10px 16px 12px" : "14px 18px",
+            gap: 8,
+            gridTemplateColumns: sheet ? "1fr auto 1fr" : "1fr auto",
+            padding: sheet ? "8px 12px 8px 8px" : "14px 18px",
           }}
         >
-          <strong
-            style={{
-              color: t.ink,
-              fontFamily: t.sans,
-              fontSize: 14,
-              fontWeight: 650,
-              minWidth: 0,
-            }}
-          >
-            Signal detail
-          </strong>
-          <button
-            type="button"
-            className="fuel-side-sheet__close"
-            onClick={onClose}
-            style={closeBtnStyle}
-          >
-            {sheet ? "Close" : "Close · Esc"}
-          </button>
+          {sheet ? (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Back to Intelligence"
+              style={{
+                alignItems: "center",
+                background: "transparent",
+                border: 0,
+                color: t.ink,
+                cursor: "pointer",
+                display: "inline-flex",
+                flexShrink: 0,
+                fontFamily: t.sans,
+                fontSize: 14,
+                fontWeight: 600,
+                gap: 4,
+                justifySelf: "start",
+                minHeight: TOUCH_TARGET_MIN,
+                padding: "0 8px",
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+                <path
+                  d="M11.25 3.75 6 9l5.25 5.25"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Back
+            </button>
+          ) : (
+            <strong
+              style={{
+                color: t.ink,
+                fontFamily: t.sans,
+                fontSize: 14,
+                fontWeight: 650,
+                minWidth: 0,
+              }}
+            >
+              Signal detail
+            </strong>
+          )}
+          {sheet ? (
+            <strong
+              style={{
+                color: t.ink,
+                fontFamily: t.sans,
+                fontSize: 14,
+                fontWeight: 650,
+                minWidth: 0,
+                overflow: "hidden",
+                textAlign: "center",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Signal detail
+            </strong>
+          ) : (
+            <button
+              type="button"
+              className="fuel-side-sheet__close"
+              onClick={onClose}
+              style={closeBtnStyle}
+            >
+              Close · Esc
+            </button>
+          )}
+          {sheet ? <span aria-hidden /> : null}
         </div>
 
         <div

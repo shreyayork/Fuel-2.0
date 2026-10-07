@@ -12,7 +12,7 @@ These three values define Fuel’s brand identity. Modes remap surfaces and text
 | Role | Hex | Notes |
 |------|-----|--------|
 | Navy (primary ink on light) | `#284256` | Editorial `ink`; brand depth |
-| Teal (accent / positive) | `#00B48A` | CTAs, success, selection tint |
+| Teal (accent / positive) | `#00B48A` | Success, selection tint, AI CTA start |
 | Gold (warn / highlight) | `#ECD67F` | Warnings, accent gradient end |
 
 **Allowed exceptions:** third-party brand colors only (HubSpot, Slack, Google OAuth, Stripe marks). Never use them as Fuel chrome.
@@ -103,7 +103,10 @@ Defined next to tokens in `theme.ts`:
 
 | Helper | Use |
 |--------|-----|
-| `accentGradient(t)` | Teal → gold gradient for branded CTAs |
+| `ctaPrimaryStyle(t)` | Navy fill, white label — default primary CTA |
+| `aiCtaGradient()` / `onAiCtaText()` | Teal → gold AI controls only |
+| `ctaTertiaryStyle(t)` | Ghost outline — secondary / cancel / view |
+| `accentGradient(t)` | Teal → gold (prefer `aiCtaGradient` for AI CTAs) |
 | `onAccentText(t)` | Text on solid accent / filled primary |
 | `accentChipFg` / `accentChipBg` / `accentChipBorder` | Accent pills that stay readable in both modes |
 | `panelCardSurface(t)` | `{ background, border }` for standard cards |
@@ -175,7 +178,10 @@ Body          → t.inkSoft
 Label / meta  → t.muted
 Border        → t.rule
 Selected row  → t.accentTint
-Primary btn   → t.ink (fill) or t.accent (brand CTA)
+Primary btn   → navy fill (`ctaPrimaryStyle` / `brandNavyFill`)
+AI btn        → teal → gold (`aiCtaGradient`)
+Tertiary btn  → ghost outline (`ctaTertiaryStyle`)
+Group card    → one panel + heading; items = white/`t.panel` + hairline (`groupItemStyle`)
 Danger        → t.negative
 Warning       → t.warn / t.warnSoft
 ```

@@ -17,6 +17,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Text from "@tiptap/extension-text";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import type { Theme } from "@/lib/theme";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import {
   FAQ_ASK_FUEL_HREF,
   isFaqActionLink,
@@ -547,9 +548,7 @@ export function FaqLinkedTextarea({
                   onClick={applyLink}
                   style={{
                     ...toolbarBtn(t),
-                    background: t.ink,
-                    color: t.bg,
-                    borderColor: t.ink,
+                    ...ctaPrimaryStyle(t),
                   }}
                 >
                   Apply

@@ -9,16 +9,26 @@ import { splitBriefSuggestions } from "@/lib/briefs/split-suggestions";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { Theme } from "@/lib/theme";
-import { accentChipBg, accentChipBorder, accentChipFg, framedPanelPadStyle } from "@/lib/theme";
+import {
+  accentChipBg,
+  accentChipBorder,
+  accentChipFg,
+  ctaPrimaryStyle,
+  ctaTertiaryStyle,
+  framedPanelPadStyle,
+  groupCardStyle,
+  groupItemStyle,
+  type Theme,
+} from "@/lib/theme";
 import { TOUCH_TARGET_MIN, useMobileNav, useNarrow } from "@/lib/responsive";
 import type { CompanyDoc, CompanyHit, ContextItem, FundingRound } from "@/lib/fuel-data";
 import { ProvenanceDrawer } from "../provenance/ProvenanceDrawer";
 import { CompanyBottomNav } from "@/components/company/CompanyBottomNav";
 import { Chip, Logo, Tabs } from "../atoms";
+import { G } from "../icons";
 import { useTheme } from "../ThemeContext";
 import { shouldClearIntelligenceFocusOnTopNav } from "@/lib/intelligence/tab-nav-focus";
-import { useUrlSyncedTab } from "@/lib/use-url-synced-tab";
+import { applyClientSearchPatch, useUrlSyncedTab } from "@/lib/use-url-synced-tab";
 import { AiActionsMenu } from "./AiActionsMenu";
 import { type PlaybookPickerEntry as SharedPlaybookPickerEntry } from "./PlaybookPickerButton";
 import {
@@ -56,6 +66,7 @@ import {
   COMPANY_TAB_KEYS,
   companyPublicNavItems,
   isLegacyTabAlias,
+  normalizeCompanyTabParam,
   type CompanyTabKey,
 } from "@/lib/company-tabs";
 import {
@@ -603,9 +614,7 @@ function NoteForm({ uuid, userEmail }: { uuid: string; userEmail?: string }) {
             alignItems: "center",
             gap: 6,
             padding: "6px 12px",
-            background: t.ink,
-            color: t.bg,
-            border: `1px solid ${t.ink}`,
+            ...ctaPrimaryStyle(t),
             borderRadius: 6,
             fontFamily: t.sans,
             fontSize: 12,
@@ -676,9 +685,7 @@ function NoteForm({ uuid, userEmail }: { uuid: string; userEmail?: string }) {
               type="submit"
               style={{
                 padding: "6px 12px",
-                background: t.ink,
-                color: t.bg,
-                border: `1px solid ${t.ink}`,
+                ...ctaPrimaryStyle(t),
                 borderRadius: 6,
                 fontFamily: t.sans,
                 fontSize: 12,
@@ -895,6 +902,7 @@ function ContextFeed({
 
           const content = (
             <div
+              className={isPrivate ? "fuel-accent-rail-card" : undefined}
               style={{
                 padding: isPrivate ? "10px 14px" : "14px 18px",
                 background: t.panel,
@@ -1502,8 +1510,8 @@ function InlineLink({ href, children }: { href: string; children: ReactNode }) {
 function KeyValue({ label, children }: { label: string; children: ReactNode }) {
   const t = useTheme();
   return (
-    <div style={{ display: "flex", gap: 14, padding: "8px 0", borderTop: `1px solid ${t.ruleSoft}` }}>
-      <div style={{ ...labelStyle(t), width: 120, flexShrink: 0, paddingTop: 2 }}>{label}</div>
+    <div className="company-profile-kv" style={{ display: "flex", gap: 14, padding: "8px 0", borderTop: `1px solid ${t.ruleSoft}` }}>
+      <div className="company-profile-kv__label" style={{ ...labelStyle(t), width: 120, flexShrink: 0, paddingTop: 2 }}>{label}</div>
       <div style={{ fontFamily: t.sans, fontSize: 13, color: t.ink, minWidth: 0, flex: 1, lineHeight: 1.5 }}>
         {children}
       </div>
@@ -1721,8 +1729,6 @@ export function CompanyPublicView({
   const t = useTheme();
   const tour = useWorkspaceTour();
   const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   // Tab selection lives in `?tab=…` so Back/Forward navigates through
   // tabs and shared links land where the sender expects.
@@ -1731,24 +1737,23 @@ export function CompanyPublicView({
     validKeys: TAB_KEYS,
     defaultValue: "overview",
     stripDefaultFromUrl: false,
+    mapRaw: normalizeCompanyTabParam,
   });
 
   // Rewrite legacy `?tab=signals` / `?tab=context` bookmarks to `?tab=intelligence`.
   // Unclaimed companies cannot land on Data Room via deep link.
   useEffect(() => {
-    const raw = searchParams.get("tab") ?? undefined;
+    const raw = new URLSearchParams(window.location.search).get("tab") ?? undefined;
     if (isLegacyTabAlias(raw)) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "intelligence");
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      applyClientSearchPatch(pathname, { tab: "intelligence" }, "replace");
+      setTab("intelligence");
       return;
     }
     if (raw === "dataroom" && !isFounderHome) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "overview");
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      applyClientSearchPatch(pathname, { tab: "overview" }, "replace");
+      setTab("overview");
     }
-  }, [isFounderHome, pathname, router, searchParams]);
+  }, [isFounderHome, pathname, setTab]);
   const [provenanceId, setProvenanceId] = useState<string | null>(null);
   const [intelligenceProvenanceId, setIntelligenceProvenanceId] = useState<string | null>(null);
   const [highlightIntelIds, setHighlightIntelIds] = useState<string[]>([]);
@@ -1955,38 +1960,46 @@ export function CompanyPublicView({
             fallbackTone="accent"
           />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <h1
-                role={isFounderHome ? "button" : undefined}
-                tabIndex={isFounderHome ? 0 : undefined}
-                onClick={isFounderHome ? () => setTab("profile") : undefined}
-                onKeyDown={
-                  isFounderHome
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setTab("profile");
-                        }
+            <h1
+              role={isFounderHome ? "button" : undefined}
+              tabIndex={isFounderHome ? 0 : undefined}
+              onClick={isFounderHome ? () => setTab("profile") : undefined}
+              onKeyDown={
+                isFounderHome
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setTab("profile");
                       }
-                    : undefined
-                }
-                style={{
-                  margin: 0,
-                  fontFamily: t.sans,
-                  fontSize: 24,
-                  fontWeight: 700,
-                  letterSpacing: "-0.015em",
-                  color: t.ink,
-                  cursor: isFounderHome ? "pointer" : undefined,
-                }}
-              >
-                {company.name}
-              </h1>
-              {isOperating ? <Chip t={t} tone="ghost">Operating</Chip> : null}
-              {company.status && !isOperating ? <Chip t={t} tone="warn">{titleCase(company.status)}</Chip> : null}
-              {company.categories && company.categories[0] ? (
-                <Chip t={t} tone="ghost">{company.categories[0].name}</Chip>
+                    }
+                  : undefined
+              }
+              style={{
+                margin: 0,
+                fontFamily: t.sans,
+                fontSize: 24,
+                fontWeight: 700,
+                letterSpacing: "-0.015em",
+                color: t.ink,
+                cursor: isFounderHome ? "pointer" : undefined,
+              }}
+            >
+              {company.name}
+            </h1>
+            <div className="company-page-chrome__tags">
+              {isOperating ? (
+                <Chip t={t} tone="ghost">
+                  Operating
+                </Chip>
               ) : null}
+              {company.status && !isOperating ? (
+                <Chip t={t} tone="warn">{titleCase(company.status)}</Chip>
+              ) : null}
+              {(company.categories ?? []).map((c) => (
+                <Chip key={c.name} t={t} tone="ghost">
+                  {c.name}
+                </Chip>
+              ))}
               {company.domain ? (
                 <a
                   href={company.homepageUrl ?? `https://${company.domain}`}
@@ -1999,6 +2012,7 @@ export function CompanyPublicView({
               ) : null}
             </div>
             <div
+              className="company-page-chrome__meta"
               style={{
                 marginTop: 6,
                 fontFamily: t.sans,
@@ -2007,7 +2021,7 @@ export function CompanyPublicView({
                 lineHeight: 1.4,
               }}
             >
-              · External company · sourced from fuel-data
+              External company · sourced from fuel-data
             </div>
           </div>
         </div>
@@ -2168,10 +2182,12 @@ export function CompanyPublicView({
                     {foundedAgo ? (
                       <span
                         style={{
-                          marginLeft: 6,
+                          display: "inline-block",
                           fontSize: 12,
                           fontWeight: 400,
                           color: t.muted,
+                          marginLeft: 6,
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {foundedAgo} old
@@ -2224,7 +2240,7 @@ export function CompanyPublicView({
                   ) : null}
                   {company.categories && company.categories.length > 0 ? (
                     <KeyValue label="Markets">
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <div className="company-profile-tag-list">
                         {company.categories.map((c) => (
                           <Chip key={c.name} t={t} tone="default">{c.name}</Chip>
                         ))}
@@ -2232,13 +2248,14 @@ export function CompanyPublicView({
                     </KeyValue>
                   ) : null}
                   {company.keywords && company.keywords.length > 0 ? (
-                    <KeyValue label={`Keywords (${company.keywords.length})`}>
-                      <span style={{ color: t.inkSoft }}>
-                        {company.keywords.slice(0, 14).join(" · ")}
-                      </span>
-                      {company.keywords.length > 14 ? (
-                        <span style={{ color: t.muted }}> · +{company.keywords.length - 14}</span>
-                      ) : null}
+                    <KeyValue label="Keywords">
+                      <div className="company-profile-tag-list">
+                        {company.keywords.map((k, i) => (
+                          <Chip key={`${k}-${i}`} t={t} tone="ghost">
+                            {k}
+                          </Chip>
+                        ))}
+                      </div>
                     </KeyValue>
                   ) : null}
                 </div>
@@ -2986,10 +3003,8 @@ function AdvisorsTab({
               type="submit"
               disabled={isPending}
               style={{
+                ...ctaPrimaryStyle(t),
                 padding: "8px 14px",
-                background: t.ink,
-                color: t.bg,
-                border: `1px solid ${t.ink}`,
                 borderRadius: 6,
                 fontFamily: t.sans,
                 fontSize: 12,
@@ -3026,28 +3041,16 @@ function ViewProfileButton({
       onClick={onClick}
       title={label}
       style={{
-        background: accentChipBg(t),
-        border: `1px solid ${accentChipBorder(t)}`,
-        color: accentChipFg(t),
+        ...ctaTertiaryStyle(t),
         cursor: "pointer",
         fontFamily: t.sans,
         fontSize: 13,
-        fontWeight: 650,
+        fontWeight: 550,
         gap: 8,
         letterSpacing: "-0.01em",
         lineHeight: 1,
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          background: t.accent,
-          borderRadius: "50%",
-          flexShrink: 0,
-          height: 7,
-          width: 7,
-        }}
-      />
       {label}
     </button>
   );
@@ -3175,13 +3178,11 @@ function AddToListButton({
         onClick={() => setOpen((v) => !v)}
         title={addedCount > 0 ? "Manage lists" : "Add to list"}
         style={{
+          ...ctaTertiaryStyle(t),
           width: "100%",
-          border: `1px solid ${addedCount > 0 ? accentChipBorder(t) : t.rule}`,
           fontFamily: t.sans,
           fontSize: 13,
           fontWeight: 650,
-          color: addedCount > 0 ? accentChipFg(t) : t.ink,
-          background: addedCount > 0 ? accentChipBg(t) : t.panel,
           cursor: "pointer",
           gap: 8,
           lineHeight: 1,
@@ -3259,38 +3260,21 @@ function formatDate(iso: string): string {
   });
 }
 
-function kindLabel(kind: string): string {
+function researchKindStamp(kind: string): string {
   switch (kind) {
     case "intelligence_brief":
-      return "Intelligence Brief";
+      return "Brief";
     case "diligence_report":
-      return "Diligence Report";
+      return "Diligence";
     case "meeting_summary":
-      return "Meeting Summary";
+      return "Notes";
     case "comparison":
-      return "Comparison";
+      return "Compare";
     case "playbook_run":
-      return "Playbook Run";
+      return "Playbook";
     default:
-      return kind;
+      return "Artifact";
   }
-}
-
-/**
- * Derive a human-readable chip label for an artifact card. Playbook runs are
- * titled "<Playbook Name> — <Subject> — <Date>" (post-Phase-1a), so pulling
- * the first segment gives us the actual playbook name ("Value Creation
- * Report" rather than the generic "Playbook Run"). Legacy rows without that
- * format fall back to the kind label.
- */
-function artifactBadgeLabel(a: { kind: string; title: string }): string {
-  if (a.kind !== "playbook_run") return kindLabel(a.kind);
-  const idx = a.title.indexOf(" — ");
-  if (idx <= 0) return kindLabel(a.kind);
-  const candidate = a.title.slice(0, idx).trim();
-  // Avoid repeating the playbook name when the title already starts with it.
-  if (candidate.length > 0 && a.title.startsWith(candidate)) return "Playbook";
-  return candidate.length > 0 ? candidate : kindLabel(a.kind);
 }
 
 function MarkdownBody({ t, content }: { t: Theme; content: string }) {
@@ -3374,28 +3358,47 @@ function ResearchArtifactBody({
 }
 
 function researchPreview(content: string): string {
-  const plain = content
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/[#>*_`\[\]]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const withoutCode = content.replace(/```[\s\S]*?```/g, " ");
+  const lines = withoutCode
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/^#+\s*/, "")
+        .replace(/[#>*_`\[\]]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter(Boolean);
+  const skip = new Set(["summary", "overview", "brief", "notes"]);
+  const useful = lines.filter((line) => !skip.has(line.toLowerCase()));
+  const plain = (useful.length > 0 ? useful : lines).join(" ").replace(/\s+/g, " ").trim();
   if (!plain) return "Open to read the full research artifact.";
-  return plain.length > 140 ? `${plain.slice(0, 140).trim()}…` : plain;
+  return plain.length > 160 ? `${plain.slice(0, 160).trim()}…` : plain;
 }
 
-function researchKindGlyph(kind: string): string {
-  switch (kind) {
-    case "intelligence_brief":
-      return "✦";
-    case "diligence_report":
-      return "◎";
-    case "meeting_summary":
-      return "☰";
-    case "playbook_run":
-      return "▷";
-    default:
-      return "◇";
-  }
+function ResearchChevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width={16}
+      height={16}
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden
+      style={{
+        flexShrink: 0,
+        transform: open ? "rotate(180deg)" : "none",
+        transition: "transform 160ms ease",
+      }}
+    >
+      <path
+        d="M4 6l4 4 4-4"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 function BriefsTab({
@@ -3449,14 +3452,12 @@ function BriefsTab({
               borderRadius: 14,
               color: t.accent,
               display: "flex",
-              fontSize: 18,
-              fontWeight: 700,
               height: 48,
               justifyContent: "center",
               width: 48,
             }}
           >
-            ✦
+            {G.doc}
           </div>
           <div style={{ fontFamily: t.sans, fontSize: 15, fontWeight: 700, color: t.ink }}>
             No research yet
@@ -3508,19 +3509,17 @@ function BriefsTab({
         </div>
       </div>
 
-      <div className="fuel-research-tab__list">
+      <div className="fuel-group fuel-research-tab__list" style={groupCardStyle(t)}>
         {artifacts.map((a) => {
           const open = openId === a.id;
-          const isLight = t.mode === "editorial";
+          const stamp = researchKindStamp(a.kind);
           return (
             <article
               key={a.id}
               className={`fuel-research-card${open ? " is-open" : ""}`}
-              style={{
-                background: t.panel,
-                border: `1px solid ${open ? `${t.accent}55` : t.borderSubtle}`,
-                boxShadow: open ? `0 8px 24px ${t.borderFaint}` : `0 1px 0 ${t.borderFaint}`,
-              }}
+              style={groupItemStyle(t, {
+                borderColor: open ? `${t.accent}55` : t.rule,
+              })}
             >
               <button
                 type="button"
@@ -3529,29 +3528,22 @@ function BriefsTab({
                 onClick={() => setOpenId(open ? null : a.id)}
                 style={{ color: t.ink, fontFamily: t.sans }}
               >
-                <div
-                  className="fuel-research-card__glyph"
-                  aria-hidden
-                  style={{
-                    background: `${t.accent}14`,
-                    color: t.accent,
-                  }}
-                >
-                  {researchKindGlyph(a.kind)}
-                </div>
                 <div className="fuel-research-card__main">
                   <div className="fuel-research-card__meta">
-                    <Chip t={t} tone="accent">
-                      {artifactBadgeLabel(a)}
-                    </Chip>
-                    <span style={{ color: t.muted, fontFamily: t.sans, fontSize: 12 }}>
-                      {formatDate(a.createdAt)}
+                    <span
+                      className="fuel-research-card__stamp"
+                      style={{
+                        color: a.kind === "playbook_run" ? t.accent : t.muted,
+                        fontFamily: t.mono,
+                      }}
+                    >
+                      {stamp}
                     </span>
                     <span
-                      className="fuel-research-card__author-inline"
-                      style={{ color: t.mutedSoft, fontFamily: t.sans, fontSize: 12 }}
+                      className="fuel-research-card__when"
+                      style={{ color: t.muted, fontFamily: t.sans }}
                     >
-                      {a.authorEmail}
+                      {formatDate(a.createdAt)}
                     </span>
                   </div>
                   <h3 className="fuel-research-card__title">{a.title}</h3>
@@ -3560,30 +3552,18 @@ function BriefsTab({
                       {researchPreview(a.content)}
                     </p>
                   ) : null}
-                  <div className="fuel-research-card__cta-row">
-                    <span className="fuel-research-card__read-cta" style={{ color: t.accent }}>
-                      {open ? "Read less" : "Read more"}
-                      <span aria-hidden>{open ? " ↑" : " →"}</span>
-                    </span>
-                    <span
-                      className="fuel-research-card__author"
-                      style={{ color: t.mutedSoft }}
-                    >
-                      {a.authorEmail}
-                    </span>
-                  </div>
+                  <p className="fuel-research-card__byline" style={{ color: t.mutedSoft, fontFamily: t.sans }}>
+                    {a.authorEmail}
+                  </p>
                 </div>
+                <span className="fuel-research-card__chevron" style={{ color: t.muted }}>
+                  <ResearchChevron open={open} />
+                </span>
               </button>
 
               {open ? (
                 <div className="fuel-research-card__body">
-                  <div
-                    className="fuel-research-card__body-inner"
-                    style={{
-                      background: isLight ? t.bg : t.panelAlt,
-                      border: `1px solid ${t.ruleSoft}`,
-                    }}
-                  >
+                  <div className="fuel-research-card__body-inner">
                     <ResearchArtifactBody
                       t={t}
                       artifact={a}
@@ -3928,7 +3908,6 @@ function useBenchmarkRefreshOverlay(
   companyUuid: string,
   onIntelligenceRefresh: (items: CompanyIntelligenceRow[]) => void,
 ): { benchmarkRefreshing: boolean; benchmarkRefreshError: string | null } {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [refreshing, setRefreshing] = useState(false);
@@ -3957,10 +3936,7 @@ function useBenchmarkRefreshOverlay(
     setError(null);
 
     if (fromUrl) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete(BENCHMARK_REFRESH_PARAM);
-      const qs = params.toString();
-      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+      applyClientSearchPatch(pathname, { [BENCHMARK_REFRESH_PARAM]: null }, "replace");
     }
 
     let cancelled = false;
@@ -4015,7 +3991,7 @@ function useBenchmarkRefreshOverlay(
     };
     // Omit searchParams: replace() would re-fire and cancel the in-flight wait.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot refresh gate
-  }, [companyUuid, pathname, router]);
+  }, [companyUuid, pathname]);
   return { benchmarkRefreshing: refreshing, benchmarkRefreshError: error };
 }
 
@@ -4478,10 +4454,8 @@ function PrivateMetricsTab({
             value="draft"
             disabled={pending}
             style={{
+              ...ctaTertiaryStyle(t),
               padding: "8px 14px",
-              background: "transparent",
-              color: t.inkSoft,
-              border: `1px solid ${t.rule}`,
               borderRadius: 6,
               fontFamily: t.sans,
               fontSize: 12.5,
@@ -4498,10 +4472,8 @@ function PrivateMetricsTab({
             value="submit"
             disabled={pending}
             style={{
+              ...ctaPrimaryStyle(t),
               padding: "8px 14px",
-              background: t.ink,
-              color: t.bg,
-              border: `1px solid ${t.ink}`,
               borderRadius: 6,
               fontFamily: t.sans,
               fontSize: 12.5,

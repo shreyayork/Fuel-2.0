@@ -11,13 +11,16 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Theme } from "@/lib/theme";
-import { framedPanelPadStyle } from "@/lib/theme";
+import { ctaPrimaryStyle, ctaTertiaryStyle, framedPanelPadStyle } from "@/lib/theme";
 import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
-import { Chip, Logo, SectionHead, Tabs } from "../atoms";
+import { Chip, Logo, SectionHead } from "../atoms";
 import { G } from "../icons";
 import {
   CreateIconButton,
+  FilterGroup,
   FilterMenu,
+  FilterSearch,
+  FilterOption,
   PageToolbar,
 } from "../ToolbarActions";
 import type { WatchlistListItem } from "@/lib/watchlists";
@@ -28,6 +31,8 @@ import {
   setFollowerAction,
   setScopeAction,
 } from "@/app/(app)/portfolio/actions";
+import { AddScreenShell } from "@/components/drawer/AddScreenShell";
+import { addScreenPrimaryBtnStyle } from "@/components/drawer/styles";
 import { useToast } from "../toast/ToastProvider";
 import {
   CompactActionButton,
@@ -58,12 +63,10 @@ function syncScopeToUrl(scope: ScopeKey) {
 
 function btn(t: Theme, primary = false): CSSProperties {
   return {
+    ...(primary ? ctaPrimaryStyle(t) : ctaTertiaryStyle(t)),
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    background: primary ? t.ink : "transparent",
-    color: primary ? t.bg : t.inkSoft,
-    border: `1px solid ${primary ? t.ink : t.rule}`,
     padding: primary ? "8px 14px" : "7px 12px",
     borderRadius: 8,
     fontFamily: t.sans,
@@ -444,67 +447,60 @@ export function WatchlistsView({
           <PageToolbar
             t={t}
             filter={
-              <FilterMenu t={t} activeCount={filterActiveCount}>
-                <Tabs
-                  t={t}
-                  active={activeScope}
-                  onChange={(k) => {
-                    const next = k as ScopeKey;
-                    setActiveScope(next);
-                    syncScopeToUrl(next);
-                  }}
-                  items={[
-                    { key: "all", label: "All", count: counts.all },
-                    { key: "mine", label: "Mine", count: counts.mine },
-                    { key: "shared", label: "Shared", count: counts.shared },
-                    { key: "starred", label: "Starred", count: counts.starred },
-                  ]}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    color: t.muted,
-                    padding: "6px 10px",
-                    border: `1px solid ${t.rule}`,
-                    borderRadius: 8,
-                    background: t.panelAlt,
-                    minWidth: 0,
-                  }}
-                >
-                  {G.search}
-                  <input
+              <FilterMenu
+                t={t}
+                activeCount={filterActiveCount}
+                onClear={() => {
+                  setActiveScope("all");
+                  syncScopeToUrl("all");
+                  setSearch("");
+                }}
+              >
+                <FilterGroup t={t} title="Scope">
+                    {(
+                      [
+                        { key: "all", label: "All", count: counts.all },
+                        { key: "mine", label: "Mine", count: counts.mine },
+                        { key: "shared", label: "Shared", count: counts.shared },
+                        { key: "starred", label: "Starred", count: counts.starred },
+                      ] as const
+                    ).map((item) => (
+                      <FilterOption
+                        key={item.key}
+                        t={t}
+                        selected={activeScope === item.key}
+                        onSelect={() => {
+                          setActiveScope(item.key);
+                          syncScopeToUrl(item.key);
+                        }}
+                        trailing={item.count}
+                      >
+                        {item.label}
+                      </FilterOption>
+                    ))}
+                </FilterGroup>
+                <FilterGroup t={t} title="Search">
+                  <FilterSearch
+                    t={t}
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={setSearch}
                     placeholder="Name, owner, or team"
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      outline: "none",
-                      fontFamily: t.sans,
-                      fontSize: phone ? 16 : 13,
-                      color: t.ink,
-                      width: "100%",
-                      minWidth: 0,
-                      flex: 1,
-                      minHeight: TOUCH_TARGET_MIN - 12,
-                    }}
+                    aria-label="Search watchlists"
                   />
-                </div>
+                </FilterGroup>
               </FilterMenu>
             }
             create={
               <CreateIconButton
                 t={t}
-                label={
-                  showCreate
-                    ? "Cancel create"
-                    : `New ${kindLabel.toLowerCase()}`
-                }
-                active={showCreate}
+                label={`New ${kindLabel.toLowerCase()}`}
+                active={phone ? false : showCreate}
                 onClick={() => {
-                  setShowCreate((v) => !v);
+                  if (phone) {
+                    setShowCreate(true);
+                  } else {
+                    setShowCreate((v) => !v);
+                  }
                   if (editingId) cancelEdit();
                 }}
               />
@@ -514,20 +510,138 @@ export function WatchlistsView({
       />
 
       {showCreate ? (
+        phone ? (
+          <AddScreenShell
+            t={t}
+            title={`New ${kindLabel.toLowerCase()}`}
+            onClose={() => setShowCreate(false)}
+            footer={
+              <button
+                type="submit"
+                form="watchlist-create-form"
+                disabled={createPending || (kind === "portfolio" && !createCohort)}
+                style={addScreenPrimaryBtnStyle(t, {
+                  cursor: createPending ? "wait" : "pointer",
+                  opacity:
+                    createPending || (kind === "portfolio" && !createCohort) ? 0.45 : 1,
+                })}
+              >
+                {createPending ? "Creating…" : `Create ${kindLabel.toLowerCase()}`}
+              </button>
+            }
+          >
+            <form
+              id="watchlist-create-form"
+              onSubmit={onCreateSubmit}
+              className="fuel-watchlist-create"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                alignItems: "stretch",
+              }}
+            >
+              <input type="hidden" name="kind" value={kind} />
+              <SurfaceField
+                name="name"
+                autoFocus
+                placeholder={
+                  kind === "portfolio" ? "Portfolio name (e.g. Fund 2)" : "Watchlist name (e.g. Competitors)"
+                }
+                required
+                disabled={createPending}
+                style={{ width: "100%", fontSize: 16 }}
+              />
+              {kind === "portfolio" ? (
+                <SurfaceField
+                  name="fundName"
+                  placeholder="Fund label (optional)"
+                  disabled={createPending}
+                  style={{ width: "100%", fontSize: 16 }}
+                />
+              ) : null}
+              {kind === "portfolio" ? (
+                <SurfaceField
+                  as="select"
+                  name="cohort"
+                  value={createCohort}
+                  onChange={(e) => setCreateCohort(e.target.value)}
+                  required
+                  disabled={createPending}
+                  aria-label="Stage / cohort"
+                  style={{
+                    cursor: "pointer",
+                    width: "100%",
+                    fontSize: 16,
+                    minHeight: TOUCH_TARGET_MIN,
+                  }}
+                >
+                  <option value="">Stage (required)</option>
+                  <option value="Pre-seed">Pre-seed</option>
+                  <option value="Seed">Seed</option>
+                  <option value="Series A">Series A</option>
+                  <option value="Series B">Series B</option>
+                  <option value="Series C">Series C</option>
+                  <option value="Growth">Growth</option>
+                </SurfaceField>
+              ) : null}
+              <SurfaceField
+                as="select"
+                name="scope"
+                value={createScope}
+                onChange={(e) => {
+                  const next = e.target.value as ScopeValue;
+                  if (next === "team" && availableTeams.length === 0) {
+                    showToast({
+                      message: "Create a Team first before using Team visibility.",
+                      variant: "error",
+                    });
+                    setCreateScope("private");
+                    setCreateTeamIds([]);
+                    return;
+                  }
+                  setCreateScope(next);
+                  if (next !== "team") setCreateTeamIds([]);
+                }}
+                disabled={createPending}
+                style={{
+                  cursor: "pointer",
+                  width: "100%",
+                  fontSize: 16,
+                  minHeight: TOUCH_TARGET_MIN,
+                }}
+              >
+                <option value="private">Private</option>
+                <option value="account">Workspace</option>
+                <option value="team">Team</option>
+              </SurfaceField>
+              {createScope === "team" && availableTeams.length > 0 ? (
+                <TeamAccessPicker
+                  teams={availableTeams}
+                  value={createTeamIds}
+                  onChange={setCreateTeamIds}
+                  name="teamIds"
+                  disabled={createPending}
+                  variant="inline"
+                />
+              ) : null}
+            </form>
+          </AddScreenShell>
+        ) : (
         <form
           onSubmit={onCreateSubmit}
           className="fuel-watchlist-create"
           style={{
             display: "flex",
             gap: 10,
-            alignItems: phone ? "stretch" : "center",
-            padding: phone ? 14 : 14,
+            alignItems: "center",
+            padding: 14,
             background: t.panel,
             border: `1px solid ${t.rule}`,
-            borderRadius: phone ? 12 : 0,
+            borderRadius: 0,
             marginBottom: 14,
             flexWrap: "wrap",
-            flexDirection: phone ? "column" : "row",
+            flexDirection: "row",
           }}
         >
           <input type="hidden" name="kind" value={kind} />
@@ -541,9 +655,7 @@ export function WatchlistsView({
             disabled={createPending}
             style={{
               flex: 1,
-              minWidth: phone ? 0 : 200,
-              width: phone ? "100%" : undefined,
-              fontSize: phone ? 16 : undefined,
+              minWidth: 200,
             }}
           />
           {kind === "portfolio" ? (
@@ -552,8 +664,7 @@ export function WatchlistsView({
               placeholder="Fund label (optional)"
               disabled={createPending}
               style={{
-                width: phone ? "100%" : 160,
-                fontSize: phone ? 16 : undefined,
+                width: 160,
               }}
             />
           ) : null}
@@ -568,10 +679,7 @@ export function WatchlistsView({
               aria-label="Stage / cohort"
               style={{
                 cursor: "pointer",
-                minWidth: phone ? 0 : 140,
-                width: phone ? "100%" : undefined,
-                fontSize: phone ? 16 : undefined,
-                minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+                minWidth: 140,
               }}
             >
               <option value="">Stage (required)</option>
@@ -604,9 +712,6 @@ export function WatchlistsView({
             disabled={createPending}
             style={{
               cursor: "pointer",
-              width: phone ? "100%" : undefined,
-              fontSize: phone ? 16 : undefined,
-              minHeight: phone ? TOUCH_TARGET_MIN : undefined,
             }}
           >
             <option value="private">Private</option>
@@ -630,14 +735,13 @@ export function WatchlistsView({
             }
             style={{
               ...btn(t, true),
-              width: phone ? "100%" : undefined,
-              minHeight: phone ? TOUCH_TARGET_MIN : undefined,
               justifyContent: "center",
             }}
           >
             {createPending ? "Creating…" : "Create"}
           </button>
         </form>
+        )
       ) : null}
 
       {phone ? (

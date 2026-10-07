@@ -8,6 +8,7 @@ import {
 } from "@/app/(app)/account/integrations/granola/actions";
 import { Chip } from "../atoms";
 import { useTheme } from "../ThemeContext";
+import { ctaPrimaryStyle } from "@/lib/theme";
 
 export interface GranolaRecentItem {
   id: string;
@@ -112,11 +113,9 @@ export function GranolaConfigView({
           <a
             href="/api/integrations/granola/install"
             style={{
+              ...ctaPrimaryStyle(t),
               padding: "8px 14px",
               borderRadius: 6,
-              border: `1px solid ${t.ink}`,
-              background: t.ink,
-              color: t.bg,
               fontFamily: t.sans,
               fontSize: 13,
               fontWeight: 500,
@@ -185,11 +184,9 @@ export function GranolaConfigView({
           <a
             href="/api/integrations/granola/install"
             style={{
+              ...ctaPrimaryStyle(t),
               padding: "9px 16px",
               borderRadius: 6,
-              border: "none",
-              background: t.accent,
-              color: "#0B1116",
               fontFamily: t.sans,
               fontSize: 13,
               fontWeight: 600,

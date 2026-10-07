@@ -3,12 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useAgentDrawer } from "../AgentDrawer";
 import { useTheme } from "../ThemeContext";
-import {
-  accentChipBg,
-  accentChipBorder,
-  accentChipFg,
-  type Theme,
-} from "@/lib/theme";
+import { aiCtaGradient, onAiCtaText, type Theme } from "@/lib/theme";
 import {
   type PlaybookPickerEntry,
   type PlaybookSubject,
@@ -162,7 +157,8 @@ export function AiActionsMenu({
     >
       <button
         type="button"
-        title="AI Actions"
+        title="Ask Fuel AI"
+        aria-label="Ask Fuel AI"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         onClick={() => {
@@ -280,13 +276,13 @@ Keep each section tight. When you use a private signal, attribute the category (
   };
 }
 
-function triggerStyle(t: Theme): CSSProperties {
+function triggerStyle(_t: Theme): CSSProperties {
   return {
-    border: `1px solid ${accentChipBorder(t)}`,
-    background: accentChipBg(t),
-    color: accentChipFg(t),
-    fontFamily: t.sans,
-    fontSize: 15,
+    border: "none",
+    background: aiCtaGradient(),
+    color: onAiCtaText(),
+    fontFamily: "inherit",
+    fontSize: 16,
     fontWeight: 600,
     cursor: "pointer",
     letterSpacing: 0,

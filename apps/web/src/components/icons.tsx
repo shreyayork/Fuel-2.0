@@ -20,7 +20,7 @@ export const G = {
   back: svg("M19 12H5M11 6l-6 6 6 6", 14),
   bolt: svg("M13 2L3 14h7l-1 8 11-14h-7l0-6z"),
   filter: (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 5h16l-6.2 7.4V18l-3.6 2v-7.6L4 5z" />
     </svg>
   ),

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Theme } from "@/lib/theme";
+import { BREAKPOINTS, mqMax, useMediaQuery } from "@/lib/responsive";
 import type { DataRoomDocumentSlot, DataRoomSnapshot } from "@/lib/data-room/types";
 import type { CompanyIntelligenceRow } from "@/lib/intelligence/types";
 import { totalRemaining } from "@/lib/credits/logic";
@@ -11,6 +12,7 @@ import {
   drawerScrimMotionStyle,
   useDrawerPresence,
 } from "@/components/drawer/motion";
+import { AddScreenShell } from "@/components/drawer/AddScreenShell";
 import { drawerCloseBtnStyle } from "@/components/drawer/styles";
 import { IntelligenceSourcesPanel } from "./IntelligenceSourcesPanel";
 
@@ -47,6 +49,7 @@ export function AddSourceDrawer({
   onIntelligenceGenerated?: (ids: string[], sourceTitle: string) => void;
 }) {
   const presence = useDrawerPresence(open);
+  const sheet = useMediaQuery(mqMax(BREAKPOINTS.md), false);
   const credits = useCreditsOptional();
   const [fetchedSlots, setFetchedSlots] = useState<DataRoomDocumentSlot[]>([]);
 
@@ -85,6 +88,34 @@ export function AddSourceDrawer({
     creditBalanceProp ??
     (credits?.snapshot ? totalRemaining(credits.snapshot) : 0);
 
+  const panel = (
+        <IntelligenceSourcesPanel
+          t={t}
+          companyUuid={companyUuid}
+          documentSlots={documentSlots}
+          creditBalance={creditBalance}
+          onBalanceChange={onBalanceChange}
+          onItemsChange={onItemsChange}
+          onDataRoomSnapshot={(snapshot) => {
+            if (!documentSlotsProp) setFetchedSlots(snapshot.slots);
+            onDataRoomSnapshot?.(snapshot);
+          }}
+          onDocumentNotice={onDocumentNotice}
+          onIntelligenceGenerated={onIntelligenceGenerated}
+          onSuccess={onSaved}
+          forceShowForm
+          onCancel={onClose}
+        />
+  );
+
+  if (sheet) {
+    return (
+      <AddScreenShell t={t} title="Add source" onClose={onClose} zIndex={90}>
+        {panel}
+      </AddScreenShell>
+    );
+  }
+
   return (
     <>
       <button
@@ -121,13 +152,13 @@ export function AddSourceDrawer({
           top: 0,
           width: "min(100vw, 560px)",
           zIndex: 71,
-          ...drawerPanelMotionStyle(presence.visible, presence.durationMs),
+          ...drawerPanelMotionStyle(presence.visible, presence.durationMs, { from: "right" }),
         }}
       >
         <header
           style={{
             alignItems: "flex-start",
-            background: t.panelAlt,
+            background: t.panel,
             borderBottom: `1px solid ${t.ruleSoft}`,
             display: "flex",
             gap: 12,
@@ -176,23 +207,7 @@ export function AddSourceDrawer({
             </svg>
           </button>
         </header>
-        <IntelligenceSourcesPanel
-          t={t}
-          companyUuid={companyUuid}
-          documentSlots={documentSlots}
-          creditBalance={creditBalance}
-          onBalanceChange={onBalanceChange}
-          onItemsChange={onItemsChange}
-          onDataRoomSnapshot={(snapshot) => {
-            if (!documentSlotsProp) setFetchedSlots(snapshot.slots);
-            onDataRoomSnapshot?.(snapshot);
-          }}
-          onDocumentNotice={onDocumentNotice}
-          onIntelligenceGenerated={onIntelligenceGenerated}
-          onSuccess={onSaved}
-          forceShowForm
-          onCancel={onClose}
-        />
+        {panel}
       </aside>
     </>
   );

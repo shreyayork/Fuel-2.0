@@ -9,11 +9,11 @@ import {
   useTransition,
   type CSSProperties,
 } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
-import { onAccentText, type Theme } from "@/lib/theme";
-import { TOUCH_TARGET_MIN } from "@/lib/responsive";
-import { CreateIconButton, FilterMenu, PageToolbar } from "@/components/ToolbarActions";
+import { groupCardHeadStyle, groupCardStyle, onAccentText, type Theme } from "@/lib/theme";
+import { TOUCH_TARGET_MIN, BREAKPOINTS, useNarrow } from "@/lib/responsive";
+import { CreateIconButton, FilterGroup, FilterMenu, FilterOption, PageToolbar } from "@/components/ToolbarActions";
 import { addManualObservationAction } from "@/app/(app)/company/[uuid]/actions";
 import { MagicShimmer } from "@/components/ai/MagicShimmer";
 import { IntelligenceItemPicker, intelligenceValuePreview } from "@/components/intelligence/IntelligenceItemPicker";
@@ -49,7 +49,7 @@ import {
   normalizeMilestoneDueDate,
 } from "@/lib/initiative-milestone-dates";
 import { INVALID_EMAIL_MESSAGE, isValidEmail } from "@/lib/is-valid-email";
-import { patchSearchParams } from "@/lib/use-url-synced-tab";
+import { applyClientSearchPatch, useClientSearchQuery } from "@/lib/use-url-synced-tab";
 import type {
   CompanyAdvisorSummary,
   CompanyInitiativeSummary,
@@ -65,6 +65,8 @@ import {
   useAnimatedDrawerClose,
   useDrawerPresence,
 } from "@/components/drawer/motion";
+import { AddScreenShell } from "@/components/drawer/AddScreenShell";
+import { addScreenPrimaryBtnStyle } from "@/components/drawer/styles";
 import { InitiativeMilestonesPanel } from "./InitiativeSidePanels";
 import { DismissSuggestedInitiativeAlert, SuggestedInitiativeReviewPanel } from "./SuggestedInitiativeReviewDrawer";
 import { MemberAssigneesField } from "./MemberAssigneesField";
@@ -136,8 +138,6 @@ import {
   progressSectionSubtitleStyle,
   progressSectionTitleStyle,
   secondaryBtnStyle,
-  statusToggleBtnStyle,
-  statusToggleStyle,
 } from "./styles";
 import { HoverBtn } from "@/components/company/overview/drawerShared";
 import {
@@ -471,7 +471,6 @@ function CreateInitiativeDrawer({
   description,
   assignees,
   due,
-  status,
   advisorIds,
   advisorPool,
   allowAdvisorLinking,
@@ -482,7 +481,6 @@ function CreateInitiativeDrawer({
   onDescriptionChange,
   onAssigneesChange,
   onDueChange,
-  onStatusChange,
   onAdvisorIdsChange,
   onMilestonesChange,
   onClose,
@@ -498,7 +496,6 @@ function CreateInitiativeDrawer({
   description: string;
   assignees: string[];
   due: string;
-  status: InitiativeListStatus;
   advisorIds: string[];
   advisorPool: CompanyAdvisorSummary[];
   allowAdvisorLinking: boolean;
@@ -509,7 +506,6 @@ function CreateInitiativeDrawer({
   onDescriptionChange: (next: string) => void;
   onAssigneesChange: (next: string[]) => void;
   onDueChange: (next: string) => void;
-  onStatusChange: (next: InitiativeListStatus) => void;
   onAdvisorIdsChange: (next: string[]) => void;
   onMilestonesChange: (
     next: { id: string; title: string; due: string; done: boolean }[],
@@ -521,6 +517,7 @@ function CreateInitiativeDrawer({
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
   const [milestoneDraft, setMilestoneDraft] = useState({ title: "", due: "" });
   const [intelPanel, setIntelPanel] = useState<"log" | "link" | null>(null);
+  const phone = useNarrow(BREAKPOINTS.md);
 
   const { mounted, visible, durationMs } = useDrawerPresence(open);
   useDrawerEscape(open, saving, onClose);
@@ -539,28 +536,23 @@ function CreateInitiativeDrawer({
   const sectionHead = drawerSectionHeadStyle(t);
   const miniBtn = drawerMiniBtnStyle(t);
   const controlFocusBorder = isLight ? t.ink : t.accent;
-
-  return (
-    <div
-      role="presentation"
-      onClick={saving ? undefined : onClose}
-      style={{
-        ...drawerScrimStyle(t),
-        ...drawerScrimMotionStyle(visible, durationMs),
-      }}
+  const createCta = (
+    <button
+      type="button"
+      disabled={saving || !canCreate}
+      onClick={onSubmit}
+      style={addScreenPrimaryBtnStyle(t, {
+        cursor: saving || !canCreate ? "not-allowed" : "pointer",
+        opacity: saving || !canCreate ? 0.45 : 1,
+      })}
     >
-      <aside
-        role="dialog"
-        aria-label="New initiative"
-        className="initiative-drawer initiative-create-drawer"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          ...drawerStyle(t),
-          ...initiativeDrawerWidthStyle(),
-          background: t.panel,
-          ...drawerPanelMotionStyle(visible, durationMs),
-        }}
-      >
+      {saving ? "Creating…" : "Create initiative"}
+    </button>
+  );
+
+  const content = (
+    <>
+        {phone ? null : (
         <header className="fuel-init-drawer-header" style={drawerHeaderStyle(t)}>
           <div className="fuel-init-drawer-header__top">
             <div className="fuel-init-drawer-header__title" style={drawerHeaderTitleBlockStyle()}>
@@ -587,32 +579,10 @@ function CreateInitiativeDrawer({
               </svg>
             </button>
           </div>
-          <div className="fuel-init-drawer-header__actions" style={drawerHeaderActionsStyle()}>
-            <div
-              className="fuel-init-drawer-header__status"
-              role="group"
-              aria-label="Status"
-              style={statusToggleStyle(t)}
-            >
-              {(["Active", "Completed"] as const).map((s) => {
-                const active = status === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={active}
-                    disabled={saving}
-                    onClick={() => onStatusChange(s)}
-                    style={statusToggleBtnStyle(t, active)}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </header>
+        )}
 
+        {phone ? null : (
         <div
           className="fuel-init-drawer-milestones"
           style={{ borderBottom: `1px solid ${t.rule}`, padding: "12px 24px 14px" }}
@@ -661,17 +631,18 @@ function CreateInitiativeDrawer({
             />
           </div>
         </div>
+        )}
 
         <div
           className="fuel-init-drawer-body"
           style={{
-            background: isLight ? t.bg : t.panel,
+            background: phone ? "transparent" : isLight ? t.bg : t.panel,
             display: "flex",
             flex: 1,
             flexDirection: "column",
             gap: 16,
-            overflow: "auto",
-            padding: "20px 24px 28px",
+            overflow: phone ? "visible" : "auto",
+            padding: phone ? 0 : "20px 24px 28px",
           }}
         >
           <section style={sectionCard}>
@@ -982,6 +953,7 @@ function CreateInitiativeDrawer({
           ) : null}
         </div>
 
+        {phone ? null : (
         <footer style={benchActionsStyle(t)}>
           <HoverBtn
             type="button"
@@ -1007,6 +979,46 @@ function CreateInitiativeDrawer({
             {saving ? "Creating…" : "Create initiative"}
           </HoverBtn>
         </footer>
+        )}
+    </>
+  );
+
+  if (phone) {
+    return (
+      <AddScreenShell
+        t={t}
+        title="New initiative"
+        onClose={onClose}
+        zIndex={1200}
+        footer={createCta}
+      >
+        {content}
+      </AddScreenShell>
+    );
+  }
+
+  return (
+    <div
+      role="presentation"
+      onClick={saving ? undefined : onClose}
+      style={{
+        ...drawerScrimStyle(t),
+        ...drawerScrimMotionStyle(visible, durationMs),
+      }}
+    >
+      <aside
+        role="dialog"
+        aria-label="New initiative"
+        className="initiative-drawer initiative-create-drawer"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          ...drawerStyle(t),
+          ...initiativeDrawerWidthStyle(),
+          background: t.panel,
+          ...drawerPanelMotionStyle(visible, durationMs, { from: "right" }),
+        }}
+      >
+        {content}
       </aside>
     </div>
   );
@@ -1341,32 +1353,15 @@ export function InitiativeDetailDrawer({
             className="fuel-init-drawer-header__toolbar"
             style={drawerHeaderActionsStyle()}
           >
-            <div
-              className="fuel-init-drawer-header__status"
-              role="group"
-              aria-label="Status"
-              style={statusToggleStyle(t)}
+            <button
+              type="button"
+              onClick={() =>
+                setListStatus(listStatus === "Active" ? "Completed" : "Active")
+              }
+              style={drawerEditLinkStyle(t)}
             >
-              {(["Active", "Completed"] as const).map((s) => {
-                const active = listStatus === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setListStatus(s)}
-                    style={{
-                      ...statusToggleBtnStyle(t, active),
-                      flex: 1,
-                      justifyContent: "center",
-                      minHeight: 36,
-                    }}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
+              {listStatus === "Active" ? "Mark completed" : "Reopen"}
+            </button>
             {!confirmDelete ? (
               <button
                 type="button"
@@ -2112,9 +2107,8 @@ export function InitiativesTab({
   onOpenDataRoom?: () => void;
   onOpenProfile?: () => void;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = useClientSearchQuery();
   const focusInitiativeId = searchParams.get("initiativeId");
   const focusSuggested = searchParams.get("suggested") === "1";
   const focusReviewId = searchParams.get("review");
@@ -2122,13 +2116,9 @@ export function InitiativesTab({
 
   const replaceQuery = useCallback(
     (patch: Record<string, string | null>) => {
-      const qs = patchSearchParams(searchParams, patch);
-      const next = qs ? `${pathname}?${qs}` : pathname;
-      const current = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-      if (next === current) return;
-      router.replace(next, { scroll: false });
+      applyClientSearchPatch(pathname, patch, "replace");
     },
-    [pathname, router, searchParams],
+    [pathname],
   );
 
   const [isCreating, setIsCreating] = useState(false);
@@ -2195,7 +2185,6 @@ export function InitiativesTab({
     defaultAssignee ? [defaultAssignee] : [],
   );
   const [draftDue, setDraftDue] = useState("");
-  const [draftStatus, setDraftStatus] = useState<InitiativeListStatus>("Active");
   const [draftAdvisorIds, setDraftAdvisorIds] = useState<string[]>([]);
   const [draftMilestones, setDraftMilestones] = useState<
     { id: string; title: string; due: string; done: boolean }[]
@@ -2374,7 +2363,6 @@ export function InitiativesTab({
     setDraftDescription("");
     setDraftAssignees(defaultAssignee ? [defaultAssignee] : []);
     setDraftDue("");
-    setDraftStatus("Active");
     setDraftAdvisorIds([]);
     setDraftMilestones([]);
     setCreateError(null);
@@ -2412,7 +2400,7 @@ export function InitiativesTab({
     fd.set("ownerEmail", ownerEmail);
     fd.set("assignees", JSON.stringify(draftAssignees.map((a) => a.trim())));
     fd.set("due", draftDue);
-    fd.set("status", draftStatus.toLowerCase());
+    fd.set("status", "active");
     for (const advisorId of draftAdvisorIds) {
       fd.append("advisorId", advisorId);
     }
@@ -2445,7 +2433,7 @@ export function InitiativesTab({
           ownerEmail,
           assignees: draftAssignees.map((a) => a.trim()),
           due: draftDue,
-          status: draftStatus,
+          status: "Active",
           advisors: advisorPool
             .filter((advisor) => draftAdvisorIds.includes(advisor.advisorId))
             .map((advisor) => ({
@@ -2458,7 +2446,7 @@ export function InitiativesTab({
             })),
           milestones: draftMilestones,
         });
-        setStatusTab(draftStatus);
+        setStatusTab("Active");
         setListPage(0);
         setOpenedSnapshot(created);
         setSelectedId(result.id);
@@ -2627,28 +2615,30 @@ export function InitiativesTab({
               ) : null
             }
             filter={
-              <FilterMenu t={t} activeCount={statusTab === "Active" ? 0 : 1} label="Status">
-                {(["Active", "Completed"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    role="tab"
-                    aria-selected={statusTab === tab}
-                    style={{
-                      ...statusToggleBtnStyle(t, statusTab === tab),
-                      minHeight: TOUCH_TARGET_MIN,
-                      textAlign: "left",
-                      width: "100%",
-                    }}
-                    onClick={() => {
-                      setStatusTab(tab);
-                      setListPage(0);
-                    }}
-                  >
-                    {tab}
-                    {listLoadState === "ready" ? ` · ${statusCounts[tab]}` : ""}
-                  </button>
-                ))}
+              <FilterMenu
+                t={t}
+                activeCount={statusTab === "Active" ? 0 : 1}
+                onClear={() => {
+                  setStatusTab("Active");
+                  setListPage(0);
+                }}
+              >
+                <FilterGroup t={t} title="Status">
+                    {(["Active", "Completed"] as const).map((tab) => (
+                      <FilterOption
+                        key={tab}
+                        t={t}
+                        selected={statusTab === tab}
+                        onSelect={() => {
+                          setStatusTab(tab);
+                          setListPage(0);
+                        }}
+                        trailing={listLoadState === "ready" ? statusCounts[tab] : undefined}
+                      >
+                        {tab}
+                      </FilterOption>
+                    ))}
+                </FilterGroup>
               </FilterMenu>
             }
             create={
@@ -2750,7 +2740,16 @@ export function InitiativesTab({
       ) : null}
 
       {listLoadState !== "loading" && listItems.length > 0 ? (
-        <div className="fuel-init-tab__list">
+        <div className="fuel-group" style={groupCardStyle(t)}>
+          <div className="fuel-group__head" style={groupCardHeadStyle(t)}>
+            <span className="fuel-group__title" style={{ color: t.ink, fontFamily: t.sans, fontSize: 15 }}>
+              {statusTab}
+            </span>
+            <span className="fuel-group__meta" style={{ color: t.muted, fontFamily: t.sans, fontSize: 13 }}>
+              {listTotal}
+            </span>
+          </div>
+        <div className="fuel-init-tab__list fuel-group__body">
           {listItems.map((item) => {
             const status = normalizeUiStatus(item.status);
             const selected = selectedId === item.id;
@@ -2798,10 +2797,7 @@ export function InitiativesTab({
                 className={`fuel-init-card ${INITIATIVE_CARD_CLASS}${selected ? " is-selected" : ""}${
                   status === "Active" ? " is-status-active" : ""
                 }`}
-                style={{
-                  ...initiativeCardStyle(t),
-                  ["--fuel-init-rail" as string]: rail,
-                }}
+                style={initiativeCardStyle(t)}
               >
                 <button
                   type="button"
@@ -2971,6 +2967,7 @@ export function InitiativesTab({
             }}
           />
         </div>
+        </div>
       ) : null}
 
       <CreateInitiativeDrawer
@@ -2984,7 +2981,6 @@ export function InitiativesTab({
         description={draftDescription}
         assignees={draftAssignees}
         due={draftDue}
-        status={draftStatus}
         advisorIds={draftAdvisorIds}
         advisorPool={advisorPool}
         allowAdvisorLinking={!investorMode}
@@ -2995,7 +2991,6 @@ export function InitiativesTab({
         onDescriptionChange={setDraftDescription}
         onAssigneesChange={setDraftAssignees}
         onDueChange={setDraftDue}
-        onStatusChange={setDraftStatus}
         onAdvisorIdsChange={setDraftAdvisorIds}
         onMilestonesChange={setDraftMilestones}
         onClose={resetCreateForm}

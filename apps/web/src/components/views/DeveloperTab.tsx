@@ -9,6 +9,7 @@ import {
   dismissNewTokenAction,
 } from "@/app/(app)/account/developer/actions";
 import type { McpApiToken } from "@/db/schema";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import {
   dataTableFrameStyle,
   dataTableStyle,
@@ -177,10 +178,8 @@ export function DeveloperTab({
             type="submit"
             style={{
               alignItems: "center",
-              background: t.ink,
-              border: `1px solid ${t.ink}`,
+              ...ctaPrimaryStyle(t),
               borderRadius: 8,
-              color: t.bg,
               cursor: "pointer",
               display: "inline-flex",
               fontFamily: t.sans,

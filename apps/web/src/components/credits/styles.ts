@@ -4,7 +4,10 @@ import {
   accentChipBorder,
   accentChipFg,
   accentGradient,
+  ctaPrimaryStyle,
+  ctaTertiaryStyle,
   onAccentText,
+  onBrandNavyText,
   type Theme,
 } from "@/lib/theme";
 
@@ -208,10 +211,8 @@ export function creditPopoverActions(): CSSProperties {
 
 export function creditPrimaryButton(t: Theme, extra?: CSSProperties): CSSProperties {
   return {
-    background: accentGradient(t),
-    border: "none",
+    ...ctaPrimaryStyle(t),
     borderRadius: 8,
-    color: onAccentText(t),
     cursor: "pointer",
     fontFamily: "inherit",
     fontSize: 13,
@@ -223,10 +224,8 @@ export function creditPrimaryButton(t: Theme, extra?: CSSProperties): CSSPropert
 
 export function creditGhostButton(t: Theme, extra?: CSSProperties): CSSProperties {
   return {
-    background: "transparent",
-    border: `1px solid ${t.borderSubtle}`,
+    ...ctaTertiaryStyle(t),
     borderRadius: 8,
-    color: t.muted,
     cursor: "pointer",
     fontFamily: "inherit",
     fontSize: 13,
@@ -250,7 +249,7 @@ export function creditButtonSpinner(
   t: Theme,
   variant: "primary" | "ghost" = "primary",
 ): CSSProperties {
-  const color = variant === "primary" ? onAccentText(t) : t.muted;
+  const color = variant === "primary" ? onBrandNavyText(t) : t.muted;
   return {
     animation: "fuel-spin 700ms linear infinite",
     border: `2px solid color-mix(in srgb, ${color} 40%, transparent)`,

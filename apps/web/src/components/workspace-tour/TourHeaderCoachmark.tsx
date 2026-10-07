@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { TOUCH_TARGET_MIN } from "@/lib/responsive";
-import { accentGradient, onAccentText, type Theme } from "@/lib/theme";
+import { ctaPrimaryStyle, type Theme } from "@/lib/theme";
 import { useTheme } from "../ThemeContext";
 
 function TourCompassIcon({ size = 16 }: { size?: number }) {
@@ -186,11 +186,9 @@ function coachmarkPanelStyle(t: Theme): CSSProperties {
 
 function okButtonStyle(t: Theme): CSSProperties {
   return {
+    ...ctaPrimaryStyle(t),
     alignSelf: "flex-end",
-    background: accentGradient(t),
-    border: "none",
     borderRadius: 7,
-    color: onAccentText(t),
     cursor: "pointer",
     fontFamily: t.sans,
     fontSize: 12,

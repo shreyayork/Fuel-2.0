@@ -5,8 +5,7 @@ import type { Theme } from "@/lib/theme";
 import { framedPanelPadStyle } from "@/lib/theme";
 import type { Company, FuelDataset } from "@/lib/types";
 import { Avatar, Chip, Label, Logo, SectionHead, Sparkline } from "../atoms";
-import { FilterMenu, PageToolbar } from "../ToolbarActions";
-import { TOUCH_TARGET_MIN } from "@/lib/responsive";
+import { FilterGroup, FilterMenu, FilterOption, PageToolbar } from "../ToolbarActions";
 
 type Filter = "all" | "cont" | "once";
 
@@ -35,36 +34,30 @@ export function InitiativesView({
           <PageToolbar
             t={t}
             filter={
-              <FilterMenu t={t} activeCount={filter === "all" ? 0 : 1}>
-                {(
-                  [
-                    { k: "all", l: `All · ${all.length}` },
-                    { k: "cont", l: `Continuous · ${cont.length}` },
-                    { k: "once", l: `Project · ${once.length}` },
-                  ] as const
-                ).map((o) => (
-                  <button
-                    key={o.k}
-                    type="button"
-                    onClick={() => setFilter(o.k as Filter)}
-                    style={{
-                      background: filter === o.k ? t.accentTint : t.panelAlt,
-                      border: `1px solid ${filter === o.k ? `${t.accent}66` : t.rule}`,
-                      borderRadius: 8,
-                      color: t.ink,
-                      cursor: "pointer",
-                      fontFamily: t.sans,
-                      fontSize: 13,
-                      fontWeight: filter === o.k ? 650 : 500,
-                      minHeight: TOUCH_TARGET_MIN,
-                      padding: "0 12px",
-                      textAlign: "left",
-                      width: "100%",
-                    }}
-                  >
-                    {o.l}
-                  </button>
-                ))}
+              <FilterMenu
+                t={t}
+                activeCount={filter === "all" ? 0 : 1}
+                onClear={() => setFilter("all")}
+              >
+                <FilterGroup t={t} title="Type">
+                    {(
+                      [
+                        { k: "all", l: `All`, n: all.length },
+                        { k: "cont", l: `Continuous`, n: cont.length },
+                        { k: "once", l: `Project`, n: once.length },
+                      ] as const
+                    ).map((o) => (
+                      <FilterOption
+                        key={o.k}
+                        t={t}
+                        selected={filter === o.k}
+                        onSelect={() => setFilter(o.k)}
+                        trailing={o.n}
+                      >
+                        {o.l}
+                      </FilterOption>
+                    ))}
+                </FilterGroup>
               </FilterMenu>
             }
           />

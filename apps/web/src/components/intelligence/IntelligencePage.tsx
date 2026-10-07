@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import type { Theme } from "@/lib/theme";
+import { groupCardHeadStyle, groupCardStyle } from "@/lib/theme";
 import type { CompanyIntelligenceRow } from "@/lib/intelligence/types";
 import type { DataRoomDocumentSlot, DataRoomSnapshot } from "@/lib/data-room/types";
 import type { SignalCatalogItem } from "@/lib/signals/group-catalog";
@@ -59,10 +60,13 @@ import {
 } from "@/components/ui/ListPagination";
 import { useWorkspaceTourOptional } from "@/components/workspace-tour/WorkspaceTourContext";
 import { useDrawerPresence } from "@/components/drawer/motion";
-import { useNarrow, TOUCH_TARGET_MIN } from "@/lib/responsive";
+import { useNarrow } from "@/lib/responsive";
 import {
   CreateIconButton,
+  FilterGroup,
   FilterMenu,
+  FilterOption,
+  FilterSearch,
   PageToolbar,
 } from "@/components/ToolbarActions";
 
@@ -96,7 +100,7 @@ function SignalFeedSkeleton({ t, rows }: { t: Theme; rows: number }) {
   return (
     <div role="status" aria-busy="true" aria-label="Loading intelligence">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="fuel-intel-feed-item" style={{ borderBottom: `1px solid ${t.ruleSoft}` }}>
+        <div key={i} className="fuel-intel-feed-item fuel-group__item">
           <div className="fuel-intel-feed-row" style={{ cursor: "default" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
               <MagicShimmer theme={t} width="54%" height={9} rounded={3} />
@@ -144,10 +148,9 @@ function SignalRow({
   return (
     <div
       data-feed-id={latest.id}
-      className="fuel-intel-feed-item"
+      className="fuel-intel-feed-item fuel-group__item"
       style={{
         animation: blinking ? "intelHighlight 1.6s ease-out 2" : undefined,
-        borderBottom: `1px solid ${t.ruleSoft}`,
       }}
     >
       <div
@@ -801,9 +804,18 @@ export function IntelligencePage({
         </div>
       ) : null}
 
+      <div className="fuel-group" style={groupCardStyle(t, { padding: phone ? 14 : 12 })}>
+        <div className="fuel-group__head" style={groupCardHeadStyle(t)}>
+          <span className="fuel-group__title" style={{ color: t.ink, fontFamily: t.sans, fontSize: phone ? 15 : 13 }}>
+            Signals
+          </span>
+          <span className="fuel-group__meta" style={{ color: t.muted, fontFamily: t.sans, fontSize: phone ? 13 : 12 }}>
+            {feedLoading ? "…" : feedTotal}
+          </span>
+        </div>
       <div
         ref={feedBodyRef}
-        className="fuel-intel-feed"
+        className="fuel-intel-feed fuel-group__body"
         style={{
           minHeight: boardLoading
             ? Math.max(FEED_BODY_MIN_HEIGHT, feedBodyHeight)
@@ -924,6 +936,7 @@ export function IntelligencePage({
           </>
         )}
       </div>
+      </div>
     </div>
   );
 
@@ -1009,131 +1022,65 @@ export function IntelligencePage({
             <PageToolbar
               t={t}
               filter={
-                <FilterMenu t={t} activeCount={filtersActive ? 1 : 0}>
-                  <div
-                    role="tablist"
-                    aria-label="Intelligence categories"
-                    style={{ display: "flex", flexDirection: "column", gap: 4 }}
-                  >
-                    {tabKeys.map((key) => {
-                      const active = categoryFilter === key;
-                      const label = key === "All" ? "All" : formatCategoryLabel(key);
-                      return (
-                        <button
+                <FilterMenu
+                  t={t}
+                  activeCount={
+                    (categoryFilter !== "All" ? 1 : 0) +
+                    (searchQuery.trim() ? 1 : 0) +
+                    (datePreset !== "current-quarter" || customRange != null ? 1 : 0)
+                  }
+                  onClear={() => {
+                    setCategoryFilter("All");
+                    setSearchQuery("");
+                    setDatePreset("current-quarter");
+                    setCustomRange(null);
+                  }}
+                >
+                  <FilterGroup t={t} title="Category">
+                      {tabKeys.map((key) => (
+                        <FilterOption
                           key={key}
-                          type="button"
-                          role="tab"
-                          aria-selected={active}
-                          onClick={() => setCategoryFilter(key)}
-                          style={{
-                            alignItems: "center",
-                            background: active ? t.accentTint : "transparent",
-                            border: `1px solid ${active ? `${t.accent}66` : t.rule}`,
-                            borderRadius: 8,
-                            color: active ? t.ink : t.muted,
-                            cursor: "pointer",
-                            display: "flex",
-                            fontFamily: t.sans,
-                            fontSize: 13,
-                            fontWeight: active ? 650 : 500,
-                            minHeight: TOUCH_TARGET_MIN,
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            width: "100%",
-                          }}
+                          t={t}
+                          selected={categoryFilter === key}
+                          onSelect={() => setCategoryFilter(key)}
                         >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <label
-                    style={{
-                      display: "block",
-                      minWidth: 0,
-                      position: "relative",
-                    }}
-                  >
-                    <span aria-hidden style={feedSearchIconStyle(t)}>
-                      ⌕
-                    </span>
-                    <input
-                      type="search"
+                          {key === "All" ? "All" : formatCategoryLabel(key)}
+                        </FilterOption>
+                      ))}
+                  </FilterGroup>
+                  <FilterGroup t={t} title="Search">
+                    <FilterSearch
+                      t={t}
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={setSearchQuery}
                       placeholder="Search signals…"
                       aria-label="Search intelligence"
-                      style={feedSearchFieldStyle(t)}
                     />
-                  </label>
-                  <select
-                    aria-label="Date range"
-                    value={datePreset}
-                    onChange={(e) => setDatePreset(e.target.value as IntelligenceDatePreset)}
-                    style={{
-                      ...inputStyle(t),
-                      color: t.inkSoft,
-                      fontFamily: t.sans,
-                      fontWeight: 600,
-                      width: "100%",
-                    }}
-                  >
-                    {INTELLIGENCE_DATE_PRESETS.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                  {datePreset === "custom" ? (
-                    <DateRangePicker
-                      t={t}
-                      value={customRange}
-                      onChange={setCustomRange}
-                      onClear={() => setCustomRange(null)}
-                      aria-label="Custom date range"
-                      numberOfMonths={1}
-                    />
-                  ) : null}
-                  <button
-                    type="button"
-                    data-tour-target="add-source"
-                    className={
-                      tour?.activeTarget === "add-source" ? "fuel-tour-highlight" : undefined
-                    }
-                    onClick={() => setShowAddSource(true)}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: t.inkSoft,
-                      cursor: "pointer",
-                      fontFamily: t.sans,
-                      fontSize: 13,
-                      fontWeight: 650,
-                      minHeight: TOUCH_TARGET_MIN,
-                      padding: "8px 2px",
-                      textAlign: "left",
-                    }}
-                  >
-                    {INTELLIGENCE_HEAD_ACTION_LABELS[0]}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onUpdateBenchmark}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: t.inkSoft,
-                      cursor: "pointer",
-                      fontFamily: t.sans,
-                      fontSize: 13,
-                      fontWeight: 650,
-                      minHeight: TOUCH_TARGET_MIN,
-                      padding: "8px 2px",
-                      textAlign: "left",
-                    }}
-                  >
-                    {INTELLIGENCE_HEAD_ACTION_LABELS[2]}
-                  </button>
+                  </FilterGroup>
+                  <FilterGroup t={t} title="Date">
+                      {INTELLIGENCE_DATE_PRESETS.map((preset) => (
+                        <FilterOption
+                          key={preset.id}
+                          t={t}
+                          selected={datePreset === preset.id}
+                          onSelect={() => setDatePreset(preset.id)}
+                        >
+                          {preset.label}
+                        </FilterOption>
+                      ))}
+                    {datePreset === "custom" ? (
+                      <div className="fuel-filter-field">
+                      <DateRangePicker
+                        t={t}
+                        value={customRange}
+                        onChange={setCustomRange}
+                        onClear={() => setCustomRange(null)}
+                        aria-label="Custom date range"
+                        numberOfMonths={1}
+                      />
+                      </div>
+                    ) : null}
+                  </FilterGroup>
                 </FilterMenu>
               }
               create={

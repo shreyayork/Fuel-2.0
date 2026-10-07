@@ -5,10 +5,16 @@ import { useMemo, useState, useTransition, type CSSProperties } from "react";
 import { removeCompanyAction } from "@/app/(app)/portfolio/actions";
 import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import { useBreadcrumbOverride } from "../BreadcrumbContext";
-import { Chip, Logo } from "../atoms";
+import { BackNav, Chip, Logo } from "../atoms";
 import { useTheme } from "../ThemeContext";
 import type { Theme } from "@/lib/theme";
-import { framedPanelPadStyle } from "@/lib/theme";
+import {
+  framedPanelPadStyle,
+  framedPanelStyle,
+  ctaPrimaryStyle,
+  ctaTertiaryStyle,
+} from "@/lib/theme";
+import { FilterGroup, FilterMenu, FilterOption, PageToolbar } from "../ToolbarActions";
 import type { Watchlist, WatchlistCompany } from "@/db/schema";
 import { PlaybookPickerButton, type PlaybookPickerEntry } from "./PlaybookPickerButton";
 import type { TeamAccessOption } from "./watchlist-access-ui";
@@ -193,7 +199,7 @@ export function WatchlistDetail({
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 10,
+          gap: "var(--fuel-card-gap, 10px)",
           overflow: "visible",
           padding: 0,
         }}
@@ -219,23 +225,12 @@ export function WatchlistDetail({
   return (
     <>
     <div className="fuel-page fuel-portfolio-detail">
-      <Link
+      <BackNav
+        t={t}
         href={listPath}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          fontFamily: t.sans,
-          fontSize: phone ? 14 : 13,
-          color: t.muted,
-          textDecoration: "none",
-          marginBottom: phone ? 10 : 16,
-          minHeight: TOUCH_TARGET_MIN,
-          paddingBlock: 4,
-        }}
-      >
-        ← All {listLabel}
-      </Link>
+        label={`All ${listLabel}`}
+        style={{ marginBottom: phone ? 0 : 16 }}
+      />
 
       <div
         style={{
@@ -243,7 +238,7 @@ export function WatchlistDetail({
           background: t.panel,
           border: `1px solid ${t.rule}`,
           borderRadius: phone ? 12 : 0,
-          marginBottom: phone ? 12 : 24,
+          marginBottom: phone ? 0 : 24,
         }}
       >
         <div
@@ -924,109 +919,210 @@ function PortfolioBenchmarksPanel({
         borderRadius: phone ? 14 : 0,
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: phone ? "stretch" : "center",
-          justifyContent: "space-between",
-          gap: 12,
-          flexDirection: phone ? "column" : "row",
-          flexWrap: "wrap",
-          marginBottom: 6,
-        }}
-      >
-        <div style={{ minWidth: 0 }}>
-          {!phone ? (
-            <div
-              style={{
-                fontFamily: t.sans,
-                fontSize: 11,
-                fontWeight: 600,
-                color: t.accent,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-              }}
-            >
-              Benchmark distribution
-            </div>
-          ) : null}
-          <div
-            style={{
-              fontFamily: t.sans,
-              fontSize: phone ? 20 : 18,
-              fontWeight: 700,
-              color: t.ink,
-              marginTop: phone ? 0 : 4,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            {phone ? "This fund vs similar companies" : "How the portfolio stacks up"}
-          </div>
-          <div
-            style={{
-              fontFamily: t.sans,
-              fontSize: phone ? 13 : 12,
-              color: t.muted,
-              marginTop: 4,
-              lineHeight: 1.45,
-            }}
-          >
-            {phone
-              ? "Choose a metric. Green means ahead of similar companies; amber means behind."
-              : "Each company shows how it sits versus the cohort mid-point. Each dot is one company; the band is the cohort range. Hover dots for details."}
-            {companyCount > withData.length && signalSeries.length > 0
-              ? phone
-                ? " Some companies are missing readings."
-                : ` Some companies are missing data on one or more selected signals.`
-              : ""}
-          </div>
-        </div>
+        {phone && configuring ? null : (
         <div
           style={{
             display: "flex",
-            flexDirection: phone ? "column" : "row",
-            gap: 8,
-            alignItems: phone ? "stretch" : "center",
-            width: phone ? "100%" : undefined,
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 6,
           }}
         >
-          <PortfolioCohortPicker
-            t={t}
-            current={benchmarks.cohortKey}
-            cohorts={benchmarks.allCohorts}
-            phone={phone}
-          />
-          {canEdit ? (
-            <button
-              type="button"
-              onClick={() => setConfiguring((v) => !v)}
-              title="Pick which metrics this portfolio surfaces"
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {!phone ? (
+              <div
+                style={{
+                  fontFamily: t.sans,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: t.accent,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Benchmark distribution
+              </div>
+            ) : null}
+            <div
               style={{
-                padding: phone ? "10px 4px" : "5px 10px",
-                minHeight: phone ? TOUCH_TARGET_MIN : undefined,
                 fontFamily: t.sans,
-                fontSize: phone ? 13 : 11,
-                fontWeight: phone ? 600 : 500,
-                background: phone
-                  ? "transparent"
-                  : configuring
-                    ? t.panelAlt
-                    : "transparent",
-                color: phone ? t.accent : t.inkSoft,
-                border: phone ? "none" : `1px solid ${t.rule}`,
-                borderRadius: 8,
-                cursor: "pointer",
-                width: phone ? "auto" : undefined,
-                alignSelf: phone ? "flex-start" : undefined,
-                textDecoration: phone ? "underline" : undefined,
-                textUnderlineOffset: phone ? 3 : undefined,
+                fontSize: phone ? 20 : 18,
+                fontWeight: 700,
+                color: t.ink,
+                marginTop: phone ? 0 : 4,
+                letterSpacing: "-0.02em",
               }}
             >
-              {configuring ? "Done" : phone ? "Edit metrics" : "Configure metrics"}
-            </button>
-          ) : null}
+              {phone ? "This fund vs similar companies" : "How the portfolio stacks up"}
+            </div>
+            <div
+              style={{
+                fontFamily: t.sans,
+                fontSize: phone ? 13 : 12,
+                color: t.muted,
+                marginTop: 4,
+                lineHeight: 1.45,
+              }}
+            >
+              {phone
+                ? "Green is ahead of the peer group; amber is behind."
+                : "Each company shows how it sits versus the cohort mid-point. Each dot is one company; the band is the cohort range. Hover dots for details."}
+              {companyCount > withData.length && signalSeries.length > 0
+                ? phone
+                  ? " Some companies have no reading."
+                  : ` Some companies are missing data on one or more selected signals.`
+                : ""}
+            </div>
+          </div>
+          {phone ? null : (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                gap: 8,
+                alignItems: "center",
+              }}
+            >
+              <PortfolioCohortPicker
+                t={t}
+                current={benchmarks.cohortKey}
+                cohorts={benchmarks.allCohorts}
+              />
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => setConfiguring((v) => !v)}
+                  title="Pick which metrics this portfolio surfaces"
+                  style={{
+                    padding: "5px 10px",
+                    fontFamily: t.sans,
+                    fontSize: 11,
+                    fontWeight: 500,
+                    background: configuring ? t.panelAlt : "transparent",
+                    color: t.inkSoft,
+                    border: `1px solid ${t.rule}`,
+                    borderRadius: 8,
+                    cursor: "pointer",
+                  }}
+                >
+                  {configuring ? "Done" : "Configure metrics"}
+                </button>
+              ) : null}
+            </div>
+          )}
         </div>
-      </div>
+        )}
+        {phone && !configuring ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 10,
+              marginBottom: 4,
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                minWidth: 0,
+                flex: 1,
+              }}
+            >
+              {(() => {
+                const current = benchmarks.allCohorts.find(
+                  (c) => c.cohortKey === benchmarks.cohortKey,
+                );
+                return current ? (
+                  <Chip t={t} tone="ghost">
+                    {formatCohortLabel(current)}
+                  </Chip>
+                ) : null;
+              })()}
+              {phoneFocusId ? (
+                <Chip t={t} tone="accent">
+                  {activeSpecs.find((s) => s.metricId === phoneFocusId)?.label ?? "Metric"}
+                </Chip>
+              ) : null}
+            </div>
+            <PageToolbar
+              t={t}
+              filter={
+                <FilterMenu
+                  t={t}
+                  label="Compare"
+                  activeCount={
+                    phoneFocusId && phoneFocusId !== activeSpecs[0]?.metricId ? 1 : 0
+                  }
+                  onClear={() => {
+                    const first = activeSpecs[0]?.metricId ?? null;
+                    if (first) setFocusMetricId(first);
+                  }}
+                >
+                  {benchmarks.allCohorts.length > 0 ? (
+                    <FilterGroup t={t} title="Peer group">
+                        {benchmarks.allCohorts.map((c) => (
+                          <FilterOption
+                            key={c.cohortKey}
+                            t={t}
+                            selected={c.cohortKey === (benchmarks.cohortKey ?? c.cohortKey)}
+                            onSelect={() => {
+                              const url = new URL(window.location.href);
+                              url.searchParams.set("cohort", c.cohortKey);
+                              window.location.href = url.toString();
+                            }}
+                            trailing={c.sampleSize ?? undefined}
+                          >
+                            {formatCohortLabel(c)}
+                          </FilterOption>
+                        ))}
+                    </FilterGroup>
+                  ) : null}
+                  {activeSpecs.length > 0 ? (
+                    <FilterGroup t={t} title="Metric">
+                        {activeSpecs.map((spec) => (
+                          <FilterOption
+                            key={spec.metricId}
+                            t={t}
+                            selected={spec.metricId === phoneFocusId}
+                            onSelect={() => setFocusMetricId(spec.metricId)}
+                            trailing={seriesBySignal.get(spec.metricId)?.points.length ?? 0}
+                          >
+                            {spec.label}
+                          </FilterOption>
+                        ))}
+                    </FilterGroup>
+                  ) : null}
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfiguring((v) => !v)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: t.accent,
+                        cursor: "pointer",
+                        fontFamily: t.sans,
+                        fontSize: 14,
+                        fontWeight: 650,
+                        minHeight: TOUCH_TARGET_MIN,
+                        padding: "4px 0",
+                        textAlign: "left",
+                      }}
+                    >
+                      {configuring ? "Done editing metrics" : "Choose which metrics appear"}
+                    </button>
+                  ) : null}
+                </FilterMenu>
+              }
+            />
+          </div>
+        ) : null}
 
       {configuring && canEdit ? (
         <BenchmarkMetricPicker
@@ -1034,61 +1130,24 @@ function PortfolioBenchmarksPanel({
           watchlistId={watchlistId}
           selectedMetricIds={selectedMetricIds}
           signalCatalog={signalCatalog}
+          phone={phone}
+          onClose={() => setConfiguring(false)}
         />
       ) : null}
 
-      {activeSpecs.length === 0 ? (
+      {phone && configuring ? null : activeSpecs.length === 0 ? (
         <div style={{ marginTop: 14, fontFamily: t.sans, fontSize: 12.5, color: t.muted }}>
           No metrics selected for this portfolio.
-          {canEdit ? " Click “Configure metrics” above to pick a set." : ""}
+          {canEdit
+            ? phone
+              ? " Open the filter to choose metrics."
+              : " Click “Configure metrics” above to pick a set."
+            : ""}
         </div>
       ) : (
         <>
           <PortfolioScorecard t={t} summary={summary} phone={phone} />
 
-          {phone && activeSpecs.length > 1 ? (
-            <div
-              className="fuel-portfolio-metric-tabs"
-              style={{ ["--fuel-page-bg" as string]: t.panel }}
-              role="tablist"
-              aria-label="Metrics"
-            >
-              {activeSpecs.map((spec) => {
-                const selected = spec.metricId === phoneFocusId;
-                const n = seriesBySignal.get(spec.metricId)?.points.length ?? 0;
-                return (
-                  <button
-                    key={spec.metricId}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    onClick={() => setFocusMetricId(spec.metricId)}
-                    className={
-                      selected
-                        ? "fuel-portfolio-metric-tabs__chip is-active"
-                        : "fuel-portfolio-metric-tabs__chip"
-                    }
-                    style={{
-                      background: selected ? `${t.accent}18` : t.panelAlt,
-                      color: selected ? t.ink : t.muted,
-                      border: `1px solid ${selected ? t.accent : t.rule}`,
-                      fontFamily: t.sans,
-                    }}
-                  >
-                    <span>{spec.label}</span>
-                    <span
-                      style={{
-                        color: selected ? t.accent : t.mutedSoft,
-                        fontFeatureSettings: '"tnum" 1',
-                      }}
-                    >
-                      {n}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
 
           <div
             style={{
@@ -1138,133 +1197,290 @@ function groupFromCategory(category: string): MetricSpec["group"] {
   return "scale";
 }
 
+function prettySignalCategory(category: string): string {
+  return category.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
 /**
- * Picker — checkboxes for the seven default portfolio metrics, plus Save /
- * Reset to default. Kept stateless (controlled by a defaultChecked set that
- * re-reads from props on every render) because selection is saved server-
- * side; a post-submit revalidate gives us the fresh state for free.
+ * Choose which metrics appear on Compare. Phone uses a short list of
+ * tap-rows; desktop keeps grouped chips. Selection is posted to the
+ * watchlist on Save.
  */
 function BenchmarkMetricPicker({
   t,
   watchlistId,
   selectedMetricIds,
   signalCatalog,
+  phone = false,
+  onClose,
 }: {
   t: Theme;
   watchlistId: string;
   selectedMetricIds: string[] | null;
   signalCatalog: PortfolioSignalCatalogEntry[];
+  phone?: boolean;
+  onClose?: () => void;
 }) {
-  const effective = selectedMetricIds ?? PORTFOLIO_METRICS.map((m) => m.metricId);
-  // Group the full catalog by category so 50+ pills stay scannable.
+  const defaultIds = PORTFOLIO_METRICS.map((m) => m.metricId);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(() => {
+    const ids = selectedMetricIds ?? defaultIds;
+    return new Set(ids);
+  });
+  const q = query.trim().toLowerCase();
+
   const groupedCatalog = useMemo(() => {
     const byGroup = new Map<string, PortfolioSignalCatalogEntry[]>();
     for (const s of signalCatalog) {
+      if (q && !s.label.toLowerCase().includes(q) && !s.category.toLowerCase().includes(q)) {
+        continue;
+      }
       const arr = byGroup.get(s.category) ?? [];
       arr.push(s);
       byGroup.set(s.category, arr);
     }
     return Array.from(byGroup.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [signalCatalog]);
+  }, [signalCatalog, q]);
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const saveMetrics = async (fd: FormData) => {
+    const mod = await import("@/app/(app)/portfolio/actions");
+    await mod.setBenchmarkMetricsAction(fd);
+    onClose?.();
+  };
 
   return (
     <div
-      style={{
-        marginTop: 12,
-        padding: 12,
-        background: t.panelAlt,
-        border: `1px solid ${t.rule}`,
-        borderRadius: 6,
-      }}
+      style={
+        phone
+          ? framedPanelPadStyle(t, { marginTop: 12, padding: 14 })
+          : {
+              marginTop: 12,
+              padding: 12,
+              background: t.panelAlt,
+              border: `1px solid ${t.rule}`,
+              borderRadius: 6,
+            }
+      }
     >
       <form
-        action={async (fd) => {
-          const mod = await import("@/app/(app)/portfolio/actions");
-          await mod.setBenchmarkMetricsAction(fd);
-        }}
-        style={{ display: "flex", flexDirection: "column", gap: 10 }}
+        action={saveMetrics}
+        style={{ display: "flex", flexDirection: "column", gap: phone ? 12 : 10 }}
       >
         <input type="hidden" name="id" value={watchlistId} />
-        <div style={{ fontFamily: t.sans, fontSize: 11.5, color: t.muted, lineHeight: 1.45 }}>
-          Which signals should this portfolio surface? Applies to the distribution grid + the
-          scorecard aggregate. Pick any quantitative signal from the catalog — the 12 on the
-          quarterly survey are the default, but you can pin any signal observed from emails,
-          notes, or manual entry (e.g. AI readiness, GTM efficiency).
+        {Array.from(selected).map((id) => (
+          <input key={id} type="hidden" name="metricId" value={id} />
+        ))}
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: t.sans,
+              fontSize: phone ? 16 : 13,
+              fontWeight: 700,
+              color: t.ink,
+            }}
+          >
+            Metrics to compare
+          </div>
+          <div
+            style={{
+              fontFamily: t.sans,
+              fontSize: 12,
+              color: t.muted,
+              fontFeatureSettings: '"tnum" 1',
+            }}
+          >
+            {selected.size} selected
+          </div>
         </div>
-        {/* Full catalog grouped by category — 50+ signals laid out as rows
-         *  with category labels. The default 12 are sorted to the top of
-         *  their groups so the common case stays obvious. */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto", paddingRight: 4 }}>
-          {groupedCatalog.map(([category, sigs]) => {
-            const sortedSigs = [...sigs].sort((a, b) => {
-              const aDefault = PORTFOLIO_METRICS.some((m) => m.metricId === a.id);
-              const bDefault = PORTFOLIO_METRICS.some((m) => m.metricId === b.id);
-              if (aDefault !== bDefault) return aDefault ? -1 : 1;
-              return a.label.localeCompare(b.label);
-            });
-            return (
-              <div key={category} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                <span
-                  style={{
-                    fontFamily: t.mono,
-                    fontSize: 10,
-                    color: t.mutedSoft,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    width: 96,
-                    flexShrink: 0,
-                    paddingTop: 6,
-                  }}
-                >
-                  {category.replace(/_/g, " ")}
-                </span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {sortedSigs.map((sig) => {
-                    const active = effective.includes(sig.id);
-                    const isDefault = PORTFOLIO_METRICS.some((m) => m.metricId === sig.id);
-                    return (
-                      <label
-                        key={sig.id}
-                        title={isDefault ? "Part of the default quarterly-survey set" : "Aggregated from signal_observations"}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "5px 10px",
-                          borderRadius: 999,
-                          border: `1px solid ${active ? t.accent : t.rule}`,
-                          background: active ? `${t.accent}22` : "transparent",
-                          fontFamily: t.sans,
-                          fontSize: 12,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          name="metricId"
-                          value={sig.id}
-                          defaultChecked={active}
-                        />
-                        {sig.label}
-                      </label>
-                    );
-                  })}
+
+        {phone ? (
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search metrics"
+            aria-label="Search metrics"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              minHeight: TOUCH_TARGET_MIN,
+              padding: "10px 12px",
+              border: `1px solid ${t.rule}`,
+              borderRadius: 10,
+              background: t.bg,
+              color: t.ink,
+              fontFamily: t.sans,
+              fontSize: 16,
+            }}
+          />
+        ) : (
+          <div style={{ fontFamily: t.sans, fontSize: 12, color: t.muted }}>
+            Choose which metrics appear on this fund.
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: phone ? 14 : 8,
+            maxHeight: phone ? 420 : 360,
+            overflowY: "auto",
+            paddingRight: 4,
+            marginInline: phone ? -4 : 0,
+          }}
+        >
+          {groupedCatalog.length === 0 ? (
+            <div
+              style={{
+                padding: "20px 8px",
+                textAlign: "center",
+                fontFamily: t.sans,
+                fontSize: 13,
+                color: t.mutedSoft,
+              }}
+            >
+              No metrics match
+            </div>
+          ) : (
+            groupedCatalog.map(([category, sigs]) => {
+              const sortedSigs = [...sigs].sort((a, b) => {
+                const aOn = selected.has(a.id);
+                const bOn = selected.has(b.id);
+                if (aOn !== bOn) return aOn ? -1 : 1;
+                const aDefault = PORTFOLIO_METRICS.some((m) => m.metricId === a.id);
+                const bDefault = PORTFOLIO_METRICS.some((m) => m.metricId === b.id);
+                if (aDefault !== bDefault) return aDefault ? -1 : 1;
+                return a.label.localeCompare(b.label);
+              });
+              return (
+                <div key={category}>
+                  <div
+                    style={{
+                      fontFamily: t.sans,
+                      fontSize: 11,
+                      fontWeight: 650,
+                      color: t.muted,
+                      marginBottom: 6,
+                      paddingLeft: phone ? 4 : 0,
+                    }}
+                  >
+                    {prettySignalCategory(category)}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: phone ? "column" : "row",
+                      flexWrap: phone ? "nowrap" : "wrap",
+                      gap: phone ? 6 : 6,
+                    }}
+                  >
+                    {sortedSigs.map((sig) => {
+                      const active = selected.has(sig.id);
+                      return phone ? (
+                        <button
+                          key={sig.id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => toggle(sig.id)}
+                          style={{
+                            alignItems: "center",
+                            background: active ? t.accentTint : t.bg,
+                            border: `1px solid ${active ? `${t.accent}66` : t.rule}`,
+                            borderRadius: 10,
+                            boxSizing: "border-box",
+                            color: t.ink,
+                            cursor: "pointer",
+                            display: "flex",
+                            fontFamily: t.sans,
+                            fontSize: 14,
+                            fontWeight: active ? 650 : 500,
+                            gap: 10,
+                            justifyContent: "space-between",
+                            minHeight: TOUCH_TARGET_MIN,
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            width: "100%",
+                          }}
+                        >
+                          <span style={{ minWidth: 0 }}>{sig.label}</span>
+                          <span
+                            aria-hidden
+                            style={{
+                              flexShrink: 0,
+                              width: 18,
+                              height: 18,
+                              borderRadius: 999,
+                              border: `1.5px solid ${active ? t.accent : t.rule}`,
+                              background: active ? t.accent : "transparent",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                        </button>
+                      ) : (
+                        <button
+                          key={sig.id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => toggle(sig.id)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "5px 10px",
+                            borderRadius: 999,
+                            border: `1px solid ${active ? t.accent : t.rule}`,
+                            background: active ? `${t.accent}22` : "transparent",
+                            fontFamily: t.sans,
+                            fontSize: 12,
+                            color: t.ink,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {sig.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
           <button
             type="submit"
             style={{
-              padding: "6px 14px",
-              background: t.ink,
-              color: t.bg,
-              border: `1px solid ${t.ink}`,
-              borderRadius: 6,
+              ...ctaPrimaryStyle(t),
+              padding: phone ? "12px 16px" : "6px 14px",
+              minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+              flex: phone ? 1 : undefined,
+              borderRadius: phone ? 10 : 6,
               fontFamily: t.sans,
-              fontSize: 12,
+              fontSize: phone ? 15 : 12,
               fontWeight: 600,
               cursor: "pointer",
             }}
@@ -1274,26 +1490,42 @@ function BenchmarkMetricPicker({
           <button
             type="submit"
             formAction={async (fd) => {
-              // Clearing the override (empty submission) reverts to the
-              // default set. We pass no metricId entries so the server
-              // action writes null.
               const mod = await import("@/app/(app)/portfolio/actions");
               fd.delete("metricId");
               await mod.setBenchmarkMetricsAction(fd);
+              onClose?.();
             }}
             style={{
-              padding: "6px 14px",
-              background: "transparent",
-              color: t.inkSoft,
-              border: `1px solid ${t.rule}`,
-              borderRadius: 6,
+              ...ctaTertiaryStyle(t),
+              padding: phone ? "12px 16px" : "6px 14px",
+              minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+              borderRadius: phone ? 10 : 6,
               fontFamily: t.sans,
-              fontSize: 12,
+              fontSize: phone ? 15 : 12,
               cursor: "pointer",
             }}
           >
-            Reset to default
+            Use defaults
           </button>
+          {phone ? (
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: t.muted,
+                cursor: "pointer",
+                fontFamily: t.sans,
+                fontSize: 14,
+                minHeight: TOUCH_TARGET_MIN,
+                padding: "4px 0",
+                width: "100%",
+              }}
+            >
+              Cancel
+            </button>
+          ) : null}
         </div>
       </form>
     </div>
@@ -1388,94 +1620,61 @@ function PortfolioScorecard({
   phone?: boolean;
 }) {
   if (phone) {
-    const lines: Array<{ label: string; value: string; hint: string }> = [
+    const cells: Array<{ label: string; value: string }> = [
       {
         label: "Beating peers",
-        value: `${summary.metricsAboveCohortP50} of ${summary.totalMetrics}`,
-        hint: "metrics where this fund is ahead of similar companies",
+        value: `${summary.metricsAboveCohortP50}/${summary.totalMetrics}`,
       },
       {
-        label: "Strongest company",
-        value: summary.topPerformer?.name ?? "None yet",
-        hint: summary.topPerformer
-          ? `Leads on ${summary.topPerformer.metricCount} ${summary.topPerformer.metricCount === 1 ? "metric" : "metrics"}`
-          : "No company is clearly ahead yet",
+        label: "Strongest",
+        value: summary.topPerformer?.name ?? "—",
       },
       {
-        label: "Needs a look",
-        value:
-          summary.watchlist.count === 0
-            ? "None"
-            : `${summary.watchlist.count} ${summary.watchlist.count === 1 ? "company" : "companies"}`,
-        hint:
-          summary.watchlist.sample.length > 0
-            ? summary.watchlist.sample.map((s) => s.name).join(", ")
-            : "Nobody is trailing on multiple metrics",
+        label: "Watch",
+        value: String(summary.watchlist.count),
       },
     ];
     return (
       <div
-        style={{
+        style={framedPanelStyle(t, {
           marginTop: 14,
-          display: "flex",
-          flexDirection: "column",
-          border: `1px solid ${t.rule}`,
-          borderRadius: 12,
-          overflow: "hidden",
-        }}
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+        })}
       >
-        {lines.map((line, i) => (
+        {cells.map((cell, i) => (
           <div
-            key={line.label}
+            key={cell.label}
             style={{
-              background: t.panelAlt,
-              borderTop: i === 0 ? "none" : `1px solid ${t.ruleSoft}`,
-              padding: "12px 14px",
+              padding: "12px 10px",
+              borderLeft: i === 0 ? "none" : `1px solid ${t.ruleSoft}`,
               minWidth: 0,
             }}
           >
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                gap: 12,
+                fontFamily: t.sans,
+                fontSize: 11,
+                fontWeight: 600,
+                color: t.muted,
               }}
             >
-              <div
-                style={{
-                  fontFamily: t.sans,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: t.muted,
-                }}
-              >
-                {line.label}
-              </div>
-              <div
-                style={{
-                  fontFamily: t.sans,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  color: t.ink,
-                  letterSpacing: "-0.02em",
-                  textAlign: "right",
-                  minWidth: 0,
-                }}
-              >
-                {line.value}
-              </div>
+              {cell.label}
             </div>
             <div
               style={{
-                fontFamily: t.sans,
-                fontSize: 12,
-                color: t.mutedSoft,
                 marginTop: 4,
-                lineHeight: 1.35,
+                fontFamily: t.sans,
+                fontSize: 15,
+                fontWeight: 700,
+                color: t.ink,
+                letterSpacing: "-0.02em",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
-              {line.hint}
+              {cell.value}
             </div>
           </div>
         ))}
@@ -1503,7 +1702,7 @@ function PortfolioScorecard({
         flexWrap: "wrap",
       }}
     >
-      <div style={cardStyle(t.accent)}>
+      <div className="fuel-accent-rail-card" style={cardStyle(t.accent)}>
         <div
           style={{
             fontFamily: t.mono,
@@ -1530,7 +1729,7 @@ function PortfolioScorecard({
           metrics where the portfolio median beats the cohort
         </div>
       </div>
-      <div style={cardStyle(t.warn)}>
+      <div className="fuel-accent-rail-card" style={cardStyle(t.warn)}>
         <div
           style={{
             fontFamily: t.mono,
@@ -1559,7 +1758,10 @@ function PortfolioScorecard({
             : "No clear leader yet"}
         </div>
       </div>
-      <div style={cardStyle(summary.watchlist.count > 0 ? t.warn : t.rule)}>
+      <div
+        className="fuel-accent-rail-card"
+        style={cardStyle(summary.watchlist.count > 0 ? t.warn : t.rule)}
+      >
         <div
           style={{
             fontFamily: t.mono,
@@ -1592,42 +1794,46 @@ function PortfolioScorecard({
   );
 }
 
+function formatCohortLabel(c: PortfolioBenchmarks["allCohorts"][number]): string {
+  const d = c.dimensions;
+  const parts: string[] = [];
+  const pretty = (raw: string) =>
+    raw
+      .replace(/_/g, " ")
+      .replace(/\bsaas\b/gi, "SaaS")
+      .replace(/\bb2b\b/gi, "B2B")
+      .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+  const top = d.vertical || d.businessModel;
+  if (top) parts.push(pretty(top));
+  if (d.stage) parts.push(pretty(d.stage));
+  if (d.geo) parts.push(d.geo.toUpperCase());
+  return parts.join(" · ") || c.cohortKey;
+}
+
 function PortfolioCohortPicker({
   t,
   current,
   cohorts,
-  phone = false,
 }: {
   t: Theme;
   current: string | null;
   cohorts: PortfolioBenchmarks["allCohorts"];
-  phone?: boolean;
 }) {
   if (cohorts.length === 0) return null;
-  const label = (c: PortfolioBenchmarks["allCohorts"][number]) => {
-    const d = c.dimensions;
-    const parts: string[] = [];
-    const top = d.vertical || d.businessModel;
-    if (top) parts.push(top.replace(/_/g, " "));
-    if (d.stage) parts.push(d.stage.replace(/_/g, " "));
-    if (d.geo) parts.push(d.geo.toUpperCase());
-    return (parts.join(" · ") || c.cohortKey).replace(/\bb2b\b/i, "B2B").replace(/\b\w/g, (x) => x.toUpperCase());
-  };
   return (
     <label
       style={{
-        display: phone ? "flex" : "inline-flex",
-        flexDirection: phone ? "column" : "row",
-        alignItems: phone ? "stretch" : "center",
-        gap: phone ? 6 : 6,
+        display: "inline-flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
         fontFamily: t.sans,
-        fontSize: phone ? 12 : 11,
+        fontSize: 11,
         color: t.muted,
-        width: phone ? "100%" : undefined,
         minWidth: 0,
       }}
     >
-      {phone ? "Compare to" : "Cohort"}
+      Cohort
       <select
         defaultValue={current ?? ""}
         onChange={(e) => {
@@ -1638,24 +1844,22 @@ function PortfolioCohortPicker({
           window.location.href = url.toString();
         }}
         style={{
-          padding: phone ? "12px 12px" : "4px 6px",
-          minHeight: phone ? TOUCH_TARGET_MIN : undefined,
+          padding: "4px 6px",
           borderRadius: 8,
           border: `1px solid ${t.rule}`,
           background: t.panelAlt,
           color: t.ink,
           fontFamily: t.sans,
-          fontSize: phone ? 16 : 11,
+          fontSize: 11,
           cursor: "pointer",
-          maxWidth: phone ? "100%" : 300,
-          width: phone ? "100%" : undefined,
+          maxWidth: 300,
           boxSizing: "border-box",
         }}
       >
         {cohorts.map((c) => (
           <option key={c.cohortKey} value={c.cohortKey}>
-            {label(c)}
-            {c.sampleSize ? ` · n=${c.sampleSize}` : ""}
+            {formatCohortLabel(c)}
+            {c.sampleSize ? ` · ${c.sampleSize}` : ""}
           </option>
         ))}
       </select>
@@ -1828,20 +2032,16 @@ function MobileMetricRanking({
     portfolioP50 != null
       ? Math.max(0, Math.min(100, widthPct(portfolioP50)))
       : null;
+  const bandStart =
+    bench?.p25 != null ? Math.max(0, Math.min(100, widthPct(bench.p25))) : null;
+  const bandEnd =
+    bench?.p75 != null ? Math.max(0, Math.min(100, widthPct(bench.p75))) : null;
+  const fundTone = vsCohort ? (vsAhead ? t.accent : t.warn) : t.ink;
 
   return (
     <div className="fuel-portfolio-metric-mobile" style={{ minWidth: 0 }}>
       {bench?.p50 != null && portfolioP50 != null ? (
-        <div
-          style={{
-            padding: "16px 14px",
-            borderRadius: 14,
-            background: `linear-gradient(160deg, ${
-              vsCohort && !vsAhead ? `${t.warn}22` : `${t.accent}18`
-            } 0%, ${t.panelAlt} 55%)`,
-            border: `1px solid ${t.rule}`,
-          }}
-        >
+        <div style={framedPanelPadStyle(t, { marginTop: 14 })}>
           <div
             style={{
               fontFamily: t.sans,
@@ -1867,7 +2067,7 @@ function MobileMetricRanking({
                   fontFamily: t.sans,
                   fontSize: 12,
                   fontWeight: 600,
-                  color: vsCohort ? (vsAhead ? t.accent : t.warn) : t.muted,
+                  color: fundTone,
                 }}
               >
                 This fund
@@ -1875,9 +2075,9 @@ function MobileMetricRanking({
               <div
                 style={{
                   fontFamily: t.mono,
-                  fontSize: 26,
+                  fontSize: 22,
                   fontWeight: 700,
-                  color: vsCohort ? (vsAhead ? t.accent : t.ink) : t.ink,
+                  color: t.ink,
                   letterSpacing: "-0.03em",
                   fontFeatureSettings: '"tnum" 1',
                   lineHeight: 1.15,
@@ -1896,15 +2096,15 @@ function MobileMetricRanking({
                   color: t.muted,
                 }}
               >
-                Similar companies
+                Peer median
               </div>
               <div
                 style={{
                   fontFamily: t.mono,
                   fontSize: 22,
-                  fontWeight: 650,
-                  color: t.inkSoft,
-                  letterSpacing: "-0.02em",
+                  fontWeight: 700,
+                  color: t.ink,
+                  letterSpacing: "-0.03em",
                   fontFeatureSettings: '"tnum" 1',
                   lineHeight: 1.15,
                   marginTop: 4,
@@ -1915,30 +2115,67 @@ function MobileMetricRanking({
             </div>
           </div>
 
-          {/* Marker track — pins only (no fill) so “lower is better” metrics
-              don’t look healthier just because the bar is longer. */}
           <div
             style={{
               position: "relative",
-              marginTop: 16,
-              height: 10,
-              borderRadius: 999,
-              background: t.panel,
-              border: `1px solid ${t.ruleSoft}`,
+              marginTop: 18,
+              height: 28,
             }}
             aria-hidden
           >
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 11,
+                height: 6,
+                borderRadius: 999,
+                background: t.panelAlt,
+                border: `1px solid ${t.ruleSoft}`,
+              }}
+            />
+            {bandStart != null && bandEnd != null && bandEnd > bandStart ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${bandStart}%`,
+                  width: `${bandEnd - bandStart}%`,
+                  top: 11,
+                  height: 6,
+                  borderRadius: 999,
+                  background: `${t.accent}33`,
+                }}
+              />
+            ) : null}
+            {ranked.map((row) => (
+              <div
+                key={row.companyUuid}
+                title={row.name ?? undefined}
+                style={{
+                  position: "absolute",
+                  left: `calc(${Math.max(0, Math.min(100, widthPct(row.value)))}% - 4px)`,
+                  top: 10,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: quartileTone(t, row.quartile),
+                  opacity: 0.55,
+                  boxSizing: "border-box",
+                }}
+              />
+            ))}
             {cohortMark != null ? (
               <div
                 style={{
                   position: "absolute",
-                  left: `calc(${cohortMark}% - 1.5px)`,
-                  top: -4,
-                  bottom: -4,
-                  width: 3,
-                  borderRadius: 2,
+                  left: `calc(${cohortMark}% - 1px)`,
+                  top: 4,
+                  height: 20,
+                  width: 2,
+                  borderRadius: 1,
                   background: t.ink,
-                  opacity: 0.4,
+                  opacity: 0.45,
                 }}
               />
             ) : null}
@@ -1946,18 +2183,15 @@ function MobileMetricRanking({
               <div
                 style={{
                   position: "absolute",
-                  left: `calc(${yoursMark}% - 6px)`,
-                  top: -5,
-                  width: 12,
-                  height: 12,
+                  left: `calc(${yoursMark}% - 7px)`,
+                  top: 6,
+                  width: 16,
+                  height: 16,
                   borderRadius: 999,
-                  background: vsCohort
-                    ? vsAhead
-                      ? t.accent
-                      : t.warn
-                    : t.accent,
+                  background: fundTone,
                   border: `2px solid ${t.panel}`,
                   boxSizing: "border-box",
+                  zIndex: 1,
                 }}
               />
             ) : null}
@@ -1966,8 +2200,8 @@ function MobileMetricRanking({
             style={{
               marginTop: 8,
               display: "flex",
-              justifyContent: "space-between",
-              gap: 8,
+              flexWrap: "wrap",
+              gap: "6px 12px",
               fontFamily: t.sans,
               fontSize: 11,
               color: t.mutedSoft,
@@ -1980,7 +2214,7 @@ function MobileMetricRanking({
                   width: 8,
                   height: 8,
                   borderRadius: 999,
-                  background: vsCohort && !vsAhead ? t.warn : t.accent,
+                  background: fundTone,
                   marginRight: 5,
                   verticalAlign: "middle",
                 }}
@@ -1991,15 +2225,29 @@ function MobileMetricRanking({
               <span
                 style={{
                   display: "inline-block",
-                  width: 3,
-                  height: 10,
-                  background: t.ink,
-                  opacity: 0.4,
+                  width: 10,
+                  height: 6,
+                  borderRadius: 2,
+                  background: `${t.accent}55`,
                   marginRight: 5,
                   verticalAlign: "middle",
                 }}
               />
-              Similar companies
+              Typical peer range
+            </span>
+            <span>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 2,
+                  height: 10,
+                  background: t.ink,
+                  opacity: 0.45,
+                  marginRight: 5,
+                  verticalAlign: "middle",
+                }}
+              />
+              Peer median
             </span>
           </div>
 
@@ -2074,7 +2322,7 @@ function MobileMetricRanking({
             color: t.ink,
           }}
         >
-          Ranked companies
+          Companies
         </div>
         <div
           style={{
@@ -2083,9 +2331,8 @@ function MobileMetricRanking({
             color: t.muted,
           }}
         >
-          {ranked.length} ranked
+          {ranked.length}
           {flaggedCount > 0 ? ` · ${flaggedCount} skipped` : ""}
-          {cohortMark != null ? " · tick = similar companies" : ""}
         </div>
       </div>
 
@@ -2106,153 +2353,96 @@ function MobileMetricRanking({
         <ol
           style={{
             listStyle: "none",
-            margin: "8px 0 0",
+            margin: "10px 0 0",
             padding: 0,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
           }}
         >
           {ranked.map((row, i) => {
             const tone = quartileTone(t, row.quartile);
-            const fill = Math.max(4, Math.min(100, widthPct(row.value)));
             const status = QUARTILE_PLAIN[row.quartile];
             return (
-              <li
-                key={row.companyUuid}
-                style={{
-                  borderTop: i === 0 ? `1px solid ${t.rule}` : undefined,
-                  borderBottom: `1px solid ${t.ruleSoft}`,
-                }}
-              >
+              <li key={row.companyUuid}>
                 <Link
                   href={`/company/${row.companyUuid}`}
                   style={{
-                    display: "block",
+                    ...framedPanelPadStyle(t, { padding: "12px 14px" }),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
                     textDecoration: "none",
                     color: "inherit",
-                    padding: "12px 2px 14px",
                     minHeight: TOUCH_TARGET_MIN,
                   }}
                 >
-                  <div
+                  <span
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 10,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        minWidth: 0,
-                        flex: 1,
-                      }}
-                    >
-                      <span
-                        style={{
-                          flexShrink: 0,
-                          width: 26,
-                          height: 26,
-                          borderRadius: 999,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontFamily: t.mono,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: i === 0 ? t.bg : t.muted,
-                          background: i === 0 ? t.accent : t.panelAlt,
-                          fontFeatureSettings: '"tnum" 1',
-                        }}
-                      >
-                        {i + 1}
-                      </span>
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontFamily: t.sans,
-                            fontSize: 15,
-                            fontWeight: 650,
-                            color: t.ink,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {row.name ?? row.companyUuid.slice(0, 8)}
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 2,
-                            fontFamily: t.sans,
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: tone,
-                          }}
-                        >
-                          {status}
-                        </div>
-                      </div>
-                    </div>
-                    <span
-                      style={{
-                        fontFamily: t.mono,
-                        fontSize: 16,
-                        fontWeight: 700,
-                        color: t.ink,
-                        flexShrink: 0,
-                        fontFeatureSettings: '"tnum" 1',
-                        letterSpacing: "-0.02em",
-                      }}
-                    >
-                      {fmtValue(row.value, spec.unit)}
-                    </span>
-                  </div>
-
-                  <div
-                    style={{
-                      position: "relative",
-                      marginTop: 10,
-                      height: 8,
+                      flexShrink: 0,
+                      width: 26,
+                      height: 26,
                       borderRadius: 999,
-                      background: t.panelAlt,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: t.mono,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: i === 0 ? t.bg : t.muted,
+                      background: i === 0 ? t.accent : t.panelAlt,
+                      fontFeatureSettings: '"tnum" 1',
                     }}
-                    aria-hidden
                   >
+                    {i + 1}
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div
                       style={{
-                        position: "absolute",
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: `${fill}%`,
-                        background: tone,
-                        borderRadius: 999,
-                        opacity: 0.9,
+                        fontFamily: t.sans,
+                        fontSize: 15,
+                        fontWeight: 650,
+                        color: t.ink,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
-                    />
-                    {cohortMark != null ? (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: `calc(${cohortMark}% - 1px)`,
-                          top: -2,
-                          bottom: -2,
-                          width: 2,
-                          borderRadius: 1,
-                          background: t.ink,
-                          opacity: 0.4,
-                        }}
-                      />
-                    ) : null}
+                    >
+                      {row.name ?? row.companyUuid.slice(0, 8)}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontFamily: t.sans,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: tone,
+                      }}
+                    >
+                      {status}
+                    </div>
                   </div>
+                  <span
+                    style={{
+                      fontFamily: t.mono,
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: t.ink,
+                      flexShrink: 0,
+                      fontFeatureSettings: '"tnum" 1',
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {fmtValue(row.value, spec.unit)}
+                  </span>
                 </Link>
               </li>
             );
           })}
         </ol>
       )}
+
     </div>
   );
 }

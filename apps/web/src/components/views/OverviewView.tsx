@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { Chip, KPI, Logo, SectionHead } from "@/components/atoms";
 import { useTheme } from "@/components/ThemeContext";
 import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
+import { ctaPrimaryStyle } from "@/lib/theme";
 import type { OverviewCompanyCard, OverviewPageData } from "@/lib/overview-page-data";
 
 function fmtUsd(n: number | null): string {
@@ -156,14 +157,13 @@ export function OverviewView({ data }: { data: OverviewPageData }) {
           <Link
             href="/portfolio"
             style={{
+              ...ctaPrimaryStyle(t),
               display: "inline-flex",
               marginTop: 18,
               minHeight: TOUCH_TARGET_MIN,
               alignItems: "center",
               padding: "0 16px",
               borderRadius: 8,
-              background: t.ink,
-              color: t.bg,
               fontWeight: 600,
               fontSize: 14,
               textDecoration: "none",

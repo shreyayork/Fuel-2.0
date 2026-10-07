@@ -80,7 +80,7 @@ export function CompanyBottomNav({
       style={{
         background: t.panel,
         borderTop: `1px solid ${t.rule}`,
-        gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `repeat(${items.length}, minmax(4.5rem, 1fr))`,
       }}
     >
       {items.map((it) => {

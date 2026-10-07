@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { useAgentDrawer } from "../AgentDrawer";
 import { useTheme } from "../ThemeContext";
+import { BackNav } from "@/components/atoms";
 import { BREAKPOINTS, TOUCH_TARGET_MIN, useNarrow } from "@/lib/responsive";
 import { dropdownScrollProps, type Theme } from "@/lib/theme";
 import {
@@ -523,18 +524,6 @@ export function PlaybookPickerPanel({
     if (!mounted || typeof document === "undefined") return null;
     return createPortal(
       <div className="fuel-playbook-sheet" style={sheetRootStyle(t)}>
-        <button
-          type="button"
-          aria-label="Close playbooks"
-          className="fuel-playbook-sheet__scrim"
-          onClick={onClose}
-          style={{
-            ...sheetScrimStyle(t),
-            border: 0,
-            padding: 0,
-            cursor: "pointer",
-          }}
-        />
         <div
           role="dialog"
           aria-modal="true"
@@ -542,22 +531,18 @@ export function PlaybookPickerPanel({
           className="fuel-playbook-sheet__panel"
           style={sheetPanelStyle(t)}
         >
-          <div className="fuel-playbook-sheet__handle-wrap" aria-hidden>
-            <div
-              className="fuel-playbook-sheet__handle"
-              style={{ background: t.rule }}
-            />
-          </div>
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 12,
-              padding: "0 14px 10px",
+              padding: "8px 14px 10px",
               flexShrink: 0,
+              borderBottom: `1px solid ${t.ruleSoft}`,
             }}
           >
+            <BackNav t={t} label="Back" iconOnly onClick={onClose} />
             <h2
               id={titleId}
               style={{
@@ -567,20 +552,11 @@ export function PlaybookPickerPanel({
                 fontWeight: 700,
                 letterSpacing: "-0.02em",
                 color: t.ink,
+                flex: 1,
               }}
             >
               Playbooks
             </h2>
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={onClose}
-              style={{
-                ...sheetCloseBtnStyle(t),
-              }}
-            >
-              <SheetCloseIcon />
-            </button>
           </div>
           <div style={{ padding: "0 14px 10px", flexShrink: 0 }}>{searchField}</div>
           {list}
@@ -686,39 +662,16 @@ function PlaybookPickerRow({
   );
 }
 
-function SheetCloseIcon() {
-  return (
-    <svg width={18} height={18} viewBox="0 0 18 18" fill="none" aria-hidden>
-      <path
-        d="M4.5 4.5 13.5 13.5M13.5 4.5 4.5 13.5"
-        stroke="currentColor"
-        strokeWidth={1.6}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function sheetRootStyle(t: Theme): CSSProperties {
   return {
     position: "fixed",
     inset: 0,
-    // Above Shell menus (~2050) and Next.js floating badge.
     zIndex: 10050,
     display: "flex",
     flexDirection: "column",
-    justifyContent: "flex-end",
     fontFamily: t.sans,
     paddingLeft: "var(--fuel-safe-left, 0px)",
     paddingRight: "var(--fuel-safe-right, 0px)",
-  };
-}
-
-function sheetScrimStyle(t: Theme): CSSProperties {
-  return {
-    position: "absolute",
-    inset: 0,
-    background: t.overlay,
   };
 }
 
@@ -727,30 +680,17 @@ function sheetPanelStyle(t: Theme): CSSProperties {
     position: "relative",
     zIndex: 1,
     display: "flex",
+    flex: 1,
     flexDirection: "column",
     width: "100%",
-    maxHeight: "min(90dvh, 100%)",
-    background: t.panel,
-    borderTop: `1px solid ${t.rule}`,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    boxShadow: `0 -12px 40px ${t.overlay}`,
+    height: "100%",
+    maxHeight: "none",
+    background: t.bg,
+    borderTop: "none",
+    borderRadius: 0,
+    boxShadow: "none",
     overflow: "hidden",
-  };
-}
-
-function sheetCloseBtnStyle(t: Theme): CSSProperties {
-  return {
-    alignItems: "center",
-    background: t.panelAlt,
-    border: `1px solid ${t.rule}`,
-    borderRadius: 10,
-    color: t.inkSoft,
-    cursor: "pointer",
-    display: "inline-flex",
-    flexShrink: 0,
-    height: TOUCH_TARGET_MIN,
-    justifyContent: "center",
-    width: TOUCH_TARGET_MIN,
+    paddingBottom: "var(--fuel-safe-bottom, 0px)",
+    paddingTop: "var(--fuel-safe-top, 0px)",
   };
 }

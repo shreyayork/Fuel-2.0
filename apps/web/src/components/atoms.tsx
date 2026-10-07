@@ -1,8 +1,119 @@
+import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 import type { Theme } from "@/lib/theme";
 import type { Person } from "@/lib/types";
+import { G } from "./icons";
 
 export { Logo } from "./Logo";
+
+/** Mobile-friendly back control — chevron chip + optional label. */
+export function BackNav({
+  t,
+  label = "Back",
+  href,
+  onClick,
+  iconOnly = false,
+  className,
+  style: styleProp,
+}: {
+  t: Theme;
+  label?: string;
+  href?: string;
+  onClick?: () => void;
+  /** Icon chip only (use with aria-label from `label`). */
+  iconOnly?: boolean;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const chip = (
+    <span
+      className="fuel-back-nav__chip"
+      aria-hidden
+      style={{
+        alignItems: "center",
+        background: t.panelAlt,
+        border: `1px solid ${t.rule}`,
+        borderRadius: 10,
+        boxSizing: "border-box",
+        color: t.ink,
+        display: "inline-flex",
+        flexShrink: 0,
+        height: 36,
+        justifyContent: "center",
+        width: 36,
+      }}
+    >
+      {G.back}
+    </span>
+  );
+
+  const body = (
+    <>
+      {chip}
+      {iconOnly ? null : (
+        <span
+          className="fuel-back-nav__label"
+          style={{
+            color: t.inkSoft,
+            fontFamily: t.sans,
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: "-0.01em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </span>
+      )}
+    </>
+  );
+
+  const style: CSSProperties = {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    background: "transparent",
+    border: 0,
+    color: t.ink,
+    cursor: "pointer",
+    display: "inline-flex",
+    gap: 10,
+    maxWidth: "100%",
+    minHeight: TOUCH_TARGET_MIN,
+    padding: 0,
+    textAlign: "left",
+    textDecoration: "none",
+    WebkitTapHighlightColor: "transparent",
+    ...styleProp,
+  };
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={className ?? "fuel-back-nav"}
+        aria-label={iconOnly ? label : undefined}
+        style={style}
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={className ?? "fuel-back-nav"}
+      aria-label={label}
+      onClick={onClick}
+      style={style}
+    >
+      {body}
+    </button>
+  );
+}
 
 export function Row({
   children,
@@ -329,6 +440,7 @@ export function SectionHead({
     <div className="fuel-section-head">
       <div className="fuel-section-head__copy" style={{ minWidth: 0, flex: "1 1 auto" }}>
         <h1
+          className="fuel-section-head__title"
           style={{
             margin: 0,
             fontFamily: t.sans,
@@ -336,9 +448,6 @@ export function SectionHead({
             fontWeight: 600,
             color: t.ink,
             letterSpacing: "-0.01em",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
           }}
         >
           {title ?? eyebrow}

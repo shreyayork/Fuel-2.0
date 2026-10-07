@@ -205,7 +205,7 @@ export function DataRoomTab({
               maxWidth: 620,
             }}
           >
-            Tap + to add your first file — the same document types as Intelligence.
+            Tap + to choose a file, tag the type, and upload it to this company.
           </p>
         </div>
       ) : (

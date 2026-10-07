@@ -33,6 +33,31 @@ const OS_ENDPOINT = process.env.FUEL_DATA_OPENSEARCH_ENDPOINT;
 const NEPTUNE_ENDPOINT = process.env.FUEL_DATA_NEPTUNE_ENDPOINT;
 const REGION = process.env.AWS_REGION ?? process.env.COGNITO_REGION ?? "us-east-2";
 
+/** Local/dev without fuel-data — expected; do not capture or overlay. */
+class FuelDataOpenSearchNotConfiguredError extends Error {
+  constructor() {
+    super("FUEL_DATA_OPENSEARCH_ENDPOINT not set");
+    this.name = "FuelDataOpenSearchNotConfiguredError";
+  }
+}
+
+function isOpenSearchConfigured(): boolean {
+  return Boolean(OS_ENDPOINT?.trim());
+}
+
+function isOpenSearchNotConfiguredError(error: unknown): boolean {
+  return (
+    error instanceof FuelDataOpenSearchNotConfiguredError ||
+    (error instanceof Error && error.message === "FUEL_DATA_OPENSEARCH_ENDPOINT not set")
+  );
+}
+
+function captureOpenSearchFailure(error: unknown, operation: string, logMessage: string): void {
+  if (isOpenSearchNotConfiguredError(error)) return;
+  captureFuelDataException(error, operation);
+  console.error(logMessage, error);
+}
+
 export interface CompanyHit {
   uuid: string;
   name: string;
@@ -300,8 +325,11 @@ function host(endpoint: string): string {
 }
 
 async function opensearch<T>(path: string, body: unknown): Promise<T> {
-  if (!OS_ENDPOINT) throw new Error("FUEL_DATA_OPENSEARCH_ENDPOINT not set");
-  const endpointHost = host(OS_ENDPOINT);
+  const endpoint = OS_ENDPOINT?.trim();
+  if (!endpoint) {
+    return { hits: { total: { value: 0 }, hits: [] } } as T;
+  }
+  const endpointHost = host(endpoint);
 
   const signed = aws4.sign(
     {
@@ -903,8 +931,7 @@ export async function getDomainsByUuids(uuids: string[]): Promise<Map<string, st
       if (uuid && d) out.set(uuid, d);
     }
   } catch (e) {
-    captureFuelDataException(e, "get_domains_by_uuids");
-    console.error("getDomainsByUuids failed", e);
+    captureOpenSearchFailure(e, "get_domains_by_uuids", "getDomainsByUuids failed");
   }
   return out;
 }
@@ -935,8 +962,7 @@ export async function getNamesByUuids(uuids: string[]): Promise<Map<string, stri
       if (uuid && name) out.set(uuid, name);
     }
   } catch (e) {
-    captureFuelDataException(e, "get_names_by_uuids");
-    console.error("getNamesByUuids failed", e);
+    captureOpenSearchFailure(e, "get_names_by_uuids", "getNamesByUuids failed");
   }
   return out;
 }
@@ -1010,6 +1036,7 @@ export async function resolveCompanyUuidsForInvestors(
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   if (investors.length === 0) return out;
+  if (!isOpenSearchConfigured()) return out;
 
   const unique = new Map<string, InvestorCompanyLookupInput>();
   for (const inv of investors) {
@@ -1049,8 +1076,11 @@ export async function resolveCompanyUuidsForInvestors(
         if (hitId && idSet.has(hitId)) out.set(hitId, companyUuid);
       }
     } catch (e) {
-      captureFuelDataException(e, "resolve_investor_companies_by_id");
-      console.error("resolveCompanyUuidsForInvestors id lookup failed", e);
+      captureOpenSearchFailure(
+        e,
+        "resolve_investor_companies_by_id",
+        "resolveCompanyUuidsForInvestors id lookup failed",
+      );
     }
   }
 
@@ -1087,8 +1117,11 @@ export async function resolveCompanyUuidsForInvestors(
           if (uuid) out.set(inv.id, uuid);
         }
       } catch (e) {
-        captureFuelDataException(e, "resolve_investor_companies_by_domain");
-        console.error("resolveCompanyUuidsForInvestors domain lookup failed", e);
+        captureOpenSearchFailure(
+          e,
+          "resolve_investor_companies_by_domain",
+          "resolveCompanyUuidsForInvestors domain lookup failed",
+        );
       }
     }
   }
@@ -1135,8 +1168,11 @@ export async function resolveCompanyUuidsForInvestors(
           if (uuid) out.set(inv.id, uuid);
         }
       } catch (e) {
-        captureFuelDataException(e, "resolve_investor_companies_by_name");
-        console.error("resolveCompanyUuidsForInvestors name lookup failed", e);
+        captureOpenSearchFailure(
+          e,
+          "resolve_investor_companies_by_name",
+          "resolveCompanyUuidsForInvestors name lookup failed",
+        );
       }
     }
   }

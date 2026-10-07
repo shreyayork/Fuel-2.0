@@ -17,10 +17,13 @@ export type CompanyPublicNavTabItem = {
 };
 
 /** Legacy `?tab=` values kept for redirects and old deep links. */
-const LEGACY_TAB_ALIASES: Record<string, CompanyTabKey> = {
+export const LEGACY_TAB_ALIASES: Record<string, CompanyTabKey> = {
   signals: "intelligence",
   /** Context Feed moved into Intelligence → Sources. */
   context: "intelligence",
+  /** Private metrics live on Intelligence. */
+  private: "intelligence",
+  metrics: "intelligence",
 };
 
 export function normalizeCompanyTabParam(
@@ -41,8 +44,9 @@ export function isLegacyTabAlias(tabParam: string | undefined): boolean {
 }
 
 /**
- * Company public tabs (desktop top nav / mobile bottom bar). Data Room only
- * when the company is claimed (`isClaimedCompanyProfile` / founder home).
+ * Company public tabs — same list for desktop top nav and mobile bottom bar,
+ * including when viewing another (unclaimed / fuel-data) company.
+ * Data Room only when the company is claimed (`isClaimedCompanyProfile`).
  * Order: Overview, Intelligence, Data Room, Initiatives, Research.
  */
 export function companyPublicNavItems(opts: {

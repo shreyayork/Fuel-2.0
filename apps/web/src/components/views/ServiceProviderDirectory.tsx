@@ -7,11 +7,11 @@ import {
   providerInitials,
 } from "@/lib/service-provider-links";
 import type { Theme } from "@/lib/theme";
-import { framedPanelPadStyle, framedPanelStyle } from "@/lib/theme";
+import { framedPanelStyle, groupCardHeadStyle, groupCardStyle, groupItemStyle } from "@/lib/theme";
 import type { ServiceProvider } from "@/db/schema";
-import { Chip, Label, SectionHead } from "../atoms";
+import { Chip, SectionHead } from "../atoms";
 import { Popover, PopoverAnchor, PopoverContent } from "../ui/popover";
-import { FilterMenu, PageToolbar } from "../ToolbarActions";
+import { FilterGroup, FilterMenu, FilterOption, FilterSearch, PageToolbar } from "../ToolbarActions";
 import { useTheme } from "../ThemeContext";
 import { TOUCH_TARGET_MIN } from "@/lib/responsive";
 import {
@@ -89,51 +89,39 @@ export function ServiceProviderDirectory({
               <FilterMenu
                 t={t}
                 activeCount={(category !== "all" ? 1 : 0) + (query.trim() ? 1 : 0)}
+                onClear={() => {
+                  setQuery("");
+                  setCategory("all");
+                }}
               >
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search providers…"
-                  aria-label="Search providers"
-                  style={{
-                    padding: "10px 12px",
-                    background: t.panelAlt,
-                    color: t.ink,
-                    border: `1px solid ${t.rule}`,
-                    borderRadius: 8,
-                    fontFamily: t.sans,
-                    fontSize: 16,
-                    boxSizing: "border-box",
-                    minHeight: TOUCH_TARGET_MIN,
-                    width: "100%",
-                  }}
-                />
-                <select
-                  value={category}
-                  onChange={(e) =>
-                    setCategory(e.target.value as ServiceProviderCategory | "all")
-                  }
-                  aria-label="Category"
-                  style={{
-                    padding: "10px 12px",
-                    background: t.panelAlt,
-                    color: t.ink,
-                    border: `1px solid ${t.rule}`,
-                    borderRadius: 8,
-                    fontFamily: t.sans,
-                    fontSize: 16,
-                    boxSizing: "border-box",
-                    minHeight: TOUCH_TARGET_MIN,
-                    width: "100%",
-                  }}
-                >
-                  <option value="all">All categories</option>
-                  {SERVICE_PROVIDER_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {categoryLabel(c)}
-                    </option>
-                  ))}
-                </select>
+                <FilterGroup t={t} title="Search">
+                  <FilterSearch
+                    t={t}
+                    value={query}
+                    onChange={setQuery}
+                    placeholder="Search providers…"
+                    aria-label="Search providers"
+                  />
+                </FilterGroup>
+                <FilterGroup t={t} title="Category">
+                    <FilterOption
+                      t={t}
+                      selected={category === "all"}
+                      onSelect={() => setCategory("all")}
+                    >
+                      All categories
+                    </FilterOption>
+                    {SERVICE_PROVIDER_CATEGORIES.map((c) => (
+                      <FilterOption
+                        key={c}
+                        t={t}
+                        selected={category === c}
+                        onSelect={() => setCategory(c)}
+                      >
+                        {categoryLabel(c)}
+                      </FilterOption>
+                    ))}
+                </FilterGroup>
               </FilterMenu>
             }
           />
@@ -156,13 +144,19 @@ export function ServiceProviderDirectory({
       ) : (
         <div style={{ display: "grid", gap: 18 }}>
           {groups.map((g) => (
-            <div key={g.category}>
-              <Label t={t} style={{ marginBottom: 8 }}>
-                {categoryLabel(g.category)} · {g.items.length}
-              </Label>
+            <div key={g.category} className="fuel-group" style={groupCardStyle(t)}>
+              <div className="fuel-group__head" style={groupCardHeadStyle(t)}>
+                <span className="fuel-group__title" style={{ color: t.ink, fontFamily: t.sans, fontSize: 14 }}>
+                  {categoryLabel(g.category)}
+                </span>
+                <span className="fuel-group__meta" style={{ color: t.muted, fontFamily: t.sans, fontSize: 12 }}>
+                  {g.items.length}
+                </span>
+              </div>
               <div
-                className="fuel-network-grid"
+                className="fuel-network-grid fuel-group__body"
                 style={{
+                  display: "grid",
                   gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))",
                   gap: 10,
                 }}
@@ -193,9 +187,11 @@ function ProviderCard({ t, provider }: { t: Theme; provider: ServiceProvider }) 
 
   return (
     <div
+      className="fuel-group__item"
       style={{
-        ...framedPanelPadStyle(t, { padding: 14 }),
-        border: `1px solid ${provider.visibility === "internal" ? t.accent : t.rule}`,
+        ...groupItemStyle(t, { padding: 14 }),
+        boxShadow:
+          provider.visibility === "internal" ? `inset 3px 0 0 ${t.accent}` : undefined,
         display: "flex",
         flexDirection: "column",
         gap: 8,
