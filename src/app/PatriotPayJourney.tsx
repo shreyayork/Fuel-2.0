@@ -4140,12 +4140,12 @@ function DocumentHistoryButton({
   return (
     <button
       type="button"
-      className="document-history-btn"
+      className="workspace-table-action-btn workspace-table-action-btn--ghost"
       aria-label={`View history for ${slot.typeLabel}`}
       title="Document history"
       onClick={() => onOpen(slot)}
     >
-      ⧗
+      History
     </button>
   );
 }
@@ -4162,7 +4162,7 @@ function DocumentRowActions({
   onOpenHistory: (slot: DataRoomDocumentSlot) => void;
 }) {
   return (
-    <div className="data-room-actions-cell">
+    <div className="workspace-table-actions data-room-actions-cell">
       <DocumentRowUploadButton
         slot={slot}
         processingTypeId={processingTypeId}
@@ -4432,13 +4432,13 @@ function DocumentRowUploadButton({
       />
       <button
         type="button"
-        className={`data-room-upload-btn${isProcessing ? " processing" : ""}`}
+        className={`workspace-table-action-btn workspace-table-action-btn--primary${isProcessing ? " is-busy" : ""}`}
         aria-label={slot.current ? `Replace ${slot.typeLabel}` : `Upload ${slot.typeLabel}`}
         title={slot.current ? `Replace ${slot.typeLabel}` : `Upload ${slot.typeLabel}`}
         disabled={isBusy}
         onClick={() => inputRef.current?.click()}
       >
-        {isProcessing ? "…" : "↑"}
+        {isProcessing ? "…" : slot.current ? "Replace" : "Upload"}
       </button>
     </>
   );
@@ -4554,28 +4554,125 @@ function matchesWorkspaceSearch(parts: Array<string | undefined | null>, query: 
   return parts.some(part => (part ?? "").toLowerCase().includes(needle));
 }
 
+const WORKSPACE_TABLE_PAGE_SIZE = 10;
+
+function useWorkspaceTablePagination<T>(items: T[], resetKey: string | number = "") {
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [resetKey, items.length]);
+
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / WORKSPACE_TABLE_PAGE_SIZE) || 1);
+  const safePage = Math.min(page, totalPages);
+  const pageItems = useMemo(() => {
+    const start = (safePage - 1) * WORKSPACE_TABLE_PAGE_SIZE;
+    return items.slice(start, start + WORKSPACE_TABLE_PAGE_SIZE);
+  }, [items, safePage]);
+
+  return {
+    page: safePage,
+    setPage,
+    totalPages,
+    pageItems,
+    total,
+    pageSize: WORKSPACE_TABLE_PAGE_SIZE,
+  };
+}
+
+function WorkspaceTablePagination({
+  page,
+  totalPages,
+  total,
+  pageSize,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (total <= 0) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  return (
+    <div className="workspace-table-pagination" role="navigation" aria-label="Table pagination">
+      <span className="workspace-table-pagination-meta">
+        {from}–{to} of {total}
+      </span>
+      <div className="workspace-table-pagination-controls">
+        <button
+          type="button"
+          className="workspace-table-pagination-btn"
+          disabled={page <= 1}
+          aria-label="Previous page"
+          onClick={() => onPageChange(page - 1)}
+        >
+          <FuelIcon name="chevronLeft" size={14} />
+        </button>
+        <span className="workspace-table-pagination-page">
+          {page} / {totalPages}
+        </span>
+        <button
+          type="button"
+          className="workspace-table-pagination-btn"
+          disabled={page >= totalPages}
+          aria-label="Next page"
+          onClick={() => onPageChange(page + 1)}
+        >
+          <FuelIcon name="chevronRight" size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function WorkspaceCompactToolbar({
   searchValue,
   onSearchChange,
   searchPlaceholder,
-  children,
+  filterPanel,
+  activeFilterCount = 0,
+  onClearFilters,
   endContent,
-  filterPlacement = "right",
 }: {
   searchValue: string;
   onSearchChange: (value: string) => void;
   searchPlaceholder: string;
-  children?: React.ReactNode;
+  /** Filter fields rendered inside the Filters CTA panel */
+  filterPanel?: React.ReactNode;
+  activeFilterCount?: number;
+  onClearFilters?: () => void;
   endContent?: React.ReactNode;
-  filterPlacement?: "right" | "inline";
 }) {
-  const splitRow = Boolean(endContent) || filterPlacement === "inline";
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!filterRef.current?.contains(event.target as Node)) {
+        setFiltersOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFiltersOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [filtersOpen]);
+
   return (
-    <div
-      className={`signals-intel-toolbar workspace-compact-toolbar${splitRow ? " workspace-compact-toolbar--split" : ""}`}
-    >
+    <div className="signals-intel-toolbar workspace-compact-toolbar workspace-compact-toolbar--split">
       <label className="signals-intel-search">
-        <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
+        <span className="signals-intel-search-icon" aria-hidden="true">
+          <FuelIcon name="search" size={14} />
+        </span>
         <input
           type="search"
           value={searchValue}
@@ -4584,14 +4681,50 @@ function WorkspaceCompactToolbar({
           aria-label={searchPlaceholder}
         />
       </label>
-      {children ? (
-        filterPlacement === "inline" ? (
-          <div className="workspace-compact-toolbar-inline-filters">{children}</div>
-        ) : (
-          <div className="signals-intel-toolbar-right">{children}</div>
-        )
-      ) : null}
-      {endContent ? <div className="workspace-compact-toolbar-end">{endContent}</div> : null}
+      <div className="workspace-compact-toolbar-actions">
+        {filterPanel ? (
+          <div className="workspace-filter-cta" ref={filterRef}>
+            <button
+              type="button"
+              className={`workspace-filter-btn${filtersOpen || activeFilterCount > 0 ? " is-active" : ""}`}
+              aria-expanded={filtersOpen}
+              aria-haspopup="dialog"
+              onClick={() => setFiltersOpen(open => !open)}
+            >
+              <FuelIcon name="filter" size={14} />
+              <span>Filters</span>
+              {activeFilterCount > 0 ? <em>{activeFilterCount}</em> : null}
+              <FuelIcon name="chevronDown" size={12} />
+            </button>
+            {filtersOpen ? (
+              <div className="workspace-filter-panel" role="dialog" aria-label="Table filters">
+                <div className="workspace-filter-panel-fields">{filterPanel}</div>
+                <div className="workspace-filter-panel-footer">
+                  {onClearFilters ? (
+                    <button
+                      type="button"
+                      className="initiatives-secondary-btn"
+                      onClick={() => {
+                        onClearFilters();
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  ) : <span />}
+                  <button
+                    type="button"
+                    className="initiatives-primary-btn"
+                    onClick={() => setFiltersOpen(false)}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {endContent ? <div className="workspace-compact-toolbar-end">{endContent}</div> : null}
+      </div>
     </div>
   );
 }
@@ -4620,6 +4753,44 @@ function WorkspaceListFilterEmpty({
   );
 }
 
+function WorkspaceFilterField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="workspace-filter-field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function researchAuthorLabel(email: string) {
+  const local = email.split("@")[0]?.trim();
+  return local || email;
+}
+
+function researchRowTitle(artifact: ResearchArtifact) {
+  const subject = artifact.subject?.trim() || artifact.companyName?.trim();
+  if (subject) return subject;
+  if (artifact.title.startsWith(`${artifact.typeLabel} — `)) {
+    return artifact.title.slice(artifact.typeLabel.length + 3).trim() || artifact.title;
+  }
+  return artifact.title;
+}
+
+function researchBodyPreview(body: string, max = 120) {
+  const line = body
+    .split("\n")
+    .map(part => part.trim())
+    .find(Boolean) ?? "";
+  if (!line) return "No preview available";
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
 function ResearchPage({
   artifacts,
   onGenerateBrief,
@@ -4634,23 +4805,37 @@ function ResearchPage({
   activeTourTarget?: string;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(() => artifacts[0]?.id ?? null);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const typeOptions = useMemo(() => {
+    const labels = new Set<string>();
+    artifacts.forEach(artifact => {
+      if (artifact.typeLabel?.trim()) labels.add(artifact.typeLabel.trim());
+    });
+    return Array.from(labels).sort((a, b) => a.localeCompare(b));
+  }, [artifacts]);
 
   const filteredArtifacts = useMemo(() => {
-    return artifacts.filter(artifact => matchesWorkspaceSearch(
-      [artifact.title, artifact.body, artifact.typeLabel, artifact.authorEmail, artifact.subject, artifact.companyName],
-      searchQuery,
-    ));
-  }, [artifacts, searchQuery]);
+    return artifacts.filter(artifact => {
+      if (typeFilter !== "all" && artifact.typeLabel !== typeFilter) return false;
+      return matchesWorkspaceSearch(
+        [artifact.title, artifact.body, artifact.typeLabel, artifact.authorEmail, artifact.subject, artifact.companyName],
+        searchQuery,
+      );
+    });
+  }, [artifacts, searchQuery, typeFilter]);
+
+  const activeFilterCount = (typeFilter !== "all" ? 1 : 0);
+  const pagination = useWorkspaceTablePagination(
+    filteredArtifacts,
+    `${searchQuery}|${typeFilter}`,
+  );
 
   useEffect(() => {
-    if (!filteredArtifacts.length) {
-      setExpandedId(null);
-      return;
-    }
-    if (!expandedId || !filteredArtifacts.some(item => item.id === expandedId)) {
-      setExpandedId(filteredArtifacts[0].id);
-    }
+    if (!expandedId) return;
+    if (filteredArtifacts.some(item => item.id === expandedId)) return;
+    setExpandedId(null);
   }, [filteredArtifacts, expandedId]);
 
   return (
@@ -4682,6 +4867,23 @@ function ResearchPage({
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           searchPlaceholder="Search research…"
+          activeFilterCount={activeFilterCount}
+          onClearFilters={() => setTypeFilter("all")}
+          filterPanel={(
+            <WorkspaceFilterField label="Type">
+              <select
+                className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+                value={typeFilter}
+                onChange={event => setTypeFilter(event.target.value)}
+                aria-label="Research type"
+              >
+                <option value="all">All types</option>
+                {typeOptions.map(label => (
+                  <option key={label} value={label}>{label}</option>
+                ))}
+              </select>
+            </WorkspaceFilterField>
+          )}
         />
 
         {artifacts.length === 0 ? (
@@ -4692,52 +4894,115 @@ function ResearchPage({
             </p>
           </div>
         ) : filteredArtifacts.length === 0 ? (
-          <WorkspaceListFilterEmpty onClear={() => setSearchQuery("")} />
+          <WorkspaceListFilterEmpty onClear={() => {
+            setSearchQuery("");
+            setTypeFilter("all");
+          }}
+          />
         ) : (
-          <div className="workspace-table research-table">
-            <div className="workspace-table-head research-table-head" role="row">
-              <span>Type</span>
-              <span>Title</span>
-              <span>Author</span>
-              <span>Date</span>
-              <span>Actions</span>
-            </div>
-            {filteredArtifacts.map(artifact => {
-              const expanded = expandedId === artifact.id;
-              return (
-                <div key={artifact.id}>
-                  <div className={`workspace-table-row research-table-row${expanded ? " is-selected" : ""}`}>
-                    <span className="research-type-badge">{artifact.typeLabel}</span>
-                    <strong title={artifact.title}>{artifact.title}</strong>
-                    <span>{artifact.authorEmail}</span>
-                    <time dateTime={artifact.createdAt}>{formatResearchDisplayDate(artifact.createdAt)}</time>
-                    <div className="research-table-actions">
-                      <button type="button" className="research-link-btn" onClick={() => onOpenArtifact(artifact)}>
-                        Open ↗
-                      </button>
-                      <button
-                        type="button"
-                        className="research-link-btn"
-                        onClick={() => setExpandedId(expanded ? null : artifact.id)}
+          <>
+            <div className="workspace-table research-table">
+              <div className="workspace-table-head research-table-head" role="row">
+                <span>Research</span>
+                <span>Type</span>
+                <span>Author</span>
+                <span>Date</span>
+                <span>Actions</span>
+              </div>
+              {pagination.pageItems.map(artifact => {
+                const expanded = expandedId === artifact.id;
+                const title = researchRowTitle(artifact);
+                const preview = researchBodyPreview(artifact.body);
+                return (
+                  <div key={artifact.id} className={`research-table-item${expanded ? " is-expanded" : ""}`}>
+                    <div
+                      className={`workspace-table-row research-table-row${expanded ? " is-selected" : ""}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={expanded}
+                      onClick={() => setExpandedId(expanded ? null : artifact.id)}
+                      onKeyDown={event => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setExpandedId(expanded ? null : artifact.id);
+                        }
+                      }}
+                    >
+                      <div className="workspace-table-title-cell">
+                        <strong title={artifact.title}>{title}</strong>
+                        {!expanded ? (
+                          <span className="workspace-table-subtitle">{preview}</span>
+                        ) : null}
+                      </div>
+                      <span className="workspace-table-badge" title={artifact.typeLabel}>
+                        {artifact.typeLabel}
+                      </span>
+                      <span className="workspace-table-keyfact" title={artifact.authorEmail}>
+                        {researchAuthorLabel(artifact.authorEmail)}
+                      </span>
+                      <time className="workspace-table-date" dateTime={artifact.createdAt}>
+                        {formatResearchDisplayDate(artifact.createdAt)}
+                      </time>
+                      <div
+                        className="workspace-table-actions"
+                        onClick={event => event.stopPropagation()}
+                        onKeyDown={event => event.stopPropagation()}
                       >
-                        {expanded ? "Collapse" : "Expand"}
-                      </button>
+                        <button
+                          type="button"
+                          className="workspace-table-action-btn workspace-table-action-btn--primary"
+                          onClick={() => onOpenArtifact(artifact)}
+                          aria-label={`Open ${title}`}
+                        >
+                          Open
+                          <FuelIcon name="investors" size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          className={`workspace-table-action-btn workspace-table-action-btn--icon${expanded ? " is-open" : ""}`}
+                          aria-label={expanded ? "Collapse preview" : "Expand preview"}
+                          onClick={() => setExpandedId(expanded ? null : artifact.id)}
+                        >
+                          <FuelIcon name="chevronDown" size={14} />
+                        </button>
+                      </div>
                     </div>
+                    {expanded ? (
+                      <div className="workspace-table-detail research-table-detail">
+                        <div className="research-table-detail-meta">
+                          <span className="research-type-badge">{artifact.typeLabel}</span>
+                          <span>{artifact.authorEmail}</span>
+                          <time dateTime={artifact.createdAt}>{formatResearchDisplayDate(artifact.createdAt)}</time>
+                        </div>
+                        <div className="research-table-detail-body">
+                          {artifact.body.split("\n").map((line, index) => (
+                            line.trim() ? <p key={index}>{line}</p> : <br key={index} />
+                          ))}
+                        </div>
+                        <div className="research-table-detail-footer">
+                          <button
+                            type="button"
+                            className="initiatives-primary-btn"
+                            onClick={() => onOpenArtifact(artifact)}
+                          >
+                            Open research
+                            <FuelIcon name="investors" size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                  {expanded ? (
-                    <div className="workspace-table-detail">
-                      {artifact.body.split("\n").map((line, index) => (
-                        line.trim() ? <p key={index}>{line}</p> : <br key={index} />
-                      ))}
-                      {artifact.subject ? (
-                        <p className="research-card-subject">Subject: {artifact.subject}</p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+            <WorkspaceTablePagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              total={pagination.total}
+              pageSize={pagination.pageSize}
+              onPageChange={pagination.setPage}
+            />
+          </>
         )}
       </WorkspaceListPanel>
     </section>
@@ -4828,6 +5093,14 @@ function DataRoomPage({
     });
   }, [activeSlots, intelligenceFilter, searchQuery, typeFilter]);
 
+  const activeFilterCount =
+    (typeFilter !== "all" ? 1 : 0)
+    + (intelligenceFilter !== "all" ? 1 : 0);
+  const pagination = useWorkspaceTablePagination(
+    filteredSlots,
+    `${searchQuery}|${typeFilter}|${intelligenceFilter}`,
+  );
+
   if (investorMode) {
     return (
       <DataRoomInvestorGate
@@ -4862,28 +5135,40 @@ function DataRoomPage({
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           searchPlaceholder="Search files…"
-        >
-          <select
-            className="signals-intel-toolbar-select workspace-compact-toolbar-select"
-            value={typeFilter}
-            onChange={event => setTypeFilter(event.target.value)}
-            aria-label="Document type"
-          >
-            <option value="all">All document types</option>
-            {docTypeOptions.map(option => (
-              <option key={option.id} value={option.id}>{option.label}</option>
-            ))}
-          </select>
-          <select
-            className="signals-intel-toolbar-select workspace-compact-toolbar-select"
-            value={intelligenceFilter}
-            onChange={event => setIntelligenceFilter(event.target.value as "all" | "has_intelligence")}
-            aria-label="Intelligence filter"
-          >
-            <option value="all">All files</option>
-            <option value="has_intelligence">Has intelligence</option>
-          </select>
-        </WorkspaceCompactToolbar>
+          activeFilterCount={activeFilterCount}
+          onClearFilters={() => {
+            setTypeFilter("all");
+            setIntelligenceFilter("all");
+          }}
+          filterPanel={(
+            <>
+              <WorkspaceFilterField label="Document type">
+                <select
+                  className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+                  value={typeFilter}
+                  onChange={event => setTypeFilter(event.target.value)}
+                  aria-label="Document type"
+                >
+                  <option value="all">All document types</option>
+                  {docTypeOptions.map(option => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </WorkspaceFilterField>
+              <WorkspaceFilterField label="Intelligence">
+                <select
+                  className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+                  value={intelligenceFilter}
+                  onChange={event => setIntelligenceFilter(event.target.value as "all" | "has_intelligence")}
+                  aria-label="Intelligence filter"
+                >
+                  <option value="all">All files</option>
+                  <option value="has_intelligence">Has intelligence</option>
+                </select>
+              </WorkspaceFilterField>
+            </>
+          )}
+        />
 
         {activeCount === 0 ? (
           <div className="data-room-empty">
@@ -4900,45 +5185,72 @@ function DataRoomPage({
           }}
           />
         ) : (
-          <div className="data-room-list workspace-table">
-          <div className="data-room-row data-room-row-head workspace-table-head">
-            <span>Type</span>
-            <span>Latest file</span>
-            <span>Format</span>
-            <span>Uploaded</span>
-            <span>Intelligence</span>
-            <span>Actions</span>
-          </div>
-          {filteredSlots.map(slot => (
-            <div className={`data-room-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`} key={slot.typeId}>
-              <strong>{slot.typeLabel}</strong>
-              <span className="data-room-latest">{slot.current?.name || "—"}</span>
-              <span>{slot.current?.format || "—"}</span>
-              <span>{slot.current?.uploadedAt || "—"}</span>
-              <span className="data-room-intelligence">
-                {slot.current && slot.current.intelligenceCount > 0 ? (
-                  <button
-                    type="button"
-                    className="data-room-intelligence-link"
-                    onClick={() => onViewIntelligence(slot.current!)}
-                  >
-                    {slot.current.intelligenceCount} generated →
-                  </button>
-                ) : slot.current ? (
-                  <span className={`data-room-intelligence-pending${slot.current.generationAttemptedAtMs ? " data-room-intelligence-empty" : ""}`}>
-                    {slot.current.generationAttemptedAtMs ? "No intelligence identified" : "Awaiting generation"}
+          <>
+            <div className="workspace-table data-room-list">
+              <div className="workspace-table-head data-room-table-head" role="row">
+                <span>Document</span>
+                <span>Format</span>
+                <span>Intelligence</span>
+                <span>Uploaded</span>
+                <span>Actions</span>
+              </div>
+              {pagination.pageItems.map(slot => (
+                <div
+                  className={`workspace-table-row data-room-table-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`}
+                  key={slot.typeId}
+                >
+                  <div className="workspace-table-title-cell">
+                    <strong title={slot.typeLabel}>{slot.typeLabel}</strong>
+                    <span className="workspace-table-subtitle">
+                      {slot.current?.name || "No file uploaded yet"}
+                    </span>
+                  </div>
+                  <span className="workspace-table-badge">
+                    {slot.current?.format || "Empty"}
                   </span>
-                ) : "—"}
-              </span>
-              <DocumentRowActions
-                slot={slot}
-                processingTypeId={processingDocumentTypeId}
-                onUpload={onUploadDocument}
-                onOpenHistory={onOpenDocumentHistory}
-              />
-        </div>
-          ))}
-          </div>
+                  <span className="workspace-table-keyfact data-room-intelligence">
+                    {slot.current && slot.current.intelligenceCount > 0 ? (
+                      <button
+                        type="button"
+                        className="workspace-table-inline-link"
+                        onClick={() => onViewIntelligence(slot.current!)}
+                      >
+                        {slot.current.intelligenceCount} generated
+                      </button>
+                    ) : slot.current ? (
+                      <span className={`data-room-intelligence-pending${slot.current.generationAttemptedAtMs ? " data-room-intelligence-empty" : ""}`}>
+                        {slot.current.generationAttemptedAtMs ? "None found" : "Awaiting"}
+                      </span>
+                    ) : (
+                      <span className="workspace-table-muted">—</span>
+                    )}
+                  </span>
+                  <time
+                    className="workspace-table-date"
+                    dateTime={slot.current ? new Date(slot.current.uploadedAtMs).toISOString() : undefined}
+                    title={slot.current?.uploadedAt || undefined}
+                  >
+                    {slot.current
+                      ? formatResearchDisplayDate(new Date(slot.current.uploadedAtMs).toISOString())
+                      : "—"}
+                  </time>
+                  <DocumentRowActions
+                    slot={slot}
+                    processingTypeId={processingDocumentTypeId}
+                    onUpload={onUploadDocument}
+                    onOpenHistory={onOpenDocumentHistory}
+                  />
+                </div>
+              ))}
+            </div>
+            <WorkspaceTablePagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              total={pagination.total}
+              pageSize={pagination.pageSize}
+              onPageChange={pagination.setPage}
+            />
+          </>
         )}
       </WorkspaceListPanel>
     </section>
@@ -5092,7 +5404,7 @@ function SourcesListPanel({
         <em>{sources.length} source{sources.length === 1 ? "" : "s"}</em>
       </div>
       <div className="data-room-list signals-sources-list">
-        <div className="data-room-row data-room-row-head signals-sources-row">
+        <div className="workspace-table-head data-room-row-head signals-sources-row" role="row">
           <span>Source</span>
           <span>Type</span>
           <span>Added</span>
@@ -5191,53 +5503,71 @@ function SubtypeRow({
   const history = items.slice(1);
   const isBlink = blinkingIds.includes(latest.id);
   const sourceCount = latest.sources?.length ?? 0;
+  const periodLabel = formatBenchmarkPeriodLabel(latest.date);
 
   return (
-    <div className={`intel-signal-row${isBlink ? " blink-once" : ""}`}>
+    <div className={`research-table-item intel-signal-item${historyOpen ? " is-expanded" : ""}`}>
       <div
-        className="intel-signal-latest"
+        className={`workspace-table-row research-table-row intel-signal-row${isBlink ? " blink-once" : ""}${historyOpen ? " is-selected" : ""}`}
         role="button"
         tabIndex={0}
+        aria-expanded={historyOpen}
         onClick={() => onSelectItem?.(latest.id)}
-        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectItem?.(latest.id); } }}
+        onKeyDown={e => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelectItem?.(latest.id);
+          }
+        }}
       >
-        <div className="intel-signal-title">
-          <span className="intel-signal-category">{categoryLabel}</span>
-          <span className="intel-signal-name">{subtypeKey}</span>
+        <div className="workspace-table-title-cell">
+          <strong title={subtypeKey}>{subtypeKey}</strong>
+          <span className="workspace-table-subtitle">
+            {sourceCount > 0
+              ? `${sourceCount} source${sourceCount === 1 ? "" : "s"}`
+              : "No linked sources"}
+          </span>
         </div>
-        <strong className="intel-signal-value">{latest.highlight}</strong>
-        <time className="intel-signal-period" dateTime={latest.date}>
-          {formatBenchmarkPeriodLabel(latest.date)}
-        </time>
-        <div className={`intel-signal-meta-slot${sourceCount > 0 || history.length > 0 ? "" : " is-empty"}`}>
-          {sourceCount > 0 ? (
-            <span
-              className="intel-signal-meta-chip intel-signal-meta-chip--sources"
-              title={`${sourceCount} linked source${sourceCount === 1 ? "" : "s"}`}
-              aria-label={`${sourceCount} source${sourceCount === 1 ? "" : "s"}`}
-            >
-              <span className="intel-signal-meta-label">Sources</span>
-              <span className="intel-signal-meta-count">{sourceCount}</span>
-            </span>
-          ) : null}
+        <span className="workspace-table-badge" title={categoryLabel}>{categoryLabel}</span>
+        <span className="workspace-table-keyfact" title={latest.highlight}>{latest.highlight}</span>
+        <time className="workspace-table-date" dateTime={latest.date}>{periodLabel}</time>
+        <div
+          className="workspace-table-actions"
+          onClick={event => event.stopPropagation()}
+          onKeyDown={event => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="workspace-table-action-btn workspace-table-action-btn--primary"
+            onClick={() => onSelectItem?.(latest.id)}
+            aria-label={`View ${subtypeKey}`}
+          >
+            View
+            <FuelIcon name="investors" size={12} />
+          </button>
           {history.length > 0 ? (
             <button
               type="button"
-              className={`intel-signal-meta-chip intel-signal-meta-chip--history${historyOpen ? " is-open" : ""}`}
-              onClick={e => { e.stopPropagation(); setHistoryOpen(o => !o); }}
+              className={`workspace-table-action-btn workspace-table-action-btn--icon${historyOpen ? " is-open" : ""}`}
+              onClick={() => setHistoryOpen(open => !open)}
               aria-expanded={historyOpen}
+              aria-label={historyOpen ? "Collapse history" : `Show ${history.length} history entries`}
               title={`${history.length} earlier entr${history.length === 1 ? "y" : "ies"}`}
             >
-              <span className="intel-signal-meta-label">History</span>
-              <span className="intel-signal-meta-count">{history.length}</span>
-              <span className="intel-signal-meta-chevron" aria-hidden="true">{historyOpen ? "▴" : "▾"}</span>
+              <FuelIcon name="chevronDown" size={14} />
             </button>
           ) : null}
         </div>
       </div>
       {historyOpen ? (
-        <div className="intel-signal-history">
-          {history.map(item => renderTimelineRow(item))}
+        <div className="workspace-table-detail research-table-detail intel-signal-history">
+          <div className="research-table-detail-meta">
+            <span className="research-type-badge">{categoryLabel}</span>
+            <span>{history.length} earlier entr{history.length === 1 ? "y" : "ies"}</span>
+          </div>
+          <div className="research-table-detail-body intel-signal-history-list">
+            {history.map(item => renderTimelineRow(item))}
+          </div>
         </div>
       ) : null}
     </div>
@@ -5272,7 +5602,7 @@ function IntelligenceCategoryPanel({
   }, [items]);
 
   return (
-    <div className="intel-cat-panel">
+    <>
       {subtypeGroups.map(([subtypeKey, grp]) => (
         <SubtypeRow
           key={subtypeKey}
@@ -5284,7 +5614,7 @@ function IntelligenceCategoryPanel({
           onSelectItem={onSelectItem}
         />
       ))}
-    </div>
+    </>
   );
 }
 
@@ -5744,10 +6074,19 @@ function SignalsPage({
     return map;
   }, []);
 
+  const intelActiveFilterCount =
+    (activeTimelineFilter !== "All" ? 1 : 0)
+    + (datePreset !== "current-quarter" ? 1 : 0);
+
+  const intelPagination = useWorkspaceTablePagination(
+    filteredIntelligenceItems,
+    `${searchQuery}|${activeTimelineFilter}|${datePreset}`,
+  );
+
   // Group items by type. Only catalog-valid category keys are included.
   const categoryGroups = useMemo(() => {
     const groups = new Map<string, IntelligenceItem[]>();
-    filteredIntelligenceItems.forEach(item => {
+    intelPagination.pageItems.forEach(item => {
       const catKey = item.type;
       if (!catKey || !CATALOG_SIGNAL_SET.has(catKey)) return;
       const validSignals = CATALOG_SIGNAL_SET.get(catKey)!;
@@ -5760,7 +6099,7 @@ function SignalsPage({
     return [...groups.entries()].sort(
       ([a], [b]) => catalogOrder.indexOf(a) - catalogOrder.indexOf(b)
     );
-  }, [filteredIntelligenceItems, CATALOG_SIGNAL_SET]);
+  }, [intelPagination.pageItems, CATALOG_SIGNAL_SET]);
 
   const categoryTabOptions = useMemo(
     () => timelineFilters.map(filter => ({
@@ -5771,124 +6110,119 @@ function SignalsPage({
   );
 
   const intelligenceTimelinePanel = (
-    <div className="signals-board-panel overview-panel signals-intel-board" ref={timelinePanelRef}>
-      {intelligenceFocusActive ? (
-        <div className="pitch-deck-confirm-banner intelligence-focus-banner">
-          <span>
-            Showing {visibleIntelligenceItems.length} intelligence item{visibleIntelligenceItems.length === 1 ? "" : "s"} from{" "}
-            <strong>{intelligenceFocus!.label}</strong>
-          </span>
-          <div className="pitch-deck-confirm-actions">
-            <button type="button" onClick={() => onClearIntelligenceFocus?.()}>Show all intelligence</button>
+    <div ref={timelinePanelRef}>
+      <WorkspaceListPanel>
+        {intelligenceFocusActive ? (
+          <div className="pitch-deck-confirm-banner intelligence-focus-banner">
+            <span>
+              Showing {visibleIntelligenceItems.length} intelligence item{visibleIntelligenceItems.length === 1 ? "" : "s"} from{" "}
+              <strong>{intelligenceFocus!.label}</strong>
+            </span>
+            <div className="pitch-deck-confirm-actions">
+              <button type="button" onClick={() => onClearIntelligenceFocus?.()}>Show all intelligence</button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : (
+          <WorkspaceCompactToolbar
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search intelligence…"
+            activeFilterCount={intelActiveFilterCount}
+            onClearFilters={() => {
+              setActiveTimelineFilter("All");
+              setDatePreset("current-quarter");
+            }}
+            filterPanel={(
+              <>
+                <WorkspaceFilterField label="Category">
+                  <select
+                    className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+                    value={activeTimelineFilter}
+                    onChange={event => setActiveTimelineFilter(event.target.value)}
+                    aria-label="Intelligence category"
+                  >
+                    {categoryTabOptions.map(tab => (
+                      <option key={tab.id} value={tab.id}>{tab.label}</option>
+                    ))}
+                  </select>
+                </WorkspaceFilterField>
+                <WorkspaceFilterField label="Date range">
+                  <select
+                    className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+                    value={datePreset}
+                    onChange={event => setDatePreset(event.target.value as IntelligenceDatePreset)}
+                    aria-label="Date range"
+                  >
+                    {INTELLIGENCE_DATE_PRESETS.map(preset => (
+                      <option key={preset.id} value={preset.id}>{preset.label}</option>
+                    ))}
+                  </select>
+                </WorkspaceFilterField>
+              </>
+            )}
+          />
+        )}
 
-      {!intelligenceFocusActive ? (
-        <div className="intel-category-tabs" role="tablist" aria-label="Intelligence categories">
-          {categoryTabOptions.map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTimelineFilter === tab.id}
-              className={`intel-category-tab${activeTimelineFilter === tab.id ? " is-active" : ""}`}
-              onClick={() => setActiveTimelineFilter(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {!intelligenceFocusActive ? (
-        <div className="signals-intel-toolbar">
-          <label className="signals-intel-search">
-            <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={event => setSearchQuery(event.target.value)}
-              placeholder="Search signals…"
-              aria-label="Search intelligence"
-            />
-          </label>
-
-          <div className="signals-intel-toolbar-right">
-            <select
-              className="signals-intel-toolbar-select"
-              value={datePreset}
-              onChange={event => setDatePreset(event.target.value as IntelligenceDatePreset)}
-              aria-label="Date range"
-            >
-              {INTELLIGENCE_DATE_PRESETS.map(preset => (
-                <option key={preset.id} value={preset.id}>{preset.label}</option>
+        {filteredIntelligenceItems.length > 0 ? (
+          <>
+            <div className="workspace-table intel-signal-table research-table">
+              <div className="workspace-table-head intel-signal-table-head research-table-head" role="row">
+                <span>Signal</span>
+                <span>Category</span>
+                <span>Value</span>
+                <span>Period</span>
+                <span>Actions</span>
+              </div>
+              {categoryGroups.map(([categoryKey, items]) => (
+                <IntelligenceCategoryPanel
+                  key={categoryKey}
+                  categoryKey={categoryKey}
+                  items={items}
+                  blinkingIds={[...blinkingIntelligenceIds, ...benchmarkBlinkIds]}
+                  onSelectItem={(id) => { setSelectedIntelligenceId(id); setSelectedSourceId(null); }}
+                  renderTimelineRow={renderTimelineRow}
+                />
               ))}
-            </select>
-
-            <button
-              type="button"
-              className={`intel-sources-toolbar-btn${showSourcesDrawer ? " is-active" : ""}`}
-              onClick={() => setShowSourcesDrawer(o => !o)}
-            >
-              Sources
-              <span className="intel-sources-toolbar-count">{pendingSources.length}</span>
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {filteredIntelligenceItems.length > 0 ? (
-        <div className="intel-category-feed workspace-table">
-          <div className="workspace-table-head intel-signal-table-head" role="row">
-            <span>Signal</span>
-            <span>Value</span>
-            <span>Period</span>
-            <span>Sources</span>
-          </div>
-          {categoryGroups.map(([categoryKey, items]) => (
-            <IntelligenceCategoryPanel
-              key={categoryKey}
-              categoryKey={categoryKey}
-              items={items}
-              blinkingIds={[...blinkingIntelligenceIds, ...benchmarkBlinkIds]}
-              onSelectItem={(id) => { setSelectedIntelligenceId(id); setSelectedSourceId(null); }}
-              renderTimelineRow={renderTimelineRow}
+            </div>
+            <WorkspaceTablePagination
+              page={intelPagination.page}
+              totalPages={intelPagination.totalPages}
+              total={intelPagination.total}
+              pageSize={intelPagination.pageSize}
+              onPageChange={intelPagination.setPage}
             />
-          ))}
-        </div>
-      ) : (
-        <div className="signals-intel-empty">
-          {filtersActive ? (
-            <>
-              <strong>No intelligence matches these filters</strong>
-              <p>Try widening the date range, clearing search, or switching the category.</p>
-            </>
-          ) : (
-            <>
-              <strong>No intelligence yet</strong>
-              <p>Add a source or log intelligence to start building your timeline.</p>
-            </>
-          )}
-        </div>
-      )}
-
+          </>
+        ) : filtersActive ? (
+          <WorkspaceListFilterEmpty
+            onClear={() => {
+              setSearchQuery("");
+              setActiveTimelineFilter("All");
+              setDatePreset("current-quarter");
+            }}
+          />
+        ) : (
+          <div className="data-room-empty">
+            <strong>No intelligence yet</strong>
+            <p>Add a source or log intelligence to start building your timeline.</p>
+          </div>
+        )}
+      </WorkspaceListPanel>
     </div>
   );
 
   const showIntelligenceHeadActions = !intelligenceFocusActive && (isProfileComplete || hasBenchmarkMetrics);
 
   return (
-    <section className="signals-page">
+    <section className="data-room-page signals-page">
       <CreditBlockBanner />
 
-      <div className="signals-page-head">
+      <div className="data-room-head">
         <div>
           <h2>Intelligence</h2>
           <p>Metrics from benchmarks, sources, and logged context — private to your account.</p>
         </div>
         {showIntelligenceHeadActions ? (
-          <div className="signals-page-head-actions">
+          <div className="data-room-head-actions">
             <button
               type="button"
               className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
@@ -5910,6 +6244,15 @@ function SignalsPage({
                 Update benchmark
               </button>
             ) : null}
+            <button
+              type="button"
+              className={`initiatives-secondary-btn intel-sources-head-btn${showSourcesDrawer ? " is-active" : ""}`}
+              onClick={() => setShowSourcesDrawer(open => !open)}
+            >
+              <FuelIcon name="file" size={14} />
+              Sources
+              <em>{pendingSources.length}</em>
+            </button>
           </div>
         ) : null}
       </div>
@@ -8577,6 +8920,14 @@ function InitiativesPage({
     });
   }, [tabItems, pillarFilter, kindFilter, searchQuery]);
 
+  const activeFilterCount =
+    (pillarFilter !== "all" ? 1 : 0)
+    + (kindFilter !== "all" ? 1 : 0);
+  const pagination = useWorkspaceTablePagination(
+    visibleItems,
+    `${statusTab}|${searchQuery}|${pillarFilter}|${kindFilter}`,
+  );
+
   const selectedItem = useMemo(() => {
     if (!selectedId) return null;
     const found = items.find(item => item.id === selectedId);
@@ -8749,7 +9100,40 @@ function InitiativesPage({
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           searchPlaceholder="Search initiatives…"
-          filterPlacement="inline"
+          activeFilterCount={activeFilterCount}
+          onClearFilters={() => {
+            setPillarFilter("all");
+            setKindFilter("all");
+          }}
+          filterPanel={(
+            <>
+              <WorkspaceFilterField label="Track">
+                <select
+                  className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+                  value={pillarFilter}
+                  onChange={event => setPillarFilter(event.target.value as InitiativePillar | "all")}
+                  aria-label="Track"
+                >
+                  <option value="all">All tracks</option>
+                  {INITIATIVE_PILLAR_ORDER.map(pillar => (
+                    <option key={pillar} value={pillar}>{initiativePillarLabel(pillar)}</option>
+                  ))}
+                </select>
+              </WorkspaceFilterField>
+              <WorkspaceFilterField label="Kind">
+                <select
+                  className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+                  value={kindFilter}
+                  onChange={event => setKindFilter(event.target.value as InitiativeKind | "all")}
+                  aria-label="Kind"
+                >
+                  <option value="all">All kinds</option>
+                  <option value="continuous">{initiativeKindLabel("continuous")}</option>
+                  <option value="one-time">{initiativeKindLabel("one-time")}</option>
+                </select>
+              </WorkspaceFilterField>
+            </>
+          )}
           endContent={(
             <div className="initiatives-status-toggle initiatives-status-toggle--toolbar" role="tablist" aria-label="Initiative status">
               {(["Active", "Completed"] as const).map(tab => (
@@ -8773,29 +9157,7 @@ function InitiativesPage({
               ))}
             </div>
           )}
-        >
-          <select
-            className="signals-intel-toolbar-select workspace-compact-toolbar-select"
-            value={pillarFilter}
-            onChange={event => setPillarFilter(event.target.value as InitiativePillar | "all")}
-            aria-label="Track"
-          >
-            <option value="all">All tracks</option>
-            {INITIATIVE_PILLAR_ORDER.map(pillar => (
-              <option key={pillar} value={pillar}>{initiativePillarLabel(pillar)}</option>
-            ))}
-          </select>
-          <select
-            className="signals-intel-toolbar-select workspace-compact-toolbar-select"
-            value={kindFilter}
-            onChange={event => setKindFilter(event.target.value as InitiativeKind | "all")}
-            aria-label="Kind"
-          >
-            <option value="all">All kinds</option>
-            <option value="continuous">{initiativeKindLabel("continuous")}</option>
-            <option value="one-time">{initiativeKindLabel("one-time")}</option>
-          </select>
-        </WorkspaceCompactToolbar>
+        />
 
         {tabItems.length === 0 ? (
           <div className="initiatives-empty-card">
@@ -8827,43 +9189,81 @@ function InitiativesPage({
           }}
           />
         ) : (
-          <div className="workspace-table initiatives-table">
-            <div className="workspace-table-head initiatives-table-head" role="row">
-              <span>Initiative</span>
-              <span>Status</span>
-              <span>Track</span>
-              <span>Kind</span>
-              <span>Team</span>
-              <span aria-hidden="true" />
+          <>
+            <div className="workspace-table initiatives-table">
+              <div className="workspace-table-head initiatives-table-head" role="row">
+                <span>Initiative</span>
+                <span>Status</span>
+                <span>Track</span>
+                <span>Kind</span>
+                <span>Actions</span>
+              </div>
+              {pagination.pageItems.map(item => {
+                const status = normalizeInitiativeStatus(item.status);
+                const selected = selectedId === item.id;
+                const assignees = normalizeAssignees(item.owner, item.assignees);
+                return (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    className={`workspace-table-row initiatives-table-row${selected ? " is-selected" : ""}`}
+                    onClick={() => {
+                      resetCreateForm();
+                      setSuggestedOpen(false);
+                      setSelectedId(item.id);
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        resetCreateForm();
+                        setSuggestedOpen(false);
+                        setSelectedId(item.id);
+                      }
+                    }}
+                    aria-pressed={selected}
+                  >
+                    <div className="workspace-table-title-cell">
+                      <strong title={item.title}>{item.title}</strong>
+                      <span className="workspace-table-subtitle" title={assignees.join(", ")}>
+                        {assignees.length ? assignees.join(", ") : "Unassigned"}
+                      </span>
+                    </div>
+                    <span className={`workspace-table-badge initiative-status initiative-status--${status.toLowerCase()}`}>
+                      {status}
+                    </span>
+                    <span className="workspace-table-keyfact">{initiativePillarLabel(item.pillar)}</span>
+                    <span className="workspace-table-date">{initiativeKindLabel(item.kind)}</span>
+                    <div
+                      className="workspace-table-actions"
+                      onClick={event => event.stopPropagation()}
+                      onKeyDown={event => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className="workspace-table-action-btn workspace-table-action-btn--primary"
+                        onClick={() => {
+                          resetCreateForm();
+                          setSuggestedOpen(false);
+                          setSelectedId(item.id);
+                        }}
+                      >
+                        Open
+                        <FuelIcon name="investors" size={12} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            {visibleItems.map(item => {
-              const status = normalizeInitiativeStatus(item.status);
-              const selected = selectedId === item.id;
-              const assignees = normalizeAssignees(item.owner, item.assignees);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`workspace-table-row initiatives-table-row${selected ? " is-selected" : ""}`}
-                  onClick={() => {
-                    resetCreateForm();
-                    setSuggestedOpen(false);
-                    setSelectedId(item.id);
-                  }}
-                  aria-pressed={selected}
-                >
-                  <strong title={item.title}>{item.title}</strong>
-                  <span className={`initiative-status initiative-status--${status.toLowerCase()}`}>
-                    {status}
-                  </span>
-                  <span>{initiativePillarLabel(item.pillar)}</span>
-                  <span>{initiativeKindLabel(item.kind)}</span>
-                  <span title={assignees.join(", ")}>{assignees.join(", ")}</span>
-                  <span className="initiative-card-open-hint" aria-hidden="true">Open</span>
-                </button>
-              );
-            })}
-          </div>
+            <WorkspaceTablePagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              total={pagination.total}
+              pageSize={pagination.pageSize}
+              onPageChange={pagination.setPage}
+            />
+          </>
         )}
       </WorkspaceListPanel>
 
@@ -9161,19 +9561,25 @@ function ExternalCompanyOverview({
                 <span>Funding rounds</span>
                 <em>{founderProfile.funding.length === 1 ? "1 round" : `${founderProfile.funding.length} rounds`}</em>
               </div>
-              <div className="overview-funding-table">
-                <div className="overview-funding-header">
-                  <span>Date</span>
+              <div className="workspace-table data-room-list overview-funding-table">
+                <div className="workspace-table-head" role="row">
                   <span>Round</span>
                   <span>Amount</span>
                   <span>Investors</span>
+                  <span>Date</span>
+                  <span>Notes</span>
                 </div>
                 {founderProfile.funding.map(round => (
-                  <div className="overview-funding-row" key={`${round.type}-${round.amount}`}>
-                    <span>—</span>
-                    <span>{round.type}</span>
-                    <span>{round.amount}</span>
-                    <span>{round.investors || "—"}</span>
+                  <div className="workspace-table-row" role="row" key={`${round.type}-${round.amount}`}>
+                    <div className="workspace-table-title-cell">
+                      <strong title={round.type}>{round.type}</strong>
+                    </div>
+                    <span className="workspace-table-badge">{round.amount}</span>
+                    <span className="workspace-table-keyfact" title={round.investors || undefined}>
+                      {round.investors || "—"}
+                    </span>
+                    <span className="workspace-table-date">—</span>
+                    <span className="workspace-table-muted">—</span>
                   </div>
                 ))}
               </div>
@@ -9344,19 +9750,23 @@ function OverviewPage({
               <span>Funding Rounds</span>
               <em>2 rounds</em>
             </div>
-            <div className="overview-funding-table">
-              <div className="overview-funding-header">
-                <span>Date</span>
+            <div className="workspace-table data-room-list overview-funding-table">
+              <div className="workspace-table-head" role="row">
                 <span>Round</span>
                 <span>Amount</span>
                 <span>Investors</span>
+                <span>Date</span>
+                <span>Notes</span>
               </div>
               {rounds.map(round => (
-                <div className="overview-funding-row" key={`${round.date}-${round.round}`}>
-                  <span>{round.date}</span>
-                  <span>{round.round}</span>
-                  <span>{round.amount}</span>
-                  <span>{round.investors}</span>
+                <div className="workspace-table-row" role="row" key={`${round.date}-${round.round}`}>
+                  <div className="workspace-table-title-cell">
+                    <strong title={round.round}>{round.round}</strong>
+                  </div>
+                  <span className="workspace-table-badge">{round.amount}</span>
+                  <span className="workspace-table-keyfact" title={round.investors}>{round.investors}</span>
+                  <time className="workspace-table-date">{round.date}</time>
+                  <span className="workspace-table-muted">—</span>
                 </div>
               ))}
             </div>

@@ -4,6 +4,7 @@ import { OverviewBuildPanel, type OverviewBuildPhase } from "../ScorecardV2.tsx"
 import { drawerPanelPointerProps, useScrimPointerClose } from "../drawerScrim";
 import { findFounderCompanyProfile } from "../OnboardingFlow.tsx";
 import { useDialogA11y } from "../a11y/useDialogA11y";
+import { FuelIcon } from "../icons.tsx";
 import {
   ADVISOR_CONNECTION_CHANGE_EVENT,
   advisorInviteUrl,
@@ -71,7 +72,6 @@ import {
   PORTFOLIO_COHORT_STAGES,
   PORTFOLIO_LIST_LOGO_VISIBLE,
   buildPortfolioMeta,
-  portfolioMetaDisplayTags,
   portfolioCompanyToChip,
   type PortfolioCohortStage,
   type QoqMovement,
@@ -1131,6 +1131,17 @@ function mapBenchAxisLeft(position: number): number {
 }
 
 const BENCH_TRACK_INSET = 5;
+
+/**
+ * Dummy design layout: green band centered on the rail with
+ * P25 / P50 / P75 / P90 equally spaced (20 → 40 → 60 → 80).
+ */
+const BENCH_DUMMY_PERCENTILES = {
+  p25: 20,
+  p50: 40,
+  p75: 60,
+  p90: 80,
+} as const;
 const BENCH_LOGO_MIN_GAP = 2.35;
 const BENCH_LOGO_MAX_LANES = 3;
 
@@ -1138,10 +1149,12 @@ const BENCH_LOGO_MAX_LANES = 3;
 const BENCH_LOGO_MODE_MAX = 80;
 /** Between logo and density modes — tier-colored dots, no logos. */
 const BENCH_DOT_MODE_MAX = 500;
-const BENCH_DENSITY_BINS_MIN = 40;
-const BENCH_DENSITY_BINS_MAX = 64;
+/** Fixed segment count for large-N range rails — one count per divider cell. */
+const BENCH_RANGE_SEGMENTS = 10;
 /** Cap drawer rows so a 10k-company cohort still opens instantly. */
 const BENCH_DRAWER_MAX_ROWS = 200;
+/** Cap holdings table rows when demos expand to 1k companies; search still filters the full set. */
+const PORTFOLIO_COMPANIES_PAGE_SIZE = 20;
 
 type BenchmarkRenderMode = "logos" | "dots" | "density";
 
@@ -1149,13 +1162,6 @@ function benchmarkRenderMode(count: number): BenchmarkRenderMode {
   if (count <= BENCH_LOGO_MODE_MAX) return "logos";
   if (count <= BENCH_DOT_MODE_MAX) return "dots";
   return "density";
-}
-
-function benchmarkDensityBinCount(count: number): number {
-  return Math.min(
-    BENCH_DENSITY_BINS_MAX,
-    Math.max(BENCH_DENSITY_BINS_MIN, Math.round(Math.sqrt(count))),
-  );
 }
 
 
@@ -1226,7 +1232,7 @@ type BenchmarkDensityBin = {
 
 function buildBenchmarkDensityBins(
   dots: PortfolioBenchmarkDot[],
-  binCount = BENCH_DENSITY_BINS_MIN,
+  binCount = BENCH_RANGE_SEGMENTS,
 ): { bins: BenchmarkDensityBin[]; peak: number; binCount: number } {
   const bins: BenchmarkDensityBin[] = Array.from({ length: binCount }, (_, index) => ({
     index,
@@ -1710,23 +1716,18 @@ function BenchmarkPercentileDistribution({
 }
 
 /**
- * Compact researched-range rail. Company ticks stay visible; nearby companies
- * collapse into a count so large VC portfolios do not overlap into noise.
+ * Adaptive researched-range rail.
+ * ≤80: logos / ticks / clustered counts · 81–500: tier dots · 500+: 10-segment count strip.
+ * Cohort band stays on every mode so large portfolios keep the same reading.
  */
 function BenchmarkRangeChart({
   metric,
   companiesById,
-  cohortBandLeft,
-  cohortBandWidth,
-  portfolioMarkerLeft,
   onOpenCompanyList,
   onOpenCompanyProfile,
 }: {
   metric: PortfolioBenchmarkMetric;
   companiesById: Map<string, PortfolioCompanyView>;
-  cohortBandLeft: number;
-  cohortBandWidth: number;
-  portfolioMarkerLeft: number;
   onOpenCompanyList?: (opts: {
     tier?: BenchmarkTier;
     positionRange?: BenchPositionRange;
@@ -1735,15 +1736,32 @@ function BenchmarkRangeChart({
   onOpenCompanyProfile?: (company: PortfolioCompanyView) => void;
 }) {
   const companyDots = metric.portfolioDots.length > 0 ? metric.portfolioDots : [];
-  const clusters = useMemo(() => clusterCompanyRailMarks(companyDots), [companyDots]);
-  const showLogos = companyDots.length > 0 && companyDots.length <= BENCH_RAIL_LOGO_MAX
+  const renderMode = benchmarkRenderMode(companyDots.length);
+  const clusters = useMemo(
+    () => (renderMode === "logos" ? clusterCompanyRailMarks(companyDots) : []),
+    [companyDots, renderMode],
+  );
+  const showLogos = renderMode === "logos"
+    && companyDots.length > 0
+    && companyDots.length <= BENCH_RAIL_LOGO_MAX
     && clusters.every(cluster => cluster.dots.length === 1);
+  const density = useMemo(() => {
+    if (renderMode !== "density") return null;
+    const raw = buildBenchmarkDensityBins(companyDots, BENCH_RANGE_SEGMENTS);
+    return scaleDensityToSampleSize(raw, companyDots.length);
+  }, [companyDots, renderMode]);
+  const [activeBinIndex, setActiveBinIndex] = useState<number | null>(null);
+
   const tierCounts = useMemo(() => buildTierCounts(companyDots), [companyDots]);
+  const displayTierCounts = useMemo(
+    () => scaleTierCounts(tierCounts, companyDots.length, companyDots.length),
+    [tierCounts, companyDots.length],
+  );
   const tierSegments = useMemo(() => ([
-    { tier: "strong" as BenchmarkTier, count: tierCounts.strong, label: "Strong" },
-    { tier: "watch" as BenchmarkTier, count: tierCounts.watch, label: "Watch" },
-    { tier: "concern" as BenchmarkTier, count: tierCounts.concern, label: "Concern" },
-  ]).filter(segment => segment.count > 0), [tierCounts]);
+    { tier: "strong" as BenchmarkTier, count: displayTierCounts.strong, label: "Strong" },
+    { tier: "watch" as BenchmarkTier, count: displayTierCounts.watch, label: "Watch" },
+    { tier: "concern" as BenchmarkTier, count: displayTierCounts.concern, label: "Concern" },
+  ]).filter(segment => segment.count > 0), [displayTierCounts]);
 
   const [hoverTip, setHoverTip] = useState<BenchmarkHoverTipState | null>(null);
   const hideTipTimerRef = useRef<number | null>(null);
@@ -1776,121 +1794,253 @@ function BenchmarkRangeChart({
   }, [clearHideTipTimer]);
 
   useEffect(() => () => clearHideTipTimer(), [clearHideTipTimer]);
+  useEffect(() => {
+    setActiveBinIndex(null);
+  }, [metric.id, companyDots.length]);
+
+  const companyCountLabel = formatBenchmarkCount(companyDots.length);
+  const cohortP25Left = mapBenchAxisLeft(BENCH_DUMMY_PERCENTILES.p25);
+  const cohortP50Left = mapBenchAxisLeft(BENCH_DUMMY_PERCENTILES.p50);
+  const cohortP75Left = mapBenchAxisLeft(BENCH_DUMMY_PERCENTILES.p75);
+  const cohortP90Left = mapBenchAxisLeft(BENCH_DUMMY_PERCENTILES.p90);
+  const dummyBandLeft = cohortP25Left;
+  const dummyBandWidth = Math.max(4, cohortP90Left - cohortP25Left);
+  const rangeSplit = useMemo(() => {
+    let inside = 0;
+    let ahead = 0;
+    let behind = 0;
+    for (const dot of companyDots) {
+      if (dot.position >= metric.bandStart && dot.position <= metric.bandEnd) {
+        inside += 1;
+      } else if (metric.lowerIsBetter ? dot.position < metric.bandStart : dot.position > metric.bandEnd) {
+        ahead += 1;
+      } else {
+        behind += 1;
+      }
+    }
+    return { inside, ahead, behind };
+  }, [companyDots, metric.bandStart, metric.bandEnd, metric.lowerIsBetter]);
+  const activeBin = density && activeBinIndex !== null
+    ? density.bins.find(bin => bin.index === activeBinIndex) ?? null
+    : null;
 
   return (
-    <div className="investor-bench-range-chart investor-bench-company-rail">
-      <div className="investor-bench-range-chart-limitations" aria-hidden="true">
-        <span className="investor-bench-range-chart-limitations-label">Benchmark range</span>
-        <div className="investor-bench-range-chart-limitations-track">
-          <span
-            className="investor-bench-range-chart-limitations-band"
-            style={{ left: `${cohortBandLeft}%`, width: `${cohortBandWidth}%` }}
-          />
-        </div>
-      </div>
-
+    <div className={`investor-bench-range-chart investor-bench-company-rail is-${renderMode}`}>
       <div
-        className="investor-bench-company-rail-plot"
+        className={`investor-bench-company-rail-plot is-${renderMode}`}
         role="img"
-        aria-label={`${companyDots.length} portfolio ${companyDots.length === 1 ? "company" : "companies"} on ${metric.label}. Portfolio median ${metric.portfolioLabel}. Cohort P50 ${metric.cohortP50Label}.`}
+        aria-label={`${companyCountLabel} portfolio ${companyDots.length === 1 ? "company" : "companies"} on ${metric.label}. Portfolio median ${metric.portfolioLabel}. Cohort P50 ${metric.cohortP50Label}.`}
       >
-        <span className="investor-bench-company-rail-track" aria-hidden="true" />
-        <span
-          className="investor-bench-company-rail-band"
-          style={{ left: `${cohortBandLeft}%`, width: `${Math.max(4, cohortBandWidth)}%` }}
-          aria-hidden="true"
-        />
-        <span
-          className="investor-bench-company-rail-you"
-          style={{ left: `${portfolioMarkerLeft}%` }}
-          aria-hidden="true"
-        />
+        {renderMode === "density" && density ? (
+          <>
+            <span className="investor-bench-company-rail-track" aria-hidden="true" />
+            <span
+              className="investor-bench-company-rail-band"
+              style={{ left: `${dummyBandLeft}%`, width: `${dummyBandWidth}%` }}
+              aria-hidden="true"
+            />
+            {density.bins.filter(bin => bin.count > 0).map(bin => {
+              const mid = (bin.start + bin.end) / 2;
+              const left = mapBenchAxisLeft(mid);
+              const isActive = activeBinIndex === bin.index;
+              return (
+                <button
+                  key={bin.index}
+                  type="button"
+                  className={`investor-bench-range-dot${isActive ? " is-active" : ""}`}
+                  style={{ left: `${left}%` }}
+                  title={`${formatBenchmarkCount(bin.count)} companies in this range`}
+                  aria-label={`${formatBenchmarkCount(bin.count)} companies in segment ${bin.index + 1} of ${BENCH_RANGE_SEGMENTS} on ${metric.label}`}
+                  aria-pressed={isActive}
+                  onMouseEnter={() => setActiveBinIndex(bin.index)}
+                  onMouseLeave={() => setActiveBinIndex(current => (current === bin.index ? null : current))}
+                  onFocus={() => setActiveBinIndex(bin.index)}
+                  onBlur={() => setActiveBinIndex(current => (current === bin.index ? null : current))}
+                  onClick={() => {
+                    setActiveBinIndex(bin.index);
+                    onOpenCompanyList?.({ positionRange: { start: bin.start, end: bin.end } });
+                  }}
+                >
+                  {formatBenchmarkCount(bin.count)}
+                </button>
+              );
+            })}
+          </>
+        ) : (
+          <>
+            <span className="investor-bench-company-rail-track" aria-hidden="true" />
+            <span
+              className="investor-bench-company-rail-band"
+              style={{ left: `${dummyBandLeft}%`, width: `${dummyBandWidth}%` }}
+              aria-hidden="true"
+            />
 
-        {clusters.map(cluster => {
-          const left = mapBenchAxisLeft(cluster.position);
-          const count = cluster.dots.length;
-          const firstDot = cluster.dots[0]!;
-          const company = count === 1 ? companiesById.get(firstDot.id) : undefined;
-          const label = count === 1
-            ? (company?.displayName ?? firstDot.name)
-            : `${count} companies`;
+            {renderMode === "dots" ? (
+              <div className="investor-bench-dot-strip-canvas" aria-hidden={false}>
+                {companyDots.map(dot => {
+                  const tier = benchmarkScoreTier(dot.score);
+                  const left = mapBenchAxisLeft(dot.position);
+                  const company = companiesById.get(dot.id);
+                  return (
+                    <button
+                      key={dot.id}
+                      type="button"
+                      className={`investor-bench-dot is-${tier}`}
+                      style={{ left: `${left}%` }}
+                      title={company?.displayName ?? dot.name}
+                      aria-label={`${company?.displayName ?? dot.name} — ${benchmarkTierLabel(tier)} on ${metric.label}`}
+                      onMouseEnter={event => {
+                        if (company) showHoverTip(company, dot, tier, event.currentTarget);
+                      }}
+                      onMouseLeave={scheduleHideHoverTip}
+                      onFocus={event => {
+                        if (company) showHoverTip(company, dot, tier, event.currentTarget);
+                      }}
+                      onBlur={scheduleHideHoverTip}
+                      onClick={() => {
+                        dismissHoverTip();
+                        onOpenCompanyList?.({ companyId: dot.id });
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
 
-          return (
-            <button
-              key={cluster.id}
-              type="button"
-              className={
-                count > 1
-                  ? `investor-bench-company-count is-${cluster.tier}`
-                  : showLogos
-                    ? `investor-bench-company-logo is-${cluster.tier}`
-                    : `investor-bench-company-tick is-${cluster.tier}`
-              }
-              style={{ left: `${left}%` }}
-              title={
-                count > 1
-                  ? cluster.dots.length <= 6
-                    ? cluster.dots.map(dot => dot.name).join(", ")
-                    : `${cluster.dots.slice(0, 5).map(dot => dot.name).join(", ")} +${cluster.dots.length - 5} more`
-                  : label
-              }
-              aria-label={
-                count > 1
-                  ? `${count} companies near this point on ${metric.label}`
-                  : `${label} — ${benchmarkTierLabel(cluster.tier)} on ${metric.label}`
-              }
-              onMouseEnter={event => {
-                if (company && count === 1) showHoverTip(company, firstDot, cluster.tier, event.currentTarget);
-              }}
-              onMouseLeave={scheduleHideHoverTip}
-              onFocus={event => {
-                if (company && count === 1) showHoverTip(company, firstDot, cluster.tier, event.currentTarget);
-              }}
-              onBlur={scheduleHideHoverTip}
-              onClick={() => {
-                dismissHoverTip();
-                if (count === 1) {
-                  onOpenCompanyList?.({ companyId: firstDot.id });
-                  return;
-                }
-                onOpenCompanyList?.({ positionRange: { start: cluster.start, end: cluster.end } });
-              }}
-            >
-              {count > 1 ? count : showLogos ? (
-                company ? (
-                  <PortfolioCompanyLogo company={company} size="xs" />
-                ) : (
-                  <PortfolioCompanyLogo
-                    company={{
-                      displayName: firstDot.name,
-                      logo: companyBenchmarkInitials(firstDot.name),
-                      logoBg: firstDot.color,
-                      domain: `${companyLogoSlug(firstDot.name).replace(/-/g, "")}.com`,
-                      logoUrl: buildCompanyLogoAssetUrl(firstDot.name),
-                    }}
-                    size="xs"
-                  />
-                )
-              ) : null}
-            </button>
-          );
-        })}
+            {renderMode === "logos" ? clusters.map(cluster => {
+              const left = mapBenchAxisLeft(cluster.position);
+              const count = cluster.dots.length;
+              const firstDot = cluster.dots[0]!;
+              const company = count === 1 ? companiesById.get(firstDot.id) : undefined;
+              const label = count === 1
+                ? (company?.displayName ?? firstDot.name)
+                : `${count} companies`;
+
+              return (
+                <button
+                  key={cluster.id}
+                  type="button"
+                  className={
+                    count > 1
+                      ? `investor-bench-company-count is-${cluster.tier}`
+                      : showLogos
+                        ? `investor-bench-company-logo is-${cluster.tier}`
+                        : `investor-bench-company-tick is-${cluster.tier}`
+                  }
+                  style={{ left: `${left}%` }}
+                  title={
+                    count > 1
+                      ? cluster.dots.length <= 6
+                        ? cluster.dots.map(dot => dot.name).join(", ")
+                        : `${cluster.dots.slice(0, 5).map(dot => dot.name).join(", ")} +${cluster.dots.length - 5} more`
+                      : label
+                  }
+                  aria-label={
+                    count > 1
+                      ? `${count} companies near this point on ${metric.label}`
+                      : `${label} — ${benchmarkTierLabel(cluster.tier)} on ${metric.label}`
+                  }
+                  onMouseEnter={event => {
+                    if (company && count === 1) showHoverTip(company, firstDot, cluster.tier, event.currentTarget);
+                  }}
+                  onMouseLeave={scheduleHideHoverTip}
+                  onFocus={event => {
+                    if (company && count === 1) showHoverTip(company, firstDot, cluster.tier, event.currentTarget);
+                  }}
+                  onBlur={scheduleHideHoverTip}
+                  onClick={() => {
+                    dismissHoverTip();
+                    if (count === 1) {
+                      onOpenCompanyList?.({ companyId: firstDot.id });
+                      return;
+                    }
+                    onOpenCompanyList?.({ positionRange: { start: cluster.start, end: cluster.end } });
+                  }}
+                >
+                  {count > 1 ? formatBenchmarkCount(count) : showLogos ? (
+                    company ? (
+                      <PortfolioCompanyLogo company={company} size="xs" />
+                    ) : (
+                      <PortfolioCompanyLogo
+                        company={{
+                          displayName: firstDot.name,
+                          logo: companyBenchmarkInitials(firstDot.name),
+                          logoBg: firstDot.color,
+                          domain: `${companyLogoSlug(firstDot.name).replace(/-/g, "")}.com`,
+                          logoUrl: buildCompanyLogoAssetUrl(firstDot.name),
+                        }}
+                        size="xs"
+                      />
+                    )
+                  ) : null}
+                </button>
+              );
+            }) : null}
+          </>
+        )}
       </div>
 
-      <div className="investor-bench-range-chart-scale">
-        <span style={{ left: `${BENCH_TRACK_INSET}%` }}>{metric.axisMinLabel}</span>
-        <span style={{ left: "50%" }}>
+      <div className="investor-bench-range-chart-scale" aria-label="Cohort percentiles">
+        <span className="is-percentile is-p25" style={{ left: `${cohortP25Left}%` }}>
+          <em>P25</em>
+          {metric.cohortP25Label}
+        </span>
+        <span className="is-percentile is-p50" style={{ left: `${cohortP50Left}%` }}>
           <em>P50</em>
           {metric.cohortP50Label}
         </span>
-        <span className="is-portfolio" style={{ left: `${portfolioMarkerLeft}%` }}>
-          <em>You</em>
-          {metric.portfolioLabel}
+        <span className="is-percentile is-p75" style={{ left: `${cohortP75Left}%` }}>
+          <em>P75</em>
+          {metric.cohortP75Label}
         </span>
-        <span style={{ left: `${100 - BENCH_TRACK_INSET}%` }}>{metric.axisMaxLabel}</span>
+        <span className="is-percentile is-p90" style={{ left: `${cohortP90Left}%` }}>
+          <em>P90</em>
+          {metric.cohortP90Label}
+        </span>
       </div>
 
-      {tierSegments.length > 0 ? (
+      {renderMode === "density" ? (
+        <div className="investor-bench-density-legend is-compact" aria-label="Distribution summary">
+          <p className="investor-bench-density-hover is-idle">
+            {activeBin
+              ? `${formatBenchmarkCount(activeBin.count)} in this range`
+              : "Circle = companies in that range"}
+          </p>
+          <button
+            type="button"
+            className="investor-bench-density-stat is-ahead"
+            onClick={() => onOpenCompanyList?.({
+              positionRange: metric.lowerIsBetter
+                ? { start: 0, end: metric.bandStart }
+                : { start: metric.bandEnd, end: 100.05 },
+            })}
+          >
+            Ahead <strong>{formatBenchmarkCount(rangeSplit.ahead)}</strong>
+          </button>
+          <button
+            type="button"
+            className="investor-bench-density-stat"
+            onClick={() => onOpenCompanyList?.({
+              positionRange: { start: metric.bandStart, end: metric.bandEnd },
+            })}
+          >
+            In range <strong>{formatBenchmarkCount(rangeSplit.inside)}</strong>
+          </button>
+          <button
+            type="button"
+            className="investor-bench-density-stat is-behind"
+            onClick={() => onOpenCompanyList?.({
+              positionRange: metric.lowerIsBetter
+                ? { start: metric.bandEnd, end: 100.05 }
+                : { start: 0, end: metric.bandStart },
+            })}
+          >
+            Behind <strong>{formatBenchmarkCount(rangeSplit.behind)}</strong>
+          </button>
+        </div>
+      ) : null}
+
+      {renderMode !== "density" && tierSegments.length > 0 ? (
         <div className="investor-bench-range-tier-row" role="group" aria-label="Portfolio companies by tier">
           {tierSegments.map(segment => (
             <button
@@ -1901,7 +2051,7 @@ function BenchmarkRangeChart({
             >
               <span className="investor-bench-range-tier-chip-dot" aria-hidden="true" />
               {segment.label}
-              <strong>{segment.count}</strong>
+              <strong>{formatBenchmarkCount(segment.count)}</strong>
             </button>
           ))}
         </div>
@@ -1942,6 +2092,9 @@ function BenchmarkMetricCompaniesDrawer({
   const dialogRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [sectorFilter, setSectorFilter] = useState<string>("all");
+  const [performanceFilter, setPerformanceFilter] = useState<"all" | BenchmarkTier>("all");
   const open = Boolean(metric);
   useDialogA11y(open, dialogRef, onClose);
   const handleScrimPointerDown = useScrimPointerClose(onClose, open);
@@ -1956,7 +2109,11 @@ function BenchmarkMetricCompaniesDrawer({
   }, [open]);
 
   useEffect(() => {
-    if (!open) setQuery("");
+    if (!open) return;
+    setQuery("");
+    setStageFilter("all");
+    setSectorFilter("all");
+    setPerformanceFilter(tierFilter ?? "all");
   }, [open, tierFilter, positionRange, highlightCompanyId]);
 
   useEffect(() => {
@@ -1982,17 +2139,51 @@ function BenchmarkMetricCompaniesDrawer({
     ));
   }, [tierFilteredDots, positionRange]);
 
+  /** Facets from companies currently in the selected layer (range / tier). */
+  const layerFacets = useMemo(() => {
+    const stages = new Set<string>();
+    const sectors = new Set<string>();
+    const performance: Record<BenchmarkTier, number> = { strong: 0, watch: 0, concern: 0 };
+    for (const dot of rangeFilteredDots) {
+      const company = companiesById.get(dot.id);
+      if (company?.stage) stages.add(company.stage);
+      if (company?.sector) sectors.add(company.sector);
+      performance[benchmarkScoreTier(dot.score)] += 1;
+    }
+    return {
+      stages: [...stages].sort((left, right) => left.localeCompare(right)),
+      sectors: [...sectors].sort((left, right) => left.localeCompare(right)),
+      performance,
+    };
+  }, [rangeFilteredDots, companiesById]);
+
   const filteredDots = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rangeFilteredDots;
-    return rangeFilteredDots.filter(dot => dot.name.toLowerCase().includes(q));
-  }, [query, rangeFilteredDots]);
+    return rangeFilteredDots.filter(dot => {
+      const company = companiesById.get(dot.id);
+      const tier = benchmarkScoreTier(dot.score);
+      if (performanceFilter !== "all" && tier !== performanceFilter) return false;
+      if (stageFilter !== "all" && company?.stage !== stageFilter) return false;
+      if (sectorFilter !== "all" && company?.sector !== sectorFilter) return false;
+      if (!q) return true;
+      const haystack = [
+        dot.name,
+        company?.stage,
+        company?.sector,
+        company?.ownership,
+        company?.displayName,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [query, rangeFilteredDots, companiesById, performanceFilter, stageFilter, sectorFilter]);
 
   const visibleDots = useMemo(
     () => filteredDots.slice(0, BENCH_DRAWER_MAX_ROWS),
     [filteredDots],
   );
   const hiddenDotCount = filteredDots.length - visibleDots.length;
+  const hasFacetFilters = stageFilter !== "all" || sectorFilter !== "all"
+    || (performanceFilter !== "all" && performanceFilter !== (tierFilter ?? "all"));
 
   if (!metric || !open) return null;
 
@@ -2002,6 +2193,11 @@ function BenchmarkMetricCompaniesDrawer({
   const rangeTitle = positionRange
     ? `${Math.round(positionRange.start)}–${Math.round(positionRange.end)}% of axis`
     : null;
+  const searchPlaceholder = rangeTitle
+    ? `Filter within ${rangeTitle} — name, stage, or sector`
+    : tierTitle
+      ? `Filter ${tierTitle.toLowerCase()} companies — name, stage, or sector`
+      : "Filter by name, stage, or sector…";
 
   return createPortal(
     <div
@@ -2038,29 +2234,97 @@ function BenchmarkMetricCompaniesDrawer({
           </button>
         </header>
 
-        <label className="investor-bench-drawer-search">
-          <span className="sr-only">Filter companies in {metric.label}</span>
-          <input
-            type="search"
-            value={query}
-            onChange={event => setQuery(event.target.value)}
-            placeholder="Filter companies…"
-          />
-        </label>
+        <div className="investor-bench-drawer-filters">
+          <label className="investor-bench-drawer-search">
+            <span className="sr-only">Filter companies in {metric.label}</span>
+            <FuelIcon name="search" size={14} className="investor-bench-drawer-search-icon" />
+            <input
+              type="search"
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder={searchPlaceholder}
+            />
+          </label>
+
+          <div className="investor-bench-drawer-facets" role="group" aria-label="Filters for selected layer">
+            <label className="investor-bench-drawer-facet">
+              <span className="sr-only">Stage</span>
+              <select
+                value={stageFilter}
+                onChange={event => setStageFilter(event.target.value)}
+                aria-label="Filter by stage"
+              >
+                <option value="all">All stages</option>
+                {layerFacets.stages.map(stage => (
+                  <option key={stage} value={stage}>{stage}</option>
+                ))}
+              </select>
+            </label>
+            <label className="investor-bench-drawer-facet">
+              <span className="sr-only">Sector</span>
+              <select
+                value={sectorFilter}
+                onChange={event => setSectorFilter(event.target.value)}
+                aria-label="Filter by sector"
+              >
+                <option value="all">All sectors</option>
+                {layerFacets.sectors.map(sector => (
+                  <option key={sector} value={sector}>{sector}</option>
+                ))}
+              </select>
+            </label>
+            <label className="investor-bench-drawer-facet">
+              <span className="sr-only">Performance</span>
+              <select
+                value={performanceFilter}
+                onChange={event => setPerformanceFilter(event.target.value as "all" | BenchmarkTier)}
+                aria-label="Filter by performance"
+                disabled={Boolean(tierFilter)}
+              >
+                <option value="all">All performance</option>
+                <option value="strong">Strong ({layerFacets.performance.strong})</option>
+                <option value="watch">Watch ({layerFacets.performance.watch})</option>
+                <option value="concern">Concern ({layerFacets.performance.concern})</option>
+              </select>
+            </label>
+            {query || hasFacetFilters ? (
+              <button
+                type="button"
+                className="investor-bench-drawer-facets-clear"
+                onClick={() => {
+                  setQuery("");
+                  setStageFilter("all");
+                  setSectorFilter("all");
+                  setPerformanceFilter(tierFilter ?? "all");
+                }}
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </div>
 
         <div className="investor-bench-drawer-list-wrap">
           <div className="investor-bench-drawer-list-head">
             <strong>
               {formatBenchmarkCount(filteredDots.length)} {filteredDots.length === 1 ? "company" : "companies"}
             </strong>
-            {tierTitle ? (
-              <span className={`investor-bench-drawer-tier-pill is-${tierFilter}`}>
-                {tierTitle}
-              </span>
-            ) : null}
-            {rangeTitle ? (
-              <span className="investor-bench-drawer-range-pill">{rangeTitle}</span>
-            ) : null}
+            <div className="investor-bench-drawer-list-head-pills">
+              {tierTitle ? (
+                <span className={`investor-bench-drawer-tier-pill is-${tierFilter}`}>
+                  {tierTitle}
+                </span>
+              ) : null}
+              {rangeTitle ? (
+                <span className="investor-bench-drawer-range-pill">{rangeTitle}</span>
+              ) : null}
+              {stageFilter !== "all" ? (
+                <span className="investor-bench-drawer-range-pill">{stageFilter}</span>
+              ) : null}
+              {sectorFilter !== "all" ? (
+                <span className="investor-bench-drawer-range-pill">{sectorFilter}</span>
+              ) : null}
+            </div>
           </div>
 
           <div ref={listRef} className="investor-bench-drawer-list" role="list">
@@ -2293,9 +2557,6 @@ function PortfolioBenchmarkChart({
 }) {
   const trendGlyph = metric.trend === "up" ? "↑" : metric.trend === "down" ? "↓" : "→";
   const companyCount = metric.portfolioDots.length;
-  const portfolioMarkerLeft = mapBenchAxisLeft(metric.portfolioPosition);
-  const cohortBandLeft = mapBenchAxisLeft(metric.bandStart);
-  const cohortBandWidth = ((metric.bandEnd - metric.bandStart) / 100) * (100 - BENCH_TRACK_INSET * 2);
 
   return (
     <article className="investor-bench-card investor-bench-card--wide investor-bench-card--compact">
@@ -2304,7 +2565,7 @@ function PortfolioBenchmarkChart({
           <strong>
             {metric.label}{" "}
             <em className="investor-bench-n">
-              {companyCount} {companyCount === 1 ? "company" : "companies"}
+              {formatBenchmarkCount(companyCount)} {companyCount === 1 ? "company" : "companies"}
             </em>
           </strong>
           {metric.hint ? <em className="investor-bench-hint">{metric.hint}</em> : null}
@@ -2331,9 +2592,6 @@ function PortfolioBenchmarkChart({
             <BenchmarkRangeChart
               metric={metric}
               companiesById={companiesById}
-              cohortBandLeft={cohortBandLeft}
-              cohortBandWidth={Math.max(4, cohortBandWidth)}
-              portfolioMarkerLeft={portfolioMarkerLeft}
               onOpenCompanyList={onOpenCompanyList}
               onOpenCompanyProfile={onOpenCompanyProfile}
             />
@@ -2526,9 +2784,6 @@ function PortfolioBenchmarkSection({
           <div className="investor-bench-section-head-copy">
             <span>Benchmark distribution</span>
             <h2>How the portfolio stacks up</h2>
-            <p>
-              Each mark is a company on the researched range. Nearby companies combine into a count so large portfolios stay readable. Click a mark or tier to open the list.
-            </p>
           </div>
           <div className="investor-bench-section-filters">
             <label className="investor-bench-filter">
@@ -2835,6 +3090,7 @@ function PortfoliosPage({
   const [buildPhase, setBuildPhase] = useState<OverviewBuildPhase>("summary");
   const [addingCompanies, setAddingCompanies] = useState(false);
   const [companyQuery, setCompanyQuery] = useState("");
+  const [detailView, setDetailView] = useState<"table" | "graphs">("table");
   const [connectionCompany, setConnectionCompany] = useState<PortfolioCompanyView | null>(null);
   const [connectionVersion, setConnectionVersion] = useState(0);
   const buildPlayedForId = useRef<string | null>(
@@ -2842,6 +3098,12 @@ function PortfoliosPage({
   );
 
   const activeList = lists.find(row => row.id === activeId) ?? null;
+
+  useEffect(() => {
+    setDetailView("table");
+    setCompanyQuery("");
+    setAddingCompanies(false);
+  }, [activeId]);
 
   useEffect(() => {
     const refresh = () => setConnectionVersion(version => version + 1);
@@ -2903,7 +3165,7 @@ function PortfoliosPage({
 
   const activeBenchmarks = useMemo(() => {
     if (!activeList) return null;
-    return buildPortfolioBenchmarkSummary(activeList, INVESTOR_PORTFOLIO, { cohortScale: "xlarge" });
+    return buildPortfolioBenchmarkSummary(activeList, INVESTOR_PORTFOLIO, { cohortScale: "portfolio" });
   }, [activeList]);
 
   const filteredLists = useMemo(() => {
@@ -3015,7 +3277,6 @@ function PortfoliosPage({
   if (activeList && activeBenchmarks && !buildingPortfolio) {
     const benchmarks = activeBenchmarks;
     const displayCompanyCount = detailCompanies.length || activeList.companyCount;
-    const metaTags = portfolioMetaDisplayTags(activeList.meta).filter(part => !part.includes("$"));
 
     return (
       <section className="investor-portfolios-page">
@@ -3027,31 +3288,22 @@ function PortfoliosPage({
               setActiveId(null);
               setAddingCompanies(false);
               setCompanyQuery("");
+              setDetailView("table");
             }}
           >
             ← All portfolios
           </button>
 
-          <header className="investor-portfolio-detail-card">
+          <header className="investor-portfolio-detail-card investor-portfolio-detail-card--minimal">
             <div className="investor-portfolio-detail-top">
               <div className="investor-portfolio-detail-identity">
-                <div className="investor-portfolio-detail-title-row">
-                  <h1>{activeList.name}</h1>
-                  <div className="investor-portfolio-detail-meta">
-                    <span className="investor-portfolio-detail-pill is-accent">
-                      Portfolio · {activeList.name}
-                    </span>
-                    <span className="investor-portfolio-detail-pill">{activeList.scope}</span>
-                    <span className="investor-portfolio-detail-pill">
-                      {displayCompanyCount} compan{displayCompanyCount === 1 ? "y" : "ies"}
-                    </span>
-                    {metaTags.map(part => (
-                      <span key={part} className="investor-portfolio-detail-pill is-accent">
-                        {part}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <h1>{activeList.name}</h1>
+                <p className="investor-portfolio-detail-sub">
+                  {formatBenchmarkCount(displayCompanyCount)}
+                  {" "}
+                  compan{displayCompanyCount === 1 ? "y" : "ies"}
+                  {activeList.cohort ? ` · ${activeList.cohort}` : ""}
+                </p>
               </div>
 
               <div className="investor-portfolio-detail-actions">
@@ -3067,7 +3319,40 @@ function PortfoliosPage({
           </header>
         </div>
 
-        {addingCompanies ? (
+        <div
+          className="investor-watchlists-tabs investor-portfolios-tabs investor-portfolio-detail-tabs"
+          role="tablist"
+          aria-label="Portfolio detail views"
+        >
+          <button
+            type="button"
+            role="tab"
+            id="portfolio-detail-tab-table"
+            aria-selected={detailView === "table"}
+            aria-controls="portfolio-detail-panel-table"
+            className={detailView === "table" ? "is-active" : ""}
+            onClick={() => setDetailView("table")}
+          >
+            Companies
+            <span className="investor-portfolios-tab-count">
+              {formatBenchmarkCount(displayCompanyCount)}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="portfolio-detail-tab-graphs"
+            aria-selected={detailView === "graphs"}
+            aria-controls="portfolio-detail-panel-graphs"
+            className={detailView === "graphs" ? "is-active" : ""}
+            onClick={() => setDetailView("graphs")}
+            disabled={detailCompanies.length === 0}
+          >
+            Portfolio graphs
+          </button>
+        </div>
+
+        {addingCompanies && detailView === "table" ? (
           <article className="overview-panel investor-portfolio-add-panel">
             <div className="overview-panel-head">
               <span>Add companies</span>
@@ -3095,53 +3380,86 @@ function PortfoliosPage({
           </article>
         ) : null}
 
-        {detailCompanies.length > 0 ? (
-          <PortfolioBenchmarkSection
-            summary={benchmarks}
-            companies={detailCompanies}
-            onOpenCompanyProfile={onOpenCompanyProfile}
-          />
+        {detailView === "table" ? (
+          <div
+            id="portfolio-detail-panel-table"
+            role="tabpanel"
+            aria-labelledby="portfolio-detail-tab-table"
+          >
+            {detailCompanies.length === 0 ? (
+              <article className="overview-panel investor-portfolio-empty">
+                <span>No companies yet</span>
+                <p>Create the portfolio category first, then add companies you want to track here.</p>
+                <button
+                  type="button"
+                  className="investor-suggested-primary"
+                  onClick={() => setAddingCompanies(true)}
+                >
+                  + Add companies
+                </button>
+              </article>
+            ) : (
+              <article className="overview-panel investor-portfolio-panel">
+                <div className="investor-portfolio-detail-toolbar">
+                  <div className="investor-portfolio-detail-toolbar-copy">
+                    <strong>Companies</strong>
+                    <span>
+                      Ranked by MOIC · {formatBenchmarkCount(detailCompanies.length)} total
+                      {companyQuery.trim()
+                        ? ` · ${formatBenchmarkCount(filteredDetailCompanies.length)} match${filteredDetailCompanies.length === 1 ? "" : "es"}`
+                        : ""}
+                    </span>
+                  </div>
+                  <label className="investor-portfolio-detail-search">
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <circle cx="8.5" cy="8.5" r="5.25" fill="none" stroke="currentColor" strokeWidth="1.75" />
+                      <path d="M12.5 12.5 16 16" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.75" />
+                    </svg>
+                    <span className="sr-only">Search companies</span>
+                    <input
+                      type="search"
+                      value={companyQuery}
+                      onChange={event => setCompanyQuery(event.target.value)}
+                      placeholder="Search by name, stage, or sector"
+                    />
+                    {companyQuery.trim() ? (
+                      <button
+                        type="button"
+                        className="investor-portfolio-detail-search-clear"
+                        aria-label="Clear search"
+                        onClick={() => setCompanyQuery("")}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </label>
+                </div>
+                <PortfolioCompaniesTable
+                  companies={filteredDetailCompanies}
+                  onOpenCompanyProfile={onOpenCompanyProfile}
+                  onManageConnection={setConnectionCompany}
+                  emptyLabel={companyQuery.trim() ? "No companies match your search." : undefined}
+                  resetKey={`${activeList?.id ?? "none"}:${companyQuery}`}
+                />
+              </article>
+            )}
+          </div>
         ) : null}
 
-        {detailCompanies.length === 0 ? (
-          <article className="overview-panel investor-portfolio-empty">
-            <span>No companies yet</span>
-            <p>Create the portfolio category first, then add companies you want to track here.</p>
-            <button
-              type="button"
-              className="investor-suggested-primary"
-              onClick={() => setAddingCompanies(true)}
-            >
-              + Add companies
-            </button>
-          </article>
-        ) : (
-          <article className="overview-panel investor-portfolio-panel">
-            <div className="overview-panel-head investor-portfolio-panel-head">
-              <div>
-                <span>Companies</span>
-                <em>Ranked by MOIC · {detailCompanies.length} total</em>
-              </div>
-              {detailCompanies.length > 8 ? (
-                <label className="investor-portfolio-table-search">
-                  <span className="sr-only">Filter companies</span>
-                  <input
-                    type="search"
-                    value={companyQuery}
-                    onChange={event => setCompanyQuery(event.target.value)}
-                    placeholder="Filter by name, stage, sector…"
-                  />
-                </label>
-              ) : null}
-            </div>
-            <PortfolioCompaniesTable
-              companies={filteredDetailCompanies}
+        {detailView === "graphs" && detailCompanies.length > 0 ? (
+          <div
+            id="portfolio-detail-panel-graphs"
+            role="tabpanel"
+            aria-labelledby="portfolio-detail-tab-graphs"
+          >
+            <PortfolioBenchmarkSection
+              summary={benchmarks}
+              companies={detailCompanies}
               onOpenCompanyProfile={onOpenCompanyProfile}
-              onManageConnection={setConnectionCompany}
-              emptyLabel={companyQuery.trim() ? "No companies match your filter." : undefined}
             />
-          </article>
-        )}
+          </div>
+        ) : null}
+
         <AdvisorPortfolioConnectionDialog
           company={connectionCompany}
           onClose={() => setConnectionCompany(null)}
@@ -3287,26 +3605,20 @@ function PortfoliosPage({
           </label>
         </div>
 
-        <div className="investor-watchlists-table investor-portfolios-table" role="table" aria-label="Portfolios">
-        <div className="investor-watchlists-table-head investor-portfolios-table-head" role="row">
-          <span role="columnheader">Name</span>
-          <span role="columnheader">Companies</span>
-          <span role="columnheader">Owner</span>
-          <span role="columnheader">Scope</span>
-          <span role="columnheader">Cohort</span>
-          <span role="columnheader">Updated</span>
-          <span role="columnheader">Digest</span>
-          <span role="columnheader" className="investor-watchlists-star-col investor-portfolios-star-col" aria-label="Starred">
-            <span className="sr-only">Starred</span>
-          </span>
-        </div>
-        <div className="investor-watchlists-table-body investor-portfolios-table-body" role="rowgroup">
+        <div className="workspace-table data-room-list investor-lists-table" role="table" aria-label="Portfolios">
+          <div className="workspace-table-head" role="row">
+            <span role="columnheader">Name</span>
+            <span role="columnheader">Companies</span>
+            <span role="columnheader">Owner</span>
+            <span role="columnheader">Cohort</span>
+            <span role="columnheader">Actions</span>
+          </div>
           {filteredLists.length === 0 ? (
             <p className="investor-watchlists-empty">No portfolios in this view.</p>
           ) : (
             filteredLists.map(row => (
-              <div key={row.id} className="investor-watchlists-row investor-portfolios-row" role="row">
-                <span role="cell" className="investor-portfolios-name-cell">
+              <div key={row.id} className="workspace-table-row investor-lists-row" role="row">
+                <div className="workspace-table-title-cell" role="cell">
                   <button
                     type="button"
                     className="investor-portfolio-list-name investor-portfolios-list-name"
@@ -3319,10 +3631,15 @@ function PortfoliosPage({
                       }
                     }}
                   >
-                    <strong className="investor-watchlists-name">{row.name}</strong>
+                    <strong title={row.name}>{row.name}</strong>
+                    <span className="workspace-table-subtitle">
+                      <span className="investor-lists-scope">{row.scope}</span>
+                      {" · Updated "}
+                      {row.updatedAt}
+                    </span>
                   </button>
-                </span>
-                <span role="cell" className="investor-watchlists-companies investor-portfolios-companies">
+                </div>
+                <span className="workspace-table-keyfact investor-lists-companies" role="cell">
                   {row.companies.length > 0 ? (
                     <span className="investor-watchlists-logo-stack investor-portfolios-logo-stack" aria-hidden="true">
                       {row.companies.slice(0, PORTFOLIO_LIST_LOGO_VISIBLE).map(chip => (
@@ -3331,11 +3648,6 @@ function PortfoliosPage({
                           chip={chip}
                         />
                       ))}
-                      {row.companyCount > PORTFOLIO_LIST_LOGO_VISIBLE ? (
-                        <span className="investor-portfolio-more-chip">
-                          +{row.companyCount - PORTFOLIO_LIST_LOGO_VISIBLE}
-                        </span>
-                      ) : null}
                     </span>
                   ) : null}
                   {row.companyCount > 0 ? (
@@ -3343,22 +3655,21 @@ function PortfoliosPage({
                       className="investor-portfolios-company-count"
                       aria-label={`${row.companyCount} compan${row.companyCount === 1 ? "y" : "ies"}`}
                     >
-                      <strong>{row.companyCount}</strong>
-                      <span>{row.companyCount === 1 ? "company" : "companies"}</span>
+                      <strong>{formatBenchmarkCount(row.companyCount)}</strong>
+                      <em>{row.companyCount === 1 ? "company" : "companies"}</em>
                     </span>
                   ) : (
-                    <span className="investor-portfolios-company-count is-empty">—</span>
+                    <span className="workspace-table-muted">—</span>
                   )}
                 </span>
-                <span role="cell" className="investor-watchlists-owner investor-portfolios-owner">
-                  <strong>{row.ownerName}</strong>
-                  {row.ownerEmail ? <em>{row.ownerEmail}</em> : null}
+                <span className="workspace-table-keyfact" role="cell">
+                  {row.ownerName}
+                  {row.ownerEmail ? (
+                    <span className="workspace-table-subtitle">{row.ownerEmail}</span>
+                  ) : null}
                 </span>
-                <span role="cell">
-                  <span className="investor-portfolio-detail-pill investor-portfolios-scope-pill">{row.scope}</span>
-                </span>
-                <span role="cell">
-                  <label className="investor-watchlists-digest investor-portfolios-cohort">
+                <span className="investor-lists-select-cell" role="cell">
+                  <label className="investor-lists-select">
                     <span className="sr-only">Cohort for {row.name}</span>
                     <select
                       value={row.cohort}
@@ -3378,9 +3689,8 @@ function PortfoliosPage({
                     </select>
                   </label>
                 </span>
-                <span role="cell" className="investor-watchlists-updated investor-portfolios-updated">{row.updatedAt}</span>
-                <span role="cell">
-                  <label className="investor-watchlists-digest investor-portfolios-digest">
+                <div className="workspace-table-actions" role="cell">
+                  <label className="investor-lists-select investor-lists-select--compact">
                     <span className="sr-only">Digest for {row.name}</span>
                     <select
                       value={digestById[row.id] ?? row.digest}
@@ -3394,11 +3704,9 @@ function PortfoliosPage({
                       <option value="Daily">Daily</option>
                     </select>
                   </label>
-                </span>
-                <span role="cell" className="investor-watchlists-star-col investor-portfolios-star-col">
                   <button
                     type="button"
-                    className={`investor-watchlists-star investor-portfolios-star${starredIds.includes(row.id) ? " is-on" : ""}`}
+                    className={`workspace-table-action-btn workspace-table-action-btn--icon investor-watchlists-star${starredIds.includes(row.id) ? " is-on" : ""}`}
                     aria-label={starredIds.includes(row.id) ? `Unstar ${row.name}` : `Star ${row.name}`}
                     onClick={() => {
                       setStarredIds(previous => (
@@ -3408,21 +3716,16 @@ function PortfoliosPage({
                       ));
                     }}
                   >
-                    <svg viewBox="0 0 20 20" aria-hidden="true">
-                      <path
-                        d="M10 3.2 11.9 7.4 16.4 7.9 13.2 11 14.1 15.5 10 13.2 5.9 15.5 6.8 11 3.6 7.9 8.1 7.4 10 3.2Z"
-                        fill={starredIds.includes(row.id) ? "currentColor" : "none"}
-                        stroke="currentColor"
-                        strokeWidth="1.4"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                    <FuelIcon
+                      name="star"
+                      size={14}
+                      fill={starredIds.includes(row.id) ? "currentColor" : "none"}
+                    />
                   </button>
-                </span>
+                </div>
               </div>
             ))
           )}
-        </div>
         </div>
         </> : null}
       </div>
@@ -3936,6 +4239,8 @@ function PortfolioCompaniesTable({
   embedded = false,
   compact = false,
   emptyLabel,
+  resetKey = "",
+  pageSize = PORTFOLIO_COMPANIES_PAGE_SIZE,
 }: {
   companies: PortfolioCompanyView[];
   onOpenCompanyProfile: (company: PortfolioCompanyView) => void;
@@ -3943,7 +4248,24 @@ function PortfolioCompaniesTable({
   embedded?: boolean;
   compact?: boolean;
   emptyLabel?: string;
+  resetKey?: string | number;
+  pageSize?: number;
 }) {
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [resetKey, companies.length, pageSize]);
+
+  const total = companies.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const pageItems = companies.slice(pageStart, pageStart + pageSize);
+  const showPagination = total > pageSize;
+  const from = total === 0 ? 0 : pageStart + 1;
+  const to = Math.min(pageStart + pageSize, total);
+
   if (companies.length === 0) {
     return (
       <p className="investor-portfolio-table-empty">{emptyLabel ?? "No companies in this view."}</p>
@@ -3955,83 +4277,63 @@ function PortfolioCompaniesTable({
       className={`investor-portfolio-table-shell${embedded ? " investor-portfolio-table-shell--embedded" : ""}`}
     >
       <div
-        className={`investor-portfolio-table${embedded ? " investor-portfolio-table--embedded" : ""}${compact ? " investor-portfolio-table--compact" : ""}${onManageConnection ? " investor-portfolio-table--connections" : ""}`}
+        className="workspace-table data-room-list investor-companies-table"
         role="table"
         aria-label="Portfolio companies ranked by MOIC"
       >
-        <div className="investor-portfolio-table-head" role="row">
-          {!compact && !onManageConnection ? <span role="columnheader" className="investor-portfolio-col-rank">#</span> : null}
+        <div className="workspace-table-head" role="row">
           <span role="columnheader">Company</span>
           <span role="columnheader">Stage</span>
-          {onManageConnection ? (
-            <>
-              <span role="columnheader">Invested</span>
-              <span role="columnheader">ARR</span>
-              <span role="columnheader">Runway</span>
-              <span role="columnheader">Action</span>
-            </>
-          ) : compact ? (
-            <>
-              <span role="columnheader">MOIC</span>
-              <span role="columnheader">ARR</span>
-              <span role="columnheader">Trend</span>
-            </>
-          ) : (
-            <>
-              <span role="columnheader">Invested</span>
-              <span role="columnheader">Return</span>
-              <span role="columnheader">MOIC</span>
-              <span role="columnheader">ARR</span>
-              <span role="columnheader">Runway</span>
-              <span role="columnheader">Date</span>
-              <span role="columnheader">Trend</span>
-            </>
-          )}
+          <span role="columnheader">{onManageConnection ? "Invested" : "MOIC"}</span>
+          <span role="columnheader">{onManageConnection ? "ARR" : compact ? "ARR" : "Return"}</span>
+          <span role="columnheader">{onManageConnection ? "Actions" : "Trend"}</span>
         </div>
-        <div className="investor-portfolio-table-body" role="rowgroup">
-          {companies.map((company, index) => (
-            <PortfolioCompanyRow
-              key={company.id}
-              company={company}
-              rank={index + 1}
-              compact={compact}
-              onOpenProfile={() => onOpenCompanyProfile(company)}
-              onManageConnection={onManageConnection ? () => onManageConnection(company) : undefined}
-            />
-          ))}
-        </div>
+        {pageItems.map((company, index) => (
+          <PortfolioCompanyRow
+            key={company.id}
+            company={company}
+            rank={pageStart + index + 1}
+            compact={compact}
+            onOpenProfile={() => onOpenCompanyProfile(company)}
+            onManageConnection={onManageConnection ? () => onManageConnection(company) : undefined}
+          />
+        ))}
       </div>
+      {showPagination ? (
+        <div className="workspace-table-pagination" role="navigation" aria-label="Companies pagination">
+          <span className="workspace-table-pagination-meta">
+            {from}–{to} of {formatBenchmarkCount(total)}
+          </span>
+          <div className="workspace-table-pagination-controls">
+            <button
+              type="button"
+              className="workspace-table-pagination-btn"
+              disabled={safePage <= 1}
+              aria-label="Previous page"
+              onClick={() => setPage(safePage - 1)}
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path d="M10 3.5 5.5 8 10 12.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" />
+              </svg>
+            </button>
+            <span className="workspace-table-pagination-page">
+              {safePage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              className="workspace-table-pagination-btn"
+              disabled={safePage >= totalPages}
+              aria-label="Next page"
+              onClick={() => setPage(safePage + 1)}
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
-  );
-}
-
-function WatchlistEditIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path
-        d="M12.2 3.8a1.4 1.4 0 0 1 2 2L7.4 12.6 4.8 13l.4-2.6 7-6.6Z"
-        fill="none"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="1.5"
-      />
-      <path d="M11 5 15 9" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function WatchlistDeleteIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path
-        d="M5.5 6.2h9M8.2 6.2V5a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1v1.2m1.8 0-.5 9.2a1 1 0 0 1-1 .9H7.4a1 1 0 0 1-1-.9L5.9 6.2"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.5"
-      />
-    </svg>
   );
 }
 
@@ -4361,39 +4663,43 @@ function WatchlistDetailPage({
       </div>
 
       <div className="investor-portfolios-list-panel investor-watchlist-companies-panel">
-        <div className="investor-watchlist-companies-table" role="table" aria-label={`Companies in ${watchlist.name}`}>
-          <div className="investor-watchlist-companies-head" role="row">
+        <div className="workspace-table data-room-list investor-lists-table" role="table" aria-label={`Companies in ${watchlist.name}`}>
+          <div className="workspace-table-head" role="row">
             <span role="columnheader">Company</span>
-            <span role="columnheader">Added</span>
+            <span role="columnheader">Status</span>
             <span role="columnheader">Added by</span>
-            <span role="columnheader" className="sr-only">Remove</span>
+            <span role="columnheader">Added</span>
+            <span role="columnheader">Actions</span>
           </div>
-          <div className="investor-watchlist-companies-body" role="rowgroup">
-            {watchlist.entries?.length === 0 ? (
-              <p className="investor-watchlists-empty">No companies on this watchlist yet.</p>
-            ) : (
-              (watchlist.entries ?? []).map(entry => (
-                <div key={entry.id} className="investor-watchlist-companies-row" role="row">
-                  <span role="cell" className="investor-watchlist-companies-company">
+          {watchlist.entries?.length === 0 ? (
+            <p className="investor-watchlists-empty">No companies on this watchlist yet.</p>
+          ) : (
+            (watchlist.entries ?? []).map(entry => (
+              <div key={entry.id} className="workspace-table-row" role="row">
+                <div className="workspace-table-title-cell investor-companies-title-cell" role="cell">
+                  <span className="investor-portfolio-company-btn">
                     <PortfolioCompanyChipLogo chip={entry} />
-                    <strong>{entry.name}</strong>
-                  </span>
-                  <span role="cell" className="investor-watchlist-companies-added">{entry.addedAt}</span>
-                  <span role="cell" className="investor-watchlist-companies-added-by">{entry.addedBy}</span>
-                  <span role="cell" className="investor-watchlist-companies-remove">
-                    <button
-                      type="button"
-                      className="investor-watchlist-remove-btn"
-                      aria-label={`Remove ${entry.name} from watchlist`}
-                      onClick={() => onRemoveEntry(entry.id)}
-                    >
-                      ✕
-                    </button>
+                    <span className="investor-companies-title-copy">
+                      <strong title={entry.name}>{entry.name}</strong>
+                    </span>
                   </span>
                 </div>
-              ))
-            )}
-          </div>
+                <span className="workspace-table-badge" role="cell">Watching</span>
+                <span className="workspace-table-keyfact" role="cell">{entry.addedBy}</span>
+                <time className="workspace-table-date" role="cell">{entry.addedAt}</time>
+                <div className="workspace-table-actions" role="cell">
+                  <button
+                    type="button"
+                    className="workspace-table-action-btn workspace-table-action-btn--ghost"
+                    aria-label={`Remove ${entry.name} from watchlist`}
+                    onClick={() => onRemoveEntry(entry.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </section>
@@ -4702,97 +5008,99 @@ function WatchlistsPage({
         </div>
 
         {tab === "suggested" ? (
-          <div className="investor-watchlists-table investor-portfolios-table investor-suggested-table" role="table" aria-label="Suggested thesis matches">
-            <div className="investor-suggested-table-head investor-portfolios-table-head" role="row">
+          <div className="workspace-table data-room-list investor-lists-table" role="table" aria-label="Suggested thesis matches">
+            <div className="workspace-table-head" role="row">
               <span role="columnheader">Company</span>
               <span role="columnheader">Score</span>
               <span role="columnheader">Why</span>
               <span role="columnheader">Timing</span>
               <span role="columnheader">Actions</span>
             </div>
-            <div className="investor-watchlists-table-body" role="rowgroup">
-              {visibleSuggestions.length === 0 ? (
-                <p className="investor-watchlists-empty">No suggestions in this view.</p>
-              ) : (
-                visibleSuggestions.map(company => (
-                  <div key={company.id} className="investor-suggested-table-row investor-portfolios-row" role="row">
-                    <span role="cell" className="investor-suggested-table-company">
-                      <button type="button" className="investor-suggested-table-identity" onClick={() => onOpenCompany(company)}>
-                        <PortfolioCompanyLogo company={company} size="sm" />
-                        <span>
-                          <strong>{company.displayName}</strong>
-                          <em>{company.stage} · {company.sector} · {company.geography}</em>
+            {visibleSuggestions.length === 0 ? (
+              <p className="investor-watchlists-empty">No suggestions in this view.</p>
+            ) : (
+              visibleSuggestions.map(company => (
+                <div key={company.id} className="workspace-table-row" role="row">
+                  <div className="workspace-table-title-cell investor-companies-title-cell" role="cell">
+                    <button
+                      type="button"
+                      className="investor-portfolio-company-btn"
+                      onClick={() => onOpenCompany(company)}
+                      aria-label={`Open profile for ${company.displayName}`}
+                    >
+                      <PortfolioCompanyLogo company={company} size="sm" />
+                      <span className="investor-companies-title-copy">
+                        <strong title={company.displayName}>{company.displayName}</strong>
+                        <span className="workspace-table-subtitle">
+                          {company.stage} · {company.sector} · {company.geography}
                         </span>
-                      </button>
-                    </span>
-                    <span role="cell" className="investor-suggested-table-score">
-                      <b>{formatSuggestionScore(company.matchScore)}</b>
-                    </span>
-                    <span role="cell" className="investor-suggested-table-why">{company.matchReason}</span>
-                    <span role="cell" className="investor-suggested-table-timing">{company.timing}</span>
-                    <span role="cell" className="investor-suggested-table-actions">
-                      <button
-                        type="button"
-                        className={`investor-suggested-primary${watchlistIds.includes(company.id) ? " is-done" : ""}`}
-                        disabled={watchlistIds.includes(company.id)}
-                        onClick={() => {
-                          setWatchlistIds(previous => (
-                            previous.includes(company.id) ? previous : [...previous, company.id]
-                          ));
-                        }}
-                      >
-                        {watchlistIds.includes(company.id) ? "On watchlist" : "Add to watchlist"}
-                      </button>
-                      <button
-                        type="button"
-                        className="investor-suggested-ghost"
-                        onClick={() => {
-                          setHiddenIds(previous => (
-                            previous.includes(company.id) ? previous : [...previous, company.id]
-                          ));
-                        }}
-                      >
-                        Not interested
-                      </button>
-                    </span>
+                      </span>
+                    </button>
                   </div>
-                ))
-              )}
-            </div>
+                  <span className="workspace-table-badge" role="cell">
+                    {formatSuggestionScore(company.matchScore)}
+                  </span>
+                  <span className="workspace-table-keyfact" role="cell" title={company.matchReason}>
+                    {company.matchReason}
+                  </span>
+                  <time className="workspace-table-date" role="cell">{company.timing}</time>
+                  <div className="workspace-table-actions" role="cell">
+                    <button
+                      type="button"
+                      className={`workspace-table-action-btn workspace-table-action-btn--primary${watchlistIds.includes(company.id) ? " is-done" : ""}`}
+                      disabled={watchlistIds.includes(company.id)}
+                      onClick={() => {
+                        setWatchlistIds(previous => (
+                          previous.includes(company.id) ? previous : [...previous, company.id]
+                        ));
+                      }}
+                    >
+                      {watchlistIds.includes(company.id) ? "On watchlist" : "Add"}
+                    </button>
+                    <button
+                      type="button"
+                      className="workspace-table-action-btn workspace-table-action-btn--ghost"
+                      onClick={() => {
+                        setHiddenIds(previous => (
+                          previous.includes(company.id) ? previous : [...previous, company.id]
+                        ));
+                      }}
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         ) : (
-          <div className="investor-watchlists-table investor-portfolios-table" role="table" aria-label="Watchlists">
-            <div className="investor-watchlists-table-head investor-portfolios-table-head" role="row">
+          <div className="workspace-table data-room-list investor-lists-table" role="table" aria-label="Watchlists">
+            <div className="workspace-table-head" role="row">
               <span role="columnheader">Name</span>
               <span role="columnheader">Companies</span>
               <span role="columnheader">Owner</span>
-              <span role="columnheader">Scope</span>
-              <span role="columnheader">Updated</span>
               <span role="columnheader">Digest</span>
-              <span role="columnheader" className="investor-watchlists-actions-col">Actions</span>
-              <span role="columnheader" className="investor-watchlists-star-col investor-portfolios-star-col" aria-label="Starred">
-                <span className="sr-only">Starred</span>
-              </span>
+              <span role="columnheader">Actions</span>
             </div>
-            <div className="investor-watchlists-table-body" role="rowgroup">
-              {filteredLists.length === 0 ? (
-                <p className="investor-watchlists-empty">No watchlists in this view.</p>
-              ) : (
-                filteredLists.map(row => {
-                  const previewChips = watchlistPreviewChips(row);
-                  const entryCount = watchlistEntryCount(row);
-                  return (
-                  <div key={row.id} className="investor-watchlists-row investor-portfolios-row" role="row">
-                    <span role="cell" className="investor-portfolios-name-cell">
+            {filteredLists.length === 0 ? (
+              <p className="investor-watchlists-empty">No watchlists in this view.</p>
+            ) : (
+              filteredLists.map(row => {
+                const previewChips = watchlistPreviewChips(row);
+                const entryCount = watchlistEntryCount(row);
+                return (
+                  <div key={row.id} className="workspace-table-row" role="row">
+                    <div className="workspace-table-title-cell" role="cell">
                       <button
                         type="button"
                         className="investor-portfolio-list-name investor-portfolios-list-name"
                         onClick={() => setActiveId(row.id)}
                       >
-                        <strong className="investor-watchlists-name">{row.name}</strong>
+                        <strong title={row.name}>{row.name}</strong>
+                        <span className="workspace-table-subtitle">{row.scope} · Updated {row.updatedAt}</span>
                       </button>
-                    </span>
-                    <span role="cell" className="investor-watchlists-companies investor-portfolios-companies">
+                    </div>
+                    <span className="workspace-table-keyfact investor-lists-companies" role="cell">
                       {previewChips.length > 0 ? (
                         <span className="investor-watchlists-logo-stack investor-portfolios-logo-stack" aria-hidden="true">
                           {previewChips.map(chip => (
@@ -4812,19 +5120,17 @@ function WatchlistsPage({
                           <span>{entryCount === 1 ? "company" : "companies"}</span>
                         </span>
                       ) : (
-                        <span className="investor-portfolios-company-count is-empty">—</span>
+                        <span className="workspace-table-muted">—</span>
                       )}
                     </span>
-                    <span role="cell" className="investor-watchlists-owner investor-portfolios-owner">
-                      <strong>{row.ownerName}</strong>
-                      {row.ownerEmail ? <em>{row.ownerEmail}</em> : null}
+                    <span className="workspace-table-keyfact" role="cell">
+                      {row.ownerName}
+                      {row.ownerEmail ? (
+                        <span className="workspace-table-subtitle">{row.ownerEmail}</span>
+                      ) : null}
                     </span>
-                    <span role="cell">
-                      <span className="investor-portfolio-detail-pill investor-portfolios-scope-pill">{row.scope}</span>
-                    </span>
-                    <span role="cell" className="investor-watchlists-updated investor-portfolios-updated">{row.updatedAt}</span>
-                    <span role="cell">
-                      <label className="investor-watchlists-digest investor-portfolios-digest">
+                    <span className="investor-lists-select-cell" role="cell">
+                      <label className="investor-lists-select">
                         <span className="sr-only">Digest for {row.name}</span>
                         <select
                           value={digestById[row.id] ?? row.digest}
@@ -4839,38 +5145,34 @@ function WatchlistsPage({
                         </select>
                       </label>
                     </span>
-                    <span role="cell" className="investor-watchlists-actions-col">
-                      <div className="investor-watchlist-row-actions">
-                        <button
-                          type="button"
-                          className="investor-watchlist-row-action"
-                          aria-label={`Edit ${row.name}`}
-                          onClick={() => {
-                            setCreating(false);
-                            setEditingId(row.id);
-                            setEditDraft(buildWatchlistEditDraft(row));
-                          }}
-                        >
-                          <WatchlistEditIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="investor-watchlist-row-action is-delete"
-                          aria-label={`Delete ${row.name}`}
-                          onClick={() => {
-                            if (window.confirm(`Delete "${row.name}"? This cannot be undone.`)) {
-                              deleteWatchlist(row.id);
-                            }
-                          }}
-                        >
-                          <WatchlistDeleteIcon />
-                        </button>
-                      </div>
-                    </span>
-                    <span role="cell" className="investor-watchlists-star-col investor-portfolios-star-col">
+                    <div className="workspace-table-actions" role="cell">
                       <button
                         type="button"
-                        className={`investor-watchlists-star investor-portfolios-star${starredIds.includes(row.id) ? " is-on" : ""}`}
+                        className="workspace-table-action-btn workspace-table-action-btn--icon"
+                        aria-label={`Edit ${row.name}`}
+                        onClick={() => {
+                          setCreating(false);
+                          setEditingId(row.id);
+                          setEditDraft(buildWatchlistEditDraft(row));
+                        }}
+                      >
+                        <FuelIcon name="edit" size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="workspace-table-action-btn workspace-table-action-btn--icon workspace-table-action-btn--ghost"
+                        aria-label={`Delete ${row.name}`}
+                        onClick={() => {
+                          if (window.confirm(`Delete "${row.name}"? This cannot be undone.`)) {
+                            deleteWatchlist(row.id);
+                          }
+                        }}
+                      >
+                        <FuelIcon name="trash" size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`workspace-table-action-btn workspace-table-action-btn--icon investor-watchlists-star${starredIds.includes(row.id) ? " is-on" : ""}`}
                         aria-label={starredIds.includes(row.id) ? `Unstar ${row.name}` : `Star ${row.name}`}
                         onClick={() => {
                           setStarredIds(previous => (
@@ -4880,22 +5182,17 @@ function WatchlistsPage({
                           ));
                         }}
                       >
-                        <svg viewBox="0 0 20 20" aria-hidden="true">
-                          <path
-                            d="M10 3.2 11.9 7.4 16.4 7.9 13.2 11 14.1 15.5 10 13.2 5.9 15.5 6.8 11 3.6 7.9 8.1 7.4 10 3.2Z"
-                            fill={starredIds.includes(row.id) ? "currentColor" : "none"}
-                            stroke="currentColor"
-                            strokeWidth="1.4"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                        <FuelIcon
+                          name="star"
+                          size={14}
+                          fill={starredIds.includes(row.id) ? "currentColor" : "none"}
+                        />
                       </button>
-                    </span>
+                    </div>
                   </div>
-                  );
-                })
-              )}
-            </div>
+                );
+              })
+            )}
           </div>
         )}
       </div>
@@ -5185,126 +5482,91 @@ function PortfolioCompanyRow({
           ? { label: "Send request", icon: "send" as const }
           : { label: "Invite", icon: "invite" as const };
 
-  const companyCell = (
-    <span className="investor-portfolio-cell investor-portfolio-cell-company" role="cell">
-      <button
-        type="button"
-        className="investor-portfolio-company-btn"
-        onClick={onOpenProfile}
-        aria-label={`Open profile for ${company.displayName}`}
-      >
-        <PortfolioCompanyLogo company={company} size="sm" />
-        <span className="investor-rank-identity">
-          <span className="investor-rank-name-row">
-            <strong>{company.displayName}</strong>
-            {company.urgentFlag ? (
-              <span className="investor-urgent-dot" title={company.urgentFlag.label} aria-label={company.urgentFlag.label} />
-            ) : null}
-          </span>
-          <em>{onManageConnection ? company.sector : `${company.ownership} ownership · ${company.sector}`}</em>
-        </span>
-      </button>
-    </span>
-  );
-
-  if (onManageConnection) {
-    return (
-      <div
-        className={`investor-portfolio-table-row${company.urgentFlag ? " is-flagged" : ""}`}
-        role="row"
-      >
-        {companyCell}
-        <span className="investor-portfolio-cell" role="cell">
-          <span className="investor-portfolio-stage-pill">{company.stage}</span>
-        </span>
-        <span className="investor-portfolio-cell" role="cell">
-          <strong>{company.invested}</strong>
-        </span>
-        <span className="investor-portfolio-cell" role="cell">
-          {benchmarksShared ? (
-            <strong>
-              {company.arr}{" "}
-              <span className={`investor-growth investor-growth--${company.qoqMovement}`}>{growthLabel}</span>
-            </strong>
-          ) : (
-            <span className="advisor-benchmark-withheld">Not shared</span>
-          )}
-        </span>
-        <span className="investor-portfolio-cell" role="cell">
-          {benchmarksShared ? (
-            <strong className={company.runwayMonths < 6 ? "is-flagged" : undefined}>{company.runway}</strong>
-          ) : (
-            <span className="advisor-benchmark-withheld">Not shared</span>
-          )}
-        </span>
-        <span className="investor-portfolio-cell" role="cell">
-          <ConnectionActionButton
-            label={connectionAction.label}
-            quiet={connectionAction.icon === "minus"}
-            onClick={onManageConnection}
-          >
-            <ConnectionActionIcon kind={connectionAction.icon} />
-          </ConnectionActionButton>
-        </span>
-      </div>
-    );
-  }
+  const subtitle = onManageConnection
+    ? company.sector
+    : compact
+      ? `${company.ownership} ownership · ${company.sector}`
+      : `#${rank} · ${company.ownership} ownership · ${company.sector} · ${company.investedAt}`;
 
   return (
     <div
-      className={`investor-portfolio-table-row${company.urgentFlag ? " is-flagged" : ""}`}
+      className={`workspace-table-row${company.urgentFlag ? " is-flagged" : ""}`}
       role="row"
     >
-      {!compact ? (
-        <span className="investor-portfolio-cell investor-portfolio-col-rank" role="cell">
-          <span className="investor-portfolio-rank">{rank}</span>
-        </span>
-      ) : null}
-      {companyCell}
-      <span className="investor-portfolio-cell" role="cell">
-        <span className="investor-portfolio-stage-pill">{company.stage}</span>
-      </span>
-      {compact ? (
-        <>
-          <span className="investor-portfolio-cell" role="cell">
-            <span className={`investor-portfolio-moic-badge is-${moicClass}`}>{formatMoic(company.moic)}</span>
-          </span>
-          <span className="investor-portfolio-cell" role="cell">
-            <strong>
-              {company.arr}{" "}
-              <span className={`investor-growth investor-growth--${company.qoqMovement}`}>{growthLabel}</span>
+      <div className="workspace-table-title-cell investor-companies-title-cell" role="cell">
+        <button
+          type="button"
+          className="investor-portfolio-company-btn"
+          onClick={onOpenProfile}
+          aria-label={`Open profile for ${company.displayName}`}
+        >
+          <PortfolioCompanyLogo company={company} size="sm" />
+          <span className="investor-companies-title-copy">
+            <strong title={company.displayName}>
+              {company.displayName}
+              {company.urgentFlag ? (
+                <span className="investor-urgent-dot" title={company.urgentFlag.label} aria-label={company.urgentFlag.label} />
+              ) : null}
             </strong>
+            <span className="workspace-table-subtitle">{subtitle}</span>
           </span>
-          <span className="investor-portfolio-cell investor-portfolio-cell-qoq" role="cell">
-            <QoqArrow movement={company.qoqMovement} />
+        </button>
+      </div>
+      <span className="workspace-table-badge" role="cell" title={company.stage}>
+        {company.stage}
+      </span>
+      {onManageConnection ? (
+        <>
+          <span className="workspace-table-keyfact" role="cell">{company.invested}</span>
+          <span className="workspace-table-keyfact" role="cell">
+            {benchmarksShared ? (
+              <>
+                {company.arr}{" "}
+                <span className={`investor-growth investor-growth--${company.qoqMovement}`}>{growthLabel}</span>
+                {company.runwayMonths < 6 ? (
+                  <span className="workspace-table-subtitle">{company.runway} runway</span>
+                ) : null}
+              </>
+            ) : (
+              <span className="advisor-benchmark-withheld">Not shared</span>
+            )}
           </span>
+          <div className="workspace-table-actions" role="cell">
+            <ConnectionActionButton
+              label={connectionAction.label}
+              quiet={connectionAction.icon === "minus"}
+              onClick={onManageConnection}
+            >
+              <ConnectionActionIcon kind={connectionAction.icon} />
+            </ConnectionActionButton>
+          </div>
         </>
       ) : (
         <>
-          <span className="investor-portfolio-cell" role="cell">
-            <strong>{company.invested}</strong>
-          </span>
-          <span className="investor-portfolio-cell" role="cell">
-            <strong>{returnLabel}</strong>
-          </span>
-          <span className="investor-portfolio-cell" role="cell">
+          <span className="workspace-table-keyfact" role="cell">
             <span className={`investor-portfolio-moic-badge is-${moicClass}`}>{formatMoic(company.moic)}</span>
+            {!compact ? (
+              <span className="workspace-table-subtitle">{company.invested} invested</span>
+            ) : null}
           </span>
-          <span className="investor-portfolio-cell" role="cell">
-            <strong>
-              {company.arr}{" "}
-              <span className={`investor-growth investor-growth--${company.qoqMovement}`}>{growthLabel}</span>
-            </strong>
+          <span className="workspace-table-keyfact" role="cell">
+            {compact ? (
+              <>
+                {company.arr}{" "}
+                <span className={`investor-growth investor-growth--${company.qoqMovement}`}>{growthLabel}</span>
+              </>
+            ) : (
+              <>
+                {returnLabel}
+                <span className="workspace-table-subtitle">
+                  {company.arr} ARR · {company.runway} runway
+                </span>
+              </>
+            )}
           </span>
-          <span className="investor-portfolio-cell" role="cell">
-            <strong className={company.runwayMonths < 6 ? "is-flagged" : undefined}>{company.runway}</strong>
-          </span>
-          <span className="investor-portfolio-cell" role="cell">
-            <strong>{company.investedAt}</strong>
-          </span>
-          <span className="investor-portfolio-cell investor-portfolio-cell-qoq" role="cell">
+          <div className="workspace-table-actions investor-companies-trend" role="cell">
             <QoqArrow movement={company.qoqMovement} />
-          </span>
+          </div>
         </>
       )}
     </div>
