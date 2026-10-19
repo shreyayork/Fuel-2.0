@@ -1045,6 +1045,18 @@
   padding: 11px 14px;
 }
 
+.investor-portfolio-table--connections .investor-portfolio-table-head,
+.investor-portfolio-table--connections .investor-portfolio-table-row {
+  grid-template-columns:
+    minmax(200px, 1.55fr)
+    minmax(80px, 0.5fr)
+    minmax(84px, 0.5fr)
+    minmax(108px, 0.7fr)
+    minmax(88px, 0.5fr)
+    52px;
+  min-width: 0;
+}
+
 .investor-portfolio-table-head {
   background: var(--panel-inset);
   border-bottom: 1px solid var(--panel-border);
@@ -1058,6 +1070,221 @@
   top: 0;
   text-transform: uppercase;
   z-index: 1;
+}
+
+.advisor-benchmark-withheld {
+  color: var(--fuel-text-muted, #8fa99a);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.advisor-portfolio-primary-btn {
+  background: var(--fuel-accent, #00b48a);
+  border: 1px solid var(--fuel-accent, #00b48a);
+  border-radius: 7px;
+  color: #07131c;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.advisor-portfolio-row-action {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: var(--panel-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+  width: 28px;
+}
+
+.advisor-portfolio-row-action svg {
+  height: 16px;
+  width: 16px;
+}
+
+.advisor-portfolio-row-action:hover {
+  border-color: color-mix(in srgb, var(--panel-border) 70%, var(--panel-strong));
+  color: var(--panel-strong);
+}
+
+.advisor-portfolio-row-action.is-quiet {
+  color: var(--fuel-text-muted, #8fa99a);
+}
+
+.advisor-portfolio-action-tip {
+  background: rgb(23, 38, 50);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 6px;
+  color: #f2f5f2;
+  font-size: 12px;
+  font-weight: 650;
+  left: 0;
+  line-height: 1.2;
+  padding: 4px 8px;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+  z-index: 80;
+}
+
+.advisor-portfolio-action-tip.is-below {
+  transform: translate(-50%, 0);
+}
+
+.advisor-portfolio-primary-btn:hover {
+  filter: brightness(1.06);
+}
+
+.advisor-portfolio-primary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.advisor-portfolio-dialog-scrim {
+  align-items: center;
+  background: rgba(3, 10, 15, 0.78);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1200;
+}
+
+.advisor-portfolio-dialog {
+  max-height: min(720px, calc(100vh - 48px));
+  max-width: 620px;
+  overflow: auto;
+  padding: 0;
+  width: 100%;
+}
+
+.advisor-portfolio-dialog > header {
+  align-items: flex-start;
+  border-bottom: 1px solid rgb(38, 57, 71);
+  display: flex;
+  justify-content: space-between;
+  padding: 22px 24px;
+}
+
+.advisor-portfolio-dialog > header span,
+.advisor-portfolio-dialog-body h3,
+.advisor-portfolio-status-card > span {
+  color: var(--fuel-text-muted, #8fa99a);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.advisor-portfolio-dialog > header h2 {
+  color: var(--fuel-text, #f2f5f2);
+  font-size: 20px;
+  margin: 6px 0;
+}
+
+.advisor-portfolio-dialog > header p,
+.advisor-portfolio-dialog-body p {
+  color: rgb(203, 211, 219);
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.advisor-portfolio-dialog > header > button {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 7px;
+  color: rgb(203, 211, 219);
+  cursor: pointer;
+  height: 32px;
+  width: 32px;
+}
+
+.advisor-portfolio-dialog-body {
+  display: grid;
+  gap: 16px;
+  padding: 20px 24px 24px;
+}
+
+.advisor-portfolio-dialog-body section,
+.advisor-portfolio-status-card {
+  background: rgba(10, 20, 28, 0.35);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.advisor-portfolio-dialog-body h3 {
+  margin: 0 0 8px;
+}
+
+.advisor-portfolio-status-card strong {
+  color: var(--fuel-text, #f2f5f2);
+  display: block;
+  font-size: 15px;
+  margin: 6px 0;
+}
+
+.advisor-portfolio-dialog-body label {
+  color: var(--fuel-text-muted, #8fa99a);
+  display: grid;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 6px;
+  margin: 14px 0;
+}
+
+.advisor-portfolio-dialog-body input {
+  background: #0b1720;
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 7px;
+  color: var(--fuel-text, #f2f5f2);
+  font-size: 12.5px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.advisor-portfolio-link-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: 12px;
+}
+
+.advisor-portfolio-link-row button,
+.advisor-portfolio-dialog-inline-actions button,
+.advisor-portfolio-danger-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 7px;
+  color: rgb(203, 211, 219);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.advisor-portfolio-dialog-inline-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.advisor-portfolio-danger-btn {
+  justify-self: start;
 }
 
 .investor-portfolio-table-head span {
@@ -1271,8 +1498,9 @@
   border-bottom: 1px solid var(--panel-border);
   display: flex;
   flex-shrink: 0;
-  gap: 24px;
+  gap: 16px;
   margin-top: 12px;
+  overflow-x: auto;
   padding: 0 20px;
 }
 
@@ -1282,12 +1510,14 @@
   border-bottom: 2px solid transparent;
   color: var(--panel-muted);
   cursor: pointer;
+  flex-shrink: 0;
   font: inherit;
   font-size: 13px;
   font-weight: 700;
   margin-bottom: -1px;
   padding: 10px 4px;
   transition: color 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
 }
 
 .investor-company-drawer-tabs button.is-active {
@@ -1460,6 +1690,17 @@
 .investor-company-drawer-section {
   display: flex;
   flex-direction: column;
+}
+
+.investor-company-drawer-section p {
+  color: rgb(203, 211, 219);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.investor-company-drawer-section p + .investor-company-drawer-facts {
+  margin-top: 10px;
 }
 
 .investor-company-drawer-section-label {

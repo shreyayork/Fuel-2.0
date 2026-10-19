@@ -30,7 +30,10 @@ export function CreditIndicator() {
   }, [popoverOpen, setPopoverOpen]);
 
   return (
-    <div className="credit-indicator-wrap" ref={wrapRef}>
+    <div
+      className={`credit-indicator-wrap${popoverOpen ? " is-popover-open" : ""}`}
+      ref={wrapRef}
+    >
       {popoverOpen ? <CreditPopover /> : null}
       <button
         type="button"

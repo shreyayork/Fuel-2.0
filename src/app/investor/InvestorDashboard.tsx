@@ -2,7 +2,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { OverviewBuildPanel, type OverviewBuildPhase } from "../ScorecardV2.tsx";
 import { drawerPanelPointerProps, useScrimPointerClose } from "../drawerScrim";
+import { findFounderCompanyProfile } from "../OnboardingFlow.tsx";
 import { useDialogA11y } from "../a11y/useDialogA11y";
+import {
+  ADVISOR_CONNECTION_CHANGE_EVENT,
+  advisorInviteUrl,
+  createAdvisorConnectionRequest,
+  createAdvisorInvite,
+  formatAdvisorConnectionStatus,
+  getAdvisorConnection,
+  revokeAdvisorConnection,
+  sharedAdvisorAccess,
+  type AdvisorConnectionRecord,
+} from "../advisorConnectionStorage.ts";
 import {
   Bar,
   BarChart,
@@ -39,6 +51,7 @@ import {
   formatGrowthRate,
   formatMoic,
   formatSuggestionScore,
+  companyBenchmarkFacts,
   formatUsdCompact,
   stageDealTotal,
   summarizePipeline,
@@ -2593,6 +2606,191 @@ function PortfolioCompanyChipLogo({ chip }: { chip: WatchlistCompanyChip }) {
   );
 }
 
+function AdvisorPortfolioConnectionDialog({
+  company,
+  onClose,
+  onChanged,
+}: {
+  company: PortfolioCompanyView | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const open = Boolean(company);
+  const connection = company ? getAdvisorConnection(company.id) : null;
+  const [email, setEmail] = useState("");
+  const [copied, setCopied] = useState(false);
+  useDialogA11y(open, dialogRef, onClose);
+
+  useEffect(() => {
+    if (!company) return;
+    setEmail(connection?.recipientEmail ?? company.founderEmail ?? "");
+    setCopied(false);
+  }, [company?.id, connection?.recipientEmail]);
+
+  if (!company) return null;
+
+  const status = connection?.status ?? "not_connected";
+  const canStart = status === "not_connected"
+    || status === "declined"
+    || status === "expired"
+    || status === "revoked";
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const inviteUrl = connection ? advisorInviteUrl(connection) : "";
+
+  const requestConnection = () => {
+    createAdvisorConnectionRequest({
+      id: company.id,
+      name: company.displayName,
+      domain: company.domain,
+    });
+    onChanged();
+  };
+
+  const sendInvite = () => {
+    if (!emailValid) return;
+    createAdvisorInvite({
+      id: company.id,
+      name: company.displayName,
+      domain: company.domain,
+      email,
+    });
+    onChanged();
+  };
+
+  const revoke = () => {
+    revokeAdvisorConnection(company.id);
+    onChanged();
+  };
+
+  return createPortal(
+    <div className="advisor-portfolio-dialog-scrim" role="presentation" onMouseDown={onClose}>
+      <div
+        ref={dialogRef}
+        className="advisor-portfolio-dialog overview-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="advisor-portfolio-dialog-title"
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <header>
+          <div>
+            <span>Advisor connection</span>
+            <h2 id="advisor-portfolio-dialog-title">{company.displayName}</h2>
+            <p>{company.onFuel ? "This company already has a Fuel workspace." : "Invite this company to join Fuel and connect."}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+
+        <div className="advisor-portfolio-dialog-body">
+          {!canStart ? (
+            <div className="advisor-portfolio-status-card">
+              <span>Status</span>
+              <strong>{formatAdvisorConnectionStatus(status)}</strong>
+              {connection?.recipientEmail ? <p>Sent to {connection.recipientEmail}</p> : null}
+              {connection?.requestedAt ? <p>{new Date(connection.requestedAt).toLocaleString()}</p> : null}
+            </div>
+          ) : null}
+
+          {status === "connected" ? (
+            <>
+              <section>
+                <h3>Monitoring access</h3>
+                <p>
+                  {connection?.permissions
+                    ? `Shared: ${[
+                      connection.permissions.sharedProfile ? "company profile" : null,
+                      connection.permissions.approvedBenchmarks ? "approved benchmarks" : null,
+                      connection.permissions.sharedIntelligence ? "intelligence" : null,
+                      connection.permissions.sharedInitiatives ? "initiative progress" : null,
+                      connection.permissions.sharedDataRoomFiles ? "selected data room files" : null,
+                      connection.permissions.sharedPublishedBrief ? "published brief" : null,
+                    ].filter(Boolean).join(", ") || "nothing yet"}.`
+                    : "The company accepted the connection."}
+                  {" "}Private chats, drafts, unshared files, billing, and credentials stay private.
+                </p>
+              </section>
+              <button type="button" className="advisor-portfolio-danger-btn" onClick={revoke}>
+                Disconnect
+              </button>
+            </>
+          ) : null}
+
+          {company.onFuel && canStart ? (
+            <section>
+              <h3>Send a connection request</h3>
+              <p>
+                {company.displayName} will review monitoring expectations, exactly what can be shared,
+                what stays private, and its right to disconnect before access begins.
+              </p>
+              <button type="button" className="advisor-portfolio-primary-btn" onClick={requestConnection}>
+                Send connection request
+              </button>
+            </section>
+          ) : null}
+
+          {!company.onFuel && canStart ? (
+            <section>
+              <h3>Invite company</h3>
+              <p>The invitation lets the company create its Fuel account and review your connection in one flow.</p>
+              <label>
+                Company contact email
+                <input
+                  type="email"
+                  value={email}
+                  onChange={event => setEmail(event.target.value)}
+                  placeholder={`founders@${company.domain}`}
+                  autoFocus
+                />
+              </label>
+              <button
+                type="button"
+                className="advisor-portfolio-primary-btn"
+                disabled={!emailValid}
+                onClick={sendInvite}
+              >
+                Send invite
+              </button>
+            </section>
+          ) : null}
+
+          {status === "invite_sent" && connection ? (
+            <section>
+              <h3>Invitation link</h3>
+              <p>Expires {new Date(connection.inviteExpiresAt ?? 0).toLocaleDateString()}.</p>
+              <div className="advisor-portfolio-link-row">
+                <input readOnly value={inviteUrl} aria-label="Company invitation link" />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard?.writeText(inviteUrl);
+                    setCopied(true);
+                  }}
+                >
+                  {copied ? "Copied" : "Copy link"}
+                </button>
+              </div>
+              <div className="advisor-portfolio-dialog-inline-actions">
+                <button type="button" onClick={sendInvite}>Resend</button>
+                <button type="button" onClick={revoke}>Revoke invite</button>
+              </div>
+            </section>
+          ) : null}
+
+          {status === "request_pending" ? (
+            <section>
+              <h3>Waiting for company approval</h3>
+              <p>No monitoring access is available until an authorized company user accepts the request.</p>
+              <button type="button" className="advisor-portfolio-danger-btn" onClick={revoke}>Withdraw request</button>
+            </section>
+          ) : null}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function PortfoliosPage({
   onboardingPortfolio,
   onOpenCompany,
@@ -2637,11 +2835,23 @@ function PortfoliosPage({
   const [buildPhase, setBuildPhase] = useState<OverviewBuildPhase>("summary");
   const [addingCompanies, setAddingCompanies] = useState(false);
   const [companyQuery, setCompanyQuery] = useState("");
+  const [connectionCompany, setConnectionCompany] = useState<PortfolioCompanyView | null>(null);
+  const [connectionVersion, setConnectionVersion] = useState(0);
   const buildPlayedForId = useRef<string | null>(
     playOnboardingBuild ? null : initialOnboardingList?.id ?? null,
   );
 
   const activeList = lists.find(row => row.id === activeId) ?? null;
+
+  useEffect(() => {
+    const refresh = () => setConnectionVersion(version => version + 1);
+    window.addEventListener(ADVISOR_CONNECTION_CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(ADVISOR_CONNECTION_CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
 
   useEffect(() => {
     if (initialOnboardingLists.length === 0) return;
@@ -2927,10 +3137,16 @@ function PortfoliosPage({
             <PortfolioCompaniesTable
               companies={filteredDetailCompanies}
               onOpenCompanyProfile={onOpenCompanyProfile}
+              onManageConnection={setConnectionCompany}
               emptyLabel={companyQuery.trim() ? "No companies match your filter." : undefined}
             />
           </article>
         )}
+        <AdvisorPortfolioConnectionDialog
+          company={connectionCompany}
+          onClose={() => setConnectionCompany(null)}
+          onChanged={() => setConnectionVersion(version => version + 1)}
+        />
       </section>
     );
   }
@@ -3270,36 +3486,24 @@ function PortfolioCompanyLogo({
   );
 }
 
-function buildFounderProfile(company: PortfolioCompanyView) {
-  const email = company.founderEmail ?? `founders@${company.domain}`;
-  const localPart = email.split("@")[0] ?? "founder";
-  const name = localPart === "founders" || localPart === "founder" || localPart === "team"
-    ? "Founding team"
-    : localPart
-      .split(/[._-]/)
-      .filter(Boolean)
-      .map(part => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-      .join(" ");
+type CompanyDrawerTab = "investment" | "profile" | "benchmarks" | "intelligence" | "initiatives" | "files" | "brief" | "about";
 
-  return {
-    name,
-    email,
-    title: "Co-founder & CEO",
-    linkedin: company.linkedin,
-  };
-}
-
-function InvestorCompanyProfileDrawer({
+export function InvestorCompanyProfileDrawer({
   company,
   onClose,
   onOpenWorkspace,
+  aboutOnly = false,
+  founderOverride,
 }: {
   company: PortfolioCompanyView | null;
   onClose: () => void;
   onOpenWorkspace: (company: InvestorCompanyRef) => void;
+  aboutOnly?: boolean;
+  founderOverride?: { name: string; title?: string; email?: string; linkedin?: string };
 }) {
   const dialogRef = useRef<HTMLElement>(null);
-  const [activeTab, setActiveTab] = useState<"portfolio" | "about">("portfolio");
+  const [activeTab, setActiveTab] = useState<CompanyDrawerTab>("investment");
+  const [accessVersion, setAccessVersion] = useState(0);
   const open = Boolean(company);
   useDialogA11y(open, dialogRef, onClose);
   const handleScrimPointerDown = useScrimPointerClose(onClose, open);
@@ -3314,24 +3518,58 @@ function InvestorCompanyProfileDrawer({
   }, [open]);
 
   useEffect(() => {
-    if (open) setActiveTab("portfolio");
-  }, [company?.id, open]);
+    if (open) setActiveTab(aboutOnly ? "about" : "investment");
+  }, [company?.id, open, aboutOnly]);
+
+  useEffect(() => {
+    const refresh = () => setAccessVersion(version => version + 1);
+    window.addEventListener(ADVISOR_CONNECTION_CHANGE_EVENT, refresh);
+    return () => window.removeEventListener(ADVISOR_CONNECTION_CHANGE_EVENT, refresh);
+  }, []);
 
   if (!company || !open) return null;
 
   const returnLabel = formatUsdCompact(company.estimatedValue);
-  const growthLabel = formatGrowthRate(company.arrGrowthQoQ);
-  const founder = buildFounderProfile(company);
+  const access = accessVersion >= 0 ? sharedAdvisorAccess(company.id) : null;
+  const benchmarkFacts = access?.approvedBenchmarks ? companyBenchmarkFacts(company) : [];
+  const sharedTabs: { id: CompanyDrawerTab; label: string }[] = access
+    ? [
+      { id: "investment", label: "Investment" },
+      access.sharedProfile ? { id: "profile", label: "Profile" } : null,
+      access.approvedBenchmarks ? { id: "benchmarks", label: "Benchmarks" } : null,
+      access.sharedIntelligence ? { id: "intelligence", label: "Intelligence" } : null,
+      access.sharedInitiatives ? { id: "initiatives", label: "Initiatives" } : null,
+      access.sharedDataRoomFiles ? { id: "files", label: "Files" } : null,
+      access.sharedPublishedBrief ? { id: "brief", label: "Brief" } : null,
+    ].filter((tab): tab is { id: CompanyDrawerTab; label: string } => Boolean(tab))
+    : [];
+  const visibleTab = sharedTabs.some(tab => tab.id === activeTab)
+    ? activeTab
+    : (sharedTabs[0]?.id ?? "investment");
+  const founderProfile = access?.sharedProfile
+    ? findFounderCompanyProfile({ name: company.displayName, domain: company.domain })
+    : null;
+  const sharedFounderEmail = access?.sharedProfile ? company.founderEmail : undefined;
+  const founder = founderOverride
+    ? {
+      name: founderOverride.name,
+      email: founderOverride.email ?? "",
+      title: founderOverride.title || "Advisor",
+      linkedin: founderOverride.linkedin ?? "",
+    }
+    : {
+      name: "",
+      email: sharedFounderEmail ?? "",
+      title: "",
+      linkedin: "",
+    };
   const mailSubject = encodeURIComponent(`${company.displayName} — portfolio check-in`);
   const founderPanelId = "investor-company-drawer-founder-panel";
   const portfolioPanelId = "investor-company-drawer-portfolio-panel";
   const aboutPanelId = "investor-company-drawer-about-panel";
 
   const showFounderTab = () => {
-    setActiveTab("about");
-    window.requestAnimationFrame(() => {
-      document.getElementById(founderPanelId)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
+    setActiveTab("profile");
   };
 
   return createPortal(
@@ -3369,118 +3607,217 @@ function InvestorCompanyProfileDrawer({
         </header>
 
         <div className="investor-company-drawer-tags">
-          <span className="investor-company-drawer-tag">{company.stage}</span>
-          <span className="investor-company-drawer-tag">{company.sector}</span>
-          <span className={`investor-company-drawer-tag is-health-${company.health}`}>
-            {healthLabel(company.health)}
-          </span>
+          {company.stage ? <span className="investor-company-drawer-tag">{company.stage}</span> : null}
+          {company.sector ? <span className="investor-company-drawer-tag">{company.sector}</span> : null}
+          {aboutOnly || !access?.approvedBenchmarks ? null : (
+            <span className={`investor-company-drawer-tag is-health-${company.health}`}>
+              {healthLabel(company.health)}
+            </span>
+          )}
           {company.onFuel ? (
             <span className="investor-company-drawer-tag is-fuel">On Fuel</span>
           ) : null}
         </div>
 
-        <div className="investor-company-drawer-tabs" role="tablist" aria-label="Company profile views">
-          <button
-            type="button"
-            role="tab"
-            id="investor-company-drawer-tab-portfolio"
-            className={activeTab === "portfolio" ? "is-active" : undefined}
-            aria-selected={activeTab === "portfolio"}
-            aria-controls={portfolioPanelId}
-            onClick={() => setActiveTab("portfolio")}
-          >
-            Portfolio
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="investor-company-drawer-tab-about"
-            className={activeTab === "about" ? "is-active" : undefined}
-            aria-selected={activeTab === "about"}
-            aria-controls={aboutPanelId}
-            onClick={() => setActiveTab("about")}
-          >
-            About
-          </button>
+        {aboutOnly || sharedTabs.length === 0 ? null : (
+        <div className="investor-company-drawer-tabs" role="tablist" aria-label="Shared company information">
+          {sharedTabs.map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              id={`investor-company-drawer-tab-${tab.id}`}
+              className={visibleTab === tab.id ? "is-active" : undefined}
+              aria-selected={visibleTab === tab.id}
+              aria-controls={portfolioPanelId}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
+        )}
 
         <div className="investor-company-drawer-body">
-          {activeTab === "portfolio" ? (
+          {!aboutOnly && access ? (
             <div
               id={portfolioPanelId}
               role="tabpanel"
-              aria-labelledby="investor-company-drawer-tab-portfolio"
+              aria-labelledby={`investor-company-drawer-tab-${visibleTab}`}
             >
-              <section className="investor-company-drawer-section">
-                <span className="investor-company-drawer-section-label">Investment</span>
-                <div className="investor-company-drawer-metrics">
-                  <article>
-                    <em>Invested</em>
-                    <strong>{company.invested}</strong>
-                  </article>
-                  <article>
-                    <em>Est. value</em>
-                    <strong>{returnLabel}</strong>
-                  </article>
-                  <article>
-                    <em>MOIC</em>
-                    <strong className={`investor-portfolio-moic-badge is-${moicTier(company.moic)}`}>
-                      {formatMoic(company.moic)}
-                    </strong>
-                  </article>
-                  <article>
-                    <em>Ownership</em>
-                    <strong>{company.ownership}</strong>
-                  </article>
-                </div>
-              </section>
-
-              <section className="investor-company-drawer-section">
-                <span className="investor-company-drawer-section-label">Performance</span>
-                <div className="investor-company-drawer-metrics">
-                  <article>
-                    <em>ARR</em>
-                    <strong>
-                      {company.arr}{" "}
-                      <span className={`investor-growth investor-growth--${company.qoqMovement}`}>{growthLabel}</span>
-                    </strong>
-                  </article>
-                  <article>
-                    <em>Runway</em>
-                    <strong className={company.runwayMonths < 6 ? "is-flagged" : undefined}>{company.runway}</strong>
-                  </article>
-                  <article>
-                    <em>NRR</em>
-                    <strong>{company.nrr}%</strong>
-                  </article>
-                  <article>
-                    <em>Invested</em>
-                    <strong>{company.investedAt}</strong>
-                  </article>
-                </div>
-              </section>
-
-              {company.redFlags.length > 0 ? (
+              {visibleTab === "investment" ? (
                 <section className="investor-company-drawer-section">
-                  <span className="investor-company-drawer-section-label">Signals</span>
-                  <ul className="investor-company-drawer-flags">
-                    {company.redFlags.map(flag => (
-                      <li key={flag.kind}>{flag.label}</li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-
-              {company.strugglingAreas.length > 0 ? (
-                <section className="investor-company-drawer-section">
-                  <span className="investor-company-drawer-section-label">Focus areas</span>
-                  <div className="investor-company-drawer-chips">
-                    {company.strugglingAreas.map(area => (
-                      <span key={area} className="investor-company-drawer-chip">{area}</span>
-                    ))}
+                  <span className="investor-company-drawer-section-label">Your position</span>
+                  <div className="investor-company-drawer-metrics">
+                    <article>
+                      <em>Invested</em>
+                      <strong>{company.invested}</strong>
+                    </article>
+                    <article>
+                      <em>Est. value</em>
+                      <strong>{returnLabel}</strong>
+                    </article>
+                    <article>
+                      <em>MOIC</em>
+                      <strong className={`investor-portfolio-moic-badge is-${moicTier(company.moic)}`}>
+                        {formatMoic(company.moic)}
+                      </strong>
+                    </article>
+                    <article>
+                      <em>Ownership</em>
+                      <strong>{company.ownership}</strong>
+                    </article>
+                    <article>
+                      <em>Invested</em>
+                      <strong>{company.investedAt}</strong>
+                    </article>
                   </div>
                 </section>
               ) : null}
+
+              {visibleTab === "profile" ? (
+                <section className="investor-company-drawer-section">
+                  <span className="investor-company-drawer-section-label">Company profile</span>
+                  {founderProfile?.whatTheyDo ? <p>{founderProfile.whatTheyDo}</p> : null}
+                  <div className="investor-company-drawer-facts">
+                    {company.domain ? (
+                      <div>
+                        <em>Website</em>
+                        <strong>{company.domain}</strong>
+                      </div>
+                    ) : null}
+                    {company.linkedin ? (
+                      <div>
+                        <em>LinkedIn</em>
+                        <strong>{company.linkedin.replace(/^https?:\/\//, "")}</strong>
+                      </div>
+                    ) : null}
+                    {company.headquarters ? (
+                      <div>
+                        <em>Headquarters</em>
+                        <strong>{company.headquarters}</strong>
+                      </div>
+                    ) : null}
+                    {company.employees ? (
+                      <div>
+                        <em>Team size</em>
+                        <strong>{company.employees}</strong>
+                      </div>
+                    ) : null}
+                    {company.stage ? (
+                      <div>
+                        <em>Stage</em>
+                        <strong>{company.stage}</strong>
+                      </div>
+                    ) : null}
+                    {(founderProfile?.industry || company.sector) ? (
+                      <div>
+                        <em>Industry</em>
+                        <strong>{founderProfile?.industry || company.sector}</strong>
+                      </div>
+                    ) : null}
+                    {founderProfile?.founded ? (
+                      <div>
+                        <em>Founded</em>
+                        <strong>{founderProfile.founded}</strong>
+                      </div>
+                    ) : null}
+                    {founderProfile?.businessModel ? (
+                      <div>
+                        <em>Organization</em>
+                        <strong>{founderProfile.businessModel}</strong>
+                      </div>
+                    ) : null}
+                    {founderProfile?.funding.map(round => (
+                      <div key={`${round.type}-${round.amount}`}>
+                        <em>{round.type}</em>
+                        <strong>{round.investors ? `${round.amount} · ${round.investors}` : round.amount}</strong>
+                      </div>
+                    ))}
+                    {sharedFounderEmail ? (
+                      <div>
+                        <em>Founder email</em>
+                        <strong>{sharedFounderEmail}</strong>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+              ) : null}
+
+              {visibleTab === "benchmarks" ? (
+                <>
+                  <section className="investor-company-drawer-section">
+                    <span className="investor-company-drawer-section-label">Approved benchmarks</span>
+                    <div className="investor-company-drawer-metrics">
+                      {benchmarkFacts.map(fact => (
+                        <article key={fact.id}>
+                          <em>{fact.label}</em>
+                          <strong className={fact.id === "runway" && company.runwayMonths < 6 ? "is-flagged" : undefined}>
+                            {fact.value}
+                          </strong>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                  {company.redFlags.length > 0 ? (
+                    <section className="investor-company-drawer-section">
+                      <span className="investor-company-drawer-section-label">Signals</span>
+                      <ul className="investor-company-drawer-flags">
+                        {company.redFlags.map(flag => (
+                          <li key={flag.kind}>{flag.label}</li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                  {company.strugglingAreas.length > 0 ? (
+                    <section className="investor-company-drawer-section">
+                      <span className="investor-company-drawer-section-label">Focus areas</span>
+                      <div className="investor-company-drawer-chips">
+                        {company.strugglingAreas.map(area => (
+                          <span key={area} className="investor-company-drawer-chip">{area}</span>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                </>
+              ) : null}
+
+              {visibleTab === "intelligence" ? (
+                <section className="investor-company-drawer-section">
+                  <span className="investor-company-drawer-section-label">Intelligence</span>
+                  <p>No shared intelligence on file yet.</p>
+                </section>
+              ) : null}
+
+              {visibleTab === "initiatives" ? (
+                <section className="investor-company-drawer-section">
+                  <span className="investor-company-drawer-section-label">Initiatives</span>
+                  <p>No shared initiatives on file yet.</p>
+                </section>
+              ) : null}
+
+              {visibleTab === "files" ? (
+                <section className="investor-company-drawer-section">
+                  <span className="investor-company-drawer-section-label">Data room</span>
+                  <p>No selected files on file yet.</p>
+                </section>
+              ) : null}
+
+              {visibleTab === "brief" ? (
+                <section className="investor-company-drawer-section">
+                  <span className="investor-company-drawer-section-label">Published brief</span>
+                  <p>No published brief on file yet.</p>
+                </section>
+              ) : null}
+            </div>
+          ) : !aboutOnly ? (
+            <div id={portfolioPanelId} role="tabpanel">
+              <section className="investor-company-drawer-section">
+                <span className="investor-company-drawer-section-label">Waiting for acceptance</span>
+                <p>
+                  {company.displayName} has not accepted this connection. Investment figures, benchmarks, and the rest of the company data stay hidden until they accept and choose what to share.
+                </p>
+              </section>
             </div>
           ) : (
             <div
@@ -3503,14 +3840,18 @@ function InvestorCompanyProfileDrawer({
                     <em>Team size</em>
                     <strong>{company.employees}</strong>
                   </div>
-                  <div>
-                    <em>Last update</em>
-                    <strong>{company.lastUpdate}</strong>
-                  </div>
-                  <div>
-                    <em>Benchmark</em>
-                    <strong>{company.daysSinceBenchmark}d ago</strong>
-                  </div>
+                  {aboutOnly ? null : (
+                    <div>
+                      <em>Last update</em>
+                      <strong>{company.lastUpdate}</strong>
+                    </div>
+                  )}
+                  {aboutOnly ? null : (
+                    <div>
+                      <em>Benchmark</em>
+                      <strong>{company.daysSinceBenchmark}d ago</strong>
+                    </div>
+                  )}
                   <div>
                     <em>On Fuel</em>
                     <strong>{company.onFuel ? "Yes" : "No"}</strong>
@@ -3518,6 +3859,7 @@ function InvestorCompanyProfileDrawer({
                 </div>
               </section>
 
+              {founder.name || founder.email ? (
               <section
                 id={founderPanelId}
                 className="investor-company-drawer-section investor-company-drawer-founder"
@@ -3526,21 +3868,25 @@ function InvestorCompanyProfileDrawer({
                 <article className="investor-company-drawer-founder-card">
                   <div className="investor-company-drawer-founder-main">
                     <span className="investor-company-drawer-founder-avatar" aria-hidden="true">
-                      {founder.name.slice(0, 1)}
+                      {(founder.name || founder.email).slice(0, 1)}
                     </span>
                     <div className="investor-company-drawer-founder-copy">
-                      <strong>{founder.name}</strong>
-                      <p>{founder.title}</p>
-                      <a href={`mailto:${founder.email}?subject=${mailSubject}`}>
-                        {founder.email}
-                      </a>
+                      <strong>{founder.name || founder.email}</strong>
+                      {founder.title ? <p>{founder.title}</p> : null}
+                      {founder.email && founder.name ? (
+                        <a href={`mailto:${founder.email}?subject=${mailSubject}`}>
+                          {founder.email}
+                        </a>
+                      ) : null}
                     </div>
-                    <a
-                      className="investor-company-drawer-founder-cta"
-                      href={`mailto:${founder.email}?subject=${mailSubject}`}
-                    >
-                      Email founder
-                    </a>
+                    {founder.email ? (
+                      <a
+                        className="investor-company-drawer-founder-cta"
+                        href={`mailto:${founder.email}?subject=${mailSubject}`}
+                      >
+                        Email founder
+                      </a>
+                    ) : null}
                   </div>
                   {founder.linkedin ? (
                     <a
@@ -3554,6 +3900,7 @@ function InvestorCompanyProfileDrawer({
                   ) : null}
                 </article>
               </section>
+              ) : null}
             </div>
           )}
         </div>
@@ -3566,13 +3913,15 @@ function InvestorCompanyProfileDrawer({
           >
             View full company profile
           </button>
-          <button
-            type="button"
-            className="investor-suggested-ghost"
-            onClick={showFounderTab}
-          >
-            Contact founder
-          </button>
+          {founder.email ? (
+            <button
+              type="button"
+              className="investor-suggested-ghost"
+              onClick={showFounderTab}
+            >
+              Contact founder
+            </button>
+          ) : null}
         </footer>
       </aside>
     </div>,
@@ -3583,12 +3932,14 @@ function InvestorCompanyProfileDrawer({
 function PortfolioCompaniesTable({
   companies,
   onOpenCompanyProfile,
+  onManageConnection,
   embedded = false,
   compact = false,
   emptyLabel,
 }: {
   companies: PortfolioCompanyView[];
   onOpenCompanyProfile: (company: PortfolioCompanyView) => void;
+  onManageConnection?: (company: PortfolioCompanyView) => void;
   embedded?: boolean;
   compact?: boolean;
   emptyLabel?: string;
@@ -3604,15 +3955,22 @@ function PortfolioCompaniesTable({
       className={`investor-portfolio-table-shell${embedded ? " investor-portfolio-table-shell--embedded" : ""}`}
     >
       <div
-        className={`investor-portfolio-table${embedded ? " investor-portfolio-table--embedded" : ""}${compact ? " investor-portfolio-table--compact" : ""}`}
+        className={`investor-portfolio-table${embedded ? " investor-portfolio-table--embedded" : ""}${compact ? " investor-portfolio-table--compact" : ""}${onManageConnection ? " investor-portfolio-table--connections" : ""}`}
         role="table"
         aria-label="Portfolio companies ranked by MOIC"
       >
         <div className="investor-portfolio-table-head" role="row">
-          {!compact ? <span role="columnheader" className="investor-portfolio-col-rank">#</span> : null}
+          {!compact && !onManageConnection ? <span role="columnheader" className="investor-portfolio-col-rank">#</span> : null}
           <span role="columnheader">Company</span>
           <span role="columnheader">Stage</span>
-          {compact ? (
+          {onManageConnection ? (
+            <>
+              <span role="columnheader">Invested</span>
+              <span role="columnheader">ARR</span>
+              <span role="columnheader">Runway</span>
+              <span role="columnheader">Action</span>
+            </>
+          ) : compact ? (
             <>
               <span role="columnheader">MOIC</span>
               <span role="columnheader">ARR</span>
@@ -3638,6 +3996,7 @@ function PortfolioCompaniesTable({
               rank={index + 1}
               compact={compact}
               onOpenProfile={() => onOpenCompanyProfile(company)}
+              onManageConnection={onManageConnection ? () => onManageConnection(company) : undefined}
             />
           ))}
         </div>
@@ -4709,20 +5068,187 @@ function DealPipelineSection({
   );
 }
 
+function ConnectionActionButton({
+  label,
+  quiet,
+  onClick,
+  children,
+}: {
+  label: string;
+  quiet?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const [tip, setTip] = useState<{ top: number; left: number; below: boolean } | null>(null);
+
+  const showTip = (target: HTMLButtonElement) => {
+    const rect = target.getBoundingClientRect();
+    const below = rect.top < 40;
+    const center = rect.left + rect.width / 2;
+    const margin = 80;
+    setTip({
+      top: below ? rect.bottom + 4 : rect.top - 4,
+      left: Math.min(window.innerWidth - margin, Math.max(margin, center)),
+      below,
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`advisor-portfolio-row-action${quiet ? " is-quiet" : ""}`}
+        aria-label={label}
+        onMouseEnter={event => showTip(event.currentTarget)}
+        onFocus={event => showTip(event.currentTarget)}
+        onMouseLeave={() => setTip(null)}
+        onBlur={() => setTip(null)}
+        onClick={onClick}
+      >
+        {children}
+      </button>
+      {tip ? createPortal(
+        <span
+          className={`advisor-portfolio-action-tip${tip.below ? " is-below" : ""}`}
+          style={{ top: tip.top, left: tip.left }}
+          role="tooltip"
+        >
+          {label}
+        </span>,
+        document.body,
+      ) : null}
+    </>
+  );
+}
+
+function ConnectionActionIcon({ kind }: { kind: "minus" | "pending" | "mail" | "send" | "invite" }) {
+  if (kind === "minus") {
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M5 10h10" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" />
+      </svg>
+    );
+  }
+  if (kind === "pending") {
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M10 6.5V10l2.2 1.6" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+  if (kind === "mail" || kind === "invite") {
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <rect x="3.5" y="5" width="13" height="10" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M4 6.2 10 11l6-4.8" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+        {kind === "invite" ? (
+          <path d="M14.2 3.2v3.2M12.6 4.8h3.2" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+        ) : null}
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M3.6 10.2 16.4 4.4l-4.6 11.4-2.2-4.4-6-1.2Z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
+      <path d="M9.6 11.4 16.4 4.4" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function PortfolioCompanyRow({
   company,
   rank,
   onOpenProfile,
+  onManageConnection,
   compact = false,
 }: {
   company: PortfolioCompanyView;
   rank: number;
   onOpenProfile: () => void;
+  onManageConnection?: () => void;
   compact?: boolean;
 }) {
   const growthLabel = formatGrowthRate(company.arrGrowthQoQ);
   const returnLabel = formatUsdCompact(company.estimatedValue);
   const moicClass = moicTier(company.moic);
+  const connection = getAdvisorConnection(company.id);
+  const connectionStatus = connection?.status ?? "not_connected";
+  const benchmarksShared = sharedAdvisorAccess(company.id)?.approvedBenchmarks === true;
+  const connectionAction = connectionStatus === "connected"
+    ? { label: "Active connection", icon: "minus" as const }
+    : connectionStatus === "request_pending"
+      ? { label: "View request", icon: "pending" as const }
+      : connectionStatus === "invite_sent"
+        ? { label: "View invite", icon: "mail" as const }
+        : company.onFuel
+          ? { label: "Send request", icon: "send" as const }
+          : { label: "Invite", icon: "invite" as const };
+
+  const companyCell = (
+    <span className="investor-portfolio-cell investor-portfolio-cell-company" role="cell">
+      <button
+        type="button"
+        className="investor-portfolio-company-btn"
+        onClick={onOpenProfile}
+        aria-label={`Open profile for ${company.displayName}`}
+      >
+        <PortfolioCompanyLogo company={company} size="sm" />
+        <span className="investor-rank-identity">
+          <span className="investor-rank-name-row">
+            <strong>{company.displayName}</strong>
+            {company.urgentFlag ? (
+              <span className="investor-urgent-dot" title={company.urgentFlag.label} aria-label={company.urgentFlag.label} />
+            ) : null}
+          </span>
+          <em>{onManageConnection ? company.sector : `${company.ownership} ownership · ${company.sector}`}</em>
+        </span>
+      </button>
+    </span>
+  );
+
+  if (onManageConnection) {
+    return (
+      <div
+        className={`investor-portfolio-table-row${company.urgentFlag ? " is-flagged" : ""}`}
+        role="row"
+      >
+        {companyCell}
+        <span className="investor-portfolio-cell" role="cell">
+          <span className="investor-portfolio-stage-pill">{company.stage}</span>
+        </span>
+        <span className="investor-portfolio-cell" role="cell">
+          <strong>{company.invested}</strong>
+        </span>
+        <span className="investor-portfolio-cell" role="cell">
+          {benchmarksShared ? (
+            <strong>
+              {company.arr}{" "}
+              <span className={`investor-growth investor-growth--${company.qoqMovement}`}>{growthLabel}</span>
+            </strong>
+          ) : (
+            <span className="advisor-benchmark-withheld">Not shared</span>
+          )}
+        </span>
+        <span className="investor-portfolio-cell" role="cell">
+          {benchmarksShared ? (
+            <strong className={company.runwayMonths < 6 ? "is-flagged" : undefined}>{company.runway}</strong>
+          ) : (
+            <span className="advisor-benchmark-withheld">Not shared</span>
+          )}
+        </span>
+        <span className="investor-portfolio-cell" role="cell">
+          <ConnectionActionButton
+            label={connectionAction.label}
+            quiet={connectionAction.icon === "minus"}
+            onClick={onManageConnection}
+          >
+            <ConnectionActionIcon kind={connectionAction.icon} />
+          </ConnectionActionButton>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -4734,31 +5260,10 @@ function PortfolioCompanyRow({
           <span className="investor-portfolio-rank">{rank}</span>
         </span>
       ) : null}
-
-      <span className="investor-portfolio-cell investor-portfolio-cell-company" role="cell">
-        <button
-          type="button"
-          className="investor-portfolio-company-btn"
-          onClick={onOpenProfile}
-          aria-label={`Open profile for ${company.displayName}`}
-        >
-          <PortfolioCompanyLogo company={company} size="sm" />
-          <span className="investor-rank-identity">
-            <span className="investor-rank-name-row">
-              <strong>{company.displayName}</strong>
-              {company.urgentFlag ? (
-                <span className="investor-urgent-dot" title={company.urgentFlag.label} aria-label={company.urgentFlag.label} />
-              ) : null}
-            </span>
-            <em>{company.ownership} ownership · {company.sector}</em>
-          </span>
-        </button>
-      </span>
-
+      {companyCell}
       <span className="investor-portfolio-cell" role="cell">
         <span className="investor-portfolio-stage-pill">{company.stage}</span>
       </span>
-
       {compact ? (
         <>
           <span className="investor-portfolio-cell" role="cell">

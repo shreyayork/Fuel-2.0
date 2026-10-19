@@ -228,6 +228,7 @@ export function UnifiedBenchmarkDrawer({
             values={toOverviewBenchmark(values)}
             onChange={(key, value) => setValues(previous => patchOverviewBenchmark(previous, key, value))}
             inputClassName="bench-field-input"
+            showCohortSelect
           />
           <p className="bench-drawer-foot">Numbers stay in your workspace and are never shared externally.</p>
         </div>

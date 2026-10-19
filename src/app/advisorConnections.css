@@ -1,0 +1,305 @@
+.advisor-connection-scrim {
+  align-items: center;
+  background: rgba(3, 10, 15, 0.78);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1200;
+}
+
+.advisor-connection-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: min(780px, calc(100vh - 32px));
+  max-width: 560px;
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+}
+
+.advisor-connection-dialog.overview-panel {
+  padding: 0;
+}
+
+.advisor-connection-dialog.overview-panel p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.advisor-connection-dialog-head {
+  align-items: flex-start;
+  border-bottom: 1px solid rgb(38, 57, 71);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 22px 24px;
+}
+
+.advisor-connection-dialog-head > div > span {
+  color: var(--fuel-text-muted, #8fa99a);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.advisor-connection-dialog-head h2 {
+  color: var(--fuel-text, #f2f5f2);
+  font-size: 20px;
+  line-height: 1.25;
+  margin: 6px 0;
+}
+
+.advisor-connection-dialog-head p,
+.advisor-connection-dialog-body p,
+.advisor-connection-dialog-body li {
+  color: rgb(203, 211, 219);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.advisor-connection-dialog-head p {
+  margin: 0;
+}
+
+.advisor-connection-dialog-head > button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 7px;
+  color: rgb(203, 211, 219);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 14px;
+  height: 32px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+}
+
+.advisor-connection-dialog-head > button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fuel-text, #f2f5f2);
+}
+
+.advisor-connection-dialog-body {
+  display: grid;
+  flex: 1;
+  gap: 14px;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 24px;
+}
+
+.advisor-connection-permissions {
+  border: 1px solid rgb(38, 57, 71);
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.advisor-connection-permissions-head {
+  align-items: center;
+  background: rgba(10, 20, 28, 0.35);
+  border-bottom: 1px solid rgb(38, 57, 71);
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  padding: 11px 13px;
+}
+
+.advisor-connection-permissions-head strong {
+  color: var(--fuel-text, #f2f5f2);
+  font-size: 12px;
+}
+
+.advisor-connection-permissions-head span {
+  color: var(--fuel-text-muted, #8fa99a);
+  font-size: 10.5px;
+}
+
+.advisor-connection-permission {
+  align-items: center;
+  border-bottom: 1px solid rgb(38, 57, 71);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 10px 14px;
+}
+
+.advisor-connection-permission:nth-of-type(odd) {
+  border-right: 1px solid rgb(38, 57, 71);
+}
+
+.advisor-connection-permission:nth-last-of-type(-n + 2) {
+  border-bottom: 0;
+}
+
+.advisor-connection-permission:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.advisor-connection-permission.is-readonly {
+  cursor: default;
+}
+
+.advisor-connection-permission.is-readonly:hover {
+  background: transparent;
+}
+
+.advisor-connection-permission.is-readonly input {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.advisor-connection-permission input {
+  accent-color: var(--fuel-accent, #00b48a);
+  flex: 0 0 15px;
+  height: 15px;
+  margin: 0;
+  width: 15px;
+}
+
+.advisor-connection-permission span {
+  align-items: center;
+  display: flex;
+  min-height: 15px;
+  min-width: 0;
+}
+
+.advisor-connection-permission strong {
+  color: var(--fuel-text, #f2f5f2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.advisor-connection-permission-details {
+  color: var(--fuel-text-muted, #8fa99a);
+  font-size: 11px;
+}
+
+.advisor-connection-permission-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.advisor-connection-permission-details ul {
+  display: grid;
+  gap: 6px;
+  margin: 9px 0 0;
+  padding-left: 18px;
+}
+
+.advisor-connection-permission-details li {
+  font-size: 11px;
+}
+
+.advisor-connection-permission-details li strong {
+  color: var(--fuel-text, #f2f5f2);
+}
+
+.advisor-connection-private {
+  margin: 0;
+}
+
+.advisor-connection-private {
+  border-left: 2px solid rgb(38, 57, 71);
+  padding-left: 12px;
+}
+
+.advisor-connection-private strong {
+  color: var(--fuel-text, #f2f5f2);
+}
+
+.advisor-connection-dialog-actions {
+  background: rgb(23, 38, 50);
+  border-top: 1px solid rgb(38, 57, 71);
+  display: flex;
+  flex-shrink: 0;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+}
+
+.advisor-connection-dialog-actions button {
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 9px 14px;
+}
+
+.advisor-connection-dialog-actions .secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgb(38, 57, 71);
+  color: rgb(203, 211, 219);
+}
+
+.advisor-connection-dialog-actions .primary {
+  background: var(--fuel-accent, #00b48a);
+  border: 1px solid var(--fuel-accent, #00b48a);
+  color: #07131c;
+}
+
+.advisor-connection-dialog-actions .primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.company-advisor-permission-readonly {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.company-advisor-permission-readonly li {
+  align-items: center;
+  border-bottom: 1px solid rgb(38, 57, 71);
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.company-advisor-permission-readonly li:last-child {
+  border-bottom: 0;
+}
+
+.company-advisor-permission-readonly strong {
+  color: var(--fuel-text, #f2f5f2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.company-advisor-permission-readonly span {
+  color: var(--fuel-text-muted, #8fa99a);
+  font-size: 11px;
+}
+
+.company-advisor-permission-readonly li.is-on span {
+  color: #00b48a;
+}
+
+@media (max-width: 560px) {
+  .advisor-connection-permissions {
+    grid-template-columns: 1fr;
+  }
+
+  .advisor-connection-permission:nth-of-type(odd) {
+    border-right: 0;
+  }
+
+  .advisor-connection-permission:nth-last-of-type(2) {
+    border-bottom: 1px solid rgb(38, 57, 71);
+  }
+}

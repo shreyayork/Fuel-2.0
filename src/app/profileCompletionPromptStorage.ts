@@ -10,6 +10,8 @@ import {
 } from "./trackQuestions";
 
 const STORAGE_PREFIX = "fuel-profile-completion-prompt-dismissed:v2:";
+/** After “Continue without completing”, show again only after this interval (or later). */
+export const PROFILE_COMPLETION_PROMPT_SNOOZE_MS = 15 * 24 * 60 * 60 * 1000;
 const PROFILE_PHASE_MODULES: ProfileModuleId[] = ["company", "dev", "gtm", "rev"];
 
 const PROFILE_PROMPT_BLOCKED_PAGES = new Set([
@@ -92,17 +94,30 @@ export function isWorkspaceProfilePhaseIncomplete(
   return PROFILE_PHASE_MODULES.some(moduleId => !isModuleFullyComplete(moduleId, answers));
 }
 
-export function isProfileCompletionPromptDismissed(companyKey = "default"): boolean {
+function readProfileCompletionPromptSnoozedUntil(companyKey: string): number | null {
   try {
-    return window.localStorage.getItem(storageKey(companyKey)) === "1";
+    const raw = window.localStorage.getItem(storageKey(companyKey));
+    if (!raw) return null;
+    if (raw === "1") return null;
+    const until = Number(raw);
+    return Number.isFinite(until) ? until : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** True while the profile completion modal is snoozed (user chose setup later). */
+export function isProfileCompletionPromptDismissed(companyKey = "default"): boolean {
+  const until = readProfileCompletionPromptSnoozedUntil(companyKey);
+  return until !== null && Date.now() < until;
 }
 
 export function markProfileCompletionPromptDismissed(companyKey = "default") {
   try {
-    window.localStorage.setItem(storageKey(companyKey), "1");
+    window.localStorage.setItem(
+      storageKey(companyKey),
+      String(Date.now() + PROFILE_COMPLETION_PROMPT_SNOOZE_MS),
+    );
   } catch {
     /* ignore quota errors in preview */
   }

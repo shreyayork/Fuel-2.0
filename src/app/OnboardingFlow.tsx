@@ -14,12 +14,23 @@ import {
   type BenchmarkWizardField,
 } from "./FuelOnboardingChat.tsx";
 import {
+  applyCohortPeersToField,
+  BENCHMARK_COHORT_OPTIONS,
+  loadBenchmarkCohortId,
+  saveBenchmarkCohortId,
+  type BenchmarkCohortId,
+} from "./benchmarkCohortData.ts";
+import {
   ONBOARDING_TRACK_FIELDS,
   emptyOnboardingTrackAnswers,
   mapOnboardingToDetailAnswers as mapTrackOnboardingToDetailAnswers,
   serializeProfileFundingRounds,
   type OnboardingTrackAnswers,
 } from "./trackQuestions.ts";
+import {
+  getAdvisorConnectionByInviteToken,
+  readAdvisorInviteTokenFromUrl,
+} from "./advisorConnectionStorage.ts";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -179,7 +190,7 @@ interface CompanyRecord {
   stateRegion: string;
   country: string;
   linkedin: string;
-  funding: { type: string; amount: string }[];
+  funding: { type: string; amount: string; investors?: string }[];
 }
 
 const COMPANY_CATALOG: CompanyRecord[] = [
@@ -189,7 +200,7 @@ const COMPANY_CATALOG: CompanyRecord[] = [
     businessModel: "Product company", industry: "FinTech · Payments Infrastructure",
     founded: "2021", city: "Boston", stateRegion: "MA", country: "United States",
     linkedin: "https://linkedin.com/company/patriotpay",
-    funding: [{ type: "Seed", amount: "$4.2M" }],
+    funding: [{ type: "Seed", amount: "$4.2M", investors: "York IE" }],
   },
   {
     id: "ramp", name: "Ramp", domain: "ramp.com",
@@ -232,6 +243,14 @@ const COMPANY_CATALOG: CompanyRecord[] = [
     funding: [{ type: "Seed", amount: "$6.5M" }],
   },
   {
+    id: "sync-sports", name: "Sync Sports", domain: "syncsports.io",
+    whatTheyDo: "Sync Sports builds fan engagement and commerce software for sports organizations.",
+    businessModel: "Product company", industry: "Sports Tech · Fan Engagement",
+    founded: "2020", city: "Austin", stateRegion: "TX", country: "United States",
+    linkedin: "https://linkedin.com/company/sync-sports",
+    funding: [{ type: "Seed", amount: "$3.8M", investors: "York IE" }],
+  },
+  {
     id: "york-growth", name: "York IE", domain: "yorkiegrowth.io",
     whatTheyDo: "York IE is an operating and investment firm partnering with early-stage B2B software companies.",
     businessModel: "Investment firm", industry: "Venture · Value Creation",
@@ -248,6 +267,43 @@ const COMPANY_CATALOG: CompanyRecord[] = [
     funding: [{ type: "Series I", amount: "$6.5B" }],
   },
 ];
+
+export type FounderCompanyProfile = {
+  name: string;
+  domain: string;
+  whatTheyDo: string;
+  businessModel: string;
+  industry: string;
+  founded: string;
+  city: string;
+  stateRegion: string;
+  country: string;
+  linkedin: string;
+  funding: { type: string; amount: string; investors?: string }[];
+};
+
+export function findFounderCompanyProfile(query: { name?: string; domain?: string }): FounderCompanyProfile | null {
+  const domain = query.domain?.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").toLowerCase();
+  const name = query.name?.trim().toLowerCase();
+  const match = COMPANY_CATALOG.find(company => (
+    (domain && company.domain.toLowerCase() === domain)
+    || (name && company.name.toLowerCase() === name)
+  ));
+  if (!match) return null;
+  return {
+    name: match.name,
+    domain: match.domain,
+    whatTheyDo: match.whatTheyDo,
+    businessModel: match.businessModel,
+    industry: match.industry,
+    founded: match.founded,
+    city: match.city,
+    stateRegion: match.stateRegion,
+    country: match.country,
+    linkedin: match.linkedin,
+    funding: match.funding,
+  };
+}
 
 function findCompanyByQuery(query: string): CompanyRecord | null {
   const q = query.trim().toLowerCase();
@@ -1170,23 +1226,84 @@ function OnboardingBenchmarkBar({
   );
 }
 
+export function BenchmarkCohortSelect({
+  value,
+  onChange,
+  id = "benchmark-cohort",
+  className = "signals-cohort-field",
+}: {
+  value: BenchmarkCohortId;
+  onChange: (value: BenchmarkCohortId) => void;
+  id?: string;
+  className?: string;
+}) {
+  return (
+    <label className={className} htmlFor={id}>
+      <span className="visually-hidden">Peer cohort</span>
+      <select
+        id={id}
+        value={value}
+        onChange={event => {
+          const next = event.target.value;
+          if (BENCHMARK_COHORT_OPTIONS.some(o => o.value === next)) {
+            onChange(next as BenchmarkCohortId);
+          }
+        }}
+        aria-label="Peer cohort"
+      >
+        {BENCHMARK_COHORT_OPTIONS.map(option => (
+          <option key={option.value} value={option.value}>
+            {option.label} · n={option.n}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function OnboardingBenchmarkFieldList({
   values,
   onChange,
   inputClassName = "of-input",
+  cohortId: cohortIdProp,
+  showCohortSelect = false,
+  onCohortChange,
 }: {
   values: Partial<Record<keyof OnboardingBenchmarkInput, string>>;
   onChange: (key: keyof OnboardingBenchmarkInput, value: string) => void;
   inputClassName?: string;
+  cohortId?: BenchmarkCohortId;
+  showCohortSelect?: boolean;
+  onCohortChange?: (id: BenchmarkCohortId) => void;
 }) {
+  const [internalCohortId, setInternalCohortId] = useState<BenchmarkCohortId>(() => loadBenchmarkCohortId());
+  const cohortId = cohortIdProp ?? internalCohortId;
+  const setCohortId = (id: BenchmarkCohortId) => {
+    saveBenchmarkCohortId(id);
+    setInternalCohortId(id);
+    onCohortChange?.(id);
+  };
+
   return (
     <>
+      {showCohortSelect ? (
+        <div className="bench-cohort-select-row" style={{ marginBottom: 16 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "0.4px" }}>
+            Peer cohort
+          </span>
+          <BenchmarkCohortSelect value={cohortId} onChange={setCohortId} id="benchmark-form-cohort" />
+        </div>
+      ) : null}
       {ONBOARDING_BENCHMARK_FIELDS.map(m => {
+        const template = BENCHMARK_WIZARD_FIELDS.find(f => f.key === m.key);
+        if (!template) return null;
+        const field = applyCohortPeersToField(template, cohortId);
+        if (!field) return null;
         const raw = values[m.key] ?? "";
         const val = parseVal(raw);
         const hasVal = val !== null;
-        const dotPct = hasVal ? valueToMarkerPercent(val!, m) : null;
-        const tierStyle = hasVal ? getBenchmarkTierStyle(getBenchmarkTier(val!, m)) : null;
+        const dotPct = hasVal ? valueToMarkerPercent(val!, field) : null;
+        const tierStyle = hasVal ? getBenchmarkTierStyle(getBenchmarkTier(val!, field)) : null;
         const dc = tierStyle?.marker ?? "#3A4F5E";
         return (
           <div key={m.key} style={{ marginBottom: 14 }}>
@@ -1201,19 +1318,19 @@ export function OnboardingBenchmarkFieldList({
               style={{ ...inp, padding: "8px 12px", fontSize: 13, marginBottom: 7, borderColor: hasVal ? `${dc}55` : undefined, transition: "border-color 0.3s" }}
             />
             <OnboardingBenchmarkBar
-              field={m}
+              field={field}
               dotPct={dotPct}
               dotColorValue={dc}
               glow={tierStyle ? `0 0 10px ${tierStyle.glow}` : "none"}
             />
             <div className="ob-bench-bar-labels ob-bench-bar-labels--equal">
               {([
-                { l: "P25", v: m.p25 },
-                { l: "P50", v: m.p50 },
-                { l: "P75", v: m.p75 },
-                { l: "P90", v: m.p90 },
+                { l: "P25", v: field.p25 },
+                { l: "P50", v: field.p50 },
+                { l: "P75", v: field.p75 },
+                { l: "P90", v: field.p90 },
               ] as const).map(p => (
-                <span key={p.l}>{p.l} {formatBenchmarkDisplay(p.v, m.unit)}</span>
+                <span key={p.l}>{p.l} {formatBenchmarkDisplay(p.v, field.unit)}</span>
               ))}
             </div>
           </div>
@@ -1298,8 +1415,12 @@ export function isInvestorPersona(answers: OnboardingFlowAnswers | null | undefi
 
 export default function OnboardingFlow({ onComplete }: { onComplete: (answers: Answers) => void }) {
   const [stepIndex, setStepIndex] = useState(0);
+  const inviteConnection = useMemo(() => {
+    const token = readAdvisorInviteTokenFromUrl();
+    return token ? getAdvisorConnectionByInviteToken(token) : null;
+  }, []);
 
-  const [companyQuery, setCompanyQuery] = useState("Patriot Pay");
+  const [companyQuery, setCompanyQuery] = useState(() => inviteConnection?.companyName ?? "Patriot Pay");
   const [searchState, setSearchState] = useState<"idle" | "searching" | "review">("idle");
   const [profileForm, setProfileForm] = useState<ProfileForm>({
     company:"", whatTheyDo:"", businessModel:"",
@@ -1404,7 +1525,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
         approxHeadcount: "",
       }));
       setFundingRounds(record.funding.map(f => ({
-        id: rid(), type: f.type, amount: f.amount, date: "", investors: "",
+        id: rid(), type: f.type, amount: f.amount, date: "", investors: f.investors ?? "",
       })));
       setSearchState("review");
       // ProfileMotion paces its payoff cards and progress bar against this window.
@@ -1868,6 +1989,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                       <OnboardingBenchmarkFieldList
                         values={answers}
                         onChange={(key, value) => setAns(key as keyof Answers, value)}
+                        showCohortSelect
                       />
                       <div style={{ marginTop:8, fontSize:11, color:"#3A4F5E" }}>Numbers stay in your workspace and are never shared externally.</div>
                     </div>

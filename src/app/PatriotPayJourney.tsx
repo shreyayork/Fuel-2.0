@@ -5,6 +5,11 @@ import "./PatriotPayJourney.css";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
 import { FuelHelpFaqPage } from "./FuelHelpFaq.tsx";
 import { FuelIcon } from "./icons.tsx";
+import { NotificationCenter } from "./NotificationCenter.tsx";
+import type { NotificationAction, WorkspaceNotification } from "./notificationStorage.ts";
+import { AdvisorsPage } from "./AdvisorsPage.tsx";
+import { ADVISOR_DIRECTORY_CHANGE_EVENT, countCompanyAdvisors } from "./advisorDirectoryStorage.ts";
+import { sharedAdvisorAccess } from "./advisorConnectionStorage.ts";
 import "./credits/credits.css";
 import {
   CreditProvider,
@@ -40,12 +45,45 @@ import { PLAYBOOKS, PLAYBOOK_COUNT, type Brief, type Playbook } from "./fuelBrie
 import {
   briefToResearchBody,
   createResearchArtifact,
-  ensureDemoResearchSeed,
   formatResearchDisplayDate,
   loadResearchArtifacts,
   saveResearchArtifacts,
   type ResearchArtifact,
 } from "./researchStore";
+import {
+  formatInitiativeFromCardLine,
+  formatInitiativeSourceRow,
+  formatInitiativeSourceViewLabel,
+  groupInitiativeSources,
+  initiativeSourceGroupCountCaption,
+  initiativeSourceViewTarget,
+  mapIntelligenceSourcesToInitiativeRefs,
+  type InitiativeSourceGroup,
+  type InitiativeSourceKind,
+  type InitiativeSourceRef,
+  type InitiativeSourceViewTarget,
+} from "./initiativeReviewSources";
+import {
+  BENCHMARK_WIZARD_FIELDS,
+  BenchmarkCohortTrack,
+  BenchmarkPercentileScale,
+  formatBenchmarkDisplay,
+  getBenchmarkTier,
+  getBenchmarkTierStyle,
+  valueToMarkerPercent,
+} from "./FuelOnboardingChat.tsx";
+import { BenchmarkCohortSelect, findFounderCompanyProfile } from "./OnboardingFlow.tsx";
+import {
+  applyCohortPeersToField,
+  BENCHMARK_COHORT_OPTIONS,
+  getCohortMetricPeer,
+  getCohortMetricKeys,
+  isBenchmarkCohortId,
+  loadBenchmarkCohortId,
+  saveBenchmarkCohortId,
+  type BenchmarkCohortId,
+  type BenchmarkMetricKey,
+} from "./benchmarkCohortData.ts";
 import { AccountSettings } from "./account/AccountSettings.tsx";
 import { FuelLegalPage } from "./legal/FuelLegalPage.tsx";
 import { LegalNavProvider } from "./legal/LegalNavContext.tsx";
@@ -66,6 +104,7 @@ import { YorkPartnerNudge } from "./YorkPartnerNudge";
 import InvestorDashboard, { type InvestorDashboardSection } from "./investor/InvestorDashboard.tsx";
 import {
   INVESTOR_PORTFOLIO,
+  SEED_FUND_EXTENDED_PORTFOLIO,
   SUGGESTED_FOUNDERS,
   investorCompanyToSelected,
 } from "./investor/investorData.ts";
@@ -2982,8 +3021,51 @@ function getActiveDocumentSlots(slots: DataRoomDocumentSlot[]) {
   return slots.filter(slot => slot.current);
 }
 
+/** Same types as Upload document menu: predefined, Custom document, then each custom type on file. */
+function dataRoomUploadTypeFilterOptions(documentSlots: DataRoomDocumentSlot[]) {
+  const predefined = DATA_ROOM_DOCUMENT_TYPES
+    .filter(type => type.id !== "custom")
+    .map(type => ({ id: type.id, label: type.label }));
+  const customEntry = DATA_ROOM_DOCUMENT_TYPES.find(type => type.id === "custom");
+  const customOnFile = documentSlots
+    .filter(slot => slot.typeId.startsWith("custom:") && slot.current)
+    .map(slot => ({ id: slot.typeId, label: slot.typeLabel }));
+  const seen = new Set<string>();
+  const merged: { id: string; label: string }[] = [];
+  for (const option of predefined) {
+    if (seen.has(option.id)) continue;
+    seen.add(option.id);
+    merged.push(option);
+  }
+  if (customEntry) {
+    merged.push({ id: customEntry.id, label: customEntry.label });
+    seen.add(customEntry.id);
+  }
+  for (const option of customOnFile) {
+    if (seen.has(option.id)) continue;
+    seen.add(option.id);
+    merged.push(option);
+  }
+  return merged;
+}
+
+function dataRoomSlotMatchesTypeFilter(slot: DataRoomDocumentSlot, typeFilter: string) {
+  if (typeFilter === "all") return true;
+  if (typeFilter === "custom") return slot.typeId.startsWith("custom:");
+  return slot.typeId === typeFilter;
+}
+
 function countActiveDocuments(slots: DataRoomDocumentSlot[]) {
   return getActiveDocumentSlots(slots).length;
+}
+
+/** Intelligence tab — one per signal (subtype), not historical revisions. */
+function countLatestIntelligenceSignals(items: IntelligenceItem[]) {
+  const keys = new Set<string>();
+  for (const item of items) {
+    keys.add(`${item.type}::${item.subtype || item.text || item.id}`);
+  }
+  return keys.size;
 }
 
 function upsertDocumentSlot(
@@ -3545,35 +3627,31 @@ function saveStoredBenchmarkSubmission(submission: BenchmarkSubmission) {
   }
 }
 
-const BENCHMARK_COHORT_ROWS = [
-  { key: "arr", metric: "ARR", bot25: "$150K", median: "$500K", top25: "$1.2M" },
-  { key: "arrGrowth", metric: "ARR growth (YoY)", bot25: "120%", median: "200%", top25: "350%" },
-  { key: "nrr", metric: "NRR", bot25: "95%", median: "108%", top25: "125%" },
-  { key: "logoRetention", metric: "Logo retention", bot25: "80%", median: "88%", top25: "93%" },
-  { key: "grossMargin", metric: "Gross margin", bot25: "55%", median: "72%", top25: "82%" },
-  { key: "cacPayback", metric: "CAC payback", bot25: "10mo", median: "16mo", top25: "26mo" },
-  { key: "burnMultiple", metric: "Burn multiple", bot25: "1.3", median: "2.1", top25: "3.4" },
-  { key: "ruleOf40", metric: "Rule of 40", bot25: "—", median: "—", top25: "—" },
-  { key: "cashOnHand", metric: "Cash on hand", bot25: "$500K", median: "$1.5M", top25: "$3.0M" },
-  { key: "monthlyBurn", metric: "Monthly burn", bot25: "$40K", median: "$80K", top25: "$180K" },
-  { key: "paidCustomers", metric: "Paid customers", bot25: "10", median: "40", top25: "150" },
-  { key: "headcount", metric: "FTE headcount", bot25: "6", median: "12", top25: "22" },
-] as const;
+function benchmarkFormKeyForMetric(metricKey: BenchmarkMetricKey): keyof BenchmarkFormValues {
+  if (metricKey === "payingCustomers") return "paidCustomers";
+  return metricKey;
+}
 
-const BENCHMARK_FIELD_COHORT: Record<string, { bot25: string; median: string; top25: string; top10: string }> = {
-  headcount: { bot25: "6", median: "11", top25: "22", top10: "45" },
-  paidCustomers: { bot25: "10", median: "48", top25: "150", top10: "500" },
-  arr: { bot25: "$250K", median: "$500K", top25: "$1.2M", top10: "$2.5M" },
-  arrGrowth: { bot25: "120%", median: "180%", top25: "350%", top10: "450%" },
-  nrr: { bot25: "95%", median: "105%", top25: "125%", top10: "145%" },
-  logoRetention: { bot25: "75%", median: "85%", top25: "93%", top10: "97%" },
-  grossMargin: { bot25: "55%", median: "72%", top25: "82%", top10: "88%" },
-  cacPayback: { bot25: "30.0m", median: "16.0m", top25: "10.0m", top10: "6.0m" },
-  burnMultiple: { bot25: "3.50x", median: "2.10x", top25: "1.40x", top10: "0.50x" },
-  ruleOf40: { bot25: "—", median: "—", top25: "—", top10: "—" },
-  cashOnHand: { bot25: "$500K", median: "$1.3M", top25: "$3.0M", top10: "$6.0M" },
-  monthlyBurn: { bot25: "$50K", median: "$100K", top25: "$200K", top10: "$350K" },
-};
+function buildBenchmarkSubmissionRows(
+  cohortId: BenchmarkCohortId,
+  values: BenchmarkFormValues,
+) {
+  return getCohortMetricKeys(cohortId).map(metricKey => {
+    const wizardKey = metricKey;
+    const formKey = benchmarkFormKeyForMetric(metricKey);
+    const template = BENCHMARK_WIZARD_FIELDS.find(f => f.key === wizardKey);
+    const peer = getCohortMetricPeer(cohortId, formKey);
+    const label = template?.label ?? metricKey;
+    const unit = template?.unit ?? "count";
+    return {
+      metric: label,
+      value: formatBenchmarkValue(formKey, String(values[formKey] ?? "")),
+      bot25: peer ? formatBenchmarkDisplay(peer.p25, unit) : "—",
+      median: peer ? formatBenchmarkDisplay(peer.p50, unit) : "—",
+      top25: peer ? formatBenchmarkDisplay(peer.p75, unit) : "—",
+    };
+  });
+}
 
 function formatRelativeAge(timestampMs: number) {
   const minutes = Math.max(0, Math.floor((Date.now() - timestampMs) / 60000));
@@ -3611,7 +3689,11 @@ function formatBenchmarkValue(key: string, raw: string) {
   return value;
 }
 
-function createBenchmarkIntelligence(values: BenchmarkFormValues, period = BENCHMARK_PERIOD) {
+function createBenchmarkIntelligence(
+  values: BenchmarkFormValues,
+  period = BENCHMARK_PERIOD,
+  cohortId: BenchmarkCohortId = loadBenchmarkCohortId(),
+) {
   const submittedAtMs = Date.now();
   const benchmarkSource: IntelligenceSource = {
     id: `src-benchmark-${period.toLowerCase()}`,
@@ -3661,13 +3743,7 @@ function createBenchmarkIntelligence(values: BenchmarkFormValues, period = BENCH
       };
     });
 
-  const rows = BENCHMARK_COHORT_ROWS.map(row => ({
-    metric: row.metric,
-    value: formatBenchmarkValue(row.key, String(values[row.key as keyof BenchmarkFormValues] || "")),
-    bot25: row.bot25,
-    median: row.median,
-    top25: row.top25,
-  }));
+  const rows = buildBenchmarkSubmissionRows(cohortId, values);
 
   const submission: BenchmarkSubmission = {
     period,
@@ -3686,36 +3762,44 @@ function createBenchmarkIntelligence(values: BenchmarkFormValues, period = BENCH
   return { items, submission };
 }
 
+function wizardKeyForFormMetric(cohortKey: string) {
+  if (cohortKey === "paidCustomers") return "payingCustomers";
+  return cohortKey;
+}
+
 function BenchmarkMetricField({
   label,
   cohortKey,
+  cohortId,
   value,
   onChange,
   placeholder,
 }: {
   label: string;
   cohortKey: string;
+  cohortId: BenchmarkCohortId;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
 }) {
-  const cohort = BENCHMARK_FIELD_COHORT[cohortKey];
-    return (
+  const wizardKey = wizardKeyForFormMetric(cohortKey);
+  const template = BENCHMARK_WIZARD_FIELDS.find(f => f.key === wizardKey);
+  const field = template ? applyCohortPeersToField(template, cohortId) : null;
+  const peer = getCohortMetricPeer(cohortId, cohortKey);
+  const parsed = parseBenchmarkMetricValue(value);
+  const marker = parsed != null && field ? valueToMarkerPercent(parsed, field) : null;
+
+  return (
     <label className="log-private-metric">
       <span>{label}</span>
       <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
-      {cohort ? (
+      {field && peer ? (
         <div className="log-private-metric-cohort">
-          <div className="signals-bar"><b /><i /></div>
-          <div className="signals-benchmark-scale">
-            <span>Bot 25% ({cohort.bot25})</span>
-            <span>Median ({cohort.median})</span>
-            <span>Top 25% ({cohort.top25})</span>
-            <span>Top 10% ({cohort.top10})</span>
-          </div>
+          <BenchmarkCohortTrack compact field={field} marker={marker} value={parsed} />
+          <BenchmarkPercentileScale compact field={field} value={parsed} />
         </div>
       ) : (
-        <em className="log-private-no-cohort">no cohort data</em>
+        <em className="log-private-no-cohort">Not in this cohort</em>
       )}
     </label>
   );
@@ -3731,6 +3815,7 @@ function LogPrivateDataPage({
   initialValues?: BenchmarkFormValues;
 }) {
   const [values, setValues] = useState(initialValues);
+  const [cohortId, setCohortId] = useState<BenchmarkCohortId>(() => loadBenchmarkCohortId());
   const update = (key: keyof BenchmarkFormValues, next: string | boolean) => {
     setValues(previous => ({ ...previous, [key]: next }));
   };
@@ -3743,52 +3828,54 @@ function LogPrivateDataPage({
           <span>Private benchmark</span>
           <h2>Log private data · 2026-Q2</h2>
         </div>
-            <label className="signals-cohort-select">
-          cohort
-          <select defaultValue="b2b_saas:seed:us">
-            <option value="b2b_saas:seed:us">b2b_saas · seed · us</option>
-          </select>
-        </label>
+        <BenchmarkCohortSelect
+          id="log-private-cohort"
+          value={cohortId}
+          onChange={id => {
+            saveBenchmarkCohortId(id);
+            setCohortId(id);
+          }}
+        />
       </div>
 
       <div className="log-private-sections">
         <section className="log-private-section">
           <h3>Scale</h3>
           <div className="log-private-grid">
-            <BenchmarkMetricField label="Headcount (FTE)" cohortKey="headcount" value={values.headcount} onChange={(v) => update("headcount", v)} placeholder="100" />
-            <BenchmarkMetricField label="Paid customers" cohortKey="paidCustomers" value={values.paidCustomers} onChange={(v) => update("paidCustomers", v)} placeholder="9990" />
-            <BenchmarkMetricField label="ARR USD" cohortKey="arr" value={values.arr} onChange={(v) => update("arr", v)} placeholder="1200" />
+            <BenchmarkMetricField label="Headcount (FTE)" cohortKey="headcount" cohortId={cohortId} value={values.headcount} onChange={(v) => update("headcount", v)} placeholder="100" />
+            <BenchmarkMetricField label="Paid customers" cohortKey="paidCustomers" cohortId={cohortId} value={values.paidCustomers} onChange={(v) => update("paidCustomers", v)} placeholder="9990" />
+            <BenchmarkMetricField label="ARR USD" cohortKey="arr" cohortId={cohortId} value={values.arr} onChange={(v) => update("arr", v)} placeholder="1200" />
           </div>
         </section>
 
         <section className="log-private-section">
           <h3>Growth</h3>
-          <BenchmarkMetricField label="ARR growth YoY %" cohortKey="arrGrowth" value={values.arrGrowth} onChange={(v) => update("arrGrowth", v)} placeholder="10" />
+          <BenchmarkMetricField label="ARR growth YoY %" cohortKey="arrGrowth" cohortId={cohortId} value={values.arrGrowth} onChange={(v) => update("arrGrowth", v)} placeholder="10" />
         </section>
 
         <section className="log-private-section">
           <h3>Retention</h3>
           <div className="log-private-grid two">
-            <BenchmarkMetricField label="Net revenue retention %" cohortKey="nrr" value={values.nrr} onChange={(v) => update("nrr", v)} placeholder="10" />
-            <BenchmarkMetricField label="Logo retention %" cohortKey="logoRetention" value={values.logoRetention} onChange={(v) => update("logoRetention", v)} placeholder="10" />
+            <BenchmarkMetricField label="Net revenue retention %" cohortKey="nrr" cohortId={cohortId} value={values.nrr} onChange={(v) => update("nrr", v)} placeholder="10" />
+            <BenchmarkMetricField label="Logo retention %" cohortKey="logoRetention" cohortId={cohortId} value={values.logoRetention} onChange={(v) => update("logoRetention", v)} placeholder="10" />
           </div>
         </section>
 
         <section className="log-private-section">
           <h3>Efficiency</h3>
           <div className="log-private-grid two">
-            <BenchmarkMetricField label="Gross margin %" cohortKey="grossMargin" value={values.grossMargin} onChange={(v) => update("grossMargin", v)} placeholder="100" />
-            <BenchmarkMetricField label="CAC payback months" cohortKey="cacPayback" value={values.cacPayback} onChange={(v) => update("cacPayback", v)} placeholder="100" />
-            <BenchmarkMetricField label="Burn multiple" cohortKey="burnMultiple" value={values.burnMultiple} onChange={(v) => update("burnMultiple", v)} placeholder="200" />
-            <BenchmarkMetricField label="Rule of 40 %" cohortKey="ruleOf40" value={values.ruleOf40} onChange={(v) => update("ruleOf40", v)} placeholder="20" />
+            <BenchmarkMetricField label="Gross margin %" cohortKey="grossMargin" cohortId={cohortId} value={values.grossMargin} onChange={(v) => update("grossMargin", v)} placeholder="100" />
+            <BenchmarkMetricField label="CAC payback months" cohortKey="cacPayback" cohortId={cohortId} value={values.cacPayback} onChange={(v) => update("cacPayback", v)} placeholder="100" />
+            <BenchmarkMetricField label="Burn multiple" cohortKey="burnMultiple" cohortId={cohortId} value={values.burnMultiple} onChange={(v) => update("burnMultiple", v)} placeholder="200" />
+            <BenchmarkMetricField label="Rule of 40 %" cohortKey="ruleOf40" cohortId={cohortId} value={values.ruleOf40} onChange={(v) => update("ruleOf40", v)} placeholder="20" />
           </div>
         </section>
 
         <section className="log-private-section">
           <h3>Capital</h3>
           <div className="log-private-grid two">
-            <BenchmarkMetricField label="Cash on hand USD" cohortKey="cashOnHand" value={values.cashOnHand} onChange={(v) => update("cashOnHand", v)} placeholder="200" />
-            <BenchmarkMetricField label="Monthly burn USD" cohortKey="monthlyBurn" value={values.monthlyBurn} onChange={(v) => update("monthlyBurn", v)} placeholder="200" />
+            <BenchmarkMetricField label="Cash on hand USD" cohortKey="cashOnHand" cohortId={cohortId} value={values.cashOnHand} onChange={(v) => update("cashOnHand", v)} placeholder="200" />
+            <BenchmarkMetricField label="Monthly burn USD" cohortKey="monthlyBurn" cohortId={cohortId} value={values.monthlyBurn} onChange={(v) => update("monthlyBurn", v)} placeholder="200" />
           </div>
         </section>
 
@@ -3850,10 +3937,12 @@ function IntelligenceProvenanceSidebar({
   item,
   siblingItems = [],
   onClose,
+  onViewSourceGroup,
 }: {
   item: IntelligenceItem;
   siblingItems?: IntelligenceItem[];
   onClose: () => void;
+  onViewSourceGroup?: (kind: InitiativeSourceKind, target: InitiativeSourceViewTarget) => void;
 }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -3868,92 +3957,65 @@ function IntelligenceProvenanceSidebar({
   const categoryLabel = formatProvenanceCategory(item.type);
   const hasHistory = siblingItems.length > 1;
   const showNote = !isYorkUpsell && !isRedundantProvenanceNote(item, signalLabel);
-  const sourceCount = item.sources.length;
+  const initiativeSources = useMemo(
+    () => mapIntelligenceSourcesToInitiativeRefs(item.sources),
+    [item.sources],
+  );
+  const headerMeta = [
+    categoryLabel,
+    formatBenchmarkPeriodLabel(item.date),
+    item.confidence,
+  ].filter(Boolean);
 
   return (
-    <>
-      <button className="context-sidebar-scrim" aria-label="Close signal detail" onClick={onClose} />
-      <aside className="intelligence-provenance-sidebar">
-        <div className="provenance-head">
-          <strong>Signal detail</strong>
-          <button type="button" onClick={onClose}>Close · Esc</button>
-        </div>
-        <div className="provenance-body">
-          <section className="provenance-summary">
-            <span className="provenance-category">{categoryLabel}</span>
-            <h2 className="provenance-signal-name">{signalLabel}</h2>
-            {item.highlight ? (
-              <p className="provenance-value">{item.highlight}</p>
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside
+        className="bench-drawer initiative-drawer initiative-review-drawer intelligence-provenance-drawer"
+        onClick={event => event.stopPropagation()}
+        role="dialog"
+        aria-labelledby="intelligence-provenance-title"
+      >
+        <header className="bench-drawer-head initiative-drawer-head initiative-review-drawer-head">
+          <div className="initiative-drawer-head-copy">
+            <div className="initiative-drawer-eyebrow">Signal detail</div>
+            <h2 className="bench-drawer-title" id="intelligence-provenance-title">
+              {signalLabel}
+            </h2>
+            {headerMeta.length ? (
+              <p className="initiative-review-meta">{headerMeta.join(" · ")}</p>
             ) : null}
-            <dl className="provenance-facts">
-              <div>
-                <dt>Period</dt>
-                <dd><time dateTime={item.date}>{formatBenchmarkPeriodLabel(item.date)}</time></dd>
-              </div>
-              {item.confidence ? (
-                <div>
-                  <dt>Confidence</dt>
-                  <dd>{item.confidence}</dd>
-                </div>
-              ) : null}
-            </dl>
-          </section>
+          </div>
+          <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </header>
 
-          {showNote ? (
-            <section className="provenance-section">
-              <h3 className="provenance-section-title">Note</h3>
-              <div className="provenance-note-well">
-                <p className="provenance-note">{item.title}</p>
+        <div className="bench-drawer-body initiative-drawer-body initiative-review-drawer-body">
+          {item.highlight ? (
+            <div className="initiative-card-section">
+              <div className="initiative-card-section-head">
+                <span className="initiative-card-section-label">Value</span>
               </div>
-            </section>
+              <p className="initiative-card-description">{item.highlight}</p>
+            </div>
           ) : null}
 
-          <section className="provenance-section">
-            <h3 className="provenance-section-title">
-              {sourceCount > 0
-                ? `${sourceCount} source${sourceCount === 1 ? "" : "s"}`
-                : "Sources"}
-            </h3>
-            {sourceCount > 0 ? (
-              <div className="provenance-sources">
-                {item.sources.map((source) => {
-                  const isFormField = source.sourceType === "form_field";
-                  return (
-                    <article className="provenance-source-block" key={source.id}>
-                      <div className="provenance-source-title-row">
-                        <strong>{source.title}</strong>
-                        <time>{source.date}</time>
-                      </div>
-                      <p className="provenance-source-kind">
-                        {isFormField ? `Form field · ${source.system}` : source.meta || source.system}
-                      </p>
-                      {source.description ? (
-                        <p className="provenance-source-desc">
-                          {isFormField ? (
-                            <>Answered: <strong>{source.description}</strong></>
-                          ) : (
-                            source.description
-                          )}
-                        </p>
-                      ) : null}
-                    </article>
-                  );
-                })}
+          {showNote ? (
+            <div className="initiative-card-section">
+              <div className="initiative-card-section-head">
+                <span className="initiative-card-section-label">Note</span>
               </div>
-            ) : (
-              <div className="provenance-empty-well">
-                <p className="provenance-empty">
-                  No linked sources. This value came from profile or benchmark context.
-                </p>
-              </div>
-            )}
-          </section>
+              <p className="initiative-card-description">{item.title}</p>
+            </div>
+          ) : null}
 
           {hasHistory ? (
-            <section className="provenance-section provenance-history-section">
-              <h3 className="provenance-section-title">
-                History · {siblingItems.length}
-              </h3>
+            <div className="initiative-card-section">
+              <div className="initiative-card-section-head">
+                <span className="initiative-card-section-label">
+                  History · {siblingItems.length}
+                </span>
+              </div>
               <div className="provenance-history-list">
                 {siblingItems.map((entry) => {
                   const isCurrent = entry.id === item.id;
@@ -3977,11 +4039,28 @@ function IntelligenceProvenanceSidebar({
                   );
                 })}
               </div>
-            </section>
+            </div>
           ) : null}
+
+          <div className="initiative-card-section initiative-card-section--sources">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Sources</span>
+            </div>
+            {initiativeSources.length > 0 ? (
+              <InitiativeSourceGroups
+                compact
+                sources={initiativeSources}
+                onViewGroup={onViewSourceGroup}
+              />
+            ) : (
+              <p className="initiative-card-section-empty">
+                No linked sources. This value came from profile or benchmark context.
+              </p>
+            )}
+          </div>
         </div>
       </aside>
-    </>
+    </div>
   );
 }
 
@@ -4365,38 +4444,25 @@ function DocumentRowUploadButton({
   );
 }
 
-const SIGNALS_COHORT_OPTIONS = [
-  { value: "b2b_saas:growth:us", label: "B2B SaaS · Growth · US", n: 94 },
-  { value: "b2b_saas:seed:us", label: "B2B SaaS · Seed · US", n: 147 },
-  { value: "b2b_saas:series_a:us", label: "B2B SaaS · Series A · US", n: 203 },
-  { value: "dev_tools:series_a:us", label: "Dev Tools · Series A · US", n: 41 },
-] as const;
-
 function SignalsCohortSelect({
   value,
   onChange,
   id = "signals-cohort",
 }: {
-  value: string;
-  onChange: (value: string) => void;
+  value: BenchmarkCohortId;
+  onChange: (value: BenchmarkCohortId) => void;
   id?: string;
 }) {
   return (
-    <label className="signals-cohort-field" htmlFor={id}>
-      <span className="visually-hidden">Peer cohort</span>
-      <select
-        id={id}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        aria-label="Peer cohort"
-      >
-        {SIGNALS_COHORT_OPTIONS.map(option => (
-          <option key={option.value} value={option.value}>
-            {option.label} · n={option.n}
-          </option>
-        ))}
-      </select>
-    </label>
+    <BenchmarkCohortSelect
+      id={id}
+      className="signals-cohort-field"
+      value={value}
+      onChange={id => {
+        saveBenchmarkCohortId(id);
+        onChange(id);
+      }}
+    />
   );
 }
 
@@ -4478,6 +4544,82 @@ function isInvestorOwnedIntelligence(item: IntelligenceItem) {
   return item.id.startsWith("intel-investor-");
 }
 
+function normalizeWorkspaceSearchQuery(query: string) {
+  return query.trim().toLowerCase();
+}
+
+function matchesWorkspaceSearch(parts: Array<string | undefined | null>, query: string) {
+  const needle = normalizeWorkspaceSearchQuery(query);
+  if (!needle) return true;
+  return parts.some(part => (part ?? "").toLowerCase().includes(needle));
+}
+
+function WorkspaceCompactToolbar({
+  searchValue,
+  onSearchChange,
+  searchPlaceholder,
+  children,
+  endContent,
+  filterPlacement = "right",
+}: {
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  searchPlaceholder: string;
+  children?: React.ReactNode;
+  endContent?: React.ReactNode;
+  filterPlacement?: "right" | "inline";
+}) {
+  const splitRow = Boolean(endContent) || filterPlacement === "inline";
+  return (
+    <div
+      className={`signals-intel-toolbar workspace-compact-toolbar${splitRow ? " workspace-compact-toolbar--split" : ""}`}
+    >
+      <label className="signals-intel-search">
+        <span className="signals-intel-search-icon" aria-hidden="true">⌕</span>
+        <input
+          type="search"
+          value={searchValue}
+          onChange={event => onSearchChange(event.target.value)}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+        />
+      </label>
+      {children ? (
+        filterPlacement === "inline" ? (
+          <div className="workspace-compact-toolbar-inline-filters">{children}</div>
+        ) : (
+          <div className="signals-intel-toolbar-right">{children}</div>
+        )
+      ) : null}
+      {endContent ? <div className="workspace-compact-toolbar-end">{endContent}</div> : null}
+    </div>
+  );
+}
+
+function WorkspaceListPanel({ children }: { children: React.ReactNode }) {
+  return (
+    <article className="overview-panel workspace-list-panel">
+      {children}
+    </article>
+  );
+}
+
+function WorkspaceListFilterEmpty({
+  onClear,
+}: {
+  onClear: () => void;
+}) {
+  return (
+    <div className="workspace-list-filter-empty workspace-list-panel-inset">
+      <strong>No matches</strong>
+      <p>Try a different search or filter.</p>
+      <button type="button" className="initiatives-secondary-btn" onClick={onClear}>
+        Clear search and filters
+      </button>
+    </div>
+  );
+}
+
 function ResearchPage({
   artifacts,
   onGenerateBrief,
@@ -4491,17 +4633,25 @@ function ResearchPage({
   onOpenArtifact: (artifact: ResearchArtifact) => void;
   activeTourTarget?: string;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(() => artifacts[0]?.id ?? null);
 
+  const filteredArtifacts = useMemo(() => {
+    return artifacts.filter(artifact => matchesWorkspaceSearch(
+      [artifact.title, artifact.body, artifact.typeLabel, artifact.authorEmail, artifact.subject, artifact.companyName],
+      searchQuery,
+    ));
+  }, [artifacts, searchQuery]);
+
   useEffect(() => {
-    if (!artifacts.length) {
+    if (!filteredArtifacts.length) {
       setExpandedId(null);
       return;
     }
-    if (!expandedId || !artifacts.some(item => item.id === expandedId)) {
-      setExpandedId(artifacts[0].id);
+    if (!expandedId || !filteredArtifacts.some(item => item.id === expandedId)) {
+      setExpandedId(filteredArtifacts[0].id);
     }
-  }, [artifacts, expandedId]);
+  }, [filteredArtifacts, expandedId]);
 
   return (
     <section className="data-room-page research-page">
@@ -4527,55 +4677,69 @@ function ResearchPage({
         </div>
       </div>
 
-      {artifacts.length === 0 ? (
-        <div className="data-room-empty">
-          <strong>No research yet</strong>
-          <p>
-            Click <span>Generate brief</span> above to produce a signal-driven briefing. Playbook runs, diligence reports, and other AI research artifacts also land here — they&apos;re account-wide and visible to every member.
-          </p>
-        </div>
-      ) : (
-        <ul className="research-list">
-          {artifacts.map(artifact => {
-            const expanded = expandedId === artifact.id;
-            return (
-              <li key={artifact.id} className={`research-card${expanded ? " is-expanded" : ""}`}>
-                <div className="research-card-top">
-                  <div className="research-card-meta">
+      <WorkspaceListPanel>
+        <WorkspaceCompactToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search research…"
+        />
+
+        {artifacts.length === 0 ? (
+          <div className="data-room-empty">
+            <strong>No research yet</strong>
+            <p>
+              Click <span>Generate brief</span> above to produce a signal-driven briefing. Playbook runs, diligence reports, and other AI research artifacts also land here — they&apos;re account-wide and visible to every member.
+            </p>
+          </div>
+        ) : filteredArtifacts.length === 0 ? (
+          <WorkspaceListFilterEmpty onClear={() => setSearchQuery("")} />
+        ) : (
+          <div className="workspace-table research-table">
+            <div className="workspace-table-head research-table-head" role="row">
+              <span>Type</span>
+              <span>Title</span>
+              <span>Author</span>
+              <span>Date</span>
+              <span>Actions</span>
+            </div>
+            {filteredArtifacts.map(artifact => {
+              const expanded = expandedId === artifact.id;
+              return (
+                <div key={artifact.id}>
+                  <div className={`workspace-table-row research-table-row${expanded ? " is-selected" : ""}`}>
                     <span className="research-type-badge">{artifact.typeLabel}</span>
-                    <span className="research-byline">
-                      {artifact.authorEmail} · {formatResearchDisplayDate(artifact.createdAt)}
-                    </span>
+                    <strong title={artifact.title}>{artifact.title}</strong>
+                    <span>{artifact.authorEmail}</span>
+                    <time dateTime={artifact.createdAt}>{formatResearchDisplayDate(artifact.createdAt)}</time>
+                    <div className="research-table-actions">
+                      <button type="button" className="research-link-btn" onClick={() => onOpenArtifact(artifact)}>
+                        Open ↗
+                      </button>
+                      <button
+                        type="button"
+                        className="research-link-btn"
+                        onClick={() => setExpandedId(expanded ? null : artifact.id)}
+                      >
+                        {expanded ? "Collapse" : "Expand"}
+                      </button>
+                    </div>
                   </div>
-                  <div className="research-card-actions">
-                    <button type="button" className="research-link-btn" onClick={() => onOpenArtifact(artifact)}>
-                      Open ↗
-                    </button>
-                    <button
-                      type="button"
-                      className="research-link-btn"
-                      onClick={() => setExpandedId(expanded ? null : artifact.id)}
-                    >
-                      {expanded ? "Collapse" : "Expand"}
-                    </button>
-                  </div>
+                  {expanded ? (
+                    <div className="workspace-table-detail">
+                      {artifact.body.split("\n").map((line, index) => (
+                        line.trim() ? <p key={index}>{line}</p> : <br key={index} />
+                      ))}
+                      {artifact.subject ? (
+                        <p className="research-card-subject">Subject: {artifact.subject}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
-                <h3 className="research-card-title">{artifact.title}</h3>
-                {expanded ? (
-                  <div className="research-card-body">
-                    {artifact.body.split("\n").map((line, index) => (
-                      line.trim() ? <p key={index}>{line}</p> : <br key={index} />
-                    ))}
-                  </div>
-                ) : null}
-                {artifact.subject ? (
-                  <p className="research-card-subject">Subject: {artifact.subject}</p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </WorkspaceListPanel>
     </section>
   );
 }
@@ -4635,6 +4799,35 @@ function DataRoomPage({
   companyName?: string;
   onRequestDataRoomAccess?: () => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [intelligenceFilter, setIntelligenceFilter] = useState<"all" | "has_intelligence">("all");
+
+  const activeSlots = useMemo(
+    () => getActiveDocumentSlots(documentSlots),
+    [documentSlots],
+  );
+  const activeCount = activeSlots.length;
+
+  const docTypeOptions = useMemo(
+    () => dataRoomUploadTypeFilterOptions(documentSlots),
+    [documentSlots],
+  );
+
+  const filteredSlots = useMemo(() => {
+    return activeSlots.filter(slot => {
+      if (!dataRoomSlotMatchesTypeFilter(slot, typeFilter)) return false;
+      if (intelligenceFilter === "has_intelligence" && (slot.current?.intelligenceCount ?? 0) <= 0) {
+        return false;
+      }
+      const current = slot.current;
+      return matchesWorkspaceSearch(
+        [slot.typeLabel, current?.name, current?.format, current?.source],
+        searchQuery,
+      );
+    });
+  }, [activeSlots, intelligenceFilter, searchQuery, typeFilter]);
+
   if (investorMode) {
     return (
       <DataRoomInvestorGate
@@ -4644,9 +4837,6 @@ function DataRoomPage({
       />
     );
   }
-
-  const activeSlots = getActiveDocumentSlots(documentSlots);
-  const activeCount = activeSlots.length;
 
   return (
     <section className="data-room-page">
@@ -4666,16 +4856,52 @@ function DataRoomPage({
           />
         </div>
       </div>
-      {activeCount === 0 ? (
-        <div className="data-room-empty">
-          <strong>No documents yet</strong>
-          <p>
-            Choose a document type from <span>Upload document</span> — the same list as Intelligence — to add your first file.
-          </p>
-        </div>
-      ) : (
-        <div className="data-room-list">
-          <div className="data-room-row data-room-row-head">
+
+      <WorkspaceListPanel>
+        <WorkspaceCompactToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search files…"
+        >
+          <select
+            className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+            value={typeFilter}
+            onChange={event => setTypeFilter(event.target.value)}
+            aria-label="Document type"
+          >
+            <option value="all">All document types</option>
+            {docTypeOptions.map(option => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
+          <select
+            className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+            value={intelligenceFilter}
+            onChange={event => setIntelligenceFilter(event.target.value as "all" | "has_intelligence")}
+            aria-label="Intelligence filter"
+          >
+            <option value="all">All files</option>
+            <option value="has_intelligence">Has intelligence</option>
+          </select>
+        </WorkspaceCompactToolbar>
+
+        {activeCount === 0 ? (
+          <div className="data-room-empty">
+            <strong>No documents yet</strong>
+            <p>
+              Choose a document type from <span>Upload document</span> — the same list as Intelligence — to add your first file.
+            </p>
+          </div>
+        ) : filteredSlots.length === 0 ? (
+          <WorkspaceListFilterEmpty onClear={() => {
+            setSearchQuery("");
+            setTypeFilter("all");
+            setIntelligenceFilter("all");
+          }}
+          />
+        ) : (
+          <div className="data-room-list workspace-table">
+          <div className="data-room-row data-room-row-head workspace-table-head">
             <span>Type</span>
             <span>Latest file</span>
             <span>Format</span>
@@ -4683,7 +4909,7 @@ function DataRoomPage({
             <span>Intelligence</span>
             <span>Actions</span>
           </div>
-          {activeSlots.map(slot => (
+          {filteredSlots.map(slot => (
             <div className={`data-room-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`} key={slot.typeId}>
               <strong>{slot.typeLabel}</strong>
               <span className="data-room-latest">{slot.current?.name || "—"}</span>
@@ -4712,8 +4938,9 @@ function DataRoomPage({
               />
         </div>
           ))}
-        </div>
-      )}
+          </div>
+        )}
+      </WorkspaceListPanel>
     </section>
   );
 }
@@ -5217,6 +5444,7 @@ function SignalsPage({
   benchmark,
   companyName = "This company",
   onBenchmarkChange,
+  onNavigateSourceView,
 }: {
   isProfileComplete: boolean;
   onLogBenchmarkData: () => void;
@@ -5248,6 +5476,7 @@ function SignalsPage({
   benchmark: OnboardingBenchmarkInput;
   companyName?: string;
   onBenchmarkChange?: (benchmark: OnboardingBenchmarkInput) => void;
+  onNavigateSourceView?: (target: InitiativeSourceViewTarget) => void;
 }) {
   const timelinePanelRef = useRef<HTMLDivElement>(null);
   const now = useMemo(() => new Date(), []);
@@ -5268,7 +5497,7 @@ function SignalsPage({
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [sourceFormOpen, setSourceFormOpen] = useState(false);
   const [editBenchmarkOpen, setEditBenchmarkOpen] = useState(false);
-  const [cohortValue, setCohortValue] = useState<string>("b2b_saas:seed:us");
+  const [cohortValue, setCohortValue] = useState<BenchmarkCohortId>(() => loadBenchmarkCohortId());
   const intelligenceFocusActive = Boolean(intelligenceFocus?.ids.length);
   const openBenchmarkDrawer = () => setEditBenchmarkOpen(true);
   // Same parent categories + order as the Log intelligence signal dropdown.
@@ -5349,8 +5578,14 @@ function SignalsPage({
   const selectedSourceIntelligence = selectedSourceMeta
     ? intelligenceItems.filter(item => selectedSourceMeta.ids.includes(item.id))
     : [];
-  const cohortMeta = SIGNALS_COHORT_OPTIONS.find(option => option.value === cohortValue)
-    ?? SIGNALS_COHORT_OPTIONS[1];
+  const cohortMeta = BENCHMARK_COHORT_OPTIONS.find(option => option.value === cohortValue)
+    ?? BENCHMARK_COHORT_OPTIONS[1];
+  const resolvedBenchmarkForm = useMemo(
+    () => resolveBenchmarkFormValues(benchmarkSubmission, benchmark),
+    [benchmark, benchmarkSubmission],
+  );
+  const hasBenchmarkMetrics = hasFilledBenchmarkMetric(resolvedBenchmarkForm);
+  const showBenchmarkGatePanel = !hasBenchmarkMetrics;
 
   useEffect(() => {
     if (!intelligenceFocus?.ids.length) return;
@@ -5536,7 +5771,7 @@ function SignalsPage({
   );
 
   const intelligenceTimelinePanel = (
-    <div className="signals-board-panel" ref={timelinePanelRef}>
+    <div className="signals-board-panel overview-panel signals-intel-board" ref={timelinePanelRef}>
       {intelligenceFocusActive ? (
         <div className="pitch-deck-confirm-banner intelligence-focus-banner">
           <span>
@@ -5604,7 +5839,13 @@ function SignalsPage({
       ) : null}
 
       {filteredIntelligenceItems.length > 0 ? (
-        <div className="intel-category-feed">
+        <div className="intel-category-feed workspace-table">
+          <div className="workspace-table-head intel-signal-table-head" role="row">
+            <span>Signal</span>
+            <span>Value</span>
+            <span>Period</span>
+            <span>Sources</span>
+          </div>
           {categoryGroups.map(([categoryKey, items]) => (
             <IntelligenceCategoryPanel
               key={categoryKey}
@@ -5632,161 +5873,77 @@ function SignalsPage({
         </div>
       )}
 
-      {isProfileComplete && !benchmarkSubmission ? (
-        <div className="signals-footnote">
-          Overlay uses <span>{cohortMeta.label}</span>. Finish private data to place your company on the cohort.
-        </div>
-      ) : null}
     </div>
   );
 
-  if (isProfileComplete) {
-    return (
-      <section className="signals-page">
-        <CreditBlockBanner />
-
-        <div className="signals-page-head">
-          <div>
-            <h2>Intelligence</h2>
-            <p>Metrics from benchmarks, sources, and logged context — private to your account.</p>
-          </div>
-          {!intelligenceFocusActive ? (
-            <div className="signals-page-head-actions">
-              <button
-                type="button"
-                className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
-                data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
-                onClick={() => setSourceFormOpen(true)}
-              >
-                Add source
-              </button>
-              <button
-                type="button"
-                className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
-                data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
-                onClick={() => setShowLogForm(true)}
-              >
-                Log intelligence
-              </button>
-              <button type="button" className="initiatives-secondary-btn" onClick={openBenchmarkDrawer}>
-                Update benchmark
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        {documentNoticeBanner}
-
-        {intelligenceTimelinePanel}
-
-        <ContextFeedPage
-          onOpenConnectors={onLinkConnectors}
-          onIntelligenceGenerated={handleIntelligenceGenerated}
-          onAttemptSourceGeneration={onAttemptSourceGeneration}
-          documentSlots={documentSlots}
-          onPersistSourceDocument={onPersistSourceDocument}
-          sourceFormOpen={sourceFormOpen}
-          onSourceFormOpenChange={setSourceFormOpen}
-        />
-
-        {selectedIntelligence ? (
-          <IntelligenceProvenanceSidebar
-            item={selectedIntelligence}
-            siblingItems={selectedIntelligenceHistory}
-            onClose={() => setSelectedIntelligenceId(null)}
-          />
-        ) : null}
-
-        {selectedSource && selectedSourceMeta ? (
-          <SourceDetailSidebar
-            source={selectedSource}
-            intelligenceMeta={selectedSourceMeta}
-            linkedIntelligence={selectedSourceIntelligence}
-            onClose={() => setSelectedSourceId(null)}
-            onGenerate={() => onGenerateFromPending?.(selectedSource.id)}
-            onDismiss={() => {
-              onDismissPendingSource?.(selectedSource.id);
-              setSelectedSourceId(null);
-            }}
-            onViewIntelligence={() => {
-              onFocusIntelligence?.({ ids: selectedSourceMeta.ids, label: selectedSource.title });
-              setSelectedSourceId(null);
-            }}
-            onSelectIntelligence={(id) => {
-              setSelectedSourceId(null);
-              setSelectedIntelligenceId(id);
-            }}
-          />
-        ) : null}
-
-        {showLogForm ? (
-          <LogIntelligenceDrawer
-            onLog={item => { handleIntelligenceGenerated(item); setShowLogForm(false); }}
-            onClose={() => setShowLogForm(false)}
-          />
-        ) : null}
-
-        {showSourcesDrawer ? (
-          <SourcesDrawer
-            sources={pendingSources}
-            documentSlots={documentSlots}
-            onClose={() => setShowSourcesDrawer(false)}
-            onSelectSource={(id) => { setSelectedSourceId(id); setSelectedIntelligenceId(null); }}
-            onGenerateFromPending={onGenerateFromPending}
-            onDismissPendingSource={onDismissPendingSource}
-            onFocusIntelligence={onFocusIntelligence}
-          />
-        ) : null}
-
-        <BenchmarkEditDrawer
-          open={editBenchmarkOpen}
-          onClose={() => setEditBenchmarkOpen(false)}
-          benchmark={benchmark}
-          companyName={companyName}
-          onSave={next => {
-            onBenchmarkChange?.(next);
-          }}
-        />
-      </section>
-    );
-  }
+  const showIntelligenceHeadActions = !intelligenceFocusActive && (isProfileComplete || hasBenchmarkMetrics);
 
   return (
     <section className="signals-page">
+      <CreditBlockBanner />
+
       <div className="signals-page-head">
         <div>
           <h2>Intelligence</h2>
-          <p>
-            Log private benchmark data to overlay Patriot Pay on a peer cohort — private to your account, stamped by quarter.
-          </p>
+          <p>Metrics from benchmarks, sources, and logged context — private to your account.</p>
         </div>
-        <div className="signals-page-head-actions">
-          <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
-            Log benchmark data
-          </button>
-        </div>
+        {showIntelligenceHeadActions ? (
+          <div className="signals-page-head-actions">
+            <button
+              type="button"
+              className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
+              data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
+              onClick={() => setSourceFormOpen(true)}
+            >
+              Add source
+            </button>
+            <button
+              type="button"
+              className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
+              data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
+              onClick={() => setShowLogForm(true)}
+            >
+              Log intelligence
+            </button>
+            {!showBenchmarkGatePanel ? (
+              <button type="button" className="initiatives-secondary-btn" onClick={openBenchmarkDrawer}>
+                Update benchmark
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {documentNoticeBanner}
 
-      <article className="overview-panel signals-gate-panel">
-        <div className="overview-panel-head">
-          <div>
-            <span>Private data</span>
-            <strong>See how you stack up against peers</strong>
+      {showBenchmarkGatePanel ? (
+        <article className="overview-panel signals-gate-panel">
+          <div className="overview-panel-head">
+            <div>
+              <span>Private data</span>
+              <strong>See how you stack up against peers</strong>
+            </div>
           </div>
+          <p>
+            Pick a cohort, then log ARR, retention, burn, and headcount. Fuel places your numbers on the distribution
+            and generates intelligence from what you submit — visible only to you.
+          </p>
+          <div className="signals-gate-controls">
+            <SignalsCohortSelect value={cohortValue} onChange={setCohortValue} id="signals-cohort-gate" />
+            <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
+              Log benchmark data →
+            </button>
+          </div>
+        </article>
+      ) : null}
+
+      {showIntelligenceTimeline ? intelligenceTimelinePanel : null}
+
+      {showIntelligenceTimeline && hasBenchmarkMetrics && !benchmarkSubmission && filteredIntelligenceItems.length > 0 ? (
+        <div className="signals-footnote">
+          Overlay uses <span>{cohortMeta.label}</span>. Finish private data to place your company on the cohort.
         </div>
-        <p>
-          Pick a cohort, then log ARR, retention, burn, and headcount. Fuel places your numbers on the distribution
-          and generates intelligence from what you submit — visible only to you.
-        </p>
-        <div className="signals-gate-controls">
-          <SignalsCohortSelect value={cohortValue} onChange={setCohortValue} id="signals-cohort-gate" />
-          <button type="button" className="initiatives-primary-btn" onClick={onLogBenchmarkData}>
-            Log benchmark data →
-          </button>
-        </div>
-      </article>
+      ) : null}
 
       <ContextFeedPage
         onOpenConnectors={onLinkConnectors}
@@ -5799,13 +5956,44 @@ function SignalsPage({
         onSourceFormOpenChange={setSourceFormOpen}
       />
 
-      {showIntelligenceTimeline ? intelligenceTimelinePanel : null}
-
       {selectedIntelligence ? (
         <IntelligenceProvenanceSidebar
           item={selectedIntelligence}
           siblingItems={selectedIntelligenceHistory}
           onClose={() => setSelectedIntelligenceId(null)}
+          onViewSourceGroup={(_kind, target) => {
+            setSelectedIntelligenceId(null);
+            onNavigateSourceView?.(target);
+          }}
+        />
+      ) : null}
+
+      {selectedSource && selectedSourceMeta ? (
+        <SourceDetailSidebar
+          source={selectedSource}
+          intelligenceMeta={selectedSourceMeta}
+          linkedIntelligence={selectedSourceIntelligence}
+          onClose={() => setSelectedSourceId(null)}
+          onGenerate={() => onGenerateFromPending?.(selectedSource.id)}
+          onDismiss={() => {
+            onDismissPendingSource?.(selectedSource.id);
+            setSelectedSourceId(null);
+          }}
+          onViewIntelligence={() => {
+            onFocusIntelligence?.({ ids: selectedSourceMeta.ids, label: selectedSource.title });
+            setSelectedSourceId(null);
+          }}
+          onSelectIntelligence={(id) => {
+            setSelectedSourceId(null);
+            setSelectedIntelligenceId(id);
+          }}
+        />
+      ) : null}
+
+      {showLogForm ? (
+        <LogIntelligenceDrawer
+          onLog={item => { handleIntelligenceGenerated(item); setShowLogForm(false); }}
+          onClose={() => setShowLogForm(false)}
         />
       ) : null}
 
@@ -5820,6 +6008,16 @@ function SignalsPage({
           onFocusIntelligence={onFocusIntelligence}
         />
       ) : null}
+
+      <BenchmarkEditDrawer
+        open={editBenchmarkOpen}
+        onClose={() => setEditBenchmarkOpen(false)}
+        benchmark={benchmark}
+        companyName={companyName}
+        onSave={next => {
+          onBenchmarkChange?.(next);
+        }}
+      />
     </section>
   );
 }
@@ -6508,6 +6706,13 @@ function normalizeInitiativeListStatus(status?: string): InitiativeListStatus {
   return normalizeInitiativeStatus(status) === "Completed" ? "Completed" : "Active";
 }
 
+function countActiveInitiatives(items: InitiativeRecord[]) {
+  return items.filter(item => {
+    const status = normalizeInitiativeStatus(item.status);
+    return status !== "Suggested" && normalizeInitiativeListStatus(item.status) === "Active";
+  }).length;
+}
+
 type InitiativeMilestone = {
   id: string;
   title: string;
@@ -6549,6 +6754,11 @@ type InitiativeRecord = {
   due?: string;
   milestones: InitiativeMilestone[];
   intelligenceLinks: InitiativeIntelligenceLink[];
+  /** Suggested / review drawer — why this initiative matters. */
+  benefits?: string[];
+  /** Provenance — intelligence, benchmark, forms, data room, manual sources. */
+  sources?: InitiativeSourceRef[];
+  priority?: "high" | "medium" | "low";
 };
 
 const DEFAULT_INITIATIVE_ASSIGNEE = "Shreya G";
@@ -6910,6 +7120,420 @@ function InitiativeMilestoneRow({
   );
 }
 
+function initiativePriorityLabel(priority?: InitiativeRecord["priority"]): string | null {
+  if (priority === "high") return "high priority";
+  if (priority === "medium") return "medium priority";
+  if (priority === "low") return "lower priority";
+  return null;
+}
+
+function InitiativeSourceAccordion({
+  group,
+  expanded,
+  compact = false,
+  onToggle,
+  onView,
+  onViewItem,
+}: {
+  group: InitiativeSourceGroup;
+  expanded: boolean;
+  compact?: boolean;
+  onToggle: () => void;
+  onView?: () => void;
+  onViewItem?: (item: InitiativeSourceRef) => void;
+}) {
+  const viewLabel = formatInitiativeSourceViewLabel(group.kind, group.count);
+  const countCaption = initiativeSourceGroupCountCaption(group.kind, group.count);
+  const chevron = (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path
+        d="M3 4.5 6 7.5 9 4.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  return (
+    <div
+      className={`initiative-source-accordion${expanded ? " is-open" : ""}${compact ? " is-compact" : ""}`}
+    >
+      <div className="initiative-source-accordion-head">
+        {compact ? (
+          <div
+            className="initiative-source-accordion-head-toggle"
+            role="button"
+            tabIndex={0}
+            aria-expanded={expanded}
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${group.title}`}
+            onClick={onToggle}
+            onKeyDown={event => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onToggle();
+              }
+            }}
+          >
+            <div className="initiative-source-accordion-summary">
+              <span className="initiative-source-accordion-title">{group.title}</span>
+              {onView ? (
+                <button
+                  type="button"
+                  className="initiative-source-count-link"
+                  title={viewLabel}
+                  onClick={event => {
+                    event.stopPropagation();
+                    onView();
+                  }}
+                >
+                  {countCaption}
+                </button>
+              ) : (
+                <span className="initiative-source-accordion-count">{countCaption}</span>
+              )}
+            </div>
+            <span className="initiative-source-accordion-chevron" aria-hidden="true">
+              {chevron}
+            </span>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="initiative-source-accordion-trigger"
+              aria-expanded={expanded}
+              onClick={onToggle}
+            >
+              <span className="initiative-source-accordion-title">{group.title}</span>
+              <span className="initiative-source-accordion-count">{group.count}</span>
+              <span className="initiative-source-accordion-chevron" aria-hidden="true">
+                {chevron}
+              </span>
+            </button>
+            {onView ? (
+              <button
+                type="button"
+                className="initiative-source-inline-view"
+                title={viewLabel}
+                onClick={onView}
+              >
+                {viewLabel}
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+      {expanded ? (
+        <ul className="initiative-source-accordion-panel">
+          {group.items.map(item => {
+            const isDocument = item.kind === "document";
+            const docLabel = item.documentType?.trim() || item.label;
+            const value = item.detail?.trim() || item.documentType?.trim() || "";
+            const valueNode = value ? (
+              <span className="initiative-source-row-value">{value}</span>
+            ) : (
+              <span className="initiative-source-row-value initiative-source-row-value--muted">
+                —
+              </span>
+            );
+            if (compact && isDocument && onViewItem) {
+              return (
+                <li
+                  key={item.id}
+                  className="initiative-source-row initiative-source-row--document"
+                >
+                  <div className="initiative-source-doc-actions">
+                    <button
+                      type="button"
+                      className="initiative-source-doc-link"
+                      onClick={() => onViewItem(item)}
+                    >
+                      {docLabel}
+                    </button>
+                    <button
+                      type="button"
+                      className="initiative-source-doc-download"
+                      aria-label={`Open ${docLabel} in data room`}
+                      title={`Open ${docLabel} in data room`}
+                      onClick={() => onViewItem(item)}
+                    >
+                      <FuelIcon name="download" size={14} />
+                    </button>
+                  </div>
+                </li>
+              );
+            }
+            return (
+              <li key={item.id} className="initiative-source-row">
+                <span className="initiative-source-row-label">{item.label}</span>
+                {compact ? (
+                  <span className="initiative-source-row-leader" aria-hidden="true" />
+                ) : null}
+                {valueNode}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {!compact && expanded && onView ? (
+        <div className="initiative-source-accordion-foot">
+          <button type="button" className="initiative-source-view-btn" onClick={onView}>
+            {viewLabel}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function InitiativeSourceGroups({
+  sources,
+  compact = false,
+  onViewGroup,
+}: {
+  sources: InitiativeSourceRef[];
+  compact?: boolean;
+  onViewGroup?: (kind: InitiativeSourceKind, target: InitiativeSourceViewTarget) => void;
+}) {
+  const groups = useMemo(() => groupInitiativeSources(sources), [sources]);
+  const [expandedKind, setExpandedKind] = useState<InitiativeSourceKind | null>(null);
+
+  useEffect(() => {
+    if (!groups.length) {
+      setExpandedKind(null);
+      return;
+    }
+    setExpandedKind(prev => (
+      prev !== null && groups.some(group => group.kind === prev) ? prev : null
+    ));
+  }, [groups]);
+
+  if (!sources.length) {
+    return <p className="initiative-card-section-empty">No sources linked.</p>;
+  }
+
+  return (
+    <div className={`initiative-source-groups${compact ? " is-compact" : ""}`}>
+      {groups.map(group => (
+        <InitiativeSourceAccordion
+          key={group.kind}
+          group={group}
+          compact={compact}
+          expanded={expandedKind === group.kind}
+          onToggle={() => setExpandedKind(
+            expandedKind === group.kind ? null : group.kind,
+          )}
+          onView={
+            onViewGroup
+              ? () => onViewGroup(group.kind, initiativeSourceViewTarget(group.kind))
+              : undefined
+          }
+          onViewItem={
+            onViewGroup
+              ? item => onViewGroup(item.kind, initiativeSourceViewTarget(item.kind))
+              : undefined
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+function SuggestedInitiativeCard({
+  item,
+  onReview,
+  onCreate,
+  onDismiss,
+}: {
+  item: InitiativeRecord;
+  onReview: () => void;
+  onCreate: () => void;
+  onDismiss: () => void;
+}) {
+  const fromLine = item.sources?.length
+    ? formatInitiativeFromCardLine(item.sources)
+    : "";
+
+  return (
+    <li className="initiatives-suggested-row">
+      <div className="initiatives-suggested-copy">
+        <strong>{item.title}</strong>
+        <span className="initiatives-suggested-meta">
+          {initiativeKindLabel(item.kind)}
+          {" · "}
+          {initiativePillarLabel(item.pillar)}
+        </span>
+        {item.description.trim() ? (
+          <p className="initiatives-suggested-desc">{item.description}</p>
+        ) : null}
+        {fromLine ? (
+          <span className="initiatives-suggested-from">{fromLine}</span>
+        ) : null}
+      </div>
+      <div className="initiatives-suggested-actions">
+        <button type="button" className="initiatives-secondary-btn" onClick={onReview}>
+          Review
+        </button>
+        <button type="button" className="initiatives-primary-btn" onClick={onCreate}>
+          Create initiative
+        </button>
+        <button type="button" className="initiatives-secondary-btn" onClick={onDismiss}>
+          Dismiss
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function ReviewInitiativeDrawer({
+  item,
+  onClose,
+  onBack,
+  onDismiss,
+  onCreate,
+  onViewSourceGroup,
+}: {
+  item: InitiativeRecord;
+  onClose: () => void;
+  onBack?: () => void;
+  onDismiss: () => void;
+  onCreate: () => void;
+  onViewSourceGroup?: (kind: InitiativeSourceKind, target: InitiativeSourceViewTarget) => void;
+}) {
+  const assignees = normalizeAssignees(item.owner, item.assignees);
+  const priority = initiativePriorityLabel(item.priority);
+  const metaParts = [
+    initiativeKindLabel(item.kind),
+    initiativePillarLabel(item.pillar),
+    assignees[0] ?? DEFAULT_INITIATIVE_ASSIGNEE,
+    priority,
+  ].filter(Boolean);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside
+        className="bench-drawer initiative-review-drawer"
+        onClick={event => event.stopPropagation()}
+        role="dialog"
+        aria-label="Review initiative"
+      >
+        <header className="bench-drawer-head initiative-drawer-head initiative-review-drawer-head">
+          {onBack ? (
+            <button
+              type="button"
+              className="initiative-review-back"
+              onClick={onBack}
+              aria-label="Back to suggested initiatives"
+            >
+              ←
+            </button>
+          ) : null}
+          <div className="initiative-drawer-head-copy">
+            <div className="initiative-drawer-eyebrow">Review initiative</div>
+            <h2 className="bench-drawer-title">{item.title}</h2>
+            <p className="initiative-review-meta">{metaParts.join(" · ")}</p>
+          </div>
+          <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </header>
+
+        <div className="bench-drawer-body initiative-drawer-body initiative-review-drawer-body">
+          <div className="initiative-card-section">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Description</span>
+            </div>
+            <p className="initiative-card-description">
+              {item.description.trim() || "No description yet."}
+            </p>
+          </div>
+
+          {item.benefits?.length ? (
+            <div className="initiative-card-section">
+              <div className="initiative-card-section-head">
+                <span className="initiative-card-section-label">Benefit</span>
+              </div>
+              <ul className="initiative-review-benefits">
+                {item.benefits.map(line => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="initiative-card-section">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Milestones</span>
+            </div>
+            {item.milestones.length > 0 ? (
+              <ul className="initiative-review-milestones">
+                {item.milestones.map(milestone => (
+                  <li key={milestone.id} className="initiative-review-milestone">
+                    <span
+                      className={`initiative-review-milestone-icon${milestone.done ? " is-done" : ""}`}
+                      aria-hidden="true"
+                    >
+                      <FuelIcon
+                        name={milestone.done ? "circleCheck" : "check"}
+                        size={16}
+                        strokeWidth={milestone.done ? 2 : 2.25}
+                      />
+                    </span>
+                    <span
+                      className={`initiative-review-milestone-title${milestone.done ? " is-done" : ""}`}
+                    >
+                      {milestone.title}
+                    </span>
+                    {milestone.due ? (
+                      <time className="initiative-review-milestone-due" dateTime={milestone.due}>
+                        {milestone.due}
+                      </time>
+                    ) : (
+                      <span className="initiative-review-milestone-due is-empty" aria-hidden="true" />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="initiative-card-section-empty">No milestones yet.</p>
+            )}
+          </div>
+
+          <div className="initiative-card-section initiative-card-section--sources">
+            <div className="initiative-card-section-head">
+              <span className="initiative-card-section-label">Sources</span>
+            </div>
+            <InitiativeSourceGroups
+              compact
+              sources={item.sources ?? []}
+              onViewGroup={onViewSourceGroup}
+            />
+          </div>
+        </div>
+
+        <footer className="bench-drawer-actions">
+          <button type="button" className="bench-drawer-cancel" onClick={onDismiss}>
+            Dismiss
+          </button>
+          <button type="button" className="bench-drawer-save" onClick={onCreate}>
+            Create initiative
+          </button>
+        </footer>
+      </aside>
+    </div>
+  );
+}
+
 function emptyInitiativeDraft(): InitiativeRecord {
   const assignees = [DEFAULT_INITIATIVE_ASSIGNEE];
   const pillar: InitiativePillar = "mkt";
@@ -7248,7 +7872,7 @@ function InitiativeDetailDrawer({
                 ) : (
                   <button
                     type="button"
-                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    className="initiatives-secondary-btn initiative-card-mini-btn initiative-drawer-link-btn"
                     onClick={() => setShowMilestoneForm(true)}
                   >
                     + Add milestone
@@ -7373,7 +7997,7 @@ function InitiativeDetailDrawer({
                 ) : (
                   <button
                     type="button"
-                    className="initiatives-secondary-btn initiative-card-mini-btn"
+                    className="initiatives-secondary-btn initiative-card-mini-btn initiative-drawer-link-btn"
                     onClick={() => setShowAdvisorForm(true)}
                   >
                     + Link advisor
@@ -7446,7 +8070,7 @@ function InitiativeDetailDrawer({
               <div className="initiative-card-section-actions">
                 <button
                   type="button"
-                  className="initiatives-secondary-btn initiative-card-mini-btn"
+                  className="initiatives-secondary-btn initiative-card-mini-btn initiative-drawer-link-btn"
                   onClick={() => {
                     if (intelPanel === "log") {
                       setIntelPanel(null);
@@ -7460,7 +8084,7 @@ function InitiativeDetailDrawer({
                 </button>
                 <button
                   type="button"
-                  className="initiatives-secondary-btn initiative-card-mini-btn"
+                  className="initiatives-secondary-btn initiative-card-mini-btn initiative-drawer-link-btn"
                   onClick={() => {
                     if (intelPanel === "link") {
                       setIntelPanel(null);
@@ -7602,32 +8226,151 @@ function createInitiativeRecord(input: {
   };
 }
 
+function buildFundraisingReviewInitiative(): InitiativeRecord {
+  const title = "Prepare Series A fundraising materials and financial model";
+  return {
+    ...createInitiativeRecord({
+      id: "rec-rev-series-a-materials",
+      title,
+      description:
+        "You are targeting a $5.0M Series A with about 1.1 months of runway. Investors will expect a credible 3-year model, use-of-funds narrative, and metrics that tie GTM efficiency to the raise timeline.",
+      pillar: "rev",
+      topic: "fundraising",
+      kind: "one-time",
+      status: "Suggested",
+      owner: "shreya.g@york.ie",
+      assignees: ["shreya.g@york.ie"],
+    }),
+    priority: "high",
+    benefits: [
+      "Close Series A on timeline before runway forces a bridge or down round.",
+      "Reduce diligence friction with investor-grade financials and a clear use of funds.",
+      "Align G&A, GTM, and product narratives to what peers at this stage are showing.",
+      "Give the board a single model for scenario planning through the raise.",
+    ],
+    sources: [
+      { id: "src-int-round-size", kind: "intelligence", label: "Target round size", detail: "$5.0M" },
+      { id: "src-int-round-stage", kind: "intelligence", label: "Round stage", detail: "Series A" },
+      { id: "src-int-fundraising", kind: "intelligence", label: "Actively fundraising", detail: "Yes" },
+      { id: "src-int-runway", kind: "intelligence", label: "Runway", detail: "1.1mo" },
+      { id: "src-int-burn", kind: "intelligence", label: "Monthly net burn", detail: "$787K" },
+      { id: "src-int-cash", kind: "intelligence", label: "Cash on hand", detail: "$878K" },
+      { id: "src-int-ga-pct", kind: "intelligence", label: "G&A % of revenue", detail: "85%" },
+      { id: "src-bench-arr", kind: "benchmark", label: "ARR", detail: "$3.2M" },
+      { id: "src-bench-rule40", kind: "benchmark", label: "Rule of 40", detail: "18" },
+      { id: "src-form-rev-capital", kind: "form_rev", label: "Capital priority", detail: "Actively fundraising" },
+      { id: "src-form-rev-finance", kind: "form_rev", label: "Finance maturity", detail: "Spreadsheet + bookkeeper" },
+      { id: "src-form-mkt-motion", kind: "form_mkt", label: "Primary GTM motion", detail: "Sales-led" },
+      { id: "src-doc-deck", kind: "document", label: "Pitch deck", documentType: "Pitch deck" },
+      { id: "src-doc-model", kind: "document", label: "Financial model", documentType: "Financial model" },
+      { id: "src-manual-ic", kind: "source", label: "IC prep notes", detail: "Partner sync · Oct 2" },
+    ],
+    milestones: [
+      { id: "ms-fund-1", title: "Build 3-year financial model with base, upside, and downside cases", due: "10/23/2026", done: false },
+      { id: "ms-fund-2", title: "Draft use-of-funds and hiring plan aligned to Series A milestones", due: "10/30/2026", done: false },
+      { id: "ms-fund-3", title: "Package data room materials and investor FAQ from latest intelligence", due: "11/06/2026", done: false },
+    ],
+  };
+}
+
+function withSuggestedSources(
+  record: InitiativeRecord,
+  sources: InitiativeSourceRef[],
+): InitiativeRecord {
+  return { ...record, sources };
+}
+
 function buildDefaultRecommendedInitiatives(): InitiativeRecord[] {
   return [
-    createInitiativeRecord({
-      id: "rec-gtm-icp",
-      title: "Tighten ICP messaging for enterprise deals",
-      description: "Rewrite homepage and outbound copy around the highest-converting ICP segment from recent intel.",
-      pillar: "mkt",
-      topic: "icp",
-      status: "Suggested",
-    }),
-    createInitiativeRecord({
-      id: "rec-dev-scale",
-      title: "Run a scale-readiness checklist",
-      description: "Audit ship cadence, critical debt, and on-call coverage before the next hiring wave.",
-      pillar: "dev",
-      topic: "planning",
-      status: "Suggested",
-    }),
-    createInitiativeRecord({
-      id: "rec-rev-runway",
-      title: "Build a 6-month cash runway plan",
-      description: "Model burn scenarios and decide which G&A levers to pull if pipeline slips a quarter.",
-      pillar: "rev",
-      topic: "runway",
-      status: "Suggested",
-    }),
+    buildFundraisingReviewInitiative(),
+    withSuggestedSources(
+      createInitiativeRecord({
+        id: "rec-mkt-cac",
+        title: "Establish CAC payback threshold and enforce in budget",
+        description:
+          "CAC payback is well above peer median. Set a hard payback ceiling and tie channel spend approvals to it before the next quarter plan.",
+        pillar: "mkt",
+        topic: "acquisition",
+        kind: "continuous",
+        status: "Suggested",
+      }),
+      [
+        { id: "src2-int-cac", kind: "intelligence", label: "CAC payback", detail: "22 mo" },
+        { id: "src2-bench-cac", kind: "benchmark", label: "CAC payback", detail: "22 mo vs 16 mo p50" },
+        { id: "src2-form-mkt-crm", kind: "form_mkt", label: "CRM in use", detail: "Spreadsheet" },
+      ],
+    ),
+    withSuggestedSources(
+      createInitiativeRecord({
+        id: "rec-mkt-enterprise-onboard",
+        title: "Launch enterprise onboarding playbooks and success milestones",
+        description:
+          "Enterprise deals are closing but time-to-value is slow. Document onboarding stages, owners, and success checkpoints tied to ACV band.",
+        pillar: "mkt",
+        topic: "sales-retention",
+        kind: "continuous",
+        status: "Suggested",
+      }),
+      [
+        { id: "src3-int-acv", kind: "intelligence", label: "ACV band", detail: "$10K–$100K" },
+        { id: "src3-form-mkt-motion", kind: "form_mkt", label: "Primary GTM motion", detail: "Sales-led" },
+        { id: "src3-form-mkt-process", kind: "form_mkt", label: "Sales process", detail: "Informal" },
+        { id: "src3-doc-playbook", kind: "document", label: "Customer success plan", documentType: "CS playbook" },
+      ],
+    ),
+    withSuggestedSources(
+      createInitiativeRecord({
+        id: "rec-rev-burn",
+        title: "Reduce monthly net burn by 15% without cutting GTM capacity",
+        description:
+          "Burn is elevated vs cohort while runway is under pressure. Identify G&A and vendor levers that preserve pipeline coverage.",
+        pillar: "rev",
+        topic: "finance-ops",
+        kind: "one-time",
+        status: "Suggested",
+      }),
+      [
+        { id: "src4-int-burn", kind: "intelligence", label: "Monthly net burn", detail: "$787K" },
+        { id: "src4-bench-burn", kind: "benchmark", label: "Monthly net burn", detail: "Above p75" },
+        { id: "src4-form-rev-runway", kind: "form_rev", label: "Runway focus", detail: "Under 6 months" },
+      ],
+    ),
+    withSuggestedSources(
+      createInitiativeRecord({
+        id: "rec-rev-ga-cost",
+        title: "Extend runway through G&A cost review and vendor consolidation",
+        description:
+          "G&A load is high relative to revenue. Run a 30-day cost review with department DRIs and board-visible savings targets.",
+        pillar: "rev",
+        topic: "finance-ops",
+        kind: "one-time",
+        status: "Suggested",
+      }),
+      [
+        { id: "src5-int-ga", kind: "intelligence", label: "G&A % of revenue", detail: "85%" },
+        { id: "src5-int-runway", kind: "intelligence", label: "Runway", detail: "1.1mo" },
+        { id: "src5-form-rev-finance", kind: "form_rev", label: "Finance maturity", detail: "Spreadsheet + bookkeeper" },
+        { id: "src5-source-board", kind: "source", label: "Board deck comment", detail: "Oct board · cost focus" },
+      ],
+    ),
+    withSuggestedSources(
+      createInitiativeRecord({
+        id: "rec-mkt-nrr",
+        title: "Launch proactive NRR recovery for accounts below 100%",
+        description:
+          "Logo retention is softening. Stand up a save motion with leading indicators from CS and product usage before renewals stack.",
+        pillar: "mkt",
+        topic: "sales-retention",
+        kind: "continuous",
+        status: "Suggested",
+      }),
+      [
+        { id: "src6-int-nrr", kind: "intelligence", label: "Net revenue retention", detail: "94%" },
+        { id: "src6-int-logo", kind: "intelligence", label: "Logo retention", detail: "86%" },
+        { id: "src6-bench-nrr", kind: "benchmark", label: "NRR", detail: "Below p50" },
+        { id: "src6-form-dev-quality", kind: "form_dev", label: "Top product constraint", detail: "Quality" },
+      ],
+    ),
   ];
 }
 
@@ -7750,6 +8493,7 @@ function InitiativesPage({
   onDelete,
   onLogIntelligence,
   onClearFocus,
+  onNavigateSourceView,
 }: {
   investorMode?: boolean;
   items?: InitiativeRecord[];
@@ -7761,11 +8505,16 @@ function InitiativesPage({
   onDelete?: (id: string) => void;
   onLogIntelligence?: (item: IntelligenceItem) => void;
   onClearFocus?: () => void;
+  onNavigateSourceView?: (target: InitiativeSourceViewTarget) => void;
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const [statusTab, setStatusTab] = useState<InitiativeListStatus>("Active");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pillarFilter, setPillarFilter] = useState<InitiativePillar | "all">("all");
+  const [kindFilter, setKindFilter] = useState<InitiativeKind | "all">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [suggestedOpen, setSuggestedOpen] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState<InitiativeRecord | null>(null);
 
   // One-shot focus from toasts / "View initiative" — consume so tab revisits don't reopen the drawer.
@@ -7799,13 +8548,34 @@ function InitiativesPage({
     [items],
   );
 
-  const visibleItems = useMemo(
+  const tabItems = useMemo(
     () => items.filter(item => (
       normalizeInitiativeStatus(item.status) !== "Suggested"
       && normalizeInitiativeListStatus(item.status) === statusTab
     )),
     [items, statusTab],
   );
+
+  const visibleItems = useMemo(() => {
+    return tabItems.filter(item => {
+      if (pillarFilter !== "all" && item.pillar !== pillarFilter) return false;
+      if (kindFilter !== "all" && item.kind !== kindFilter) return false;
+      const assignees = normalizeAssignees(item.owner, item.assignees);
+      return matchesWorkspaceSearch(
+        [
+          item.title,
+          item.description,
+          initiativePillarLabel(item.pillar),
+          initiativeTopicLabel(item.pillar, item.topic),
+          initiativeKindLabel(item.kind),
+          assignees.join(" "),
+          item.advisors.map(advisor => advisor.name).join(" "),
+          item.priority,
+        ],
+        searchQuery,
+      );
+    });
+  }, [tabItems, pillarFilter, kindFilter, searchQuery]);
 
   const selectedItem = useMemo(() => {
     if (!selectedId) return null;
@@ -7902,6 +8672,7 @@ function InitiativesPage({
     patchInitiative(item.id, { status: "Active" });
     setStatusTab("Active");
     setSuggestedOpen(false);
+    setReviewId(null);
     resetCreateForm();
     setSelectedId(item.id);
   };
@@ -7909,13 +8680,34 @@ function InitiativesPage({
   const dismissRecommendation = (id: string) => {
     onDelete?.(id);
     if (selectedId === id) setSelectedId(null);
+    if (reviewId === id) setReviewId(null);
   };
 
   const closeDrawer = () => {
     setSelectedId(null);
     onClearFocus?.();
   };
-  const showSuggested = !investorMode && recommendedItems.length > 0;
+
+  const openSuggestedList = () => {
+    resetCreateForm();
+    setSelectedId(null);
+    setReviewId(null);
+    setSuggestedOpen(true);
+  };
+
+  const openReview = (id: string) => {
+    resetCreateForm();
+    setSelectedId(null);
+    setSuggestedOpen(false);
+    setReviewId(id);
+  };
+
+  const reviewItem = useMemo(() => {
+    if (!reviewId) return null;
+    return recommendedItems.find(item => item.id === reviewId) ?? null;
+  }, [recommendedItems, reviewId]);
+
+  const showSuggested = recommendedItems.length > 0;
 
   return (
     <section className="initiatives-page">
@@ -7952,33 +8744,67 @@ function InitiativesPage({
         </div>
       </div>
 
-      <div className="initiatives-status-toggle" role="tablist" aria-label="Initiative status">
-        {(["Active", "Completed"] as const).map(tab => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={statusTab === tab}
-            className={`initiatives-status-toggle-btn${statusTab === tab ? " is-active" : ""}`}
-            onClick={() => {
-              setStatusTab(tab);
-              resetCreateForm();
-            }}
+      <WorkspaceListPanel>
+        <WorkspaceCompactToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search initiatives…"
+          filterPlacement="inline"
+          endContent={(
+            <div className="initiatives-status-toggle initiatives-status-toggle--toolbar" role="tablist" aria-label="Initiative status">
+              {(["Active", "Completed"] as const).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={statusTab === tab}
+                  className={`initiatives-status-toggle-btn${statusTab === tab ? " is-active" : ""}`}
+                  onClick={() => {
+                    setStatusTab(tab);
+                    setSearchQuery("");
+                    setPillarFilter("all");
+                    setKindFilter("all");
+                    resetCreateForm();
+                  }}
+                >
+                  {tab}
+                  <em>{statusCounts[tab]}</em>
+                </button>
+              ))}
+            </div>
+          )}
+        >
+          <select
+            className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+            value={pillarFilter}
+            onChange={event => setPillarFilter(event.target.value as InitiativePillar | "all")}
+            aria-label="Track"
           >
-            {tab}
-            <em>{statusCounts[tab]}</em>
-          </button>
-        ))}
-      </div>
+            <option value="all">All tracks</option>
+            {INITIATIVE_PILLAR_ORDER.map(pillar => (
+              <option key={pillar} value={pillar}>{initiativePillarLabel(pillar)}</option>
+            ))}
+          </select>
+          <select
+            className="signals-intel-toolbar-select workspace-compact-toolbar-select"
+            value={kindFilter}
+            onChange={event => setKindFilter(event.target.value as InitiativeKind | "all")}
+            aria-label="Kind"
+          >
+            <option value="all">All kinds</option>
+            <option value="continuous">{initiativeKindLabel("continuous")}</option>
+            <option value="one-time">{initiativeKindLabel("one-time")}</option>
+          </select>
+        </WorkspaceCompactToolbar>
 
-      {visibleItems.length === 0 ? (
-        <div className="initiatives-empty-card">
+        {tabItems.length === 0 ? (
+          <div className="initiatives-empty-card">
           <strong>{statusTab === "Completed" ? "No completed initiatives" : "No active initiatives"}</strong>
           <p>
             {statusTab === "Completed"
               ? "Mark an active initiative Completed when the work ships."
               : showSuggested
-                ? "Start from a scorecard suggestion, or create one with + New initiative."
+                ? "Fuel has suggested initiatives from intelligence, benchmark, and your data room — review one to add it to Active."
                 : investorMode
                   ? <>Create diligence or value-creation work with <span>+ New initiative</span> — kept private to your account.</>
                   : <>Start one with <span>+ New initiative</span>, or add ideas from a track detail page.</>}
@@ -7987,30 +8813,38 @@ function InitiativesPage({
             <button
               type="button"
               className="initiatives-primary-btn"
-              onClick={() => {
-                resetCreateForm();
-                setSuggestedOpen(true);
-              }}
+              onClick={openSuggestedList}
             >
-              View suggested · {recommendedItems.length}
+              Review suggested · {recommendedItems.length}
             </button>
           ) : null}
-        </div>
-      ) : null}
-
-      {visibleItems.length > 0 ? (
-        <div className="initiatives-list">
-          {visibleItems.map(item => {
-            const status = normalizeInitiativeStatus(item.status);
-            const selected = selectedId === item.id;
-            const assignees = normalizeAssignees(item.owner, item.assignees);
-            const milestonesDone = item.milestones.filter(m => m.done).length;
-            const milestonesTotal = item.milestones.length;
-            return (
-              <article key={item.id} className={`initiative-card${selected ? " is-selected" : ""}`}>
+          </div>
+        ) : visibleItems.length === 0 ? (
+          <WorkspaceListFilterEmpty onClear={() => {
+            setSearchQuery("");
+            setPillarFilter("all");
+            setKindFilter("all");
+          }}
+          />
+        ) : (
+          <div className="workspace-table initiatives-table">
+            <div className="workspace-table-head initiatives-table-head" role="row">
+              <span>Initiative</span>
+              <span>Status</span>
+              <span>Track</span>
+              <span>Kind</span>
+              <span>Team</span>
+              <span aria-hidden="true" />
+            </div>
+            {visibleItems.map(item => {
+              const status = normalizeInitiativeStatus(item.status);
+              const selected = selectedId === item.id;
+              const assignees = normalizeAssignees(item.owner, item.assignees);
+              return (
                 <button
+                  key={item.id}
                   type="button"
-                  className="initiative-card-summary"
+                  className={`workspace-table-row initiatives-table-row${selected ? " is-selected" : ""}`}
                   onClick={() => {
                     resetCreateForm();
                     setSuggestedOpen(false);
@@ -8018,33 +8852,20 @@ function InitiativesPage({
                   }}
                   aria-pressed={selected}
                 >
-                  <div className="initiative-card-summary-main">
-                    <strong>{item.title}</strong>
-                    <div className="initiative-card-meta">
-                      <span className={`initiative-status initiative-status--${status.toLowerCase()}`}>
-                        {status}
-                      </span>
-                      <em>
-                        {initiativeKindLabel(item.kind)}
-                        {" · "}
-                        {initiativePillarLabel(item.pillar)}
-                        {" · "}
-                        {initiativeTopicLabel(item.pillar, item.topic)}
-                        {" · "}
-                        {assignees.join(", ")}
-                        {milestonesTotal > 0
-                          ? ` · ${milestonesDone}/${milestonesTotal} milestones`
-                          : ""}
-                      </em>
-                    </div>
-                  </div>
+                  <strong title={item.title}>{item.title}</strong>
+                  <span className={`initiative-status initiative-status--${status.toLowerCase()}`}>
+                    {status}
+                  </span>
+                  <span>{initiativePillarLabel(item.pillar)}</span>
+                  <span>{initiativeKindLabel(item.kind)}</span>
+                  <span title={assignees.join(", ")}>{assignees.join(", ")}</span>
                   <span className="initiative-card-open-hint" aria-hidden="true">Open</span>
                 </button>
-              </article>
-            );
-          })}
-        </div>
-      ) : null}
+              );
+            })}
+          </div>
+        )}
+      </WorkspaceListPanel>
 
       {isCreating && createDraft ? (
         <InitiativeDetailDrawer
@@ -8070,10 +8891,10 @@ function InitiativesPage({
           >
             <header className="bench-drawer-head">
               <div>
-                <div className="initiative-drawer-eyebrow">From your scorecard</div>
+                <div className="initiative-drawer-eyebrow">Suggested initiatives</div>
                 <h2 className="bench-drawer-title">Suggested</h2>
                 <p className="bench-drawer-sub">
-                  Add one to Active to track it, or dismiss ideas you don’t need.
+                  From intelligence, benchmark gaps, and uploaded documents. Create an initiative to add it to Active, or dismiss ideas you don&apos;t need.
                 </p>
               </div>
               <button
@@ -8088,43 +8909,36 @@ function InitiativesPage({
             <div className="bench-drawer-body initiative-suggested-drawer-body">
               <ul className="initiatives-suggested-list">
                 {recommendedItems.map(item => (
-                  <li key={item.id} className="initiatives-suggested-row">
-                    <div className="initiatives-suggested-copy">
-                      <strong>{item.title}</strong>
-                      <span>
-                        {initiativePillarLabel(item.pillar)}
-                        {" · "}
-                        {initiativeTopicLabel(item.pillar, item.topic)}
-                        {item.description.trim() ? ` · ${item.description}` : ""}
-                      </span>
-                    </div>
-                    <div className="initiatives-suggested-actions">
-                      <button
-                        type="button"
-                        className="initiatives-primary-btn"
-                        onClick={() => acceptRecommendation(item)}
-                      >
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        className="initiatives-secondary-btn"
-                        onClick={() => dismissRecommendation(item.id)}
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </li>
+                  <SuggestedInitiativeCard
+                    key={item.id}
+                    item={item}
+                    onReview={() => openReview(item.id)}
+                    onCreate={() => acceptRecommendation(item)}
+                    onDismiss={() => dismissRecommendation(item.id)}
+                  />
                 ))}
               </ul>
             </div>
-            <footer className="bench-drawer-actions">
-              <button type="button" className="bench-drawer-cancel" onClick={() => setSuggestedOpen(false)}>
-                Close
-              </button>
-            </footer>
           </aside>
         </div>
+      ) : null}
+
+      {reviewItem ? (
+        <ReviewInitiativeDrawer
+          key={reviewItem.id}
+          item={reviewItem}
+          onClose={() => setReviewId(null)}
+          onBack={() => {
+            setReviewId(null);
+            setSuggestedOpen(true);
+          }}
+          onDismiss={() => dismissRecommendation(reviewItem.id)}
+          onCreate={() => acceptRecommendation(reviewItem)}
+          onViewSourceGroup={(_kind, target) => {
+            setReviewId(null);
+            onNavigateSourceView?.(target);
+          }}
+        />
       ) : null}
 
       {selectedItem ? (
@@ -8143,6 +8957,291 @@ function InitiativesPage({
           onStatusTabChange={setStatusTab}
         />
       ) : null}
+    </section>
+  );
+}
+
+function publicMarketTags(company: { meta: string; headquarters: string; employees: string }) {
+  const headquarters = company.headquarters.trim().toLowerCase();
+  const employees = company.employees.trim().toLowerCase();
+  return company.meta.split("·").map(part => part.trim()).filter(part => {
+    const key = part.toLowerCase();
+    if (!key || key === headquarters || key === employees) return false;
+    if (part.includes(",")) return false;
+    if (/^\d/.test(part)) return false;
+    return true;
+  });
+}
+
+function externalProfileLink(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function companyIsInInvestorPortfolio(companyId: string) {
+  return INVESTOR_PORTFOLIO.some(company => company.id === companyId)
+    || SEED_FUND_EXTENDED_PORTFOLIO.some(company => company.id === companyId);
+}
+
+function ClaimedProfileBrief({
+  company,
+  benchmark,
+  benchmarkContext,
+  intelligenceItems,
+  documentSlots,
+  activeInitiatives,
+  efficiencyExtras,
+}: {
+  company: { id: string; displayName: string; domain: string; meta: string; headquarters: string; employees: string };
+  benchmark: OnboardingBenchmarkInput;
+  benchmarkContext?: {
+    notableCustomers?: string;
+    notableHires?: string;
+    biggestChallenges?: string;
+    otherUpdates?: string;
+    openToIntros?: boolean;
+  };
+  intelligenceItems: { id: string; type: string; text: string; title: string; highlight?: string }[];
+  documentSlots: { typeId: string; typeLabel: string; current: { name: string } | null }[];
+  activeInitiatives: { id: string; title: string; description: string; pillar?: "dev" | "mkt" | "rev"; status?: string; due?: string; owner?: string; progress?: number }[];
+  efficiencyExtras?: { cacPayback?: string; burnMultiple?: string; period?: string };
+}) {
+  return (
+    <ScorecardV2
+      presentation="shared-brief"
+      benchmark={benchmark}
+      cohortLabel={company.meta}
+      companyName={company.displayName}
+      journeyStage="Early Revenue"
+      companyKey={company.id}
+      profileMeta={{
+        sector: company.meta,
+        employees: company.employees,
+        headquarters: company.headquarters,
+        domain: company.domain,
+      }}
+      benchmarkContext={benchmarkContext}
+      intelligenceItems={intelligenceItems}
+      documentSlots={documentSlots}
+      activeInitiatives={activeInitiatives}
+      efficiencyExtras={efficiencyExtras}
+    />
+  );
+}
+
+function ExternalCompanyOverview({
+  company,
+}: {
+  company: { id: string; displayName: string; domain: string; meta: string; headquarters: string; employees: string; linkedin: string };
+}) {
+  const suggested = SUGGESTED_FOUNDERS.find(item => item.id === company.id);
+  const portfolio = INVESTOR_PORTFOLIO.find(item => item.id === company.id);
+  const access = sharedAdvisorAccess(company.id);
+  const founderProfile = access?.sharedProfile
+    ? findFounderCompanyProfile({ name: company.displayName, domain: company.domain })
+    : null;
+  const markets = publicMarketTags(company);
+  const headquarters = company.headquarters
+    || [founderProfile?.city, founderProfile?.stateRegion, founderProfile?.country].filter(Boolean).join(", ");
+  const industry = founderProfile?.industry || (access?.sharedProfile ? portfolio?.sector : "");
+  const similar = suggested?.similarTo ? [suggested.similarTo] : [];
+  const links = company.linkedin
+    ? [{ label: "LinkedIn", href: externalProfileLink(company.linkedin) }]
+    : [];
+  const sources = [
+    company.domain ? ["Website", "public"] : null,
+    company.linkedin ? ["LinkedIn", "company profile"] : null,
+  ].filter((row): row is [string, string] => Boolean(row));
+  const metrics = access?.approvedBenchmarks && portfolio
+    ? [
+      { label: "ARR", value: portfolio.arr },
+      { label: "Quarterly growth", value: `${portfolio.arrGrowthQoQ > 0 ? "+" : ""}${portfolio.arrGrowthQoQ}%` },
+      { label: "Runway", value: portfolio.runway },
+      { label: "Net revenue retention", value: `${portfolio.nrr}%` },
+    ]
+    : [
+      { label: "Total funding", value: "—" },
+      { label: "Funding rounds", value: "—" },
+      { label: "Last funding", value: "—" },
+      { label: "Founded", value: "—" },
+    ];
+  const sharedWaiting = access
+    ? [
+      access.sharedIntelligence ? "intelligence" : null,
+      access.sharedInitiatives ? "initiatives" : null,
+      access.sharedDataRoomFiles ? "data room files" : null,
+    ].filter((item): item is string => Boolean(item))
+    : [];
+
+  return (
+    <section className="overview-tour-page">
+      <div className="overview-metric-grid">
+        {metrics.map(metric => (
+          <div className="overview-metric-card" key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="overview-layout-grid">
+        <div className="overview-main-column">
+          <div className="overview-panel">
+            <span>About</span>
+            <p>{founderProfile?.whatTheyDo || "No public description on record."}</p>
+          </div>
+
+          <div className="overview-panel">
+            <span>Company details</span>
+            <div className="overview-detail-list">
+              <div className="overview-detail-row">
+                <em>Headquarters</em>
+                <strong>{headquarters || "—"}</strong>
+              </div>
+              <div className="overview-detail-row">
+                <em>Employees</em>
+                <strong>{company.employees || "—"}</strong>
+              </div>
+              <div className="overview-detail-row">
+                <em>Founded</em>
+                <strong>{founderProfile?.founded || "—"}</strong>
+              </div>
+              {access?.sharedProfile && portfolio?.stage ? (
+                <div className="overview-detail-row">
+                  <em>Stage</em>
+                  <strong>{portfolio.stage}</strong>
+                </div>
+              ) : null}
+              {industry ? (
+                <div className="overview-detail-row">
+                  <em>Industry</em>
+                  <strong>{industry}</strong>
+                </div>
+              ) : null}
+              {founderProfile?.businessModel ? (
+                <div className="overview-detail-row">
+                  <em>Organization</em>
+                  <strong>{founderProfile.businessModel}</strong>
+                </div>
+              ) : null}
+              {access?.sharedProfile && portfolio?.founderEmail ? (
+                <div className="overview-detail-row">
+                  <em>Founder email</em>
+                  <strong>{portfolio.founderEmail}</strong>
+                </div>
+              ) : null}
+              {markets.length > 0 ? (
+                <div className="overview-detail-row">
+                  <em>Markets</em>
+                  <strong className="overview-market-chips">
+                    {markets.map(market => (
+                      <span className="overview-market-chip" key={market}>{market}</span>
+                    ))}
+                  </strong>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {sharedWaiting.length > 0 ? (
+            <div className="overview-panel">
+              <span>Shared with you</span>
+              <p>
+                No {sharedWaiting.length === 1
+                  ? sharedWaiting[0]
+                  : `${sharedWaiting.slice(0, -1).join(", ")} or ${sharedWaiting[sharedWaiting.length - 1]}`} on file yet.
+              </p>
+            </div>
+          ) : null}
+
+          {founderProfile && founderProfile.funding.length > 0 ? (
+            <div className="overview-panel">
+              <div className="overview-panel-head">
+                <span>Funding rounds</span>
+                <em>{founderProfile.funding.length === 1 ? "1 round" : `${founderProfile.funding.length} rounds`}</em>
+              </div>
+              <div className="overview-funding-table">
+                <div className="overview-funding-header">
+                  <span>Date</span>
+                  <span>Round</span>
+                  <span>Amount</span>
+                  <span>Investors</span>
+                </div>
+                {founderProfile.funding.map(round => (
+                  <div className="overview-funding-row" key={`${round.type}-${round.amount}`}>
+                    <span>—</span>
+                    <span>{round.type}</span>
+                    <span>{round.amount}</span>
+                    <span>{round.investors || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="overview-panel">
+              <div className="overview-panel-head">
+                <span>Funding rounds</span>
+              </div>
+              <p>Loading…</p>
+            </div>
+          )}
+
+          <div className="overview-panel">
+            <span>Recent news</span>
+            <p>Loading…</p>
+          </div>
+        </div>
+
+        <aside className="overview-side-column">
+          <div className="overview-panel">
+            <span>Links</span>
+            {links.length > 0 ? (
+              <div className="overview-source-list">
+                {links.map(link => (
+                  <div key={link.href}>
+                    <a className="overview-public-link" href={link.href} target="_blank" rel="noreferrer">{link.label}</a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No public links on record.</p>
+            )}
+          </div>
+
+          <div className="overview-panel">
+            <span>Similar companies</span>
+            {similar.length > 0 ? (
+              <div className="overview-company-list">
+                {similar.map(name => (
+                  <div key={name}>{name}</div>
+                ))}
+              </div>
+            ) : (
+              <p>Loading…</p>
+            )}
+          </div>
+
+          <div className="overview-panel">
+            <div className="overview-panel-head">
+              <span>Data sources</span>
+              <em>Public</em>
+            </div>
+            {sources.length > 0 ? (
+              <div className="overview-source-list">
+                {sources.map(([source, type]) => (
+                  <div key={source}>
+                    <strong>{source}</strong>
+                    <em>{type}</em>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No public sources on record.</p>
+            )}
+          </div>
+        </aside>
+      </div>
     </section>
   );
 }
@@ -9160,7 +10259,7 @@ function SidebarProfileFooter({
     <div className="sidebar-footer">
       <SidebarYorkReachOut ready={yorkUpsellReady} />
       <CreditIndicator />
-      <div className="sidebar-foot-wrap" ref={wrapRef}>
+      <div className={`sidebar-foot-wrap${menuOpen ? " is-menu-open" : ""}`} ref={wrapRef}>
         {menuOpen ? (
           <div className="sidebar-user-menu" role="menu" aria-label="User menu">
             <div className="sidebar-user-menu-head">
@@ -9297,11 +10396,15 @@ export default function PatriotPayJourney({
   initialBenchmark = null,
   initialOnboardingAnswers = null,
   persona = "founder",
+  onNotificationAction,
+  suppressProfileCompletionPrompt = false,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
   persona?: "founder" | "investor";
+  onNotificationAction?: (action: NotificationAction, notification: WorkspaceNotification) => void;
+  suppressProfileCompletionPrompt?: boolean;
 }) {
   return (
     <CreditProvider audience={persona === "investor" ? "investor" : "founder"}>
@@ -9310,6 +10413,8 @@ export default function PatriotPayJourney({
         initialBenchmark={initialBenchmark}
         initialOnboardingAnswers={initialOnboardingAnswers}
         persona={persona}
+        onNotificationAction={onNotificationAction}
+        suppressProfileCompletionPrompt={suppressProfileCompletionPrompt}
       />
       <CreditToastHost />
     </CreditProvider>
@@ -9321,11 +10426,15 @@ function PatriotPayJourneyInner({
   initialBenchmark = null,
   initialOnboardingAnswers = null,
   persona = "founder",
+  onNotificationAction,
+  suppressProfileCompletionPrompt = false,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
   initialOnboardingAnswers?: import("./OnboardingFlow.tsx").OnboardingFlowAnswers | null;
   persona?: "founder" | "investor";
+  onNotificationAction?: (action: NotificationAction, notification: WorkspaceNotification) => void;
+  suppressProfileCompletionPrompt?: boolean;
 }) {
   const isInvestorPersona = persona === "investor";
   const startsWithTour = initialPage === "guided-tour";
@@ -9379,6 +10488,9 @@ function PatriotPayJourneyInner({
   const [investorWorkspaceStarted, setInvestorWorkspaceStarted] = useState<Record<string, boolean>>({});
   const [dataRoomAccessRequests, setDataRoomAccessRequests] = useState<Record<string, boolean>>({});
   const [selectedCompany, setSelectedCompany] = useState(FOUNDER_COMPANY);
+  const [advisorNetworkCount, setAdvisorNetworkCount] = useState(() => (
+    countCompanyAdvisors(FOUNDER_COMPANY.id)
+  ));
   const [earnedProfileCredits, setEarnedProfileCredits] = useState<EarnedProfileCredits>(() =>
     loadEarnedProfileCredits(FOUNDER_CLAIMED_COMPANY_ID),
   );
@@ -9395,7 +10507,8 @@ function PatriotPayJourneyInner({
     setProfileCreditReward(reward);
   }, []);
   const [profileCompletionPromptOpen, setProfileCompletionPromptOpen] = useState(() =>
-    persona !== "investor"
+    !suppressProfileCompletionPrompt
+    && persona !== "investor"
     && isProfileCompletionPromptDue(
       FOUNDER_CLAIMED_COMPANY_ID,
       FOUNDER_COMPANY.displayName,
@@ -9428,13 +10541,23 @@ function PatriotPayJourneyInner({
   const closeLegal = useCallback(() => {
     setActivePage(legalReturnRef.current);
   }, []);
+  useEffect(() => {
+    const accountCompanyId = isInvestorPersona ? selectedCompany.id : FOUNDER_COMPANY.id;
+    const refreshAdvisorCount = () => {
+      setAdvisorNetworkCount(countCompanyAdvisors(accountCompanyId));
+    };
+    refreshAdvisorCount();
+    window.addEventListener(ADVISOR_DIRECTORY_CHANGE_EVENT, refreshAdvisorCount);
+    return () => window.removeEventListener(ADVISOR_DIRECTORY_CHANGE_EVENT, refreshAdvisorCount);
+  }, [isInvestorPersona, selectedCompany.id]);
   const dismissProfileCompletionPrompt = useCallback(() => {
     markProfileCompletionPromptDismissed(selectedCompany.id);
     setProfileCompletionPromptOpen(false);
   }, [selectedCompany.id]);
   const openCompanyHeaderProfile = useCallback(() => {
-    setActivePage("overview");
-  }, []);
+    const claimedFounder = !isInvestorPersona && selectedCompany.id === FOUNDER_CLAIMED_COMPANY_ID;
+    setActivePage(claimedFounder ? "scorecard-v2" : "overview");
+  }, [isInvestorPersona, selectedCompany.id]);
   const completeProfileFromPrompt = useCallback(() => {
     setProfileCompletionPromptOpen(false);
     setOpenProfileModuleSection("profile");
@@ -9473,6 +10596,12 @@ function PatriotPayJourneyInner({
   const isClaimedFounderCompany = !isInvestorPersona && selectedCompany.id === FOUNDER_CLAIMED_COMPANY_ID;
   const isInvestorCompanyView = isInvestorPersona && isOnCompanyWorkspace;
   const usesPerCompanyWorkspace = isOnCompanyWorkspace && !isClaimedFounderCompany;
+  const sharedCompanyAccess = usesPerCompanyWorkspace ? sharedAdvisorAccess(selectedCompany.id) : null;
+  const showPublishedBrief = Boolean(sharedCompanyAccess?.sharedPublishedBrief);
+  const companyInPortfolio = companyIsInInvestorPortfolio(selectedCompany.id);
+  const showClaimedProfileBrief = showPublishedBrief
+    && companyInPortfolio
+    && selectedCompany.id === FOUNDER_CLAIMED_COMPANY_ID;
   const markInvestorWorkspaceStarted = useCallback((companyId: string) => {
     if (!usesPerCompanyWorkspace && companyId === FOUNDER_CLAIMED_COMPANY_ID) return;
     if (isInvestorPersona && companyId === FOUNDER_CLAIMED_COMPANY_ID) return;
@@ -9493,7 +10622,7 @@ function PatriotPayJourneyInner({
     markInvestorWorkspaceStarted(companyId);
     if (!hadWorkspace) {
       setInvestorOverviewIntroCompanyId(companyId);
-      setActivePage("scorecard-v2");
+      setActivePage("overview");
     }
   }, [
     investorBenchmarkByCompany,
@@ -9580,7 +10709,7 @@ function PatriotPayJourneyInner({
         if (!hadInvestorWorkspace) {
           markInvestorWorkspaceStarted(selectedCompany.id);
           setInvestorOverviewIntroCompanyId(selectedCompany.id);
-          setActivePage("scorecard-v2");
+          setActivePage("overview");
         }
       } else {
         setIntelligenceItems(previous => [item, ...previous]);
@@ -9820,6 +10949,38 @@ function PatriotPayJourneyInner({
     usesPerCompanyWorkspace,
     selectedCompany.id,
   ]);
+  const tabActiveInitiativeCount = useMemo(() => {
+    const list = usesPerCompanyWorkspace
+      ? investorInitiativesByCompany[selectedCompany.id] ?? []
+      : founderInitiatives;
+    return countActiveInitiatives(list);
+  }, [
+    founderInitiatives,
+    investorInitiativesByCompany,
+    selectedCompany.id,
+    usesPerCompanyWorkspace,
+  ]);
+  const tabIntelligenceCount = useMemo(
+    () => countLatestIntelligenceSignals(investorScopedIntelligence),
+    [investorScopedIntelligence],
+  );
+  const tabResearchCount = researchArtifacts.length;
+  const tabDataRoomCount = countActiveDocuments(documentSlots);
+  useEffect(() => {
+    if (activePage !== "initiatives") return;
+    if (!usesPerCompanyWorkspace) return;
+    const existing = investorInitiativesByCompany[selectedCompany.id];
+    if (existing && existing.length > 0) return;
+    setInvestorInitiativesByCompany(previous => ({
+      ...previous,
+      [selectedCompany.id]: buildDefaultRecommendedInitiatives(),
+    }));
+  }, [
+    activePage,
+    investorInitiativesByCompany,
+    selectedCompany.id,
+    usesPerCompanyWorkspace,
+  ]);
   const setScopedIntelligenceItems = useCallback((
     updater: React.SetStateAction<IntelligenceItem[]>,
   ) => {
@@ -9846,8 +11007,9 @@ function PatriotPayJourneyInner({
   const openInvestorCompany = useCallback((company: InvestorCompanyRef) => {
     setSelectedCompany(investorCompanyToSelected(company));
     setProfileComplete(true);
-    setActivePage("overview");
-  }, []);
+    const claimedFounderCompany = !isInvestorPersona && company.id === FOUNDER_CLAIMED_COMPANY_ID;
+    setActivePage(claimedFounderCompany ? "scorecard-v2" : "overview");
+  }, [isInvestorPersona]);
   const openRecentCompany = useCallback((companyId: string) => {
     const company = INVESTOR_PORTFOLIO.find(item => item.id === companyId)
       ?? SUGGESTED_FOUNDERS.find(item => item.id === companyId);
@@ -9872,7 +11034,8 @@ function PatriotPayJourneyInner({
     };
   }, [fundName, initialOnboardingAnswers, isInvestorPersona]);
   const applyBenchmarkSubmission = (values: BenchmarkFormValues, forCompanyId?: string) => {
-    const { items, submission } = createBenchmarkIntelligence(values);
+    const cohortId = loadBenchmarkCohortId();
+    const { items, submission } = createBenchmarkIntelligence(values, BENCHMARK_PERIOD, cohortId);
     const usePerCompany = Boolean(
       forCompanyId && (isInvestorPersona || forCompanyId !== FOUNDER_CLAIMED_COMPANY_ID),
     );
@@ -9892,7 +11055,7 @@ function PatriotPayJourneyInner({
       if (!hadWorkspace) {
         markInvestorWorkspaceStarted(forCompanyId);
         setInvestorOverviewIntroCompanyId(forCompanyId);
-        setActivePage("scorecard-v2");
+        setActivePage("overview");
       }
       return;
     }
@@ -9930,13 +11093,16 @@ function PatriotPayJourneyInner({
     setAskFuelOpen(true);
   }, []);
 
-  useEffect(() => {
-    if (activePage !== "research" || !usesPerCompanyWorkspace) return;
-    setResearchArtifacts(previous => {
-      if (previous.length) return previous;
-      return ensureDemoResearchSeed(selectedCompany.displayName);
-    });
-  }, [activePage, selectedCompany.displayName, usesPerCompanyWorkspace]);
+  useLayoutEffect(() => {
+    if (usesPerCompanyWorkspace && (activePage === "scorecard-v2" || activePage === "brief")) {
+      setActivePage("overview");
+    }
+  }, [activePage, usesPerCompanyWorkspace]);
+  useLayoutEffect(() => {
+    if (isClaimedFounderCompany && (activePage === "overview" || activePage === "brief")) {
+      setActivePage("scorecard-v2");
+    }
+  }, [activePage, isClaimedFounderCompany]);
 
   const reciprocateAskFuelBenchmarkSubmit = useCallback(() => {
     if (!askFuelAwaitingBenchmarkRef.current) return;
@@ -9987,6 +11153,12 @@ function PatriotPayJourneyInner({
       target: "tab-overview",
       title: "Overview",
       text: "This is your operating home. R&D, GTM, and G&A track scores, the Fuel AI advisor, and company snapshot live here — they fill in as onboarding context finishes processing.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "notifications",
+      title: "Notifications",
+      text: "The bell keeps advisor invitations and important workspace updates in one place. Open a notification to review it and take action when you are ready.",
     },
     {
       page: "scorecard-v2",
@@ -10143,7 +11315,11 @@ function PatriotPayJourneyInner({
   }, [overviewBuildActive]);
 
   useEffect(() => {
-    if (isInvestorPersona) {
+    if (suppressProfileCompletionPrompt) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    if (isInvestorPersona || usesPerCompanyWorkspace) {
       setProfileCompletionPromptOpen(false);
       return;
     }
@@ -10156,9 +11332,17 @@ function PatriotPayJourneyInner({
       return;
     }
     setProfileCompletionPromptOpen(true);
-  }, [activePage, initialOnboardingAnswers, isInvestorPersona, selectedCompany.displayName, selectedCompany.id]);
+  }, [
+    activePage,
+    initialOnboardingAnswers,
+    isInvestorPersona,
+    usesPerCompanyWorkspace,
+    selectedCompany.displayName,
+    selectedCompany.id,
+    suppressProfileCompletionPrompt,
+  ]);
 
-  const profilePromptBlocking = shouldGateFounderProfilePrompt(
+  const profilePromptBlocking = !suppressProfileCompletionPrompt && shouldGateFounderProfilePrompt(
     persona,
     selectedCompany.id,
     selectedCompany.displayName,
@@ -10272,9 +11456,18 @@ function PatriotPayJourneyInner({
     setTourIndex(tourStep - 1);
   }
 
+  function handleNotificationAction(action: NotificationAction, notification: WorkspaceNotification) {
+    if (action.type === "navigate") {
+      setActivePage(action.page);
+      return;
+    }
+    onNotificationAction?.(action, notification);
+  }
+
   const isAccountPage = activePage === "account";
   const isHelpPage = activePage === "help";
   const isLegalPage = activePage === "legal";
+  const isAdvisorsPage = activePage === "advisors";
   const isInvestorShellPage = activePage === "investor-home"
     || activePage === "investor-portfolios"
     || activePage === "investor-pipeline"
@@ -10289,6 +11482,8 @@ function PatriotPayJourneyInner({
       ? `Legal · ${getLegalDocument(legalDocId).shortTitle}`
     : isHelpPage
       ? "Help & FAQ"
+    : isAdvisorsPage
+      ? "Advisors"
     : activePage === "investor-portfolios" || activePage === "investor-home" ? "Portfolios"
       : activePage === "investor-pipeline" ? "Pipeline"
         : activePage === "investor-watchlists" ? "Watchlists"
@@ -10315,6 +11510,46 @@ function PatriotPayJourneyInner({
   const selectedCompanyLogo = useMemo(
     () => getCompanyLogoColors(selectedCompany.displayName || selectedCompany.logo),
     [selectedCompany.displayName, selectedCompany.logo],
+  );
+  const claimedProfileBrief = (
+    <ClaimedProfileBrief
+      company={selectedCompany}
+      benchmark={formValuesToOnboardingBenchmark(founderBenchmarkForm)}
+      benchmarkContext={benchmarkSubmission ? {
+        notableCustomers: benchmarkSubmission.formValues.notableCustomers,
+        notableHires: benchmarkSubmission.formValues.notableHires,
+        biggestChallenges: benchmarkSubmission.formValues.biggestChallenges,
+        otherUpdates: benchmarkSubmission.formValues.otherUpdates,
+        openToIntros: benchmarkSubmission.formValues.openToIntros,
+      } : undefined}
+      intelligenceItems={intelligenceItems.map(item => ({
+        id: item.id,
+        type: item.type,
+        text: item.text,
+        title: item.title,
+        highlight: item.highlight,
+      }))}
+      documentSlots={documentSlots.map(slot => ({
+        typeId: slot.typeId,
+        typeLabel: slot.typeLabel,
+        current: slot.current ? { name: slot.current.name } : null,
+      }))}
+      activeInitiatives={founderInitiatives.map(item => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        pillar: item.pillar,
+        status: item.status,
+        due: item.due,
+        owner: item.owner,
+        progress: 0,
+      }))}
+      efficiencyExtras={hasFilledBenchmarkMetric(founderBenchmarkForm) || benchmarkSubmission?.period ? {
+        cacPayback: founderBenchmarkForm.cacPayback,
+        burnMultiple: founderBenchmarkForm.burnMultiple,
+        period: benchmarkSubmission?.period ?? BENCHMARK_PERIOD,
+      } : undefined}
+    />
   );
 
   return (
@@ -10345,51 +11580,63 @@ function PatriotPayJourneyInner({
           <div className="account-name">My Account</div>
         </div>
         <div className="sidebar-nav">
-        <div className="nav-section">
-          <div className="nav-label">{isInvestorPersona ? "Fund" : "Research"}</div>
-          <div
-            className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
-            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
-            onClick={isInvestorPersona ? () => setActivePage("investor-watchlists") : undefined}
-          >
-            ⊟ Watchlists
+        {isInvestorPersona ? (
+          <div className="nav-section">
+            <div className="nav-label">Fund</div>
+            <div
+              className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setActivePage("investor-watchlists")}
+            >
+              ⊟ Watchlists
+            </div>
+            <div
+              className={`nav-item${activePage === "investor-pipeline" ? " is-active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setActivePage("investor-pipeline")}
+            >
+              ▦ Pipeline <span className="nav-count">13</span>
+            </div>
           </div>
-          <div
-            className={`nav-item${activePage === "investor-pipeline" ? " is-active" : ""}`}
-            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
-            onClick={isInvestorPersona ? () => setActivePage("investor-pipeline") : undefined}
-          >
-            ▦ Pipeline <span className="nav-count">{isInvestorPersona ? "13" : "0"}</span>
+        ) : null}
+        {isInvestorPersona ? (
+          <div className="nav-section">
+            <div className="nav-label">Portfolio</div>
+            <div
+              className={`nav-item${activePage === "investor-portfolios" ? " is-active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setActivePage("investor-portfolios")}
+            >
+              ▢ Portfolios <span className="nav-count">3</span>
+            </div>
           </div>
-        </div>
-        <div className="nav-section">
-          <div className="nav-label">Portfolio</div>
-          <div
-            className={`nav-item${activePage === "investor-portfolios" ? " is-active" : ""}`}
-            style={isInvestorPersona ? { cursor: "pointer" } : undefined}
-            onClick={isInvestorPersona ? () => setActivePage("investor-portfolios") : undefined}
-          >
-            ▢ Portfolios {isInvestorPersona ? <span className="nav-count">3</span> : null}
+        ) : null}
+        {isInvestorPersona ? (
+          <div className="nav-section">
+            <div className="nav-label">Value creation</div>
+            <div className="nav-item">
+              ↗ Initiatives <span className="nav-count">0</span>
+            </div>
+            <div className="nav-item">▥ Benchmarks</div>
+            <div className="nav-item">▤ Playbooks</div>
           </div>
-        </div>
-        <div className="nav-section">
-          <div className="nav-label">Value creation</div>
-          <div className="nav-item">
-            ↗ Initiatives <span className="nav-count">0</span>
+        ) : null}
+        {isInvestorPersona ? (
+          <div className="nav-section">
+            <div className="nav-label">Integrations</div>
+            <div className="nav-item" style={{ cursor: "pointer" }} onClick={() => setActivePage("connectors")}>
+              ⟳ Connectors <span className="nav-count">13</span>
+            </div>
           </div>
-          <div className="nav-item">▥ Benchmarks</div>
-          <div className="nav-item">▤ Playbooks</div>
-        </div>
-        <div className="nav-section">
-          <div className="nav-label">Integrations</div>
-          <div className="nav-item" style={{ cursor: "pointer" }} onClick={() => setActivePage("connectors")}>
-            ⟳ Connectors <span className="nav-count">13</span>
-          </div>
-        </div>
+        ) : null}
         <div className="nav-section">
           <div className="nav-label">Network</div>
-          <div className="nav-item">
-            ◉ Advisors <span className="nav-count">32</span>
+          <div
+            className={`nav-item${activePage === "advisors" ? " is-active" : ""}`}
+            style={{ cursor: "pointer" }}
+            onClick={() => setActivePage("advisors")}
+          >
+            ◉ Advisors <span className="nav-count">{advisorNetworkCount}</span>
           </div>
           <div className="nav-item">
             ⚉ Service providers <span className="nav-count">0</span>
@@ -10446,6 +11693,7 @@ function PatriotPayJourneyInner({
                 <div className="search-box">
                   <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
                 </div>
+                <NotificationCenter onAction={handleNotificationAction} />
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
               </div>
             </div>
@@ -10464,6 +11712,7 @@ function PatriotPayJourneyInner({
                 <div className="search-box">
                   <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
                 </div>
+                <NotificationCenter onAction={handleNotificationAction} />
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
               </div>
             </div>
@@ -10524,6 +11773,7 @@ function PatriotPayJourneyInner({
                 <div className="search-box">
                   <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
                 </div>
+                <NotificationCenter onAction={handleNotificationAction} />
                 <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
               </div>
             </div>
@@ -10532,6 +11782,29 @@ function PatriotPayJourneyInner({
                 doc={legalDocId}
                 onDocChange={setLegalDocId}
                 onBack={closeLegal}
+              />
+            </div>
+          </>
+        ) : activePage === "advisors" ? (
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
+                <NotificationCenter onAction={handleNotificationAction} />
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content">
+              <AdvisorsPage
+                companyId={isInvestorPersona ? selectedCompany.id : FOUNDER_COMPANY.id}
+                companyName={isInvestorPersona ? selectedCompany.displayName : FOUNDER_COMPANY.displayName}
+                onOpenCompany={openInvestorCompany}
               />
             </div>
           </>
@@ -10544,6 +11817,10 @@ function PatriotPayJourneyInner({
             <div className="search-box">
               <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
             </div>
+            <NotificationCenter
+              tourActive={tourOpen && tourSteps[tourStep].target === "notifications"}
+              onAction={handleNotificationAction}
+            />
             {!isProfileWizard && !tourTaken && headerTourEnabled ? (
               <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
                 <button
@@ -10607,9 +11884,13 @@ function PatriotPayJourneyInner({
                   <div className="company-name">{selectedCompany.displayName}</div>
                   {usesPerCompanyWorkspace ? (
                     <>
-                      <span className="company-industry-tag">
-                        {selectedCompany.meta.split("·")[0]?.trim() || "Company"}
-                      </span>
+                      {(publicMarketTags(selectedCompany).length > 0
+                        ? publicMarketTags(selectedCompany)
+                        : [selectedCompany.meta.split("·")[0]?.trim() || "Company"]
+                      ).map(tag => (
+                        <span className="company-industry-tag" key={tag}>{tag}</span>
+                      ))}
+                      {selectedCompany.domain ? (
                       <a
                         className="company-domain-link"
                         href={`https://${selectedCompany.domain}`}
@@ -10619,6 +11900,7 @@ function PatriotPayJourneyInner({
                       >
                         {selectedCompany.domain}
                       </a>
+                      ) : null}
                     </>
                   ) : (
                     <span className="badge">{selectedCompany.domain}</span>
@@ -10640,7 +11922,11 @@ function PatriotPayJourneyInner({
               </div>
             </button>
             <div className="header-actions">
-              {usesPerCompanyWorkspace ? (
+              {(isClaimedFounderCompany || showClaimedProfileBrief) && activePage !== "profile" ? (
+                <button type="button" className="company-add-list-btn" onClick={() => setActivePage("profile")}>
+                  View profile
+                </button>
+              ) : usesPerCompanyWorkspace && !companyInPortfolio ? (
                 <button type="button" className="company-add-list-btn">
                   + Add to list
                 </button>
@@ -10672,8 +11958,13 @@ function PatriotPayJourneyInner({
         </div> : null}
 
         {!isProfileWizard && !isInvestorShellPage ? <div className="tabs">
-          <div className={`tab ${activePage === "scorecard-v2" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage("scorecard-v2")}>Overview</div>
-          <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>Intelligence</div>
+          <div className={`tab ${(usesPerCompanyWorkspace && !showClaimedProfileBrief ? activePage === "overview" : isClaimedFounderCompany ? activePage === "scorecard-v2" : activePage === "overview") ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage(isClaimedFounderCompany ? "scorecard-v2" : "overview")}>{usesPerCompanyWorkspace && !showClaimedProfileBrief ? "Profile" : "Overview"}</div>
+          <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>
+            Intelligence
+            {tabIntelligenceCount > 0 ? (
+              <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{tabIntelligenceCount}</span>
+            ) : null}
+          </div>
           <div
             className={`tab ${activePage === "initiatives" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "initiatives" ? "tour-highlight" : ""}`}
             data-tour-target={tourOpen && tourSteps[tourStep].target === "initiatives" ? "initiatives" : undefined}
@@ -10682,7 +11973,10 @@ function PatriotPayJourneyInner({
               setActivePage("initiatives");
             }}
           >
-            Initiatives <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>2</span>
+            Initiatives
+            {tabActiveInitiativeCount > 0 ? (
+              <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{tabActiveInitiativeCount}</span>
+            ) : null}
           </div>
           <div
             className={`tab ${activePage === "research" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "research" ? " tour-highlight" : ""}`}
@@ -10690,8 +11984,8 @@ function PatriotPayJourneyInner({
             onClick={() => setActivePage("research")}
           >
             Research
-            {researchArtifacts.length > 0 ? (
-              <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{researchArtifacts.length}</span>
+            {tabResearchCount > 0 ? (
+              <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{tabResearchCount}</span>
             ) : null}
           </div>
           <div
@@ -10700,8 +11994,8 @@ function PatriotPayJourneyInner({
             onClick={() => setActivePage("data-room")}
           >
             Data Room
-            {countActiveDocuments(documentSlots) > 0 ? (
-              <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{countActiveDocuments(documentSlots)}</span>
+            {tabDataRoomCount > 0 ? (
+              <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{tabDataRoomCount}</span>
             ) : null}
           </div>
         </div> : null}
@@ -10799,6 +12093,12 @@ function PatriotPayJourneyInner({
               onGenerateFromPending={handleGenerateFromPending}
               onDismissPendingSource={handleDismissPendingSource}
               onAttemptSourceGeneration={handleAttemptSourceGeneration}
+              onNavigateSourceView={(target) => {
+                if (target === "data-room") setActivePage("data-room");
+                else if (target === "overview") setActivePage("scorecard-v2");
+                else if (target === "scorecard") setActivePage("scorecard-v2");
+                else setActivePage("signals");
+              }}
             />
           ) : activePage === "benchmark-form" ? (
             <LogPrivateDataPage
@@ -10815,7 +12115,12 @@ function PatriotPayJourneyInner({
                 setActivePage("signals-loading");
               }}
             />
+          ) : activePage === "profile" ? (
+            <ExternalCompanyOverview company={selectedCompany} />
           ) : activePage === "overview" ? (
+            usesPerCompanyWorkspace ? (
+              showClaimedProfileBrief ? claimedProfileBrief : <ExternalCompanyOverview company={selectedCompany} />
+            ) : (
             <OverviewPage
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
               profileComplete={profileComplete}
@@ -10823,6 +12128,7 @@ function PatriotPayJourneyInner({
               company={selectedCompany}
               visitorMode={isInvestorPersona}
             />
+            )
           ) : activePage === "context-feed" ? (
             <SignalsPage
               isProfileComplete={profileComplete}
@@ -10852,6 +12158,12 @@ function PatriotPayJourneyInner({
               onGenerateFromPending={handleGenerateFromPending}
               onDismissPendingSource={handleDismissPendingSource}
               onAttemptSourceGeneration={handleAttemptSourceGeneration}
+              onNavigateSourceView={(target) => {
+                if (target === "data-room") setActivePage("data-room");
+                else if (target === "overview") setActivePage("scorecard-v2");
+                else if (target === "scorecard") setActivePage("scorecard-v2");
+                else setActivePage("context-feed");
+              }}
             />
           ) : activePage === "initiatives" ? (
             <InitiativesPage
@@ -10902,6 +12214,12 @@ function PatriotPayJourneyInner({
                 }
                 if (focusInitiativeId === id) setFocusInitiativeId(null);
               }}
+              onNavigateSourceView={(target) => {
+                if (target === "data-room") setActivePage("data-room");
+                else if (target === "overview") setActivePage("overview");
+                else if (target === "scorecard") setActivePage("scorecard-v2");
+                else setActivePage("context-feed");
+              }}
             />
           ) : activePage === "research" ? (
             <ResearchPage
@@ -10928,7 +12246,7 @@ function PatriotPayJourneyInner({
                 [selectedCompany.id]: true,
               }))}
             />
-          ) : activePage === "scorecard-v2" ? (
+          ) : activePage === "scorecard-v2" && !usesPerCompanyWorkspace ? (
             <ScorecardV2
               benchmark={scorecardBenchmark}
               onBenchmarkChange={(next, context) => {

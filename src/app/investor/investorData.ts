@@ -1527,6 +1527,23 @@ function dummyCohortBenchmarksForList(def: DummyBenchmarkDef, list: PortfolioLis
   };
 }
 
+export function companyBenchmarkFacts(company: PortfolioCompany): { id: string; label: string; value: string }[] {
+  const values = dummyCompanyBenchmarkValues(company);
+  const rows = PORTFOLIO_BENCHMARK_DEFS.map(def => {
+    if (def.id === "arr") return { id: def.id, label: def.label, value: company.arr };
+    if (def.id === "nrr") return { id: def.id, label: "Net revenue retention", value: `${company.nrr}%` };
+    return {
+      id: def.id,
+      label: def.label,
+      value: formatBenchmarkNumber(values[def.id] ?? 0, def.unit),
+    };
+  });
+  const runway = { id: "runway", label: "Runway", value: company.runway };
+  const arrIndex = rows.findIndex(row => row.id === "arr");
+  rows.splice(arrIndex + 1, 0, runway);
+  return rows;
+}
+
 /** Dummy operating metrics for a company — derived from known fields plus a stable seed. */
 export function dummyCompanyBenchmarkValues(company: PortfolioCompany): Record<string, number> {
   const roll = (key: string) => seededUnit(`${company.id}:${key}`);

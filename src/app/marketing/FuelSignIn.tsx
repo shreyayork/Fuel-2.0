@@ -17,24 +17,33 @@ function GoogleIcon() {
 
 export default function FuelSignIn({
   onBack,
-  onSignedIn,
+  onAuthComplete,
   onOpenLegal,
+  initialEmail,
+  initialMode = "signin",
 }: {
   onBack: () => void;
-  onSignedIn: () => void;
+  /** Sign-in → existing workspace; sign-up → full onboarding. */
+  onAuthComplete: (mode: "signin" | "signup", email: string) => void;
   onOpenLegal?: (doc: LegalDocId) => void;
+  initialEmail?: string;
+  initialMode?: "signin" | "signup";
 }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("shreya.g@york.ie");
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
+  const [email, setEmail] = useState(initialEmail ?? "shreya.g@york.ie");
   const [password, setPassword] = useState("fuel-demo");
   const [note, setNote] = useState("");
 
   const isSignIn = mode === "signin";
 
+  function completeAuth() {
+    if (!email.trim()) return;
+    onAuthComplete(mode, email.trim());
+  }
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!email.trim()) return;
-    onSignedIn();
+    completeAuth();
   }
 
   return (
@@ -81,7 +90,7 @@ export default function FuelSignIn({
                 : "Work email in. Company profile, peer cohort, and first scorecard next."}
             </p>
 
-            <button type="button" className="mkt-google" onClick={onSignedIn}>
+            <button type="button" className="mkt-google" onClick={completeAuth}>
               <GoogleIcon />
               Continue with Google
             </button>

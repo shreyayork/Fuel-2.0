@@ -2,7 +2,11 @@
   padding: 0 0 6px;
   position: relative;
   width: 100%;
-  z-index: 50;
+  z-index: 1;
+}
+
+.credit-indicator-wrap.is-popover-open {
+  z-index: 55;
 }
 
 .credit-indicator-btn {

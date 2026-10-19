@@ -1,6 +1,7 @@
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney";
-import type { OnboardingFlowAnswers } from "./OnboardingFlow";
+import { answersToOnboardingBenchmark, type OnboardingFlowAnswers } from "./OnboardingFlow";
 import { EMPTY_EARNED_PROFILE_CREDITS, saveEarnedProfileCredits } from "./profileCredits";
+import { emptyOnboardingTrackAnswers, serializeProfileFundingRounds } from "./trackQuestions";
 
 export const WORKSPACE_SESSION_KEY = "fuel-workspace-session-v1";
 export const RELOAD_LANDING_ACTIVE_KEY = "fuel-reload-landing-active";
@@ -32,6 +33,7 @@ const FOUNDER_ACTIVE_PAGES = new Set([
   "connectors",
   "account",
   "help",
+  "advisors",
   "company-profile",
 ]);
 
@@ -42,6 +44,7 @@ const INVESTOR_ACTIVE_PAGES = new Set([
   "investor-home",
   "account",
   "help",
+  "advisors",
   "connectors",
 ]);
 
@@ -167,6 +170,64 @@ function readWorkspaceSessionRaw(): string | null {
   } catch {
     return null;
   }
+}
+
+/** Demo returning founder — Patriot Pay profile already complete (sign-in path). */
+export function createDemoReturningUserSession(): StoredWorkspaceSession {
+  const onboardingAnswers: OnboardingFlowAnswers = {
+    ...emptyOnboardingTrackAnswers(),
+    dev_product_stage: "Launched — scaling usage or revenue",
+    dev_product_type: "B2B SaaS platform",
+    dev_delivery_constraint: "Engineering capacity",
+    mkt_sales_motion: "Sales-led",
+    mkt_funnel_gap: "Qualified pipeline volume",
+    mkt_icp_clarity: "Defined and validated",
+    mkt_revenue_tracking: "Tracked in CRM",
+    rev_runway: "Under 6 months",
+    rev_finance_management: "Spreadsheet + bookkeeper",
+    rev_capital_priority: "Actively fundraising",
+    profileProductDescription:
+      "Patriot Pay is a B2B SaaS company building modern payment infrastructure for growing SMBs and mid-market operators.",
+    profileApproxHeadcount: "48",
+    profileBusinessModel: "Product company",
+    profileCompany: "Patriot Pay",
+    profileIndustry: "FinTech · Payments Infrastructure",
+    profileFounded: "2021",
+    profileCity: "Boston",
+    profileStateRegion: "MA",
+    profileCountry: "United States",
+    profileWebsite: "https://patriotpay.com",
+    profileLinkedin: "https://linkedin.com/company/patriotpay",
+    profileFundingRounds: serializeProfileFundingRounds([
+      {
+        id: "seed-1",
+        type: "Seed",
+        amount: "$4.2M",
+        date: "2022-06-01",
+        investors: "York IE",
+      },
+    ]),
+    arr: "3.2",
+    arrGrowth: "85",
+    nrr: "108",
+    logoRetention: "92",
+    grossMargin: "72",
+    cacPayback: "14",
+    burnMultiple: "1.8",
+    ruleOf40: "18",
+    monthlyBurn: "787",
+    cashOnHand: "878",
+    headcount: "48",
+    payingCustomers: "12",
+    investCheckSize: "",
+    investGeography: [],
+    investPipeline: "",
+    profileSetupComplete: true,
+  };
+  return {
+    onboardingAnswers,
+    onboardingBenchmark: answersToOnboardingBenchmark(onboardingAnswers),
+  };
 }
 
 export function loadWorkspaceSession(): StoredWorkspaceSession | null {

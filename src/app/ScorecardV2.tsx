@@ -15,11 +15,17 @@ import {
 } from "./FuelOnboardingChat";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney";
 import {
+  findFounderCompanyProfile,
   isOnboardingBenchmarkComplete,
   mapOnboardingToDetailAnswers,
   OnboardingBenchmarkFieldList,
   type OnboardingFlowAnswers,
 } from "./OnboardingFlow.tsx";
+import {
+  applyCohortPeersToField,
+  loadBenchmarkCohortId,
+  type BenchmarkCohortId,
+} from "./benchmarkCohortData.ts";
 import {
   DETAIL_SECTIONS,
   DETAIL_QUESTION_LABEL,
@@ -59,12 +65,19 @@ import {
   type ProfileModuleId,
 } from "./profileCredits.ts";
 import {
+  isWorkspaceModulesPanelSkipped,
+  markWorkspaceModulesPanelSkipped,
+} from "./workspaceModulesPanelStorage.ts";
+import {
   resolveYorkOfferForPillar,
   YORK_COMMON_OFFER,
   type YorkServiceOffer,
 } from "./yorkIeUpsell";
 import { isYorkOfferDismissed } from "./yorkDismiss";
 import { YorkPartnerNudge } from "./YorkPartnerNudge";
+import { INVESTOR_PORTFOLIO } from "./investor/investorData";
+import { BriefDocEditor } from "./BriefDocEditor";
+import { buildBriefDocSeed } from "./briefDocStorage";
 import "./PatriotPayJourney.css";
 
 // Single source of truth for field definitions (P-values, band positions, units)
@@ -303,6 +316,10 @@ export type ScorecardV2Props = {
   /** Fires when the founder edits a details field — arms the credit reward toast. */
   onDetailsFieldEdited?: () => void;
   onDetailsDrawerClosed?: (saved: boolean) => void;
+  /** Portfolio view of a claimed company: only the published Open brief, when that share is allowed. */
+  presentation?: "workspace" | "shared-brief";
+  sharedBriefStartOpen?: boolean;
+  onSharedBriefClose?: () => void;
 };
 
 export type OverviewBuildPhase =
@@ -3413,6 +3430,66 @@ function ScorecardBreadcrumb({
   );
 }
 
+const PUBLIC_STAGE_TAGS = new Set(["pre-seed", "seed", "series a", "series b", "series c", "growth"]);
+
+function publicMarketTagsFrom(sector: string, headquarters: string, employees: string): string[] {
+  const hq = headquarters.trim().toLowerCase();
+  const staff = employees.trim().toLowerCase();
+  return sector.split("·").map(part => part.trim()).filter(part => {
+    const key = part.toLowerCase();
+    if (!key || key === hq || key === staff) return false;
+    if (part.includes(",")) return false;
+    if (/^\d/.test(part)) return false;
+    return true;
+  });
+}
+
+function publicProfileFields(input: {
+  companyName: string;
+  domain: string;
+  sector: string;
+  headquarters: string;
+  employees: string;
+  about: string;
+}) {
+  const profile = findFounderCompanyProfile({ name: input.companyName, domain: input.domain });
+  const portfolio = INVESTOR_PORTFOLIO.find(company => (
+    (input.domain && company.domain === input.domain)
+    || company.displayName.toLowerCase() === input.companyName.trim().toLowerCase()
+  ));
+  const tags = publicMarketTagsFrom(input.sector, input.headquarters, input.employees);
+  const stage = portfolio?.stage || tags.find(tag => PUBLIC_STAGE_TAGS.has(tag.toLowerCase())) || "";
+  const markets = tags.filter(tag => tag.toLowerCase() !== stage.toLowerCase());
+  const linkedin = (profile?.linkedin ?? "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const present = (label: string, value: string | undefined) => {
+    const trimmed = value?.trim() ?? "";
+    return trimmed && trimmed !== "—" ? { label, value: trimmed } : null;
+  };
+  return {
+    publicAbout: profile?.whatTheyDo?.trim() || input.about.trim(),
+    publicDetails: [
+      present("Headquarters", input.headquarters),
+      present("Employees", input.employees),
+      present("Founded", profile?.founded),
+      present("Stage", stage),
+      present("Industry", profile?.industry),
+      present("Organization", profile?.businessModel),
+      present("Founder email", portfolio?.founderEmail),
+      present("Markets", markets.join(" · ")),
+    ].filter((row): row is { label: string; value: string } => Boolean(row)),
+    fundingRounds: (profile?.funding ?? []).map(round => ({
+      round: round.type,
+      amount: round.amount,
+      investors: round.investors ?? "",
+    })).filter(round => round.round.trim() || round.amount.trim() || round.investors.trim()),
+    publicLinks: [
+      present("Website", input.domain),
+      present("LinkedIn", linkedin),
+    ].filter((row): row is { label: string; value: string } => Boolean(row)),
+    publicSources: [],
+  };
+}
+
 function OverviewFullSummaryPage({
   companyName,
   summary,
@@ -3427,6 +3504,8 @@ function OverviewFullSummaryPage({
   activeInitiatives = [],
   onClose,
   highlightRefId = null,
+  standalone = false,
+  canEdit = false,
 }: {
   companyName: string;
   summary: WikiSummaryContent;
@@ -3441,8 +3520,13 @@ function OverviewFullSummaryPage({
   activeInitiatives?: ScorecardActiveInitiative[];
   onClose: () => void;
   highlightRefId?: number | null;
+  /** The brief is the page itself, so there is no control that leaves it. */
+  standalone?: boolean;
+  /** Claimed founder can open the document editor for investor and public versions. */
+  canEdit?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [briefEditorOpen, setBriefEditorOpen] = useState(false);
   const profileMeta = buildContext.profileMeta;
   const benchmarkContext = buildContext.benchmarkContext;
   const productDescription = buildContext.detailAnswers.profile_product_description?.trim()
@@ -3490,25 +3574,146 @@ function OverviewFullSummaryPage({
   }, [highlightRefId]);
 
   useEffect(() => {
+    if (standalone || briefEditorOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [briefEditorOpen, onClose, standalone]);
+
+  const briefSeed = useMemo(() => buildBriefDocSeed({
+    companyName,
+    reportDate,
+    productDescription,
+    topPriorities,
+    biggestRisk,
+    publicDataCorrections,
+    facts: [
+      profileMeta?.sector ? { label: "Sector", value: profileMeta.sector } : null,
+      profileMeta?.headquarters ? { label: "Headquarters", value: profileMeta.headquarters } : null,
+      profileMeta?.employees ? { label: "Team size", value: profileMeta.employees } : null,
+      profileMeta?.domain ? { label: "Domain", value: profileMeta.domain } : null,
+    ].filter((fact): fact is { label: string; value: string } => Boolean(fact)),
+    cohortLabel,
+    snapshotRows: snapshotRows.map(row => ({
+      label: row.label,
+      you: row.you,
+      p25: row.p25,
+      p50: row.p50,
+      p75: row.p75,
+      p90: row.p90,
+      band: row.band,
+      bandTone: row.tier === "top" || row.tier === "upper" ? "good" as const : row.tier === "bottom" ? "bad" as const : "watch" as const,
+    })),
+    standCopy,
+    focusAreas,
+    capital: [
+      metricMap.cashOnHand?.value != null ? { label: "Cash on hand", value: metricMap.cashOnHand.display } : null,
+      metricMap.monthlyBurn?.value != null ? { label: "Monthly net burn", value: metricMap.monthlyBurn.display } : null,
+      runway != null ? { label: "Runway", value: `~${Math.round(runway)} mo` } : null,
+    ].filter((fact): fact is { label: string; value: string } => Boolean(fact)),
+    operatingGroups: operatingGroups.map(group => ({
+      label: group.label,
+      rows: group.rows.map(row => ({ label: row.label, value: row.value ?? "" })),
+    })),
+    pillars: (["dev", "mkt", "rev"] as ScorecardCategory[]).map(id => ({
+      id,
+      label: CATEGORY_META[id].fullLabel,
+      shortLabel: CATEGORY_META[id].label,
+      description: TRACK_DETAIL_SECTIONS.find(section => section.id === id)?.definition ?? CATEGORY_META[id].description,
+      initiatives: activeInitiatives
+        .filter(item => item.pillar === id)
+        .map(item => {
+          const status = initiativeStatusMeta(item.status);
+          const due = initiativeDueMeta(item.due, now);
+          return {
+            title: item.title,
+            description: item.description,
+            due: due.period,
+            dueContext: due.context,
+            status: status.label,
+            statusTone: status.tone,
+            owner: item.owner?.trim() || "Unassigned",
+          };
+        }),
+    })),
+    documents: filledDocs.map(slot => ({
+      typeLabel: slot.typeLabel,
+      name: slot.current?.name ?? "",
+    })).filter(doc => doc.name),
+    sources: summary.references.map(reference => ({
+      label: reference.label,
+      detail: reference.detail,
+    })),
+    ...publicProfileFields({
+      companyName,
+      domain: profileMeta?.domain ?? "",
+      sector: profileMeta?.sector ?? "",
+      headquarters: profileMeta?.headquarters ?? "",
+      employees: profileMeta?.employees ?? "",
+      about: productDescription,
+    }),
+  }), [
+    activeInitiatives,
+    biggestRisk,
+    cohortLabel,
+    companyName,
+    filledDocs,
+    focusAreas,
+    metricMap.cashOnHand,
+    metricMap.monthlyBurn,
+    now,
+    operatingGroups,
+    productDescription,
+    profileMeta?.domain,
+    profileMeta?.employees,
+    profileMeta?.headquarters,
+    profileMeta?.sector,
+    publicDataCorrections,
+    reportDate,
+    runway,
+    snapshotRows,
+    standCopy,
+    summary.references,
+    topPriorities,
+  ]);
+
+  if (canEdit && briefEditorOpen) {
+    return (
+      <BriefDocEditor
+        companyName={companyName}
+        seed={briefSeed}
+        onClose={() => setBriefEditorOpen(false)}
+      />
+    );
+  }
 
   return (
     <div className="sc-investor-brief sc-wiki-full-page" ref={panelRef}>
-      <div className="sc-investor-brief-chrome">
-        <ScorecardBreadcrumb
-          onOverview={onClose}
-          current={`About ${companyName}`}
-          endAction={(
-            <button type="button" className="sc-investor-brief-print" onClick={() => window.print()}>
-              Print / Save as PDF
-            </button>
-          )}
-        />
+      <div className={`sc-investor-brief-chrome${standalone ? " is-standalone" : ""}`}>
+        {standalone ? (
+          <button type="button" className="sc-investor-brief-print" onClick={() => window.print()}>
+            Print / Save as PDF
+          </button>
+        ) : (
+          <ScorecardBreadcrumb
+            onOverview={onClose}
+            current={`About ${companyName}`}
+            endAction={(
+              <span className="sc-investor-brief-actions">
+                {canEdit ? (
+                  <button type="button" className="sc-investor-brief-edit" onClick={() => setBriefEditorOpen(true)}>
+                    Edit brief
+                  </button>
+                ) : null}
+                <button type="button" className="sc-investor-brief-print" onClick={() => window.print()}>
+                  Print / Save as PDF
+                </button>
+              </span>
+            )}
+          />
+        )}
       </div>
 
       <header className="sc-investor-brief-masthead">
@@ -4888,6 +5093,108 @@ function OverviewWorkspaceSetupPanel({
   );
 }
 
+function OverviewBriefCard({
+  companyName,
+  wikiSummary,
+  onOpenWikiSummary,
+  categories,
+  runway,
+  suggestionsReady = true,
+  overviewBuildPhase = null,
+  onOpenIntelligence,
+}: {
+  companyName: string;
+  wikiSummary: WikiSummaryContent;
+  onOpenWikiSummary: (highlightRefId?: number) => void;
+  categories: CategoryData[];
+  runway: number | null;
+  suggestionsReady?: boolean;
+  overviewBuildPhase?: OverviewBuildPhase | null;
+  onOpenIntelligence?: () => void;
+}) {
+  return (
+    <div className="sc-adv">
+      <div className="sc-adv-head">
+        <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
+        <span className="sc-adv-company">{companyName}</span>
+      </div>
+      <div className="sc-adv-rec-title-row">
+        <div className="sc-adv-rec-title">Summary</div>
+        <span className="sc-wiki-source-count">
+          {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
+        </span>
+        <button
+          type="button"
+          className="ask-ai-btn sc-wiki-expand-btn"
+          onClick={() => onOpenWikiSummary()}
+          aria-label="Open company brief"
+        >
+          ✦ Open brief
+        </button>
+      </div>
+      <p className="sc-adv-summary sc-wiki-summary-compact">
+        {wikiParagraphPlainText(wikiSummary.compact)}
+      </p>
+      <button
+        type="button"
+        className="sc-wiki-view-more"
+        onClick={() => onOpenWikiSummary()}
+      >
+        View brief with references
+      </button>
+      <div className="sc-adv-tags-label">Recent signals</div>
+      <div className="sc-adv-tags">
+        {categories.map(cat => {
+          const signalReady = overviewTrackReady(cat.id, overviewBuildPhase);
+          const tag = signalReady ? trackSignalTag(cat, runway) : null;
+          const totalCount = signalReady
+            ? cat.intelDisplayCount
+              + (suggestionsReady ? cat.openInitiatives.length : 0)
+              + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
+            : null;
+          const label = tag && totalCount != null
+            ? `${cat.label} ${tag.suffix} — ${totalCount} total`
+            : `${cat.label} — loading`;
+          const body = (
+            <>
+              <span
+                className="sc-adv-tag-dot"
+                style={tag ? { background: tag.dotColour } : undefined}
+              />
+              {cat.label}
+              {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
+              {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
+            </>
+          );
+          if (!onOpenIntelligence) {
+            return (
+              <span
+                key={cat.id}
+                className={`sc-adv-tag is-static${tag?.urgent ? " is-urgent" : ""}`}
+                style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
+              >
+                {body}
+              </span>
+            );
+          }
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
+              style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
+              onClick={() => onOpenIntelligence()}
+              aria-label={label}
+            >
+              {body}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── UI: Advisor panel (sc-adv split layout + existing scorecard content) ───
 function OverviewAdvisorPanel({
   categories,
@@ -4937,70 +5244,16 @@ function OverviewAdvisorPanel({
   return (
     <div className="sc-adv-featured sc-adv-featured-split">
       <div className="sc-adv-featured-brief-col">
-        <div className="sc-adv">
-          <div className="sc-adv-head">
-            <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
-            <span className="sc-adv-company">{companyName}</span>
-          </div>
-          <div className="sc-adv-rec-title-row">
-          <div className="sc-adv-rec-title">Summary</div>
-            <span className="sc-wiki-source-count">
-              {wikiSummary.references.length} source{wikiSummary.references.length === 1 ? "" : "s"}
-            </span>
-            <button
-              type="button"
-              className="ask-ai-btn sc-wiki-expand-btn"
-              onClick={() => onOpenWikiSummary()}
-              aria-label="Open company brief"
-            >
-              ✦ Open brief
-            </button>
-                  </div>
-          <p className="sc-adv-summary sc-wiki-summary-compact">
-            {wikiParagraphPlainText(wikiSummary.compact)}
-          </p>
-          <button
-            type="button"
-            className="sc-wiki-view-more"
-            onClick={() => onOpenWikiSummary()}
-          >
-            View brief with references
-          </button>
-          <div className="sc-adv-tags-label">Recent signals</div>
-          <div className="sc-adv-tags">
-            {categories.map(cat => {
-              const signalReady = overviewTrackReady(cat.id, overviewBuildPhase);
-              const tag = signalReady ? trackSignalTag(cat, runway) : null;
-              const totalCount = signalReady
-                ? cat.intelDisplayCount
-                  + (suggestionsReady ? cat.openInitiatives.length : 0)
-                  + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
-                : null;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
-                  style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
-                  onClick={() => onOpenIntelligence?.()}
-                  aria-label={
-                    tag && totalCount != null
-                      ? `${cat.label} ${tag.suffix} — ${totalCount} total`
-                      : `${cat.label} — loading`
-                  }
-                >
-                  <span
-                    className="sc-adv-tag-dot"
-                    style={tag ? { background: tag.dotColour } : undefined}
-                  />
-                  {cat.label}
-                  {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
-                  {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <OverviewBriefCard
+          companyName={companyName}
+          wikiSummary={wikiSummary}
+          onOpenWikiSummary={onOpenWikiSummary}
+          categories={categories}
+          runway={runway}
+          suggestionsReady={suggestionsReady}
+          overviewBuildPhase={overviewBuildPhase}
+          onOpenIntelligence={onOpenIntelligence}
+        />
       </div>
       <div className="sc-adv-featured-rec-col">
         <div
@@ -5031,8 +5284,19 @@ function OverviewAdvisorPanel({
 // ─── UI: Premium metric card (in drilldown) ───────────────────────────────────
 // Uses the shared BenchmarkCohortTrack + BenchmarkPercentileScale from FuelOnboardingChat
 // for visual consistency with the onboarding benchmark bars.
-function MetricCard({ metric, catColour, compactBar = false }: { metric: EvaluatedMetric; catColour: string; compactBar?: boolean }) {
-  const field      = WIZARD_FIELD_BY_KEY[metric.key];
+function MetricCard({
+  metric,
+  catColour,
+  compactBar = false,
+  cohortId = loadBenchmarkCohortId(),
+}: {
+  metric: EvaluatedMetric;
+  catColour: string;
+  compactBar?: boolean;
+  cohortId?: BenchmarkCohortId;
+}) {
+  const template   = WIZARD_FIELD_BY_KEY[metric.key];
+  const field      = template ? applyCohortPeersToField(template, cohortId) : null;
   const marker     = metric.value != null && field ? valueToMarkerPercent(metric.value, field) : null;
   const tierStyle  = metric.value != null ? getBenchmarkTierStyle(metric.tier) : null;
   const vs         = vsMedianText(metric);
@@ -6115,6 +6379,7 @@ export function BenchmarkEditDrawer({
             values={draft}
             onChange={update}
             inputClassName="bench-field-input"
+            showCohortSelect
           />
 
           <p className="bench-drawer-foot">Numbers stay in your workspace and are never shared externally.</p>
@@ -6248,7 +6513,13 @@ type OverviewModuleTile = {
   onSelect: () => void;
 };
 
-function OverviewModuleTileGrid({ modules }: { modules: OverviewModuleTile[] }) {
+function OverviewModuleTileGrid({
+  modules,
+  onSkip,
+}: {
+  modules: OverviewModuleTile[];
+  onSkip: () => void;
+}) {
   return (
     <section className="sc-workspace-modules-panel" aria-label="5 modules to complete">
       <div className="sc-workspace-modules-panel-head">
@@ -6256,6 +6527,9 @@ function OverviewModuleTileGrid({ modules }: { modules: OverviewModuleTile[] }) 
           <h3>Your 5 modules</h3>
           <p>Open any module to add or update the context Fuel uses across your Overview.</p>
         </div>
+        <button type="button" className="sc-workspace-modules-panel-skip" onClick={onSkip}>
+          Skip
+        </button>
       </div>
       <div className="sc-workspace-module-grid">
         {modules.map(module => {
@@ -6343,6 +6617,9 @@ export default function ScorecardV2({
   elevateDetailsDrawer = false,
   onDetailsFieldEdited,
   onDetailsDrawerClosed,
+  presentation = "workspace",
+  sharedBriefStartOpen = false,
+  onSharedBriefClose,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
@@ -6350,11 +6627,19 @@ export default function ScorecardV2({
   const benchmarkSyncKey = useMemo(() => JSON.stringify(benchmark), [benchmark]);
   const [addSourcesOpen, setAddSourcesOpen] = useState(false);
   const cName = companyName ?? "This company";
+  const workspaceCompanyKey = companyKey ?? "patriotpay";
+  const [modulesPanelSkipped, setModulesPanelSkipped] = useState(() =>
+    isWorkspaceModulesPanelSkipped(workspaceCompanyKey),
+  );
+  const skipModulesPanel = useCallback(() => {
+    markWorkspaceModulesPanelSkipped(workspaceCompanyKey);
+    setModulesPanelSkipped(true);
+  }, [workspaceCompanyKey]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerStep, setDrawerStep] = useState(0);
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const [advisorOpen, setAdvisorOpen] = useState(true);
-  const [wikiSummaryOpen, setWikiSummaryOpen] = useState(false);
+  const [wikiSummaryOpen, setWikiSummaryOpen] = useState(sharedBriefStartOpen);
   const [wikiHighlightRefId, setWikiHighlightRefId] = useState<number | null>(null);
   const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(cName));
 
@@ -6401,19 +6686,25 @@ export default function ScorecardV2({
   }, [benchmarkSyncKey, benchmark]);
 
   useEffect(() => {
+    if (presentation === "shared-brief") return;
     const filled = METRIC_COHORTS.filter(c => parseMetricValue(benchmarkValues[c.key] ?? "")).length;
     if (filled > 0 && !loadStoredQuarter(`fuel-benchmark-q-${cName}`)) {
       saveStoredQuarter(`fuel-benchmark-q-${cName}`);
     }
-  }, [cName, benchmarkValues]);
+  }, [cName, benchmarkValues, presentation]);
 
   useEffect(() => {
+    if (presentation === "shared-brief") return;
     if (onboardingAnswers && !loadStoredQuarter(`fuel-details-q-${cName}`)) {
       saveStoredQuarter(`fuel-details-q-${cName}`);
     }
-  }, [cName, onboardingAnswers]);
+  }, [cName, onboardingAnswers, presentation]);
 
   // Re-hydrate saved answers once the company name resolves (prop may arrive after mount).
+  useEffect(() => {
+    setModulesPanelSkipped(isWorkspaceModulesPanelSkipped(workspaceCompanyKey));
+  }, [workspaceCompanyKey]);
+
   useEffect(() => {
     setDetailAnswers(loadDetailAnswers(cName));
   }, [cName]);
@@ -6620,6 +6911,27 @@ export default function ScorecardV2({
     setYorkOverviewHidden(isYorkOfferDismissed(YORK_COMMON_OFFER.id));
   }, []);
 
+  if (presentation === "shared-brief") {
+    return (
+      <OverviewFullSummaryPage
+        companyName={cName}
+        summary={wikiSummary}
+        metrics={metrics}
+        metricMap={metricMap}
+        categories={categoryData}
+        runway={runway}
+        buildContext={buildContext}
+        cohortLabel={cohortLabel}
+        documentSlots={documentSlots}
+        efficiencyExtras={efficiencyExtras}
+        activeInitiatives={activeInitiatives}
+        highlightRefId={wikiHighlightRefId}
+        standalone
+        onClose={() => onSharedBriefClose?.()}
+      />
+    );
+  }
+
   if (activeView === "benchmark") {
     return (
       <BenchmarkDrilldownView
@@ -6664,6 +6976,7 @@ export default function ScorecardV2({
           efficiencyExtras={efficiencyExtras}
           activeInitiatives={activeInitiatives}
           highlightRefId={wikiHighlightRefId}
+          canEdit
           onClose={() => {
             setWikiSummaryOpen(false);
             setWikiHighlightRefId(null);
@@ -6671,8 +6984,8 @@ export default function ScorecardV2({
         />
       ) : (
         <>
-      {!isCategoryDetail && !allProfileCreditsEarned ? (
-        <OverviewModuleTileGrid modules={overviewModules} />
+      {!isCategoryDetail && !allProfileCreditsEarned && !modulesPanelSkipped ? (
+        <OverviewModuleTileGrid modules={overviewModules} onSkip={skipModulesPanel} />
       ) : null}
       {!isCategoryDetail && overviewBuildPhase && overviewBuildPhase !== "ready" ? (
         <OverviewBuildPanel
