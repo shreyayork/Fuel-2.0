@@ -3896,6 +3896,24 @@ export function InvestorCompanyProfileDrawer({
               <span className="investor-company-drawer-eyebrow">Portfolio company</span>
               <strong id="investor-company-drawer-title">{company.displayName}</strong>
               <p>{company.meta}</p>
+              <div className="investor-company-drawer-head-actions">
+                <button
+                  type="button"
+                  className="investor-company-drawer-profile-link"
+                  onClick={() => onOpenWorkspace(company)}
+                >
+                  View full company profile
+                </button>
+                {founder.email ? (
+                  <button
+                    type="button"
+                    className="investor-company-drawer-profile-link is-muted"
+                    onClick={showFounderTab}
+                  >
+                    Contact founder
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
           <button
@@ -4208,24 +4226,6 @@ export function InvestorCompanyProfileDrawer({
           )}
         </div>
 
-        <footer className="investor-company-drawer-foot">
-          <button
-            type="button"
-            className="investor-suggested-primary"
-            onClick={() => onOpenWorkspace(company)}
-          >
-            View full company profile
-          </button>
-          {founder.email ? (
-            <button
-              type="button"
-              className="investor-suggested-ghost"
-              onClick={showFounderTab}
-            >
-              Contact founder
-            </button>
-          ) : null}
-        </footer>
       </aside>
     </div>,
     document.body,

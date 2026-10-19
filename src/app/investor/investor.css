@@ -1551,6 +1551,41 @@
   margin: 4px 0 0;
 }
 
+.investor-company-drawer-head-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 8px;
+}
+
+.investor-company-drawer-profile-link {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 0;
+  text-align: left;
+  text-decoration: none;
+}
+
+.investor-company-drawer-profile-link:hover {
+  text-decoration: underline;
+}
+
+.investor-company-drawer-profile-link.is-muted {
+  color: var(--panel-muted);
+  font-weight: 600;
+}
+
+.investor-company-drawer-profile-link.is-muted:hover {
+  color: var(--panel-strong);
+}
+
 .investor-company-drawer-close {
   flex-shrink: 0;
 }
