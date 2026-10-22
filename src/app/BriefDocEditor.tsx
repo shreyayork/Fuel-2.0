@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   buildAiNoteHtml,
-  filterBriefBlocks,
+  briefMenuGroups,
+  listBriefMenuItems,
   manualBlockHtml,
   type BriefBlockId,
+  type BriefMenuItem,
 } from "./briefBlockInsert";
 import {
   type BriefAudience,
@@ -14,6 +16,7 @@ import {
   briefShareUrl,
   clearBriefDraft,
   cloneBriefRecord,
+  investorBriefSectionAsPublicBlogEmbed,
   htmlField,
   loadBriefDraft,
   loadPublishedBrief,
@@ -24,7 +27,7 @@ import {
   unpublishBriefShare,
   withPatriotPublicStory,
 } from "./briefDocStorage";
-import { buildPatriotPublicPaperHtml, isPatriotPayName } from "./patriotPublicStory";
+import { buildPatriotPublicPaperHtml, isPatriotPayName, PATRIOT_PUBLIC_BLOG_MARKER } from "./patriotPublicStory";
 import "./briefDocEditor.css";
 
 const AUDIENCES: { id: BriefAudience; label: string }[] = [
@@ -83,6 +86,28 @@ function applyFuelTheme(theme: Appearance) {
   } catch {
     /* ignore */
   }
+}
+
+function blockFlowContainer(paper: HTMLElement): HTMLElement {
+  const main = paper.querySelector(".brief-paper-blog-main");
+  if (main instanceof HTMLElement) return main;
+  return paper;
+}
+
+function migrateOrphanInvestorBlocksIntoBlog(paper: HTMLElement) {
+  const main = paper.querySelector(".brief-paper-blog-main");
+  if (!(main instanceof HTMLElement)) return;
+  [...paper.children].forEach(child => {
+    if (!(child instanceof HTMLElement) || !child.classList.contains("brief-paper-block")) return;
+    const title = child.querySelector("h2")?.textContent?.trim() || "From private brief";
+    child.querySelector("h2")?.remove();
+    const wrap = document.createElement("section");
+    wrap.className = "brief-paper-blog-section brief-paper-blog-embed brief-paper-blog-embed--slate";
+    wrap.dataset.fuelTemplate = "imported";
+    wrap.innerHTML = `<h2>${title}</h2><div class="brief-paper-blog-embed-body">${child.innerHTML}</div>`;
+    child.remove();
+    main.appendChild(wrap);
+  });
 }
 
 function sectionTitleFrom(target: EventTarget | null): string | null {
@@ -150,7 +175,18 @@ function BlockMark({ id }: { id: string }) {
       </svg>
     );
   }
+  if (id === "tpl-benchmark") return <>Bm</>;
+  if (id === "tpl-cohort") return <>Co</>;
+  if (id === "tpl-profile") return <>Pr</>;
+  if (id === "tpl-initiatives") return <>In</>;
   return null;
+}
+
+function templateMarkId(templateId: string): string {
+  if (templateId === "benchmark") return "tpl-benchmark";
+  if (templateId === "cohort-understanding") return "tpl-cohort";
+  if (templateId === "company-profile") return "tpl-profile";
+  return "tpl-initiatives";
 }
 
 const PLACEHOLDER_TEXT = new Set(["Heading", "Quote", "Column", "Cell", "Text"]);
@@ -362,15 +398,17 @@ function exitList(item: HTMLLIElement) {
 
 const PaperMount = React.memo(function PaperMount({
   onMount,
+  publicBlog,
 }: {
   onMount: (node: HTMLDivElement) => void;
+  publicBlog?: boolean;
 }) {
   return (
     <div
       ref={node => {
         if (node) onMount(node);
       }}
-      className="brief-paper"
+      className={`brief-paper${publicBlog ? " is-public-blog" : ""}`}
       role="textbox"
       aria-multiline="true"
       aria-label="Company brief"
@@ -383,15 +421,18 @@ export function BriefDocEditor({
   companyName,
   seed,
   onClose,
+  publicOnly = false,
 }: {
   companyName: string;
   seed: BriefDocRecord;
   onClose: () => void;
+  /** When true, only the Fuel portal public profile is editable (investor brief hidden). */
+  publicOnly?: boolean;
 }) {
   const saved = useMemo(() => loadSavedBriefDoc(companyName) ?? seed, [companyName, seed]);
   const draftRef = useRef<BriefDocRecord>(withPatriotPublicStory(companyName, loadBriefDraft(companyName) ?? saved));
   const savedRef = useRef(saved);
-  const [audience, setAudience] = useState<BriefAudience>("investor");
+  const [audience, setAudience] = useState<BriefAudience>(publicOnly ? "public" : "investor");
   const [editing, setEditing] = useState(true);
   const [dirty, setDirty] = useState(() => !briefDocsEqual(draftRef.current, saved));
   const [editedLabel, setEditedLabel] = useState(() => formatEdited(draftRef.current.updatedAt));
@@ -453,14 +494,14 @@ export function BriefDocEditor({
   useEffect(() => {
     if (!isPatriotPayName(companyName)) return;
     let html = draftRef.current.publicHtml;
-    if (!html.includes("brief-paper-public-essay-v2")) {
+    if (!html.includes(PATRIOT_PUBLIC_BLOG_MARKER)) {
       html = buildPatriotPublicPaperHtml();
       draftRef.current = { ...draftRef.current, publicHtml: html };
       saveBriefDraft(companyName, draftRef.current);
       markDirty();
     }
     const paper = paperRef.current;
-    if (audienceRef.current === "public" && paper && !paper.innerHTML.includes("brief-paper-public-essay-v2")) {
+    if (audienceRef.current === "public" && paper && !paper.innerHTML.includes(PATRIOT_PUBLIC_BLOG_MARKER)) {
       paper.innerHTML = html;
     }
   });
@@ -475,7 +516,11 @@ export function BriefDocEditor({
   const mountPaper = (node: HTMLDivElement) => {
     if (paperRef.current === node) return;
     paperRef.current = node;
-    node.innerHTML = draftRef.current.investorHtml;
+    node.innerHTML = draftRef.current[htmlField(publicOnly ? "public" : audienceRef.current)];
+    if (publicOnly || audienceRef.current === "public") {
+      migrateOrphanInvestorBlocksIntoBlog(node);
+      readPaper();
+    }
     node.contentEditable = "true";
     node.addEventListener("input", readPaper);
     node.addEventListener("click", event => {
@@ -510,6 +555,7 @@ export function BriefDocEditor({
   };
 
   const switchAudience = (next: BriefAudience) => {
+    if (publicOnly && next !== "public") return;
     if (next === audience) return;
     readPaper();
     audienceRef.current = next;
@@ -656,7 +702,8 @@ export function BriefDocEditor({
   const seamAt = (clientY: number, loose = false): BlockSeam | null => {
     const paper = paperRef.current;
     if (!paper || !editingRef.current) return null;
-    const children = [...paper.children] as HTMLElement[];
+    const flow = blockFlowContainer(paper);
+    const children = [...flow.children] as HTMLElement[];
     if (!children.length) return null;
     const paperRect = paper.getBoundingClientRect();
     const style = getComputedStyle(paper);
@@ -705,7 +752,7 @@ export function BriefDocEditor({
     tail.textContent = "";
     syncTailEmpty();
     const rect = tail.getBoundingClientRect();
-    openBlockMenu({ kind: "before", index: paper.children.length }, rect.left, rect.bottom + 8);
+    openBlockMenu({ kind: "before", index: blockFlowContainer(paper).children.length }, rect.left, rect.bottom + 8);
   };
 
   const commitTailText = () => {
@@ -723,7 +770,7 @@ export function BriefDocEditor({
     }
     const paragraph = document.createElement("p");
     paragraph.textContent = text;
-    paper.appendChild(paragraph);
+    blockFlowContainer(paper).appendChild(paragraph);
     tail.textContent = "";
     syncTailEmpty();
     const range = document.createRange();
@@ -753,22 +800,26 @@ export function BriefDocEditor({
   const insertHtml = (html: string) => {
     const paper = paperRef.current;
     if (!paper || !html || !blockMenu) return;
+    const flow = blockFlowContainer(paper);
     const template = document.createElement("template");
     template.innerHTML = html.trim();
     const node = template.content.firstElementChild;
     if (!(node instanceof HTMLElement)) return;
     if (blockMenu.anchor.kind === "before") {
-      const ref = [...paper.children][blockMenu.anchor.index];
-      if (ref) paper.insertBefore(node, ref);
-      else paper.appendChild(node);
+      const ref = [...flow.children][blockMenu.anchor.index];
+      if (ref) flow.insertBefore(node, ref);
+      else flow.appendChild(node);
     } else {
       const range = blockMenu.anchor.range;
       const container = range.startContainer;
       const parent = container instanceof Element ? container : container.parentElement;
       let top = parent;
-      while (top && top.parentElement && top.parentElement !== paper) top = top.parentElement;
-      if (top && top.parentElement === paper) top.after(node);
-      else paper.appendChild(node);
+      while (top && top.parentElement && top.parentElement !== flow && top.parentElement !== paper) {
+        top = top.parentElement;
+      }
+      if (top && top.parentElement === flow) top.after(node);
+      else if (top && top.parentElement === paper) top.after(node);
+      else flow.appendChild(node);
     }
     const caretTarget = node.matches("p, h1, h2, h3, h4, li, td, th")
       ? node
@@ -779,7 +830,21 @@ export function BriefDocEditor({
     readPaper();
   };
 
-  const chooseBlock = (id: BriefBlockId) => {
+  const showPrivateTemplates = publicOnly || audience === "public";
+
+  const chooseMenuItem = (item: BriefMenuItem) => {
+    if (item.kind === "template") {
+      const sectionHtml = investorBriefSectionAsPublicBlogEmbed(seedRef.current.investorHtml, item.id);
+      if (sectionHtml) {
+        insertHtml(sectionHtml);
+        return;
+      }
+      insertHtml(
+        `<section class="brief-paper-blog-section brief-paper-blog-embed brief-paper-blog-embed--slate"><h2>${item.label}</h2><div class="brief-paper-blog-embed-body"><p class="brief-paper-blog-note">No matching section on the private brief yet. Open the private brief from Overview to refresh company data.</p></div></section>`,
+      );
+      return;
+    }
+    const id = item.block.id;
     if (id === "ai-note") {
       setAiPrompt("");
       setBlockMenu(current => current ? { ...current, mode: "ai-prompt" } : current);
@@ -807,11 +872,12 @@ export function BriefDocEditor({
   const movePaperBlock = (from: number, toSeam: number) => {
     const paper = paperRef.current;
     if (!paper) return;
-    const children = [...paper.children];
+    const flow = blockFlowContainer(paper);
+    const children = [...flow.children];
     const node = children[from];
     if (!(node instanceof HTMLElement)) return;
     if (toSeam === from || toSeam === from + 1) return;
-    paper.insertBefore(node, children[toSeam] ?? null);
+    flow.insertBefore(node, children[toSeam] ?? null);
     readPaper();
   };
 
@@ -1018,7 +1084,7 @@ export function BriefDocEditor({
           <div>
             <strong>{companyName}</strong>
             <p>
-              {audience === "investor" ? "Investor version" : "Public profile version"}
+              {publicOnly || audience === "public" ? "Public profile" : "Investor version"}
               {" · "}
               {editedLabel}
               {" · "}
@@ -1031,20 +1097,22 @@ export function BriefDocEditor({
             <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "is-active" : undefined} onClick={() => chooseTheme("dark")}>Dark</button>
             <button type="button" aria-pressed={theme === "light"} className={theme === "light" ? "is-active" : undefined} onClick={() => chooseTheme("light")}>Light</button>
           </div>
-          <div className="brief-doc-tabs" role="tablist" aria-label="Brief version">
-            {AUDIENCES.map(item => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={audience === item.id}
-                className={audience === item.id ? "is-active" : undefined}
-                onClick={() => switchAudience(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          {publicOnly ? null : (
+            <div className="brief-doc-tabs" role="tablist" aria-label="Brief version">
+              {AUDIENCES.map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={audience === item.id}
+                  className={audience === item.id ? "is-active" : undefined}
+                  onClick={() => switchAudience(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="brief-doc-publish">
             <button
               type="button"
@@ -1106,7 +1174,7 @@ export function BriefDocEditor({
       </header>
 
       <div
-        className={`brief-doc-canvas${reordering ? " is-reordering" : ""}`}
+        className={`brief-doc-canvas${publicOnly || audience === "public" ? " is-public-blog" : ""}${reordering ? " is-reordering" : ""}`}
         onScroll={() => {
           if (dragRef.current?.active) return;
           setMenu(null);
@@ -1119,11 +1187,11 @@ export function BriefDocEditor({
           setHovered(null);
         }}
       >
-        <PaperMount onMount={mountPaper} />
+        <PaperMount onMount={mountPaper} publicBlog={publicOnly || audience === "public"} />
         {editing ? (
           <div
             ref={tailRef}
-            className="brief-paper-tail"
+            className={`brief-paper-tail${publicOnly || audience === "public" ? " is-public-blog" : ""}`}
             contentEditable
             role="textbox"
             aria-label="Type / to add a block"
@@ -1157,7 +1225,9 @@ export function BriefDocEditor({
                 data-seam={hovered.index}
                 aria-label="Drag to reorder"
                 onPointerDown={event => {
-                  const count = paperRef.current?.children.length ?? 0;
+                  const count = paperRef.current
+                    ? blockFlowContainer(paperRef.current).children.length
+                    : 0;
                   if (!count) return;
                   startReorder(event, Math.min(hovered.index, count - 1));
                 }}
@@ -1206,35 +1276,45 @@ export function BriefDocEditor({
           ) : (
             <>
               <div className="brief-block-options">
-                {(["Suggested", "Basic blocks"] as const).map(group => {
-                  const items = filterBriefBlocks(blockMenu.query).filter(item => item.group === group);
-                  if (!items.length) return null;
-                  const visible = filterBriefBlocks(blockMenu.query);
-                  return (
-                    <div key={group}>
-                      <p className="brief-block-group">{group}</p>
-                      {items.map(item => {
-                        const index = visible.indexOf(item);
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className={`brief-block-item${index === Math.min(blockMenu.activeIndex, visible.length - 1) ? " is-active" : ""}`}
-                            onMouseDown={event => event.preventDefault()}
-                            onMouseEnter={() => setBlockMenu(current => current ? { ...current, activeIndex: index } : current)}
-                            onClick={() => chooseBlock(item.id)}
-                          >
-                            <span className="brief-block-mark" aria-hidden="true"><BlockMark id={item.id} /></span>
-                            <span>{item.label}</span>
-                            {item.badge ? <span className="brief-block-badge">{item.badge}</span> : null}
-                            {item.hint ? <span className="brief-block-hint">{item.hint}</span> : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-                {filterBriefBlocks(blockMenu.query).length ? null : <p className="brief-block-empty">No blocks</p>}
+                {(() => {
+                  const visible = listBriefMenuItems(blockMenu.query, showPrivateTemplates);
+                  const groups = briefMenuGroups(showPrivateTemplates);
+                  if (!visible.length) return <p className="brief-block-empty">No blocks</p>;
+                  return groups.map(group => {
+                    const items = visible.filter(row => (
+                      row.kind === "template" ? row.group === group : row.block.group === group
+                    ));
+                    if (!items.length) return null;
+                    return (
+                      <div key={group}>
+                        <p className="brief-block-group">{group}</p>
+                        {items.map(item => {
+                          const index = visible.indexOf(item);
+                          const key = item.kind === "template" ? `template-${item.id}` : item.block.id;
+                          const label = item.kind === "template" ? item.label : item.block.label;
+                          const hint = item.kind === "template" ? item.hint : item.block.hint;
+                          const badge = item.kind === "block" ? item.block.badge : undefined;
+                          const markId = item.kind === "template" ? templateMarkId(item.id) : item.block.id;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              className={`brief-block-item${index === Math.min(blockMenu.activeIndex, visible.length - 1) ? " is-active" : ""}`}
+                              onMouseDown={event => event.preventDefault()}
+                              onMouseEnter={() => setBlockMenu(current => current ? { ...current, activeIndex: index } : current)}
+                              onClick={() => chooseMenuItem(item)}
+                            >
+                              <span className="brief-block-mark" aria-hidden="true"><BlockMark id={markId} /></span>
+                              <span>{label}</span>
+                              {badge ? <span className="brief-block-badge">{badge}</span> : null}
+                              {hint ? <span className="brief-block-hint">{hint}</span> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
               <button type="button" className="brief-block-item brief-block-close" onMouseDown={event => event.preventDefault()} onClick={() => setBlockMenu(null)}>
                 <span>Close menu</span>
@@ -1248,7 +1328,7 @@ export function BriefDocEditor({
                 aria-label="Type to search"
                 onChange={event => setBlockMenu(current => current ? { ...current, query: event.target.value, activeIndex: 0 } : current)}
                 onKeyDown={event => {
-                  const visible = filterBriefBlocks(blockMenu.query);
+                  const visible = listBriefMenuItems(blockMenu.query, showPrivateTemplates);
                   if (event.key === "ArrowDown") {
                     event.preventDefault();
                     setBlockMenu(current => current ? { ...current, activeIndex: Math.min(current.activeIndex + 1, Math.max(visible.length - 1, 0)) } : current);
@@ -1257,7 +1337,7 @@ export function BriefDocEditor({
                     setBlockMenu(current => current ? { ...current, activeIndex: Math.max(current.activeIndex - 1, 0) } : current);
                   } else if (event.key === "Enter" && visible[blockMenu.activeIndex]) {
                     event.preventDefault();
-                    chooseBlock(visible[blockMenu.activeIndex].id);
+                    chooseMenuItem(visible[blockMenu.activeIndex]);
                   }
                 }}
               />

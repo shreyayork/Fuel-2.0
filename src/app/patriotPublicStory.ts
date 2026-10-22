@@ -26,47 +26,66 @@ export const PATRIOT_PUBLIC_QUOTE = {
 
 export const PATRIOT_PUBLIC_HEADLINE = "The payroll company that kept itself private";
 
-export const PATRIOT_PUBLIC_OPENING = [
-  "A small-business owner opens payroll on a Thursday and hopes it is finished before the coffee cools. Often it is not. There are hours to check, tax forms to preview, an employee who moved to another state, a seasonal crew that shows up in spring and disappears by fall. Patriot Software built a company around a blunter promise: this can be done in less than three minutes, online, with nothing to download and no contract that outlasts the month.",
-  "On the public site, the Fuel company Patriot Pay is Patriot Software. The name it uses for itself is America's Accounting and Payroll. That line is accurate, and it is also smaller than the business. Patriot sells accounting and payroll that share one login. A customer can buy one and add the other later. It is written for American employers, from a first hire to a company of about 500, in any industry, and for the accountants who keep their books.",
+export const PATRIOT_PUBLIC_LEAD = "Patriot Software — Patriot Pay on Fuel — sells America's accounting and payroll for employers who want Thursday payroll finished before the coffee cools.";
+
+export const PATRIOT_PUBLIC_OPENING_PARA = "On the public site the company calls itself America's Accounting and Payroll. Payroll and accounting share one login; you can buy one product and add the other later. The pitch is blunt: finish a run in under three minutes, online, with nothing to download and no contract that outlasts the month.";
+
+export const PATRIOT_PUBLIC_OPENING_CALLOUT = {
+  title: "Promise on the homepage",
+  body: "Under three minutes per payroll run · month-to-month · U.S. employers from first hire to about 500 people",
+};
+
+export const PATRIOT_PUBLIC_OPENING_BULLETS = [
+  "Multi-state workers, seasonal crews, and year-end tax prep are first-class problems",
+  "Accountants who run payroll for many clients are part of the audience, not an afterthought",
 ];
 
-export const PATRIOT_PUBLIC_SECTIONS = [
-  {
-    title: "Staying private was the decision",
-    paragraphs: [
-      "Mike Kappel tells the origin as a founder's long bet, not as a funding announcement. Raised by a World War II veteran, he told a second-grade teacher he would be an entrepreneur. In 1986 he started in the basement of a factory: no heat, blankets for walls, visitors that were mostly rats and birds, and four years before anyone saw a paycheck that felt real. Four earlier companies grew out of that start. Two of them became real businesses. Patriot was the fifth, and the about page says it was harder and more expensive than the first four combined.",
-      "The company put millions of its own money in. That was not enough. It needed tens of millions more to build accounting and payroll it thought the country would actually use. In 2016 the firm was lined up to go public. Kappel stopped it, late, because he believed customers would be served better if Patriot stayed private. To raise the cash, the company sold the other businesses it had run for about thirty years and kept this one.",
-      "What followed was not a single venture round. The about page says Patriot met hundreds of private-equity firms and walked away from buyers who, in its telling, cared about profit and not about American customers. It raised instead from accredited investors, one by one, over years, and kept majority ownership. The present tense on that page is the stage: profitable, debt free, and, in the company's words, beholden to no one. That is the point of the story they choose to tell. Control is how they say they stay obsessed with the customer.",
-    ],
-  },
-  {
-    title: "Two products, and permission to buy only one",
-    paragraphs: [
-      "Payroll is the product the site leads with. The basic version is for the owner who still wants to see the numbers. It sets up deductions and contributions for a retirement plan, health insurance, and garnishments. It prints W-2s on ordinary office paper or on forms. Employees get a portal and a phone app for paystubs, pay history, tax withholding, and year-end forms. Time off accrues on its own. An automatic payroll can be set once so the run does not have to be rebuilt every period. A human resources center sends alerts when federal, state, or local rules change. The reports are the unglamorous half of the product: pay by department, a register of every run, what each person has earned this year, which deductions are coming, and what the company still owes in taxes.",
-      "Full Service payroll is the other door. Patriot collects, files, and deposits federal taxes, state taxes, and most local taxes, in all fifty states. Each extra state costs $12 a month. Direct deposit is included, not added on: a two-day deposit for companies that qualify, a standard four-day deposit, or funding by wire. A time and attendance add-on lets people log hours. Retirement plans, workers' compensation, and health coverage connect through partners the site names: Vestwell, ERGO NEXT, and SimplyInsured. The homepage displays 2026 review badges for ease of use and customer support on payroll, and for value on accounting. One customer, Kendall Witham, is quoted there on the monthly price being worth it. Another, Henrietta, is quoted on support that is fast, patient, and kind.",
-      "Accounting is the quieter product, and the site is plain that it does not have to be purchased. It starts at $20 a month and lives under the same login. Payroll starts at $17 a month plus $4 for each worker who is actually paid that month. A quiet month, with no payroll run, does not bill the per-worker fee. Both are subscriptions you can leave. There is a thirty-day trial, then half off for three months. Support based in the United States is included on every tier, and the company says it does not charge for it. The software is SOC 2 Type II compliant, the formal security review, and sign-in asks for more than a password.",
-    ],
-  },
-  {
-    title: "A market with a border",
-    paragraphs: [
-      "The payroll page draws a line and then stays inside it. The software is for companies whose employees work in the United States. It is not offered for people employed in other countries. Inside the line, Patriot says the same product fits a brand-new employer and a company that already runs payroll somewhere else, in any industry, up to about 500 people. A new customer can switch in the middle of a year or at the end of a quarter. If they want help, setup is free: Patriot will enter the employee list and the year's pay to date. The phone number and the success email are on the page, which is the company's way of saying the first week is part of the product.",
-      "The about page speaks to a wider room than the payroll FAQ does. It addresses small, medium, and large businesses, and the accountants who serve them. The public blog keeps a separate shelf for accounting professionals: what to charge, how to earn more, what a bookkeeper's week actually contains. So the customer is sometimes the owner and sometimes the person who runs payroll for many owners. That second reader matters. A product that only talks to founders misses the person who decides which system the books will live in.",
-      "The October writing makes the market concrete. A lawn-care business has a crew in season and a thin payroll in January, overtime when the weather holds, and people who should not be on the books all year. Patriot does not sell a lawn-care edition. It uses that employer to show what the same payroll has to survive: work that is uneven, local, and timed to a trade rather than to a software release.",
-    ],
-  },
-  {
-    title: "What they are publishing now",
-    paragraphs: [
-      "The feed in October 2026 is not a launch calendar. Nothing in the latest posts announces a new product. The company is standing at the customer's desk at year-end, which is when accounting and payroll software is either trusted or replaced.",
-      "On October 12 the post is about an employee who moves to another state, and what that does to taxes. On October 9 the question is whether you can still file payroll taxes yourself if you use software. That question only exists because Patriot sells both answers: a basic payroll for owners who file, and a full-service payroll that files for them. On October 8 it explains what a bookkeeper does. On October 5 it is about reconciling payroll back to the books, and a checklist for finishing the year. On October 2 it is the lawn-care crew.",
-      "Read as one week of publishing, the feed is the product manual left in public. Multi-state tax. The choice to file or not. The bookkeeper as a user, not an afterthought. The seasonal employer whose headcount is a weather report. Patriot is spending its newest words on the work that happens after someone has already paid the $17 or the $20.",
-    ],
-  },
+export const PATRIOT_PUBLIC_PRIVATE_TILES = [
+  { value: "1986", label: "Founded", hint: "Started in a factory basement; four years before a real paycheck" },
+  { value: "2016", label: "Stayed private", hint: "IPO stopped late; other businesses sold to fund Patriot" },
+  { value: "Today", label: "Control", hint: "Profitable, debt-free, majority founder-owned per the about page" },
 ];
 
-export const PATRIOT_PUBLIC_CLOSE = "Patriot's wager is that American employers will pay a small monthly price for software that stays out of the way, and will stay because a person in the United States still picks up. The about page ends where a lot of company stories refuse to. Not with a round. With a private company that says it is profitable, debt free, and still owned by the people who decided not to take it public. The last line on the site is plainer than a mission statement. We've got your back.";
+export const PATRIOT_PUBLIC_PRIVATE_PARAS = [
+  "Mike Kappel tells the origin as a founder's long bet. Patriot was the fifth company — harder and more expensive than the first four combined — and the about page is explicit that staying independent mattered more than a listing.",
+  "In 2016 an IPO was lined up and stopped late. Patriot sold other businesses it had run for decades, raised from accredited investors over years, and kept majority ownership. The story they publish now: profitable, debt-free, and obsessed with American customers rather than exit timing.",
+];
+
+export const PATRIOT_PUBLIC_PRICING_TILES = [
+  { value: "$17", label: "Payroll base / mo", hint: "+ $4 per worker actually paid that month" },
+  { value: "$20", label: "Accounting / mo", hint: "Optional — same login as payroll" },
+  { value: "$12", label: "Extra state / mo", hint: "Full Service payroll in all 50 states" },
+];
+
+export const PATRIOT_PUBLIC_PRODUCTS_INTRO = "Payroll leads the site; accounting is optional under the same login. Full Service payroll files taxes in all fifty states — each extra state is $12 per month — while basic payroll keeps owners who still want to see every number.";
+
+export const PATRIOT_PUBLIC_PAYROLL_BULLETS = [
+  "Deductions, W-2s, employee portal and app, PTO accrual, and one-click auto payroll",
+  "HR center alerts when federal, state, or local rules change",
+];
+
+export const PATRIOT_PUBLIC_FULL_SERVICE_PARA = "Full Service collects, files, and deposits federal, state, and most local taxes. Direct deposit is included, not bolted on. Partners named on the site cover retirement (Vestwell), workers' comp (ERGO NEXT), and health (SimplyInsured).";
+
+export const PATRIOT_PUBLIC_MARKET_PARAS = [
+  "The payroll page draws a hard line: software for companies whose people work in the United States. Inside that line the same product is meant to fit a first hire or a switch mid-year, with free setup if Patriot enters employees and year-to-date pay.",
+  "October blog posts use seasonal employers — lawn care crews, thin January payrolls — to show what the product has to survive without selling an industry SKU.",
+];
+
+export const PATRIOT_PUBLIC_FEED_BULLETS = [
+  "Oct 12 — Employee moves to another state and tax implications",
+  "Oct 9 — Can you still file payroll taxes yourself if you use software?",
+  "Oct 8 — What a bookkeeper does for a small business",
+  "Oct 5 — Payroll reconciliation and year-end checklist",
+  "Oct 2 — Payroll patterns for seasonal lawn-care crews",
+];
+
+export const PATRIOT_PUBLIC_WAGER_PARA = "Patriot's wager is a small monthly price for software that stays out of the way — and retention through U.S.-based support included on every tier, SOC 2 Type II, and sign-in that asks for more than a password.";
+
+export const PATRIOT_PUBLIC_CLOSE_LINE = "The about page ends on a private, profitable company still owned by the people who chose not to go public — and a line plainer than a mission statement.";
+
+export const PATRIOT_PUBLIC_DEK = "America's accounting and payroll for small employers — built to finish a run in under three minutes, without a contract that outlasts the month.";
+
+export const PATRIOT_PUBLIC_BLOG_MARKER = "brief-paper-public-blog-v6";
 
 function esc(value: string): string {
   return value
@@ -76,29 +95,106 @@ function esc(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function paragraphs(lines: string[]): string {
-  return lines.map(line => `<p>${esc(line)}</p>`).join("");
+function bulletList(items: string[], className = "brief-paper-blog-bullets"): string {
+  const body = items.map(item => `<li>${esc(item)}</li>`).join("");
+  return `<ul class="${className}">${body}</ul>`;
+}
+
+function numberTiles(
+  tiles: { value: string; label: string; hint?: string }[],
+  className = "brief-paper-blog-tiles",
+): string {
+  return `<div class="${className}" role="list">${tiles.map(tile => (
+    `<div class="brief-paper-blog-tile" role="listitem">`
+    + `<span class="brief-paper-blog-tile-value">${esc(tile.value)}</span>`
+    + `<span class="brief-paper-blog-tile-label">${esc(tile.label)}</span>`
+    + (tile.hint ? `<span class="brief-paper-blog-tile-hint">${esc(tile.hint)}</span>` : "")
+    + `</div>`
+  )).join("")}</div>`;
+}
+
+function para(text: string, className?: string): string {
+  const klass = className ? ` class="${className}"` : "";
+  return `<p${klass}>${esc(text)}</p>`;
+}
+
+function callout(tone: "mint" | "amber" | "slate", title: string, body: string): string {
+  return `<aside class="brief-paper-blog-callout brief-paper-blog-callout--${tone}"><strong>${esc(title)}</strong><p>${esc(body)}</p></aside>`;
+}
+
+function sectionHtml(title: string, body: string): string {
+  return `<section class="brief-paper-blog-section"><h2>${esc(title)}</h2>${body}</section>`;
+}
+
+function subsectionHtml(title: string, body: string): string {
+  return `<div class="brief-paper-blog-subsection"><h3>${esc(title)}</h3>${body}</div>`;
+}
+
+function timelineList(items: string[]): string {
+  const body = items.map(item => {
+    const [date, ...rest] = item.split(" — ");
+    const title = rest.join(" — ") || item;
+    return `<li><span class="brief-paper-blog-timeline-date">${esc(date)}</span><span>${esc(title)}</span></li>`;
+  }).join("");
+  return `<ul class="brief-paper-blog-timeline">${body}</ul>`;
 }
 
 export function buildPatriotPublicPaperHtml(reportDate = "Oct 16, 2026"): string {
-  const opening = paragraphs(PATRIOT_PUBLIC_OPENING);
-  const stats = PATRIOT_PUBLIC_STATS.map(stat => `<li><strong>${esc(stat.value)}</strong> ${esc(stat.label)}</li>`).join("");
-  const sections = PATRIOT_PUBLIC_SECTIONS.map(section => (
-    `<section class="brief-paper-block brief-paper-tone-quiet brief-paper-public-essay-v2"><h2>${esc(section.title)}</h2>${paragraphs(section.paragraphs)}</section>`
+  const openingBody = [
+    `<p class="brief-paper-lead">${esc(PATRIOT_PUBLIC_LEAD)}</p>`,
+    para(PATRIOT_PUBLIC_OPENING_PARA),
+    callout("mint", PATRIOT_PUBLIC_OPENING_CALLOUT.title, PATRIOT_PUBLIC_OPENING_CALLOUT.body),
+    bulletList(PATRIOT_PUBLIC_OPENING_BULLETS),
+  ].join("");
+  const stats = PATRIOT_PUBLIC_STATS.map(stat => (
+    `<div class="brief-paper-blog-stat"><span class="brief-paper-blog-stat-value">${esc(stat.value)}</span><span class="brief-paper-blog-stat-label">${esc(stat.label)}</span></div>`
   )).join("");
+  const sections = [
+    sectionHtml("Staying private was the decision", [
+      numberTiles(PATRIOT_PUBLIC_PRIVATE_TILES),
+      ...PATRIOT_PUBLIC_PRIVATE_PARAS.map(text => para(text)),
+      callout("amber", "Why it matters on Fuel", "Public profile copy stays narrative; private benchmark tables belong in the workspace brief unless you embed them with / → Templates."),
+    ].join("")),
+    sectionHtml("Two products, and permission to buy only one", [
+      para(PATRIOT_PUBLIC_PRODUCTS_INTRO),
+      numberTiles(PATRIOT_PUBLIC_PRICING_TILES),
+      subsectionHtml("Basic payroll", bulletList(PATRIOT_PUBLIC_PAYROLL_BULLETS)),
+      para(PATRIOT_PUBLIC_FULL_SERVICE_PARA),
+      `<p class="brief-paper-blog-note">No payroll run in a quiet month → no per-worker fee. Thirty-day trial, then half off for three months.</p>`,
+    ].join("")),
+    sectionHtml("A market with a border", PATRIOT_PUBLIC_MARKET_PARAS.map(text => para(text)).join("")),
+    sectionHtml("What they are publishing now", [
+      para("The October 2026 feed is not a launch calendar — it is year-end operations in public: multi-state tax, filing choices, bookkeepers, reconciliation, seasonal crews."),
+      timelineList(PATRIOT_PUBLIC_FEED_BULLETS),
+    ].join("")),
+  ].join("");
   const posts = PATRIOT_PUBLIC_POSTS.map(post => (
-    `<li><a href="${esc(post.href)}">${esc(post.title)}</a> · ${esc(post.date)}</li>`
-  )).join("");
-  const sources = PATRIOT_PUBLIC_SOURCES.map(source => (
-    `<li><a href="${esc(source.href)}">${esc(source.label)}</a> · ${esc(source.detail)}</li>`
+    `<a class="brief-paper-blog-post-card" href="${esc(post.href)}" rel="noopener noreferrer"><time datetime="">${esc(post.date)}</time><span class="brief-paper-blog-post-title">${esc(post.title)}</span></a>`
   )).join("");
   return [
-    `<header class="brief-paper-mast"><p class="brief-paper-kicker">Public profile · Patriot Pay</p><h1>${esc(PATRIOT_PUBLIC_HEADLINE)}</h1><p class="brief-paper-date">${esc(reportDate)}</p></header>`,
-    `<section class="brief-paper-block brief-paper-tone-quiet brief-paper-public-essay-v2"><h2>Three minutes, then back to the work</h2>${opening}<ul class="brief-paper-public-stats">${stats}</ul></section>`,
+    `<article class="brief-paper-public-blog ${PATRIOT_PUBLIC_BLOG_MARKER}">`,
+    `<header class="brief-paper-blog-hero">`,
+    `<div class="brief-paper-blog-hero-cover" aria-hidden="true"></div>`,
+    `<div class="brief-paper-blog-hero-inner">`,
+    `<p class="brief-paper-blog-eyebrow">Patriot Pay · Fuel company profile</p>`,
+    `<h1>${esc(PATRIOT_PUBLIC_HEADLINE)}</h1>`,
+    `<p class="brief-paper-blog-dek">${esc(PATRIOT_PUBLIC_DEK)}</p>`,
+    `<div class="brief-paper-blog-meta"><span>${esc(reportDate)}</span><span class="brief-paper-blog-meta-dot" aria-hidden="true">·</span><span>6 min read</span><span class="brief-paper-blog-meta-dot" aria-hidden="true">·</span><span>Updated from public sources</span></div>`,
+    `</div></header>`,
+    `<div class="brief-paper-blog-shell">`,
+    `<div class="brief-paper-blog-stats" role="list">${stats}</div>`,
+    `<div class="brief-paper-blog-main">`,
+    sectionHtml("Three minutes, then back to the work", openingBody),
     sections,
-    `<blockquote class="brief-paper-quote brief-paper-public-essay-v2"><p>${esc(PATRIOT_PUBLIC_QUOTE.text)}</p><p>${esc(PATRIOT_PUBLIC_QUOTE.source)}</p></blockquote>`,
-    `<section class="brief-paper-block brief-paper-tone-quiet brief-paper-public-essay-v2"><h2>The wager</h2><p>${esc(PATRIOT_PUBLIC_CLOSE)}</p><p>The newest posts, from the public feed:</p><ul>${posts}</ul></section>`,
-    `<section class="brief-paper-block brief-paper-tone-quiet brief-paper-public-essay-v2"><h2>Sources</h2><p>Written from the public website and the latest feed on Oct 16, 2026. Private benchmark numbers stay off this page.</p><ul>${sources}</ul></section>`,
+    `<blockquote class="brief-paper-blog-pull"><p>${esc(PATRIOT_PUBLIC_QUOTE.text)}</p><footer>${esc(PATRIOT_PUBLIC_QUOTE.source)}</footer></blockquote>`,
+    sectionHtml("The wager", [
+      para(PATRIOT_PUBLIC_WAGER_PARA),
+      callout("slate", "We've got your back.", PATRIOT_PUBLIC_QUOTE.source),
+      `<p class="brief-paper-blog-note">${esc(PATRIOT_PUBLIC_CLOSE_LINE)}</p>`,
+    ].join("")),
+    `</div>`,
+    `<section class="brief-paper-blog-related"><div class="brief-paper-blog-related-head"><h2>From the public blog</h2><p>Recent posts that shape how Patriot shows up in market.</p></div><div class="brief-paper-blog-post-grid">${posts}</div></section>`,
+    `</div></article>`,
   ].join("");
 }
 

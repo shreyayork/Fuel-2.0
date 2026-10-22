@@ -443,6 +443,642 @@ blockquote.brief-paper-public-essay-v2 p:first-child {
   font-size: 20px;
 }
 
+/* —— Public profile blog layout (Fuel portal) —— */
+.brief-doc-canvas.is-public-blog {
+  --blog-article-bg: var(--panel);
+  --blog-article-border: var(--panel-border);
+  --blog-article-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  --blog-hero-fade: linear-gradient(165deg, rgba(0, 180, 138, 0.22) 0%, rgba(0, 180, 138, 0.04) 42%, transparent 72%);
+  --blog-stat-bg: rgba(0, 180, 138, 0.08);
+  --blog-card-bg: var(--panel-inset);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(0, 180, 138, 0.12), transparent 55%),
+    var(--bg-main);
+  padding-bottom: 96px;
+}
+
+html[data-theme="light"] .brief-doc-canvas.is-public-blog {
+  --blog-article-bg: #ffffff;
+  --blog-article-border: rgba(15, 23, 42, 0.08);
+  --blog-article-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+  --blog-hero-fade: linear-gradient(165deg, rgba(0, 180, 138, 0.14) 0%, rgba(0, 180, 138, 0.03) 45%, transparent 70%);
+  --blog-stat-bg: rgba(0, 180, 138, 0.06);
+  --blog-card-bg: #f4f7f6;
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 0%, rgba(0, 180, 138, 0.08), transparent 50%),
+    #eef2f0;
+}
+
+.brief-paper.is-public-blog {
+  background: transparent;
+  border: 0;
+  max-width: 1080px;
+  min-height: 0;
+  padding: 0 20px 24px;
+}
+
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v3,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v4,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v5,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v6 {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.brief-paper-tail.is-public-blog {
+  background: var(--blog-article-bg);
+  border: 1px solid var(--blog-article-border);
+  border-radius: 0 0 16px 16px;
+  border-top: 0;
+  box-shadow: var(--blog-article-shadow);
+  margin-top: -1px;
+  max-width: 1080px;
+  padding: 12px 32px 48px;
+}
+
+.brief-paper-public-blog.brief-paper-public-blog-v3,
+.brief-paper-public-blog.brief-paper-public-blog-v4,
+.brief-paper-public-blog.brief-paper-public-blog-v5,
+.brief-paper-public-blog.brief-paper-public-blog-v6 {
+  background: var(--blog-article-bg);
+  border: 1px solid var(--blog-article-border);
+  border-radius: 16px;
+  box-shadow: var(--blog-article-shadow);
+  overflow: hidden;
+}
+
+.brief-paper-blog-hero {
+  position: relative;
+}
+
+.brief-paper-blog-hero-cover {
+  background: var(--blog-hero-fade);
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.brief-paper-blog-hero-inner {
+  margin: 0 auto;
+  max-width: 720px;
+  padding: 48px 40px 36px;
+  position: relative;
+  text-align: center;
+}
+
+.brief-paper-blog-eyebrow {
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+
+.brief-paper-public-blog-v3 h1,
+.brief-paper-public-blog-v4 h1,
+.brief-paper-public-blog-v5 h1,
+.brief-paper-public-blog-v6 h1 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.brief-paper-blog-dek {
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 12px auto 0;
+  max-width: 36rem;
+}
+
+.brief-paper-blog-meta {
+  align-items: center;
+  color: var(--text-2);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.brief-paper-blog-meta-dot {
+  opacity: 0.55;
+}
+
+.brief-paper-blog-shell {
+  padding: 8px 40px 48px;
+}
+
+.brief-paper-blog-stats {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 auto 36px;
+  max-width: min(720px, 100%);
+}
+
+.brief-paper-blog-stat {
+  background: var(--blog-stat-bg);
+  border: 1px solid color-mix(in srgb, #00b48a 24%, var(--panel-border));
+  border-radius: 12px;
+  padding: 16px 14px;
+  text-align: center;
+}
+
+.brief-paper-blog-stat-value {
+  color: var(--text-1);
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.brief-paper-blog-stat-label {
+  color: var(--text-2);
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-top: 6px;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-main {
+  margin: 0 auto;
+  max-width: min(720px, 100%);
+  width: 100%;
+}
+
+.brief-paper-blog-section {
+  margin-top: 36px;
+}
+
+.brief-paper-blog-section:first-child {
+  margin-top: 0;
+}
+
+.brief-paper-public-blog-v3 .brief-paper-blog-section h2,
+.brief-paper-public-blog-v4 .brief-paper-blog-section h2,
+.brief-paper-public-blog-v5 .brief-paper-blog-section h2,
+.brief-paper-public-blog-v6 .brief-paper-blog-section h2 {
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  margin: 0 0 12px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.brief-paper-public-blog-v3 .brief-paper-blog-section h2::after,
+.brief-paper-public-blog-v4 .brief-paper-blog-section h2::after,
+.brief-paper-public-blog-v5 .brief-paper-blog-section h2::after,
+.brief-paper-public-blog-v6 .brief-paper-blog-section h2::after {
+  background: #00b48a;
+  border-radius: 2px;
+  content: "";
+  display: block;
+  height: 2px;
+  margin-top: 8px;
+  width: 28px;
+}
+
+.brief-paper-public-blog-v3 .brief-paper-lead,
+.brief-paper-public-blog-v4 .brief-paper-lead,
+.brief-paper-public-blog-v5 .brief-paper-lead,
+.brief-paper-public-blog-v6 .brief-paper-lead {
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.55;
+  margin: 0 0 10px;
+}
+
+.brief-paper-public-blog-v3 .brief-paper-blog-section p,
+.brief-paper-public-blog-v4 .brief-paper-blog-section p,
+.brief-paper-public-blog-v5 .brief-paper-blog-section p,
+.brief-paper-public-blog-v6 .brief-paper-blog-section p,
+.brief-paper-public-blog-v3 .brief-paper-blog-section li,
+.brief-paper-public-blog-v4 .brief-paper-blog-section li,
+.brief-paper-public-blog-v5 .brief-paper-blog-section li,
+.brief-paper-public-blog-v6 .brief-paper-blog-section li {
+  color: var(--panel-body, var(--text-2));
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin-bottom: 0;
+}
+
+.brief-paper-blog-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-blog-bullets li {
+  border-bottom: 1px solid var(--panel-border);
+  padding: 8px 0 8px 14px;
+  position: relative;
+}
+
+.brief-paper-blog-bullets li::before {
+  color: #00b48a;
+  content: "•";
+  font-weight: 700;
+  left: 0;
+  position: absolute;
+  top: 8px;
+}
+
+.brief-paper-blog-bullets li:last-child {
+  border-bottom: 0;
+}
+
+.brief-paper-blog-tiles {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 12px;
+}
+
+.brief-paper-blog-tile {
+  background: var(--blog-card-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 12px 10px;
+}
+
+.brief-paper-blog-tile-value {
+  color: var(--text-1);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.brief-paper-blog-tile-label {
+  color: var(--text-1);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-tile-hint {
+  color: var(--text-2);
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+.brief-paper-blog-subsection {
+  margin-top: 14px;
+}
+
+.brief-paper-blog-subsection h3 {
+  border: 0;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-note {
+  color: var(--text-2);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+
+.brief-paper-blog-pull {
+  border: 0;
+  border-left: 3px solid #00b48a;
+  margin: 40px 0 0;
+  padding: 4px 0 4px 22px;
+}
+
+.brief-paper-public-blog-v4 .brief-paper-blog-pull p,
+.brief-paper-public-blog-v3 .brief-paper-blog-pull p {
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  margin: 0 0 6px;
+}
+
+.brief-paper-blog-pull footer {
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.brief-paper-blog-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 24px;
+}
+
+.brief-paper-blog-card {
+  background: var(--blog-card-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 18px 18px 16px;
+}
+
+.brief-paper-blog-card h3 {
+  border: 0;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0 0 12px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-card-note {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+
+.brief-paper-blog-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-blog-facts li {
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 0;
+}
+
+.brief-paper-blog-facts li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.brief-paper-blog-facts li span {
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-facts li strong {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.brief-paper-blog-source-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-blog-source-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.brief-paper-blog-source-list li span {
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.brief-paper-blog-related {
+  border-top: 1px solid var(--panel-border);
+  margin: 48px auto 0;
+  max-width: min(720px, 100%);
+  padding-top: 36px;
+}
+
+.brief-paper-blog-related-head h2 {
+  color: var(--text-1);
+  font-size: 1.25rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-transform: none;
+}
+
+.brief-paper-blog-related-head p {
+  color: var(--text-2);
+  font-size: 13px;
+  margin: 6px 0 0;
+}
+
+.brief-paper-blog-post-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  margin-top: 20px;
+}
+
+.brief-paper-blog-post-card {
+  background: var(--blog-card-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 16px 14px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.brief-paper-blog-post-card:hover {
+  border-color: color-mix(in srgb, #00b48a 40%, var(--panel-border));
+  transform: translateY(-1px);
+}
+
+.brief-paper-blog-post-card time {
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-post-title {
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.brief-paper.is-public-blog a {
+  color: #00b48a;
+}
+
+html[data-theme="light"] .brief-paper.is-public-blog a {
+  color: #008f6f;
+}
+
+.brief-paper-blog-callout {
+  border-radius: 12px;
+  margin: 14px 0;
+  padding: 14px 16px;
+}
+
+.brief-paper-blog-callout strong {
+  color: var(--text-1);
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-callout p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.brief-paper-blog-callout--mint {
+  background: color-mix(in srgb, #00b48a 14%, var(--blog-card-bg));
+  border: 1px solid color-mix(in srgb, #00b48a 35%, var(--panel-border));
+}
+
+.brief-paper-blog-callout--amber {
+  background: color-mix(in srgb, #f5a623 12%, var(--blog-card-bg));
+  border: 1px solid color-mix(in srgb, #f5a623 32%, var(--panel-border));
+}
+
+.brief-paper-blog-callout--slate {
+  background: var(--blog-card-bg);
+  border: 1px solid var(--panel-border);
+  border-left: 3px solid #00b48a;
+}
+
+.brief-paper-blog-timeline {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.brief-paper-blog-timeline li {
+  border-left: 2px solid color-mix(in srgb, #00b48a 45%, var(--panel-border));
+  display: grid;
+  gap: 4px;
+  margin: 0 0 10px;
+  padding: 0 0 10px 12px;
+}
+
+.brief-paper-blog-timeline-date {
+  color: #00b48a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-embed {
+  background: var(--blog-card-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  margin-top: 28px;
+  padding: 18px 18px 14px;
+}
+
+.brief-paper-blog-embed--accent {
+  border-color: color-mix(in srgb, #00b48a 40%, var(--panel-border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #00b48a 8%, transparent);
+}
+
+.brief-paper-blog-embed--mint {
+  background: color-mix(in srgb, #00b48a 6%, var(--blog-card-bg));
+}
+
+.brief-paper-blog-embed--warm {
+  background: color-mix(in srgb, #f5a623 6%, var(--blog-card-bg));
+}
+
+.brief-paper-blog-embed-body {
+  margin-top: 4px;
+}
+
+.brief-paper-blog-embed-body .brief-paper-grid {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.brief-paper-blog-embed-body .brief-paper-grid th,
+.brief-paper-blog-embed-body .brief-paper-grid td {
+  border: 1px solid var(--panel-border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.brief-paper-blog-embed-body .brief-paper-grid thead th {
+  background: color-mix(in srgb, #00b48a 10%, var(--blog-card-bg));
+  color: var(--text-1);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.brief-paper-blog-embed-body .brief-paper-roadmap {
+  margin-top: 8px;
+}
+
+.brief-paper-blog-embed-body h3 {
+  border: 0;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin: 12px 0 6px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .brief-paper-blog-stats,
+  .brief-paper-blog-tiles {
+    grid-template-columns: 1fr;
+  }
+
+  .brief-paper-blog-hero-inner,
+  .brief-paper-blog-shell {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
 .brief-paper a {
   color: #00b48a;
   text-decoration: none;

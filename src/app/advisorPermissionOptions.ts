@@ -12,13 +12,8 @@ export const ADVISOR_PERMISSION_OPTIONS: Array<{
   },
   {
     key: "approvedBenchmarks",
-    title: "Approved benchmark metrics",
-    description: "Only benchmark values the company has entered and approved for sharing.",
-  },
-  {
-    key: "sharedIntelligence",
-    title: "Shared intelligence and updates",
-    description: "Company updates and intelligence items explicitly marked as shared.",
+    title: "Benchmark metrics",
+    description: "Scorecard benchmark values you've entered — shared with this advisor when this box is checked.",
   },
   {
     key: "sharedInitiatives",

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   ProfileMotion, DevMotion, GtmMotion, RevopsMotion,
   InvestmentMotion, BenchmarkMotion, HubSpotMotion,
-  GTM_FUNNEL_HINTS, GTM_FUNNEL_CHOICES, PROFILE_BUILD_MS, type GtmFunnelStage,
+  GTM_FUNNEL_HINTS, GTM_FUNNEL_CHOICES, type GtmFunnelStage,
 } from "./OnboardingMotionGraphics.tsx";
 import type { OnboardingBenchmarkInput } from "./PatriotPayJourney.tsx";
 import {
@@ -1421,7 +1421,7 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   }, []);
 
   const [companyQuery, setCompanyQuery] = useState(() => inviteConnection?.companyName ?? "Patriot Pay");
-  const [searchState, setSearchState] = useState<"idle" | "searching" | "review">("idle");
+  const [searchState, setSearchState] = useState<"idle" | "review">("idle");
   const [profileForm, setProfileForm] = useState<ProfileForm>({
     company:"", whatTheyDo:"", businessModel:"",
     industry:"", founded:"", city:"", stateRegion:"", country:"",
@@ -1506,30 +1506,26 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   }
 
   function loadCompanyProfile(record: CompanyRecord) {
-    setSearchState("searching");
     setCompanyQuery(record.name);
-    setTimeout(() => {
-      setProfileForm(prev => ({
-        company: record.name,
-        whatTheyDo: record.whatTheyDo,
-        businessModel: prev.businessModel || normalizeBusinessModel(record.businessModel),
-        industry: record.industry,
-        founded: record.founded,
-        city: record.city,
-        stateRegion: record.stateRegion,
-        country: record.country,
-        website: `https://${record.domain}`,
-        linkedin: record.linkedin,
-        additionalContext: "",
-        productDescription: record.whatTheyDo,
-        approxHeadcount: "",
-      }));
-      setFundingRounds(record.funding.map(f => ({
-        id: rid(), type: f.type, amount: f.amount, date: "", investors: f.investors ?? "",
-      })));
-      setSearchState("review");
-      // ProfileMotion paces its payoff cards and progress bar against this window.
-    }, PROFILE_BUILD_MS);
+    setProfileForm(prev => ({
+      company: record.name,
+      whatTheyDo: record.whatTheyDo,
+      businessModel: prev.businessModel || normalizeBusinessModel(record.businessModel),
+      industry: record.industry,
+      founded: record.founded,
+      city: record.city,
+      stateRegion: record.stateRegion,
+      country: record.country,
+      website: `https://${record.domain}`,
+      linkedin: record.linkedin,
+      additionalContext: "",
+      productDescription: record.whatTheyDo,
+      approxHeadcount: "",
+    }));
+    setFundingRounds(record.funding.map(f => ({
+      id: rid(), type: f.type, amount: f.amount, date: "", investors: f.investors ?? "",
+    })));
+    setSearchState("review");
   }
 
   function trySelectCompanyFromQuery() {
@@ -1550,7 +1546,6 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
   function canAdvance() {
     if (stepId==="profile") {
       if (searchState === "idle") return !!findCompanyByQuery(companyQuery);
-      if (searchState === "searching") return false;
       return searchState === "review" && !!profileForm.company && !!profileForm.businessModel
         && !!(profileForm.productDescription || profileForm.whatTheyDo) && !!profileForm.industry;
     }
@@ -1750,17 +1745,6 @@ export default function OnboardingFlow({ onComplete }: { onComplete: (answers: A
                           <p style={{ fontSize:12, color:"#3A4F5E", marginTop:14, lineHeight:1.55 }}>
                             Select a match from the list, or continue with your current selection.
                           </p>
-                        </div>
-                      )}
-
-                      {searchState==="searching" && (
-                        <div style={{ padding:"48px 0", textAlign:"center" }}>
-                          <div style={{ position:"relative", width:80, height:80, margin:"0 auto 24px" }}>
-                            <div className="of-spin" style={{ width:80, height:80, borderRadius:"50%", border:"3px solid rgba(61,214,140,0.1)", borderTop:"3px solid #3DD68C", position:"absolute" }} />
-                            <div className="of-spin" style={{ width:56, height:56, borderRadius:"50%", border:"2px solid rgba(61,214,140,0.06)", borderBottom:"2px solid rgba(61,214,140,0.4)", position:"absolute", top:12, left:12, animationDirection:"reverse", animationDuration:"0.65s" }} />
-                          </div>
-                          <div style={{ fontSize:17, fontWeight:700, color:"var(--text-1)", marginBottom:6 }}>Building {companyQuery}'s profile…</div>
-                          <div style={{ fontSize:13, color:"#556878" }}>Matching you to a real peer cohort so your first benchmark means something</div>
                         </div>
                       )}
 

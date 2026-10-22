@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDialogA11y } from "./a11y/useDialogA11y.ts";
+import { openAdvisorFuelPublicProfile, openCompanyFuelPublicProfile } from "./advisorFuelProfile.ts";
 import { ADVISOR_PERMISSION_OPTIONS } from "./advisorPermissionOptions.ts";
 import type { CompanyAdvisorLink } from "./advisorDirectoryStorage.ts";
 import {
@@ -9,6 +10,36 @@ import {
   type AdvisorConnectionRecord,
 } from "./advisorConnectionStorage.ts";
 import "./advisorConnections.css";
+
+function descriptionWithProfileLink(
+  text: string,
+  linkLabel: string,
+  onAfterOpenProfile: () => void,
+  openProfile: () => void,
+): React.ReactNode {
+  const name = linkLabel.trim();
+  if (!name) return text;
+  const start = text.indexOf(name);
+  if (start === -1) return text;
+  const before = text.slice(0, start);
+  const after = text.slice(start + name.length);
+  return (
+    <>
+      {before}
+      <button
+        type="button"
+        className="advisor-connection-profile-link"
+        onClick={() => {
+          openProfile();
+          onAfterOpenProfile();
+        }}
+      >
+        {name}
+      </button>
+      {after}
+    </>
+  );
+}
 
 export function AdvisorConnectionDialog({
   open,
@@ -55,15 +86,22 @@ export function AdvisorConnectionDialog({
 
   let eyebrow: string;
   let title: string;
-  let description: string;
+  let description: React.ReactNode;
   let permissionsHead: string;
   let declineLabel: string;
   let acceptLabel: string;
 
+  const closeAfterProfileOpen = () => onClose();
+
   if (advisorReview && companyInvite) {
     eyebrow = "Invitation from a company on Fuel";
     title = `${companyInvite.companyName} invited you to connect`;
-    description = `${companyInvite.companyName} added you as an advisor on Fuel and chose what they want to share if you accept.`;
+    description = descriptionWithProfileLink(
+      `${companyInvite.companyName} added you as an advisor on Fuel and chose what they want to share if you accept.`,
+      companyInvite.companyName,
+      closeAfterProfileOpen,
+      () => openCompanyFuelPublicProfile(companyInvite.companyId, companyInvite.companyName),
+    );
     permissionsHead = "What they want to share";
     declineLabel = "Decline";
     acceptLabel = "Accept invitation";
@@ -79,11 +117,17 @@ export function AdvisorConnectionDialog({
       : source === "crunchbase"
         ? `Is ${connection.advisorName} your advisor?`
         : `Share ${connection.companyName} data with ${connection.advisorName}?`;
-    description = source === "crunchbase"
+    const descriptionText = source === "crunchbase"
       ? `${connection.advisorName} is on Fuel as an advisor. Confirm the relationship and choose what you want to share.`
       : source === "invite"
         ? `${connection.advisorName} is on Fuel and invited your company to connect. Choose what they can monitor before accepting.`
         : `${connection.advisorName} is on Fuel and requested access to monitor your company. Choose what you want to share.`;
+    description = descriptionWithProfileLink(
+      descriptionText,
+      connection.advisorName,
+      closeAfterProfileOpen,
+      () => openAdvisorFuelPublicProfile(connection.advisorId, connection.advisorName),
+    );
     permissionsHead = "Choose what to share";
     declineLabel = source === "crunchbase" ? "Not my advisor" : "Not now";
     acceptLabel = source === "invite" ? "Accept and share" : "Connect and share";

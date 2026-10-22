@@ -23,6 +23,7 @@ import {
   clearSignedOut,
   createDemoReturningUserSession,
   loadWorkspaceSession,
+  markLoggedOutToLanding,
   saveWorkspaceSession,
 } from "./workspaceSession.ts";
 import { AdvisorConnectionDialog } from "./AdvisorConnectionDialog.tsx";
@@ -41,14 +42,17 @@ import {
   acceptAdvisorConnection,
   type AdvisorConnectionPermissions,
   clearAdvisorInviteTokenFromUrl,
+  createAdvisorInvite,
   createAdvisorConnectionRequest,
   declineAdvisorConnection,
+  DEMO_INVESTOR_CONNECTION_COMPANY_ID,
   getAdvisorConnectionByInviteToken,
   getAdvisorConnectionForCompany,
   readAdvisorInviteTokenFromUrl,
-  resetAdvisorConnectionTestState,
+  resetAdvisorInviteWorkflowDemoState,
   type AdvisorConnectionRecord,
 } from "./advisorConnectionStorage.ts";
+import { resetCompanyAdvisorInviteWorkflowDemoState } from "./advisorDirectoryStorage.ts";
 import { parseProfileFundingRounds } from "./trackQuestions.ts";
 import {
   removeNotification,
@@ -60,16 +64,35 @@ import {
 
 type View = "landing" | "signin" | "onboarding" | "integrations" | "workspace" | "legal";
 
+export function resetInviteWorkflowDemoState() {
+  resetAdvisorInviteWorkflowDemoState();
+  resetCompanyAdvisorInviteWorkflowDemoState();
+  resetNotificationsForKind("advisor");
+  clearAdvisorInviteTokenFromUrl();
+}
+
 function resetAdvisorFeatureOnLocalRefresh() {
   if (typeof window === "undefined") return;
   const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const navigation = window.performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
   if (!isLocal || navigation?.type !== "reload") return;
-  resetAdvisorConnectionTestState();
-  resetNotificationsForKind("advisor");
+  resetInviteWorkflowDemoState();
 }
 
 resetAdvisorFeatureOnLocalRefresh();
+
+declare global {
+  interface Window {
+    fuelResetInviteWorkflow?: () => void;
+  }
+}
+
+if (typeof window !== "undefined" && import.meta.env.DEV) {
+  window.fuelResetInviteWorkflow = () => {
+    resetInviteWorkflowDemoState();
+    window.location.reload();
+  };
+}
 
 function founderCompanyIdFromAnswers(answers: OnboardingFlowAnswers | null | undefined): string | null {
   if (!answers || isInvestorPersona(answers)) return null;
@@ -145,7 +168,14 @@ export default function App() {
     return `advisor-connection:${connection.companyId}:${connection.requestedAt ?? "pending"}`;
   }
 
-  function queueAdvisorConnection(connection: AdvisorConnectionRecord | null) {
+  function queueAdvisorConnection(
+    connection: AdvisorConnectionRecord | null,
+    answers: OnboardingFlowAnswers | null | undefined = onboardingAnswers,
+  ) {
+    if (isInvestorPersona(answers)) {
+      setPendingAdvisorConnection(null);
+      return;
+    }
     setPendingAdvisorConnection(connection);
     if (!connection) {
       setProfilePromptSuppressed(false);
@@ -175,6 +205,9 @@ export default function App() {
   }
 
   function handleNotificationAction(action: NotificationAction, _notification: WorkspaceNotification) {
+    if (action.type === "advisor_connection_review" && isInvestorPersona(onboardingAnswers)) {
+      return;
+    }
     if (action.type === "company_advisor_invite_review") {
       const email = getAuthEmail();
       const link = pendingCompanyAdvisorInvite?.id === action.linkId
@@ -201,12 +234,13 @@ export default function App() {
 
   useEffect(() => {
     if (view !== "workspace" || !pendingAdvisorConnection || advisorAutoPromptShown) return;
+    if (isInvestorPersona(onboardingAnswers)) return;
     const timer = window.setTimeout(() => {
       setConnectionReview(pendingAdvisorConnection);
       setAdvisorAutoPromptShown(true);
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [advisorAutoPromptShown, pendingAdvisorConnection, view]);
+  }, [advisorAutoPromptShown, onboardingAnswers, pendingAdvisorConnection, view]);
 
   useEffect(() => {
     if (view !== "workspace" || !pendingCompanyAdvisorInvite || companyAdvisorAutoPromptShown) return;
@@ -244,19 +278,45 @@ export default function App() {
     if (connection) return null;
     const hasDetectedAdvisor = parseProfileFundingRounds(answers.profileFundingRounds)
       .some(round => round.investors.toLowerCase().includes("york ie"));
-    return hasDetectedAdvisor
-      ? createAdvisorConnectionRequest({
-          id: companyId,
-          name: answers.profileCompany,
-          domain,
-          source: "crunchbase",
-        })
-      : null;
+    if (!hasDetectedAdvisor) return null;
+    const founderEmail = getAuthEmail()?.trim();
+    if (founderEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(founderEmail)) {
+      return createAdvisorInvite({
+        id: companyId,
+        name: answers.profileCompany,
+        domain,
+        email: founderEmail,
+      });
+    }
+    return createAdvisorConnectionRequest({
+      id: companyId,
+      name: answers.profileCompany,
+      domain,
+      source: "request",
+    });
+  }
+
+  function resetInvitePromptUiState() {
+    setConnectionReview(null);
+    setPendingAdvisorConnection(null);
+    setAdvisorAutoPromptShown(false);
+    setCompanyAdvisorInviteReview(null);
+    setPendingCompanyAdvisorInvite(null);
+    setCompanyAdvisorAutoPromptShown(false);
+    setProfilePromptSuppressed(false);
+  }
+
+  function handleLogOut() {
+    resetInviteWorkflowDemoState();
+    resetInvitePromptUiState();
+    markLoggedOutToLanding();
+    setView("landing");
   }
 
   function enterWorkspaceFromSignIn(email: string) {
     clearSignedOut();
     setAuthEmail(email);
+    resetInvitePromptUiState();
     let session = loadWorkspaceSession();
     if (!session) {
       session = createDemoReturningUserSession();
@@ -264,7 +324,10 @@ export default function App() {
     }
     setOnboardingAnswers(session.onboardingAnswers);
     setOnboardingBenchmark(session.onboardingBenchmark);
-    queueAdvisorConnection(pendingCompanyConnection(session.onboardingAnswers));
+    queueAdvisorConnection(
+      pendingCompanyConnection(session.onboardingAnswers),
+      session.onboardingAnswers,
+    );
     queueCompanyAdvisorInvitesForEmail(email, session.onboardingAnswers);
     setWorkspaceInitialPage(
       isInvestorPersona(session.onboardingAnswers)
@@ -356,6 +419,7 @@ export default function App() {
           initialBenchmark={onboardingBenchmark}
           initialOnboardingAnswers={onboardingAnswers}
           persona={isInvestor ? "investor" : "founder"}
+          onLogOut={handleLogOut}
           onNotificationAction={handleNotificationAction}
           suppressProfileCompletionPrompt={
             profilePromptSuppressed
@@ -369,8 +433,12 @@ export default function App() {
           companyInvite={companyAdvisorInviteReview}
           onAccept={(permissions: AdvisorConnectionPermissions) => {
             if (companyAdvisorInviteReview) {
-              acceptCompanyAdvisorInvite(companyAdvisorInviteReview.id);
-              removeNotification(companyAdvisorNotificationId(companyAdvisorInviteReview));
+              const link = companyAdvisorInviteReview;
+              acceptCompanyAdvisorInvite(link.id);
+              if (link.companyId === DEMO_INVESTOR_CONNECTION_COMPANY_ID) {
+                acceptAdvisorConnection(link.companyId, permissions);
+              }
+              removeNotification(companyAdvisorNotificationId(link));
               setCompanyAdvisorInviteReview(null);
               setPendingCompanyAdvisorInvite(null);
               return;
@@ -437,7 +505,7 @@ export default function App() {
         }
         resetProfileCompletionPromptForNewLogin("patriotpay");
         setWorkspaceInitialPage(isInvestor ? "investor-portfolios" : "overview-building");
-        queueAdvisorConnection(pendingCompanyConnection(answers));
+        queueAdvisorConnection(pendingCompanyConnection(answers), answers);
         queueCompanyAdvisorInvitesForEmail(getAuthEmail(), answers);
         setView("workspace");
       }}

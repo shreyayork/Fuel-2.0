@@ -244,10 +244,10 @@ export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
     logo: "P",
     logoBg: "#1E4D8C",
     logoUrl: buildCompanyLogoAssetUrl("Patriot Pay"),
-    meta: "Healthcare · Patient Billing · Seed",
-    headquarters: "Boston, MA, US",
-    employees: "11-50",
-    linkedin: "linkedin.com/company/patriotpay",
+    meta: "FinTech · Payroll & Accounting · Seed",
+    headquarters: "Canton, OH, US",
+    employees: "51-200",
+    linkedin: "linkedin.com/company/patriotsoftware",
     onFuel: true,
     ownership: "8.2%",
     invested: "$500K",
@@ -259,7 +259,7 @@ export const INVESTOR_PORTFOLIO: PortfolioCompany[] = [
     runwayMonths: 9,
     runway: "9 mo",
     stage: "Seed",
-    sector: "Healthcare",
+    sector: "FinTech",
     investedAt: "Feb 2024",
     daysSinceBenchmark: 18,
     health: "watch",
@@ -630,16 +630,16 @@ export const SUGGESTED_FOUNDERS: SuggestedFounder[] = [
     domain: "patriotpay.com",
     logo: "P",
     logoBg: "#1E4D8C",
-    meta: "Healthcare · Patient Billing · Seed",
-    headquarters: "Boston, MA, US",
-    employees: "11-50",
-    linkedin: "linkedin.com/company/patriotpay",
+    meta: "FinTech · Payroll & Accounting · Seed",
+    headquarters: "Canton, OH, US",
+    employees: "51-200",
+    linkedin: "linkedin.com/company/patriotsoftware",
     onFuel: true,
     matchScore: 91,
     matchReason:
-      "Patient billing SaaS past $1M ARR with live cohort benchmarks already in diligence. You know the NRR and GTM gaps — strongest path to deepen before the next raise in 3–4 months.",
+      "Payroll and accounting SaaS past $1M ARR with live cohort benchmarks already in diligence. You know the NRR and GTM gaps — strongest path to deepen before the next raise in 3–4 months.",
     stage: "Seed",
-    sector: "Healthcare",
+    sector: "FinTech",
     geography: "United States",
     timing: "Likely raising in 3–4 months",
     yorkIe: "Engaged 14 months · Benchmark complete",
@@ -1053,10 +1053,56 @@ function buildSeedFundPortfolioCompany(chip: WatchlistCompanyChip, index: number
   };
 }
 
-/** Full Seed Fund holdings — 30 companies for list + detail views. */
-export const SEED_FUND_EXTENDED_PORTFOLIO: PortfolioCompany[] = SEED_FUND_PORTFOLIO_CHIPS.map(
+/** Core Seed Fund holdings — named logos used in chips and the first rows of the table. */
+const SEED_FUND_CORE_PORTFOLIO: PortfolioCompany[] = SEED_FUND_PORTFOLIO_CHIPS.map(
   (chip, index) => buildSeedFundPortfolioCompany(chip, index),
 );
+
+/** Large-portfolio demo size — density histogram activates above 500 companies. */
+export const SEED_FUND_DEMO_COMPANY_COUNT = 1000;
+
+/**
+ * Full Seed Fund holdings for list + detail + benchmark charts.
+ * First 30 keep real brand chips; the rest are synthetic clones so the
+ * benchmark rail can demonstrate 1,000-company density without new assets.
+ */
+export const SEED_FUND_EXTENDED_PORTFOLIO: PortfolioCompany[] = (() => {
+  const core = SEED_FUND_CORE_PORTFOLIO;
+  if (core.length >= SEED_FUND_DEMO_COMPANY_COUNT) {
+    return core.slice(0, SEED_FUND_DEMO_COMPANY_COUNT);
+  }
+  const expanded: PortfolioCompany[] = [...core];
+  for (let index = core.length; index < SEED_FUND_DEMO_COMPANY_COUNT; index += 1) {
+    const template = core[index % core.length]!;
+    const wave = Math.floor(index / core.length) + 1;
+    const slug = `${template.name}-w${wave}-${index}`;
+    const investedAmount = template.investedAmount + (index % 11) * 25_000;
+    const moicRatio = template.investedAmount > 0
+      ? template.estimatedValue / template.investedAmount
+      : 1;
+    const runwayMonths = Math.max(3, template.runwayMonths + ((index % 5) - 2));
+    expanded.push({
+      ...template,
+      id: `seed-fund-${slug}`,
+      name: slug,
+      displayName: `${template.displayName} ${wave}`,
+      domain: `${slug.replace(/-/g, "")}.example`,
+      meta: `B2B SaaS · ${template.displayName} · Seed`,
+      investedAmount,
+      invested: `$${Math.round(investedAmount / 1000)}K`,
+      estimatedValue: Math.round(investedAmount * moicRatio),
+      arrGrowthQoQ: template.arrGrowthQoQ + ((index % 7) - 3),
+      nrr: Math.min(140, Math.max(70, template.nrr + ((index % 9) - 4))),
+      runwayMonths,
+      runway: `${runwayMonths} mo`,
+      daysSinceBenchmark: 5 + (index % 60),
+      health: (["strong", "watch", "struggling"] as const)[index % 3]!,
+      lastUpdate: `${1 + (index % 20)} days ago`,
+      founderEmail: `founders+${index}@${template.domain}`,
+    });
+  }
+  return expanded;
+})();
 
 const SEED_FUND_COMPANY_IDS = SEED_FUND_EXTENDED_PORTFOLIO.map(company => company.id);
 
@@ -1066,7 +1112,7 @@ export function buildSeedFundPortfolioRow(): PortfolioListRow {
     name: "Seed Fund",
     meta: "",
     cohort: "Pre-seed",
-    companyCount: SEED_FUND_PORTFOLIO_CHIPS.length,
+    companyCount: SEED_FUND_EXTENDED_PORTFOLIO.length,
     companies: SEED_FUND_PORTFOLIO_CHIPS.slice(0, PORTFOLIO_LIST_LOGO_VISIBLE),
     companyIds: SEED_FUND_COMPANY_IDS,
     ownerName: "mike",
@@ -1325,7 +1371,16 @@ export type PortfolioBenchmarkMetric = {
   axisMaxLabel: string;
   /** Portfolio median marker 0–100 */
   portfolioPosition: number;
-  /** Green cohort band on the track (P25–P90 style) */
+  /** Cohort P50 marker 0–100 on the same axis */
+  cohortP50Position: number;
+  /** Cohort percentile markers (P25 / P50 / P75 / P90) on the same 0–100 axis */
+  cohortP25Position: number;
+  cohortP75Position: number;
+  cohortP90Position: number;
+  cohortP25Label: string;
+  cohortP75Label: string;
+  cohortP90Label: string;
+  /** Green cohort band on the track (P25–P90) */
   bandStart: number;
   bandEnd: number;
   lowerIsBetter: boolean;
@@ -1712,8 +1767,12 @@ export function buildPortfolioBenchmarkSummary(
     const axisMin = Math.min(def.min, portfolioMedian, ...values);
     const axisMax = Math.max(def.max, portfolioMedian, ...values);
     const portfolioPosition = valueToAxisPosition(portfolioMedian, axisMin, axisMax);
-    const bandStart = valueToAxisPosition(def.p25, axisMin, axisMax);
-    const bandEnd = valueToAxisPosition(def.p90, axisMin, axisMax);
+    const cohortP25Position = valueToAxisPosition(def.p25, axisMin, axisMax);
+    const cohortP50Position = valueToAxisPosition(def.p50, axisMin, axisMax);
+    const cohortP75Position = valueToAxisPosition(def.p75, axisMin, axisMax);
+    const cohortP90Position = valueToAxisPosition(def.p90, axisMin, axisMax);
+    const bandStart = cohortP25Position;
+    const bandEnd = cohortP90Position;
     const beatsP50 = def.lowerIsBetter ? portfolioMedian < def.p50 : portfolioMedian > def.p50;
     const nearP50 = Math.abs(portfolioMedian - def.p50) / Math.max(1, Math.abs(def.p50)) < 0.04;
     const isLeader = def.lowerIsBetter ? portfolioMedian <= def.p25 : portfolioMedian >= def.p75;
@@ -1735,6 +1794,13 @@ export function buildPortfolioBenchmarkSummary(
       axisMinLabel: formatBenchmarkNumber(axisMin, def.unit),
       axisMaxLabel: formatBenchmarkNumber(axisMax, def.unit),
       portfolioPosition,
+      cohortP50Position,
+      cohortP25Position,
+      cohortP75Position,
+      cohortP90Position,
+      cohortP25Label: formatBenchmarkNumber(def.p25, def.unit),
+      cohortP75Label: formatBenchmarkNumber(def.p75, def.unit),
+      cohortP90Label: formatBenchmarkNumber(def.p90, def.unit),
       bandStart,
       bandEnd,
       lowerIsBetter: def.lowerIsBetter,

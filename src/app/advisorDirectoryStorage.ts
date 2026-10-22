@@ -523,6 +523,60 @@ export function findPendingCompanyAdvisorInviteForRecipient(
   return null;
 }
 
+const DEMO_COMPANY_ADVISOR_INVITE = {
+  companyId: "patriotpay",
+  companyName: "Patriot Pay",
+  advisorId: "adv-priya",
+  email: "priya@york.ie",
+} as const;
+
+/** Founder → investor fund user (company invited advisor on Fuel). */
+export const DEMO_FOUNDER_TO_INVESTOR_INVITE = {
+  companyId: "patriotpay",
+  companyName: "Patriot Pay",
+  advisorId: "adv-matt",
+  email: "shreya.g@york.ie",
+} as const;
+
+function reopenDemoCompanyAdvisorInvite(
+  links: Record<string, CompanyAdvisorLink>,
+  demo: { companyId: string; companyName: string; advisorId: string; email: string },
+): CompanyAdvisorLink {
+  const existing = Object.values(links).find(link => (
+    link.companyId === demo.companyId && link.advisorId === demo.advisorId
+  ));
+  if (existing) {
+    const now = Date.now();
+    links[existing.id] = {
+      ...existing,
+      status: "invite_sent",
+      companyName: demo.companyName,
+      recipientEmail: demo.email,
+      invitedAt: now,
+      connectedAt: undefined,
+      inviteToken: existing.inviteToken ?? freshId("inv", existing.advisorId),
+    };
+    return links[existing.id];
+  }
+  const created = inviteAdvisorToCompany({
+    companyId: demo.companyId,
+    companyName: demo.companyName,
+    advisorId: demo.advisorId,
+    email: demo.email,
+  });
+  links[created.id] = created;
+  return created;
+}
+
+/** Re-open company → advisor invites (advisor login + investor login demos). */
+export function resetCompanyAdvisorInviteWorkflowDemoState() {
+  const links = readLinks();
+  reopenDemoCompanyAdvisorInvite(links, DEMO_COMPANY_ADVISOR_INVITE);
+  const investorInvite = reopenDemoCompanyAdvisorInvite(links, DEMO_FOUNDER_TO_INVESTOR_INVITE);
+  writeLinks(links);
+  return investorInvite;
+}
+
 export function getCompanyAdvisorLinkById(linkId: string): CompanyAdvisorLink | null {
   return readLinks()[linkId] ?? null;
 }

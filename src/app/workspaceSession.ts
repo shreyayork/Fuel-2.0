@@ -35,6 +35,7 @@ const FOUNDER_ACTIVE_PAGES = new Set([
   "help",
   "advisors",
   "company-profile",
+  "public-profile",
 ]);
 
 const INVESTOR_ACTIVE_PAGES = new Set([
@@ -265,6 +266,16 @@ export function markSignedOut(): void {
   } catch {
     /* ignore */
   }
+}
+
+/** Leave workspace for marketing landing; keep saved persona/session for the next sign-in. */
+export function markLoggedOutToLanding(): void {
+  try {
+    sessionStorage.setItem(SIGNED_OUT_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  clearStaleReloadLandingFlag();
 }
 
 export function clearSignedOut(): void {

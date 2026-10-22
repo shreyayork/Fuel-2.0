@@ -68,6 +68,12 @@ export function loadNotifications(options?: { includeDismissed?: boolean }): Wor
   return notifications.sort((a, b) => b.createdAt - a.createdAt);
 }
 
+export function loadArchivedNotifications(): WorkspaceNotification[] {
+  return readAll()
+    .filter(notification => Boolean(notification.dismissedAt))
+    .sort((a, b) => (b.dismissedAt ?? b.createdAt) - (a.dismissedAt ?? a.createdAt));
+}
+
 export function upsertNotification(
   notification: Omit<WorkspaceNotification, "createdAt"> & { createdAt?: number },
 ): WorkspaceNotification {
@@ -113,6 +119,15 @@ export function dismissNotification(id: string) {
     readAt: notifications[index].readAt ?? Date.now(),
     dismissedAt: Date.now(),
   };
+  writeAll(notifications);
+}
+
+export function restoreNotification(id: string) {
+  const notifications = readAll();
+  const index = notifications.findIndex(item => item.id === id);
+  if (index < 0) return;
+  const { dismissedAt: _dismissed, ...rest } = notifications[index];
+  notifications[index] = rest;
   writeAll(notifications);
 }
 

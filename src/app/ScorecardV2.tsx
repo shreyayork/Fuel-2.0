@@ -317,9 +317,10 @@ export type ScorecardV2Props = {
   onDetailsFieldEdited?: () => void;
   onDetailsDrawerClosed?: (saved: boolean) => void;
   /** Portfolio view of a claimed company: only the published Open brief, when that share is allowed. */
-  presentation?: "workspace" | "shared-brief";
+  presentation?: "workspace" | "shared-brief" | "public-profile-editor";
   sharedBriefStartOpen?: boolean;
   onSharedBriefClose?: () => void;
+  onClosePublicProfileEditor?: () => void;
 };
 
 export type OverviewBuildPhase =
@@ -1270,6 +1271,8 @@ function GlanceScoreRing({
   className,
   size = 88,
   scoreLabel,
+  readOnly = false,
+  showStatus = true,
 }: {
   cat: CategoryData;
   score: number;
@@ -1279,6 +1282,8 @@ function GlanceScoreRing({
   className?: string;
   size?: number;
   scoreLabel?: string;
+  readOnly?: boolean;
+  showStatus?: boolean;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -1308,7 +1313,7 @@ function GlanceScoreRing({
   }, [isOpen, onRequestClose, onRequestOpen]);
 
   useLayoutEffect(() => {
-    if (!isOpen) {
+    if (readOnly || !isOpen) {
       setPopoverStyle(undefined);
       setPlacement("below");
       return;
@@ -1325,10 +1330,10 @@ function GlanceScoreRing({
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", onResize);
     };
-  }, [isOpen, positionPopover, cat.scoreContributors.length, score]);
+  }, [isOpen, positionPopover, cat.scoreContributors.length, score, readOnly]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (readOnly || !isOpen) return;
 
     const closeOnScroll = (event: Event) => {
       const target = event.target;
@@ -1352,7 +1357,55 @@ function GlanceScoreRing({
       document.removeEventListener("mousedown", onDocPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [isOpen, onRequestClose]);
+  }, [isOpen, onRequestClose, readOnly]);
+
+  const ringSvg = (
+    <div
+      className="sc-glance-ring-svg-wrap"
+      role="meter"
+      aria-valuenow={score}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={readOnly ? `${cat.label} track health ${score} out of 100` : undefined}
+    >
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="sc-glance-ring" aria-hidden>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--surface-3)"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={cat.barColour}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </svg>
+      <div className="sc-glance-ring-label">
+        <strong style={{ color: cat.barColour }}>{scoreLabel ?? score}</strong>
+      </div>
+    </div>
+  );
+
+  if (readOnly) {
+    return (
+      <div className={`sc-glance-ring-wrap${className ? ` ${className}` : ""}`}>
+        <div className="sc-glance-ring-trigger is-readonly">{ringSvg}</div>
+        {showStatus ? (
+          <span className={`sc-glance-ring-status sc-cat-tone-${cat.statusTone}`}>{cat.statusLabel}</span>
+        ) : null}
+      </div>
+    );
+  }
 
   const popoverNode = isOpen ? (
     <ScoreHealthPopover
@@ -1785,6 +1838,7 @@ function CategoryGlanceRow({
     <article
       className={`sc-glance-row sc-glance-row--track sc-glance-row--ref${tourTarget ? " tour-highlight" : ""}`}
       data-tour-target={tourTarget}
+      data-overview-track={cat.id}
       onClick={onOpen}
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       role="button"
@@ -2856,14 +2910,8 @@ type WikiParagraph = {
   parts: WikiParagraphPart[];
 };
 
-type WikiSummarySection = {
-  title: string;
-  paragraphs: WikiParagraph[];
-};
-
 type WikiSummaryContent = {
   compact: WikiParagraph;
-  sections: WikiSummarySection[];
   references: WikiReference[];
 };
 
@@ -2880,7 +2928,6 @@ function buildOverviewWikiSummary(
   categories: CategoryData[],
   runway: number | null,
   ctx: CategoryBuildContext,
-  documentSlots: ScorecardDocumentSlot[] | undefined,
   cohortLabel: string,
 ): WikiSummaryContent {
   const references: WikiReference[] = [];
@@ -2901,13 +2948,9 @@ function buildOverviewWikiSummary(
   );
 
   const arrMetric = evaluateMetrics(ctx.benchmark).find(metric => metric.key === "arr");
-  const nrrMetric = evaluateMetrics(ctx.benchmark).find(metric => metric.key === "nrr");
   const benchRefs: number[] = [];
-  if (arrMetric.value != null) {
+  if (arrMetric?.value != null) {
     benchRefs.push(cite("Benchmark · ARR", "benchmark", `${arrMetric.display} vs cohort ${arrMetric.p50Display} median`));
-  }
-  if (nrrMetric.value != null) {
-    benchRefs.push(cite("Benchmark · NRR", "benchmark", `${nrrMetric.display} vs cohort ${nrrMetric.p50Display} median`));
   }
   if (!benchRefs.length) {
     benchRefs.push(cite("Benchmark cohort", "benchmark", cohortLabel));
@@ -2919,25 +2962,8 @@ function buildOverviewWikiSummary(
     item.highlight || item.title || item.text,
   ));
 
-  const docRefs = (documentSlots ?? [])
-    .filter(slot => slot.current)
-    .slice(0, 3)
-    .map(slot => cite(
-      `Data room · ${slot.typeLabel}`,
-      "document",
-      slot.current!.name,
-    ));
-
-  const detailSnippets = categories.flatMap(cat => cat.detailSnippets).filter(Boolean).slice(0, 2);
-  const detailRefs = detailSnippets.map((snippet, index) => cite(
-    `Track details · ${index + 1}`,
-    "detail",
-    snippet,
-  ));
-
   const urgentCount = categories.filter(c => categoryUrgency(c, runway) === "urgent").length;
   const watchCount = categories.filter(c => categoryUrgency(c, runway) === "watch").length;
-  const contextPct = computeOverallContextPct(ctx.benchmark, ctx.detailAnswers, ctx.benchmarkContext);
 
   const compactRefs = [profileRef, ...benchRefs.slice(0, 1), ...intelRefs.slice(0, 1)].filter(Boolean);
   const compact: WikiParagraph = {
@@ -2961,100 +2987,7 @@ function buildOverviewWikiSummary(
     ],
   };
 
-  const profileParagraph: WikiParagraph = {
-    parts: [
-      wikiText(`${companyName} operates in ${sector.toLowerCase()}`),
-      ...(employees ? [wikiText(`, with ${employees} employees`)] : []),
-      ...(headquarters ? [wikiText(` based in ${headquarters}`)] : []),
-      wikiText(". "),
-      wikiText(`Company context is ${contextPct}% complete across profile, benchmark, and track detail forms.`),
-      wikiCite(profileRef),
-      ...(detailRefs[0] ? [wikiText(" "), wikiCite(detailRefs[0])] : []),
-    ],
-  };
-
-  const benchmarkParagraph: WikiParagraph = {
-    parts: [
-      wikiText(`Against ${cohortLabel}, `),
-      ...(arrMetric.value != null
-        ? [
-            wikiText(`reported ARR is ${arrMetric.display} (${arrMetric.positionLabel})`),
-            wikiCite(benchRefs[0]),
-          ]
-        : [wikiText("benchmark metrics are still being filled in"), wikiCite(benchRefs[0])]),
-      ...(nrrMetric.value != null
-        ? [
-            wikiText(`. Net revenue retention is ${nrrMetric.display}`),
-            wikiCite(benchRefs[1] ?? benchRefs[0]),
-          ]
-        : []),
-      ...(runway != null ? [wikiText(`. Estimated runway is ${runway} months.`)] : []),
-      wikiText("."),
-    ],
-  };
-
-  const intelligenceParagraph: WikiParagraph = {
-    parts: intelRefs.length
-      ? [
-          wikiText(`Fuel is monitoring ${ctx.intelligenceItems.length} intelligence item${ctx.intelligenceItems.length > 1 ? "s" : ""} from benchmark, profile, and connected sources`),
-          ...intelRefs.flatMap((refId, index) => (index === 0 ? [wikiCite(refId)] : [wikiText(", "), wikiCite(refId)])),
-          wikiText("."),
-        ]
-      : [
-          wikiText("No user-generated intelligence yet — upload a deck, log a signal, or connect CRM and meeting sources to populate this summary."),
-        ],
-  };
-
-  const tracksParagraph: WikiParagraph = {
-    parts: [
-      wikiText("Across R&D, GTM, and G&A tracks, "),
-      ...categories.flatMap((cat, index) => {
-        const chunk: WikiParagraphPart[] = [];
-        if (index > 0) chunk.push(wikiText(index === categories.length - 1 ? ", and " : ", "));
-        chunk.push(wikiText(`${cat.label} is ${cat.statusLabel.toLowerCase()}`));
-        if (cat.intelligenceCount) chunk.push(wikiText(` (${cat.intelligenceCount} intelligence)`));
-        return chunk;
-      }),
-      wikiText("."),
-    ],
-  };
-
-  const sections: WikiSummarySection[] = [
-    { title: "Overview", paragraphs: [profileParagraph] },
-    { title: "Benchmark position", paragraphs: [benchmarkParagraph] },
-    { title: "Intelligence", paragraphs: [intelligenceParagraph] },
-    { title: "Operating tracks", paragraphs: [tracksParagraph] },
-  ];
-
-  if (docRefs.length) {
-    sections.push({
-      title: "Sources on file",
-      paragraphs: [{
-        parts: [
-          wikiText("Private documents in the data room include "),
-          ...docRefs.flatMap((refId, index) => (index === 0 ? [wikiCite(refId)] : [wikiText(", "), wikiCite(refId)])),
-          wikiText("."),
-        ],
-      }],
-    });
-  }
-
-  if (ctx.benchmarkContext?.biggestChallenges?.trim()) {
-    const challengeRef = cite("Founder update · Challenges", "detail", ctx.benchmarkContext.biggestChallenges.trim());
-    sections.push({
-      title: "Current challenges",
-      paragraphs: [{
-        parts: [
-          wikiText("Reported challenges include "),
-          wikiText(ctx.benchmarkContext.biggestChallenges.trim()),
-          wikiCite(challengeRef),
-          wikiText("."),
-        ],
-      }],
-    });
-  }
-
-  return { compact, sections, references };
+  return { compact, references };
 }
 
 function wikiParagraphPlainText(paragraph: WikiParagraph): string {
@@ -3490,57 +3423,37 @@ function publicProfileFields(input: {
   };
 }
 
-function OverviewFullSummaryPage({
-  companyName,
-  summary,
-  metrics,
-  metricMap,
-  categories,
-  runway,
-  buildContext,
-  cohortLabel,
-  documentSlots,
-  efficiencyExtras,
-  activeInitiatives = [],
-  onClose,
-  highlightRefId = null,
-  standalone = false,
-  canEdit = false,
-}: {
+function buildScorecardBriefDocSeed(input: {
   companyName: string;
   summary: WikiSummaryContent;
   metrics: EvaluatedMetric[];
   metricMap: Record<MetricKey, EvaluatedMetric>;
-  categories: CategoryData[];
   runway: number | null;
   buildContext: CategoryBuildContext;
   cohortLabel: string;
   documentSlots?: ScorecardDocumentSlot[];
   efficiencyExtras?: ScorecardEfficiencyExtras | null;
-  activeInitiatives?: ScorecardActiveInitiative[];
-  onClose: () => void;
-  highlightRefId?: number | null;
-  /** The brief is the page itself, so there is no control that leaves it. */
-  standalone?: boolean;
-  /** Claimed founder can open the document editor for investor and public versions. */
-  canEdit?: boolean;
-}) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [briefEditorOpen, setBriefEditorOpen] = useState(false);
+  activeInitiatives: ScorecardActiveInitiative[];
+}): import("./briefDocStorage").BriefDocRecord {
+  const {
+    companyName,
+    summary,
+    metrics,
+    metricMap,
+    runway,
+    buildContext,
+    cohortLabel,
+    documentSlots,
+    efficiencyExtras,
+    activeInitiatives,
+  } = input;
   const profileMeta = buildContext.profileMeta;
-  const benchmarkContext = buildContext.benchmarkContext;
   const productDescription = buildContext.detailAnswers.profile_product_description?.trim()
     || buildContext.onboardingAnswers?.profileProductDescription?.trim()
     || "";
   const topPriorities = buildContext.detailAnswers.profile_top_priorities?.trim() || "";
   const publicDataCorrections = buildContext.detailAnswers.profile_public_data_wrong?.trim() || "";
   const biggestRisk = buildContext.detailAnswers.profile_biggest_risk?.trim() || "";
-  const hasCompanyFacts = Boolean(
-    profileMeta?.sector || profileMeta?.headquarters || profileMeta?.employees || profileMeta?.domain,
-  );
-  const hasAboutSection = Boolean(
-    productDescription || topPriorities || publicDataCorrections || biggestRisk || hasCompanyFacts,
-  );
   const reportDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const now = new Date();
   const snapshotRows = buildInvestorSnapshotRows(metrics, efficiencyExtras);
@@ -3549,40 +3462,16 @@ function OverviewFullSummaryPage({
     snapshotRows,
     runway,
     cohortLabel,
-    benchmarkContext?.biggestChallenges,
+    buildContext.benchmarkContext?.biggestChallenges,
   );
   const focusAreas = buildInvestorFocusAreas(snapshotRows);
   const filledDocs = (documentSlots ?? []).filter(slot => slot.current);
-
   const operatingGroups = (["dev", "mkt", "rev"] as ScorecardCategory[]).map(id => {
-    const rows = buildDetailFieldRows(id, buildContext.detailAnswers)
-      .filter(row => row.value);
-    return {
-      id,
-      label: CATEGORY_META[id].fullLabel,
-      rows,
-    };
+    const rows = buildDetailFieldRows(id, buildContext.detailAnswers).filter(row => row.value);
+    return { id, label: CATEGORY_META[id].fullLabel, rows };
   }).filter(group => group.rows.length > 0);
 
-  const scrollToRef = (refId: number) => {
-    panelRef.current?.querySelector(`#wiki-ref-${refId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  };
-
-  useEffect(() => {
-    if (highlightRefId == null) return;
-    scrollToRef(highlightRefId);
-  }, [highlightRefId]);
-
-  useEffect(() => {
-    if (standalone || briefEditorOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [briefEditorOpen, onClose, standalone]);
-
-  const briefSeed = useMemo(() => buildBriefDocSeed({
+  return buildBriefDocSeed({
     companyName,
     reportDate,
     productDescription,
@@ -3654,43 +3543,102 @@ function OverviewFullSummaryPage({
       employees: profileMeta?.employees ?? "",
       about: productDescription,
     }),
-  }), [
-    activeInitiatives,
-    biggestRisk,
-    cohortLabel,
-    companyName,
-    filledDocs,
-    focusAreas,
-    metricMap.cashOnHand,
-    metricMap.monthlyBurn,
-    now,
-    operatingGroups,
-    productDescription,
-    profileMeta?.domain,
-    profileMeta?.employees,
-    profileMeta?.headquarters,
-    profileMeta?.sector,
-    publicDataCorrections,
-    reportDate,
-    runway,
-    snapshotRows,
-    standCopy,
-    summary.references,
-    topPriorities,
-  ]);
+  });
+}
 
-  if (canEdit && briefEditorOpen) {
-    return (
-      <BriefDocEditor
-        companyName={companyName}
-        seed={briefSeed}
-        onClose={() => setBriefEditorOpen(false)}
-      />
-    );
-  }
+function OverviewFullSummaryPage({
+  companyName,
+  summary,
+  metrics,
+  metricMap,
+  categories,
+  runway,
+  buildContext,
+  cohortLabel,
+  documentSlots,
+  efficiencyExtras,
+  activeInitiatives = [],
+  onClose,
+  highlightRefId = null,
+  standalone = false,
+  overviewBuildPhase = null,
+}: {
+  companyName: string;
+  summary: WikiSummaryContent;
+  metrics: EvaluatedMetric[];
+  metricMap: Record<MetricKey, EvaluatedMetric>;
+  categories: CategoryData[];
+  runway: number | null;
+  buildContext: CategoryBuildContext;
+  cohortLabel: string;
+  documentSlots?: ScorecardDocumentSlot[];
+  efficiencyExtras?: ScorecardEfficiencyExtras | null;
+  activeInitiatives?: ScorecardActiveInitiative[];
+  onClose: () => void;
+  highlightRefId?: number | null;
+  /** The brief is the page itself, so there is no control that leaves it. */
+  standalone?: boolean;
+  overviewBuildPhase?: OverviewBuildPhase | null;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const profileMeta = buildContext.profileMeta;
+  const benchmarkContext = buildContext.benchmarkContext;
+  const productDescription = buildContext.detailAnswers.profile_product_description?.trim()
+    || buildContext.onboardingAnswers?.profileProductDescription?.trim()
+    || "";
+  const topPriorities = buildContext.detailAnswers.profile_top_priorities?.trim() || "";
+  const publicDataCorrections = buildContext.detailAnswers.profile_public_data_wrong?.trim() || "";
+  const biggestRisk = buildContext.detailAnswers.profile_biggest_risk?.trim() || "";
+  const hasCompanyFacts = Boolean(
+    profileMeta?.sector || profileMeta?.headquarters || profileMeta?.employees || profileMeta?.domain,
+  );
+  const hasAboutSection = Boolean(
+    productDescription || topPriorities || publicDataCorrections || biggestRisk || hasCompanyFacts,
+  );
+  const now = new Date();
+  const snapshotRows = buildInvestorSnapshotRows(metrics, efficiencyExtras);
+  const standCopy = buildInvestorStandCopy(
+    companyName,
+    snapshotRows,
+    runway,
+    cohortLabel,
+    benchmarkContext?.biggestChallenges,
+  );
+  const focusAreas = buildInvestorFocusAreas(snapshotRows);
+  const filledDocs = (documentSlots ?? []).filter(slot => slot.current);
+
+  const operatingGroups = (["dev", "mkt", "rev"] as ScorecardCategory[]).map(id => {
+    const rows = buildDetailFieldRows(id, buildContext.detailAnswers)
+      .filter(row => row.value);
+    return {
+      id,
+      label: CATEGORY_META[id].fullLabel,
+      rows,
+    };
+  }).filter(group => group.rows.length > 0);
+
+  const scrollToRef = (refId: number) => {
+    panelRef.current?.querySelector(`#wiki-ref-${refId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  useEffect(() => {
+    if (highlightRefId == null) return;
+    scrollToRef(highlightRefId);
+  }, [highlightRefId]);
+
+  useEffect(() => {
+    if (standalone) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose, standalone]);
+
+  const briefLoading = Boolean(overviewBuildPhase && overviewBuildPhase !== "ready");
 
   return (
-    <div className="sc-investor-brief sc-wiki-full-page" ref={panelRef}>
+    <div className="sc-wiki-full-page sc-investor-brief" ref={panelRef}>
       <div className={`sc-investor-brief-chrome${standalone ? " is-standalone" : ""}`}>
         {standalone ? (
           <button type="button" className="sc-investor-brief-print" onClick={() => window.print()}>
@@ -3701,34 +3649,27 @@ function OverviewFullSummaryPage({
             onOverview={onClose}
             current={`About ${companyName}`}
             endAction={(
-              <span className="sc-investor-brief-actions">
-                {canEdit ? (
-                  <button type="button" className="sc-investor-brief-edit" onClick={() => setBriefEditorOpen(true)}>
-                    Edit brief
-                  </button>
-                ) : null}
-                <button type="button" className="sc-investor-brief-print" onClick={() => window.print()}>
-                  Print / Save as PDF
-                </button>
-              </span>
+              <button type="button" className="sc-investor-brief-print" onClick={() => window.print()}>
+                Print / Save as PDF
+              </button>
             )}
           />
         )}
       </div>
 
-      <header className="sc-investor-brief-masthead">
-        <div className="sc-investor-brief-masthead-brand">
-          <span className="sc-investor-brief-logo" aria-hidden="true">F</span>
-          <div>
-            <strong>Fuel</strong>
-            <em>{companyName}</em>
-          </div>
+      <div className="sc-investor-brief-report" aria-busy={briefLoading}>
+      {briefLoading ? (
+        <div className="sc-wiki-brief-skeleton sc-investor-brief-page-skeleton" aria-hidden="true">
+          <div className="sc-skel-line sc-skel-line-wide" />
+          <div className="sc-skel-line" />
+          <div className="sc-skel-line sc-skel-line-mid" />
+          <div className="sc-skel-line sc-skel-line-wide" />
+          <div className="sc-skel-line" />
         </div>
-        <div className="sc-investor-brief-masthead-meta">
-          <strong>{reportDate}</strong>
-        </div>
-      </header>
+      ) : null}
 
+      {!briefLoading ? (
+      <>
       {hasAboutSection ? (
         <section className="sc-investor-brief-block">
           <h3 className="sc-investor-brief-h3">About</h3>
@@ -4045,6 +3986,9 @@ function OverviewFullSummaryPage({
           ))}
         </ol>
       </section>
+      </>
+      ) : null}
+      </div>
     </div>
   );
 }
@@ -5034,6 +4978,14 @@ function trackSignalTag(cat: CategoryData, runway: number | null): {
   };
 }
 
+function scrollToOverviewTrack(categoryId: ScorecardCategory) {
+  const node = document.querySelector(`[data-overview-track="${categoryId}"]`);
+  if (!(node instanceof HTMLElement)) return;
+  node.scrollIntoView({ behavior: "smooth", block: "start" });
+  node.classList.add("is-scroll-target");
+  window.setTimeout(() => node.classList.remove("is-scroll-target"), 1200);
+}
+
 function OverviewWorkspaceSetupPanel({
   companyName,
   actions,
@@ -5098,25 +5050,68 @@ function OverviewBriefCard({
   wikiSummary,
   onOpenWikiSummary,
   categories,
-  runway,
-  suggestionsReady = true,
   overviewBuildPhase = null,
-  onOpenIntelligence,
+  onScrollToTrack,
 }: {
   companyName: string;
   wikiSummary: WikiSummaryContent;
   onOpenWikiSummary: (highlightRefId?: number) => void;
   categories: CategoryData[];
-  runway: number | null;
-  suggestionsReady?: boolean;
   overviewBuildPhase?: OverviewBuildPhase | null;
-  onOpenIntelligence?: () => void;
+  onScrollToTrack?: (categoryId: ScorecardCategory) => void;
 }) {
   return (
     <div className="sc-adv">
       <div className="sc-adv-head">
         <span className="sc-adv-label">✦ Fuel AI · Advisor</span>
         <span className="sc-adv-company">{companyName}</span>
+      </div>
+      <div className="sc-adv-tags-label">Prominent focus tracks</div>
+      <div className="overview-advisor-tracks">
+        {categories.map(cat => {
+          const trackReady = overviewTrackReady(cat.id, overviewBuildPhase);
+          const score = Math.max(0, Math.min(100, cat.score));
+          const title = `${cat.fullLabel} (${cat.label} — ${cat.statusLabel})`;
+          if (!trackReady || !onScrollToTrack) {
+            return (
+              <div key={cat.id} className="overview-advisor-focus-card is-loading" aria-busy="true">
+                <div className="overview-advisor-focus-card-copy">
+                  <strong>{cat.fullLabel}</strong>
+                  <span>({cat.label})</span>
+                </div>
+                <div className="sc-skel-ring overview-advisor-focus-skel-ring" />
+              </div>
+            );
+          }
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              className="overview-advisor-focus-card"
+              onClick={() => onScrollToTrack(cat.id)}
+              aria-label={`${title}, ${score} out of 100. Scroll to ${cat.label} section.`}
+            >
+              <div className="overview-advisor-focus-card-copy">
+                <strong>{cat.fullLabel}</strong>
+                <span>
+                  ({cat.label} · <span className={`sc-cat-tone-${cat.statusTone}`}>{cat.statusLabel}</span>)
+                </span>
+              </div>
+              <GlanceScoreRing
+                cat={cat}
+                score={score}
+                isOpen={false}
+                onRequestOpen={() => {}}
+                onRequestClose={() => {}}
+                readOnly
+                showStatus={false}
+                size={44}
+                scoreLabel={`${score}%`}
+                className="overview-advisor-focus-ring"
+              />
+            </button>
+          );
+        })}
       </div>
       <div className="sc-adv-rec-title-row">
         <div className="sc-adv-rec-title">Summary</div>
@@ -5135,62 +5130,6 @@ function OverviewBriefCard({
       <p className="sc-adv-summary sc-wiki-summary-compact">
         {wikiParagraphPlainText(wikiSummary.compact)}
       </p>
-      <button
-        type="button"
-        className="sc-wiki-view-more"
-        onClick={() => onOpenWikiSummary()}
-      >
-        View brief with references
-      </button>
-      <div className="sc-adv-tags-label">Recent signals</div>
-      <div className="sc-adv-tags">
-        {categories.map(cat => {
-          const signalReady = overviewTrackReady(cat.id, overviewBuildPhase);
-          const tag = signalReady ? trackSignalTag(cat, runway) : null;
-          const totalCount = signalReady
-            ? cat.intelDisplayCount
-              + (suggestionsReady ? cat.openInitiatives.length : 0)
-              + (suggestionsReady ? cat.suggestedPlaybooks.length : 0)
-            : null;
-          const label = tag && totalCount != null
-            ? `${cat.label} ${tag.suffix} — ${totalCount} total`
-            : `${cat.label} — loading`;
-          const body = (
-            <>
-              <span
-                className="sc-adv-tag-dot"
-                style={tag ? { background: tag.dotColour } : undefined}
-              />
-              {cat.label}
-              {tag ? <i style={{ color: tag.suffixColour }}>{tag.suffix}</i> : null}
-              {totalCount != null ? <i className="sc-adv-tag-total">{totalCount}</i> : null}
-            </>
-          );
-          if (!onOpenIntelligence) {
-            return (
-              <span
-                key={cat.id}
-                className={`sc-adv-tag is-static${tag?.urgent ? " is-urgent" : ""}`}
-                style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
-              >
-                {body}
-              </span>
-            );
-          }
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              className={`sc-adv-tag${tag?.urgent ? " is-urgent" : ""}`}
-              style={tag?.borderColour ? { borderColor: tag.borderColour } : undefined}
-              onClick={() => onOpenIntelligence()}
-              aria-label={label}
-            >
-              {body}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -5213,6 +5152,7 @@ function OverviewAdvisorPanel({
   suggestionsReady = true,
   overviewBuildPhase = null,
   tourHighlightRecommended = false,
+  onScrollToTrack,
 }: {
   categories: CategoryData[];
   runway: number | null;
@@ -5230,6 +5170,7 @@ function OverviewAdvisorPanel({
   suggestionsReady?: boolean;
   overviewBuildPhase?: OverviewBuildPhase | null;
   tourHighlightRecommended?: boolean;
+  onScrollToTrack?: (categoryId: ScorecardCategory) => void;
 }) {
   const actions = buildAdvisorRecommendedActions(
     buildContext,
@@ -5249,10 +5190,8 @@ function OverviewAdvisorPanel({
           wikiSummary={wikiSummary}
           onOpenWikiSummary={onOpenWikiSummary}
           categories={categories}
-          runway={runway}
-          suggestionsReady={suggestionsReady}
           overviewBuildPhase={overviewBuildPhase}
-          onOpenIntelligence={onOpenIntelligence}
+          onScrollToTrack={onScrollToTrack}
         />
       </div>
       <div className="sc-adv-featured-rec-col">
@@ -6444,12 +6383,7 @@ function AddSourcesDrawer({
             <h2 className="bench-drawer-title">Auto-generate sources from connected context</h2>
             <p className="bench-drawer-sub">Capture notes, connector activity, and meetings — then turn them into intelligence.</p>
           </div>
-          <div className="add-sources-actions">
-            <button type="button" className="bench-drawer-cancel" onClick={onClose}>Cancel</button>
-            <button type="button" className="bench-drawer-save" onClick={submit} disabled={!canSubmit}>
-              Generate intelligence
-            </button>
-          </div>
+          <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
         </header>
 
         <div className="bench-drawer-body">
@@ -6496,6 +6430,12 @@ function AddSourcesDrawer({
             />
           </div>
         </div>
+        <footer className="bench-drawer-actions">
+          <button type="button" className="bench-drawer-cancel" onClick={onClose}>Cancel</button>
+          <button type="button" className="bench-drawer-save" onClick={submit} disabled={!canSubmit}>
+            Generate intelligence
+          </button>
+        </footer>
       </aside>
     </div>
   );
@@ -6620,6 +6560,7 @@ export default function ScorecardV2({
   presentation = "workspace",
   sharedBriefStartOpen = false,
   onSharedBriefClose,
+  onClosePublicProfileEditor,
 }: ScorecardV2Props) {
   const [activeView, setActiveView] = useState<ScorecardView>("overview");
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
@@ -6878,7 +6819,7 @@ export default function ScorecardV2({
   );
 
   const wikiSummary = useMemo(
-    () => buildOverviewWikiSummary(cName, categoryData, runway, buildContext, documentSlots, cohortLabel),
+    () => buildOverviewWikiSummary(cName, categoryData, runway, buildContext, cohortLabel),
     [buildContext, categoryData, cName, cohortLabel, documentSlots, runway],
   );
 
@@ -6910,6 +6851,44 @@ export default function ScorecardV2({
   useEffect(() => {
     setYorkOverviewHidden(isYorkOfferDismissed(YORK_COMMON_OFFER.id));
   }, []);
+
+  const briefDocSeed = useMemo(
+    () => buildScorecardBriefDocSeed({
+      companyName: cName,
+      summary: wikiSummary,
+      metrics,
+      metricMap,
+      runway,
+      buildContext,
+      cohortLabel,
+      documentSlots,
+      efficiencyExtras,
+      activeInitiatives,
+    }),
+    [
+      activeInitiatives,
+      buildContext,
+      cName,
+      cohortLabel,
+      documentSlots,
+      efficiencyExtras,
+      metricMap,
+      metrics,
+      runway,
+      wikiSummary,
+    ],
+  );
+
+  if (presentation === "public-profile-editor") {
+    return (
+      <BriefDocEditor
+        companyName={cName}
+        seed={briefDocSeed}
+        publicOnly
+        onClose={() => onClosePublicProfileEditor?.()}
+      />
+    );
+  }
 
   if (presentation === "shared-brief") {
     return (
@@ -6976,7 +6955,7 @@ export default function ScorecardV2({
           efficiencyExtras={efficiencyExtras}
           activeInitiatives={activeInitiatives}
           highlightRefId={wikiHighlightRefId}
-          canEdit
+          overviewBuildPhase={overviewBuildPhase}
           onClose={() => {
             setWikiSummaryOpen(false);
             setWikiHighlightRefId(null);
@@ -7065,6 +7044,7 @@ export default function ScorecardV2({
             suggestionsReady={suggestionsReady}
             overviewBuildPhase={overviewBuildPhase}
             tourHighlightRecommended={activeTourTarget === "recommended-actions"}
+            onScrollToTrack={scrollToOverviewTrack}
               />
           )
         ) : null}

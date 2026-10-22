@@ -1,3 +1,5 @@
+import type { BriefPrivateTemplateId } from "./briefDocStorage";
+
 export type BriefBlockId =
   | "ai-note"
   | "text"
@@ -19,6 +21,26 @@ export type BriefBlockItem = {
   badge?: string;
   keywords: string;
 };
+
+export type BriefPrivateTemplateMenuItem = {
+  kind: "template";
+  id: BriefPrivateTemplateId;
+  group: "Templates";
+  label: string;
+  hint: string;
+  keywords: string;
+};
+
+export type BriefMenuItem =
+  | { kind: "block"; block: BriefBlockItem }
+  | BriefPrivateTemplateMenuItem;
+
+export const BRIEF_PRIVATE_TEMPLATES: BriefPrivateTemplateMenuItem[] = [
+  { kind: "template", id: "benchmark", group: "Templates", label: "Benchmark", hint: "Private brief", keywords: "benchmark snapshot metrics grid" },
+  { kind: "template", id: "cohort-understanding", group: "Templates", label: "Cohort understanding", hint: "Private brief", keywords: "cohort position peer median stand" },
+  { kind: "template", id: "company-profile", group: "Templates", label: "Company profile", hint: "Private brief", keywords: "about company profile facts" },
+  { kind: "template", id: "initiatives", group: "Templates", label: "Initiatives", hint: "Private brief", keywords: "initiatives roadmap pillars" },
+];
 
 export const BRIEF_BLOCKS: BriefBlockItem[] = [
   { id: "ai-note", group: "Suggested", label: "AI note", hint: "", keywords: "ai note prompt" },
@@ -75,6 +97,27 @@ export function filterBriefBlocks(query: string): BriefBlockItem[] {
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return BRIEF_BLOCKS;
   return BRIEF_BLOCKS.filter(item => words.every(word => `${item.label} ${item.keywords} ${item.group}`.toLowerCase().includes(word)));
+}
+
+function matchesMenuQuery(query: string, label: string, keywords: string, group: string): boolean {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const haystack = `${label} ${keywords} ${group}`.toLowerCase();
+  return words.every(word => haystack.includes(word));
+}
+
+export function listBriefMenuItems(query: string, includeTemplates: boolean): BriefMenuItem[] {
+  const blocks = filterBriefBlocks(query).map(block => ({ kind: "block" as const, block }));
+  const suggested = blocks.filter(item => item.block.group === "Suggested");
+  const basic = blocks.filter(item => item.block.group === "Basic blocks");
+  const templates = includeTemplates
+    ? BRIEF_PRIVATE_TEMPLATES.filter(item => matchesMenuQuery(query, item.label, item.keywords, item.group))
+    : [];
+  return [...suggested, ...templates, ...basic];
+}
+
+export function briefMenuGroups(includeTemplates: boolean): Array<"Suggested" | "Templates" | "Basic blocks"> {
+  return includeTemplates ? ["Suggested", "Templates", "Basic blocks"] : ["Suggested", "Basic blocks"];
 }
 
 export function manualBlockHtml(id: Exclude<BriefBlockId, "ai-note">): string {

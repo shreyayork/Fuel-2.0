@@ -1,4 +1,4 @@
-import { buildPatriotPublicPaperHtml, isPatriotPayName } from "./patriotPublicStory";
+import { buildPatriotPublicPaperHtml, isPatriotPayName, PATRIOT_PUBLIC_BLOG_MARKER } from "./patriotPublicStory";
 
 export type BriefAudience = "investor" | "public";
 
@@ -223,6 +223,61 @@ export function buildBriefDocSeed(input: BriefDocumentInput): BriefDocRecord {
   };
 }
 
+/** Section headings on the private investor brief (Open brief / About page). */
+export const INVESTOR_BRIEF_SECTION_BY_TEMPLATE = {
+  benchmark: "Snapshot",
+  "cohort-understanding": "Cohort position",
+  "company-profile": "About",
+  initiatives: "Initiatives",
+} as const;
+
+export type BriefPrivateTemplateId = keyof typeof INVESTOR_BRIEF_SECTION_BY_TEMPLATE;
+
+export function extractInvestorBriefSectionHtml(
+  investorHtml: string,
+  templateId: BriefPrivateTemplateId,
+): string | null {
+  const heading = INVESTOR_BRIEF_SECTION_BY_TEMPLATE[templateId];
+  const doc = new DOMParser().parseFromString(`<div>${investorHtml}</div>`, "text/html");
+  const root = doc.body.firstElementChild;
+  if (!root) return null;
+  const section = [...root.querySelectorAll("section")].find(
+    item => item.querySelector("h2")?.textContent?.trim() === heading,
+  );
+  return section ? section.outerHTML : null;
+}
+
+const PUBLIC_BLOG_EMBED_TONE: Record<BriefPrivateTemplateId, string> = {
+  benchmark: "brief-paper-blog-embed--accent",
+  "cohort-understanding": "brief-paper-blog-embed--mint",
+  "company-profile": "brief-paper-blog-embed--slate",
+  initiatives: "brief-paper-blog-embed--warm",
+};
+
+/** Wrap a private-brief section so it reads as part of the public blog column, not a separate investor panel. */
+export function investorBriefSectionAsPublicBlogEmbed(
+  investorHtml: string,
+  templateId: BriefPrivateTemplateId,
+): string | null {
+  const raw = extractInvestorBriefSectionHtml(investorHtml, templateId);
+  if (!raw) return null;
+  const doc = new DOMParser().parseFromString(`<div>${raw}</div>`, "text/html");
+  const section = doc.body.firstElementChild;
+  if (!(section instanceof HTMLElement)) return null;
+  const title = section.querySelector("h2")?.textContent?.trim()
+    || INVESTOR_BRIEF_SECTION_BY_TEMPLATE[templateId];
+  section.querySelector("h2")?.remove();
+  section.classList.remove("brief-paper-block", "brief-paper-tone-good", "brief-paper-tone-quiet", "brief-paper-tone-watch", "brief-paper-tone-callout");
+  const inner = section.innerHTML;
+  const tone = PUBLIC_BLOG_EMBED_TONE[templateId];
+  return (
+    `<section class="brief-paper-blog-section brief-paper-blog-embed ${tone}" data-fuel-template="${templateId}">`
+    + `<h2>${esc(title)}</h2>`
+    + `<div class="brief-paper-blog-embed-body">${inner}</div>`
+    + `</section>`
+  );
+}
+
 function sanitizeNode(node: Node, doc: Document): Node | null {
   if (node.nodeType === Node.TEXT_NODE) return node.cloneNode();
   if (node.nodeType !== Node.ELEMENT_NODE) return null;
@@ -347,7 +402,7 @@ export function saveBriefDraft(companyName: string, record: BriefDocRecord) {
 }
 
 export function withPatriotPublicStory(companyName: string, record: BriefDocRecord): BriefDocRecord {
-  if (!isPatriotPayName(companyName) || record.publicHtml.includes("brief-paper-public-essay-v2")) return record;
+  if (!isPatriotPayName(companyName) || record.publicHtml.includes(PATRIOT_PUBLIC_BLOG_MARKER)) return record;
   return { ...record, publicHtml: buildPatriotPublicPaperHtml() };
 }
 

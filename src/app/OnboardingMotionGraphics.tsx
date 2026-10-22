@@ -7,7 +7,7 @@ import {
 
 // ─── Shared types (mirrors OnboardingFlow) ───────────────────────────────────
 
-type SearchState = "idle" | "searching" | "review";
+type SearchState = "idle" | "review";
 
 interface ProfileForm {
   company: string;
@@ -466,10 +466,6 @@ function PulseRing({ color = "#00B48A" }: { color?: string }) {
 
 /** How long the profile build runs. OnboardingFlow holds the step open for this
  *  long, and the payoff cards below are paced to fill it. */
-export const PROFILE_BUILD_MS = 15000;
-
-const PROFILE_BUILD_S = PROFILE_BUILD_MS / 1000;
-
 export function ProfileMotion({ searchState, form, companyQuery, isInvestor = false }: {
   searchState: SearchState; form: ProfileForm; companyQuery: string; isInvestor?: boolean;
 }) {
@@ -479,46 +475,6 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
   const cursorPath = useMemo(() => [
     { x: 60, y: 90 }, { x: 180, y: 70 }, { x: 140, y: 150 }, { x: 90, y: 120 }, { x: 200, y: 130 },
   ], []);
-
-  // The build step shows what the founder gets back, never which sources Fuel reads.
-  const buildPayoffs = isInvestor
-    ? [
-      { title: "Portfolio on one curve", body: "Every company measured against real peers, not sector averages." },
-      { title: "Risk before the board deck", body: "Which companies are drifting off plan, while you can still act." },
-      { title: "Deal flow that fits your thesis", body: "Suggestions ranked against what you already back." },
-      { title: "An advisor across the portfolio", body: "Ask Fuel anything and get answers grounded in real company numbers." },
-    ]
-    : [
-      { title: "Benchmarked against real peers", body: "Where you land against companies at your stage — not industry averages." },
-      { title: "Gaps flagged early", body: "What's slipping across product, go-to-market, and finance." },
-      { title: "Next moves, not a report", body: "Specific actions for your stage, with the numbers behind them." },
-      { title: "An advisor that knows your numbers", body: "Ask Fuel anything about the business and get answers from your own data." },
-    ];
-
-  const payoffStep = 0.5;
-  const payoffEntryEnd = 0.3 + buildPayoffs.length * payoffStep;
-
-  // Once the cards are in, walk a highlight through them on a loop. Real builds can
-  // run longer than PROFILE_BUILD_MS, so the scene has to stay alive indefinitely
-  // rather than play once and freeze.
-  const [focusIdx, setFocusIdx] = useState(-1);
-  useEffect(() => {
-    if (searchState !== "searching") {
-      setFocusIdx(-1);
-      return;
-    }
-    let cycle = 0;
-    const start = window.setTimeout(() => {
-      setFocusIdx(0);
-      cycle = window.setInterval(() => setFocusIdx(i => i + 1), 1600);
-    }, payoffEntryEnd * 1000);
-    return () => {
-      window.clearTimeout(start);
-      window.clearInterval(cycle);
-    };
-  }, [searchState, payoffEntryEnd]);
-
-  const activePayoff = focusIdx < 0 ? -1 : focusIdx % buildPayoffs.length;
 
   return (
     <MotionShell accent="#00B48A">
@@ -553,108 +509,6 @@ export function ProfileMotion({ searchState, form, companyQuery, isInvestor = fa
                 </div>
               </div>
               <InsightCursor label={displayName} color="#00B48A" path={cursorPath} />
-            </FuelProductCard>
-          </motion.div>
-        )}
-
-        {searchState === "searching" && (
-          <motion.div key="searching" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-            <FuelProductCard title={`Building ${displayName}'s profile…`} subtitle="What you get when it's ready">
-              <div style={{ position: "relative" }}>
-                <motion.div
-                  animate={{ top: ["0%", "100%", "0%"] }}
-                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-                  style={{
-                    position: "absolute", left: 0, right: 0, height: 2,
-                    background: "linear-gradient(90deg, transparent, #00B48A, transparent)",
-                    zIndex: 2,
-                  }}
-                />
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {buildPayoffs.map((item, i) => {
-                    const isActive = i === activePayoff;
-                    return (
-                      <motion.div
-                        key={item.title}
-                        initial={{ opacity: 0, y: 14, scale: 0.97 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ delay: 0.3 + i * payoffStep, duration: 0.45, ease: EASE_OUT }}
-                      >
-                        <div
-                          style={{
-                            display: "flex", alignItems: "flex-start", gap: 10,
-                            padding: "11px 13px", borderRadius: 10,
-                            background: isActive ? "#F1FBF7" : "#fff",
-                            border: `1px solid ${isActive ? "#B8E8D8" : "#E8F0ED"}`,
-                            boxShadow: isActive ? "0 8px 20px rgba(0, 180, 138, 0.13)" : "0 0 0 rgba(0, 180, 138, 0)",
-                            transform: isActive ? "translateX(3px)" : "translateX(0)",
-                            transition: "background 0.45s ease, border-color 0.45s ease, box-shadow 0.45s ease, transform 0.45s ease",
-                          }}
-                        >
-                          <div style={{ position: "relative", width: 8, height: 8, flexShrink: 0, marginTop: 5 }}>
-                            {isActive && (
-                              <motion.span
-                                animate={{ scale: [1, 2.6], opacity: [0.5, 0] }}
-                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
-                                style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid #00B48A" }}
-                              />
-                            )}
-                            <motion.span
-                              animate={{ scale: isActive ? [1, 1.3, 1] : 1, opacity: isActive ? 1 : 0.45 }}
-                              transition={{ duration: 1.5, repeat: isActive ? Infinity : 0, ease: "easeInOut" }}
-                              style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "#00B48A" }}
-                            />
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: M.base, fontWeight: 700, color: "#1A2B26" }}>{item.title}</div>
-                            <div style={{
-                              fontSize: M.md, lineHeight: 1.5, marginTop: 2,
-                              color: isActive ? "#5A7A70" : "#8A9E96",
-                              transition: "color 0.45s ease",
-                            }}>{item.body}</div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3, duration: 0.4 }}
-                  style={{ marginTop: 14 }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: M.md, fontWeight: 700, color: "#00B48A" }}>Building your profile</span>
-                    <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
-                      {[0, 1, 2].map(d => (
-                        <motion.span
-                          key={d}
-                          animate={{ opacity: [0.25, 1, 0.25], y: [0, -2, 0] }}
-                          transition={{ duration: 1.1, repeat: Infinity, delay: d * 0.18, ease: "easeInOut" }}
-                          style={{ width: 4, height: 4, borderRadius: "50%", background: "#8A9E96" }}
-                        />
-                      ))}
-                    </span>
-                  </div>
-                  <div style={{ position: "relative", height: 5, background: "#E8F0ED", borderRadius: 3, overflow: "hidden" }}>
-                    <motion.div
-                      initial={{ width: "4%" }}
-                      animate={{ width: "92%" }}
-                      transition={{ duration: PROFILE_BUILD_S - 0.8, ease: [0.16, 0.9, 0.3, 1] }}
-                      style={{ height: "100%", background: "linear-gradient(90deg, #00B48A, #7EDFC4)", borderRadius: 3 }}
-                    />
-                    <motion.div
-                      animate={{ x: ["-120%", "420%"] }}
-                      transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
-                      style={{
-                        position: "absolute", top: 0, bottom: 0, width: "28%",
-                        background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent)",
-                      }}
-                    />
-                  </div>
-                </motion.div>
-              </div>
             </FuelProductCard>
           </motion.div>
         )}

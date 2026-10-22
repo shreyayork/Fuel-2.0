@@ -36,13 +36,17 @@ export type AdvisorConnectionRecord = {
 
 export const DEFAULT_ADVISOR_ID = "york-ie";
 export const DEFAULT_ADVISOR_NAME = "York IE";
+/** Portfolio demo company — York IE connection replay for investor sign-in. */
+export const DEMO_INVESTOR_CONNECTION_COMPANY_ID = "patriotpay";
+export const DEMO_INVESTOR_CONNECTION_DOMAIN = "patriotpay.com";
+export const DEMO_INVESTOR_CONNECTION_NAME = "Patriot Pay";
 export const ADVISOR_CONNECTION_TERMS_VERSION = "2026-10";
 export const ADVISOR_CONNECTION_CHANGE_EVENT = "fuel-advisor-connections-changed";
 
 export const DEFAULT_ADVISOR_PERMISSIONS: AdvisorConnectionPermissions = {
   sharedProfile: true,
   approvedBenchmarks: true,
-  sharedIntelligence: true,
+  sharedIntelligence: false,
   sharedInitiatives: true,
   sharedDataRoomFiles: true,
   sharedPublishedBrief: true,
@@ -256,25 +260,55 @@ export function clearAdvisorInviteTokenFromUrl() {
   }
 }
 
-export function resetAdvisorConnectionTestState() {
-  const records = readAll();
-  const reset = Object.fromEntries(Object.entries(records).map(([key, record]) => {
-    if (record.status === "connected" || record.status === "declined") return [key, record];
-    const isInvite = record.source === "invite" || Boolean(record.inviteToken);
-    const {
-      respondedAt: _respondedAt,
-      revokedAt: _revokedAt,
-      termsVersion: _termsVersion,
-      permissions: _permissions,
-      ...preserved
-    } = record;
-    return [key, {
+function reopenAdvisorConnectionRecord(record: AdvisorConnectionRecord): AdvisorConnectionRecord {
+  const now = Date.now();
+  const isInvite = record.source === "invite" || Boolean(record.inviteToken);
+  const {
+    respondedAt: _respondedAt,
+    revokedAt: _revokedAt,
+    termsVersion: _termsVersion,
+    permissions: _permissions,
+    ...preserved
+  } = record;
+  if (isInvite) {
+    return {
       ...preserved,
-      status: isInvite ? "invite_sent" as const : "request_pending" as const,
-      inviteExpiresAt: isInvite ? Date.now() + INVITE_TTL_MS : record.inviteExpiresAt,
-    }];
-  }));
+      status: "invite_sent",
+      inviteExpiresAt: now + INVITE_TTL_MS,
+      requestedAt: now,
+    };
+  }
+  return {
+    ...preserved,
+    status: "request_pending",
+    requestedAt: now,
+  };
+}
+
+/** Re-open York IE ↔ company invites/requests so founder demo flow replays (investor invited founder). */
+export function resetAdvisorInviteWorkflowDemoState() {
+  const records = readAll();
+  const reset = Object.fromEntries(
+    Object.entries(records).map(([key, record]) => [key, reopenAdvisorConnectionRecord(record)]),
+  );
   writeAll(reset);
+  const patriot = getAdvisorConnectionForCompany(
+    DEMO_INVESTOR_CONNECTION_COMPANY_ID,
+    DEMO_INVESTOR_CONNECTION_DOMAIN,
+  );
+  if (!patriot || patriot.source === "crunchbase") {
+    createAdvisorInvite({
+      id: DEMO_INVESTOR_CONNECTION_COMPANY_ID,
+      name: DEMO_INVESTOR_CONNECTION_NAME,
+      domain: DEMO_INVESTOR_CONNECTION_DOMAIN,
+      email: "founders@patriotpay.com",
+    });
+  }
+}
+
+/** @deprecated Use resetAdvisorInviteWorkflowDemoState */
+export function resetAdvisorConnectionTestState() {
+  resetAdvisorInviteWorkflowDemoState();
 }
 
 export function formatAdvisorConnectionStatus(status: AdvisorConnectionStatus): string {

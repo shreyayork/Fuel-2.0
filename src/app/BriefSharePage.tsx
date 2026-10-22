@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadPublishedBriefByToken } from "./briefDocStorage";
+import { PATRIOT_PUBLIC_BLOG_MARKER } from "./patriotPublicStory";
 import "./briefDocEditor.css";
 
 type Appearance = "dark" | "light";
@@ -56,6 +57,7 @@ export function BriefSharePage({ token }: { token: string }) {
   }
 
   const versionLabel = record.audience === "investor" ? "Investor brief" : "Public profile";
+  const publicBlog = record.audience === "public" && record.html.includes(PATRIOT_PUBLIC_BLOG_MARKER);
 
   return (
     <div className="brief-doc-screen" role="document" aria-label={`${record.companyName} ${versionLabel}`}>
@@ -73,8 +75,8 @@ export function BriefSharePage({ token }: { token: string }) {
           </div>
         </div>
       </header>
-      <div className="brief-doc-canvas">
-        <div className="brief-paper" dangerouslySetInnerHTML={{ __html: record.html }} />
+      <div className={`brief-doc-canvas${publicBlog ? " is-public-blog" : ""}`}>
+        <div className={`brief-paper${publicBlog ? " is-public-blog" : ""}`} dangerouslySetInnerHTML={{ __html: record.html }} />
       </div>
     </div>
   );
