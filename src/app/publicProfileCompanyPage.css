@@ -1,0 +1,1017 @@
+/* Public company profile — tokens from Figma Make (styles.css @theme) */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+.brief-paper.is-public-blog:has(> .brief-paper-company-profile),
+.brief-paper.is-public-blog:has(.brief-paper-company-profile) {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  max-width: none;
+  min-height: 0;
+  padding: 0;
+}
+
+.brief-paper-company-profile.brief-paper-company-profile--make,
+.brief-paper-company-profile.brief-paper-public-blog-v11,
+.brief-paper-company-profile.brief-paper-public-blog-v10,
+.brief-paper-company-profile.brief-paper-public-blog-v9,
+.brief-paper-company-profile.brief-paper-public-blog-v8,
+.brief-paper-company-profile.brief-paper-public-blog-v7 {
+  --cp-fuel-ink: #070d14;
+  --cp-fuel-navy: #0c1424;
+  --cp-fuel-panel: #152334;
+  --cp-fuel-green: #00b48a;
+  --cp-fuel-mint: #a0fada;
+  --cp-fuel-gold: #f3dc5e;
+  --cp-fuel-paper: #f5f8fa;
+  --cp-page-bg: #ffffff;
+  --cp-ink: var(--cp-fuel-ink);
+  --cp-body: #475569;
+  --cp-muted: #64748b;
+  --cp-border: #e2e8f0;
+  --cp-green: var(--cp-fuel-green);
+  --cp-mint: var(--cp-fuel-mint);
+  --cp-gold: var(--cp-fuel-gold);
+  --cp-paper: var(--cp-fuel-paper);
+  background: var(--cp-page-bg);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--cp-ink);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: visible;
+}
+
+/* Undo brief-doc editor defaults inside the public profile article */
+.brief-paper-company-profile--make section.brief-paper-cp-section {
+  background: transparent;
+  border-radius: 0;
+}
+
+.brief-paper-company-profile--make .brief-paper-blog-main {
+  margin: 0;
+  max-width: none;
+  width: 100%;
+}
+
+.brief-paper-company-profile--make.brief-paper-blog-section,
+.brief-paper-company-profile--make .brief-paper-blog-section {
+  margin-top: 0;
+}
+
+.brief-paper-company-profile--make h1,
+.brief-paper-company-profile--make h2,
+.brief-paper-company-profile--make h3 {
+  border: 0;
+  padding: 0;
+  text-transform: none;
+}
+
+.brief-paper-company-profile--make p,
+.brief-paper-company-profile--make li {
+  font-family: inherit;
+  margin: 0;
+}
+
+.brief-paper-company-profile--make blockquote {
+  margin: 0;
+}
+
+html[data-theme="dark"] .brief-paper-company-profile.brief-paper-public-blog-v11,
+html[data-theme="dark"] .brief-paper-company-profile.brief-paper-company-profile--make {
+  background: #ffffff;
+  color: #070d14;
+}
+
+.brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile),
+.profile-about-company-canvas {
+  background: #ffffff;
+  padding: 0;
+}
+
+html[data-theme="dark"] .brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile),
+html[data-theme="dark"] .profile-about-company-canvas {
+  background: #ffffff;
+}
+
+.brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile),
+.brief-doc-canvas.is-public-blog .brief-paper.is-public-blog:has(.brief-paper-company-profile) {
+  max-width: none;
+  padding: 0;
+}
+
+.brief-paper.is-public-blog:has(.brief-paper-company-profile) {
+  max-width: none;
+  padding: 0;
+}
+
+.profile-about-company-canvas .brief-paper-company-profile {
+  border: 0;
+  border-radius: 0;
+}
+
+/* Edit + view: full-bleed Make page inside brief doc (no theme canvas chrome) */
+.brief-doc-screen .brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile--make),
+.brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile--make) {
+  background: #ffffff;
+  padding: 0;
+}
+
+.brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile--make) .brief-paper.is-public-blog {
+  margin: 0;
+  max-width: none;
+  min-height: 0;
+  padding: 0;
+}
+
+/* Make profile is a fixed layout — no extra “type / to add block” tail */
+.brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile--make) .brief-paper-tail.is-public-blog {
+  display: none;
+}
+
+html[data-theme="dark"] .brief-doc-screen .brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile--make),
+html[data-theme="dark"] .brief-doc-canvas.is-public-blog:has(.brief-paper-company-profile--make) {
+  background: #ffffff;
+}
+
+/* Hero — Figma Make company profile */
+.brief-paper-cp-hero {
+  background: linear-gradient(135deg, var(--cp-fuel-ink) 0%, var(--cp-fuel-navy) 55%, var(--cp-fuel-navy) 100%);
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+}
+
+.brief-paper-cp-hero-glow {
+  background: radial-gradient(ellipse 70% 90% at 100% 50%, rgb(0 180 138 / 0.15) 0%, transparent 68%);
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.brief-paper-cp-hero-inner {
+  align-items: center;
+  display: grid;
+  gap: 40px 64px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 80rem;
+  padding: 48px 24px 52px;
+  position: relative;
+}
+
+@media (min-width: 1024px) {
+  .brief-paper-cp-hero-inner {
+    grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+    padding: 64px 40px 56px;
+  }
+}
+
+.brief-paper-company-profile--make .brief-paper-cp-hero-main p.brief-paper-cp-eyebrow {
+  color: var(--cp-mint);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  margin: 0 0 20px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.brief-paper-company-profile--make h1.brief-paper-cp-title {
+  color: #ffffff;
+  font-size: clamp(2.25rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-cp-title {
+  font-size: clamp(2.25rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.brief-paper-cp-title-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.brief-paper-cp-name {
+  color: #fff;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
+.brief-paper-cp-logo-wrap {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 12px;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 80px;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  width: 80px;
+}
+
+.brief-paper-cp-logo-img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.brief-paper-company-profile--make .brief-paper-cp-hero-main p.brief-paper-cp-tagline {
+  color: #f3dc5e;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 20px 0 0;
+  max-width: 42rem;
+  padding: 0;
+}
+
+.brief-paper-cp-tagline {
+  color: #f3dc5e;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 20px 0 0;
+  max-width: 42rem;
+}
+
+.brief-paper-cp-hero-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.brief-paper-cp-verified {
+  align-items: center;
+  color: #a0fada;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 8px;
+}
+
+.brief-paper-cp-verified-icon {
+  flex-shrink: 0;
+  height: 16px;
+  width: 16px;
+}
+
+.brief-paper-cp-hero-website {
+  color: #fff;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgb(255 255 255 / 0.35);
+  text-underline-offset: 4px;
+}
+
+.brief-paper-cp-hero-website:hover {
+  color: var(--cp-mint);
+}
+
+.brief-paper-cp-glance--aside {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .brief-paper-cp-glance--aside {
+    border-left: 1px solid rgb(255 255 255 / 0.15);
+    display: block;
+    padding-left: 32px;
+  }
+}
+
+.brief-paper-cp-glance-title {
+  color: #a0fada;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  margin: 0 0 20px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.brief-paper-cp-glance-dl {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  gap: 16px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-cp-glance-dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-cp-glance-label {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0 0 4px;
+  padding: 0;
+}
+
+.brief-paper-cp-glance-value {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-company-profile--make .brief-paper-cp-hero .brief-paper-cp-glance-title {
+  margin-bottom: 20px;
+}
+
+.brief-paper-company-profile--make .brief-paper-cp-hero .brief-paper-cp-glance-label {
+  margin-bottom: 4px;
+}
+
+/* Stats strip — Figma Make: section flush under hero; dl px-6 py-3 lg:px-10; cells py-6 pr-6 only */
+.brief-paper-company-profile--make header.brief-paper-cp-hero {
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-company-profile--make section.brief-paper-cp-stats-wrap,
+.brief-paper.is-public-blog .brief-paper-company-profile--make section.brief-paper-cp-stats-wrap {
+  background: #f5f8fa;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper-cp-stats-bar {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+  margin: 0 auto;
+  max-width: 80rem;
+  padding: 12px 24px;
+}
+
+@media (min-width: 768px) {
+  .brief-paper-cp-stats-bar {
+    column-gap: 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+  }
+}
+
+@media (min-width: 1024px) {
+  .brief-paper-cp-stats-bar {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+}
+
+.brief-paper-cp-stat {
+  align-items: flex-start;
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin: 0;
+  min-width: 0;
+  padding: 24px 0;
+  text-align: left;
+}
+
+@media (min-width: 768px) {
+  .brief-paper-cp-stat {
+    border-right: 1px solid #e2e8f0;
+    padding: 24px 24px 24px 0;
+  }
+
+  /* Gutter after each divider — matches Make space between columns */
+  .brief-paper-cp-stat + .brief-paper-cp-stat {
+    padding-left: 24px;
+  }
+
+  .brief-paper-cp-stat:last-child {
+    border-right: 0;
+    padding-right: 0;
+  }
+
+  .brief-paper-cp-stat:first-child {
+    padding-left: 0;
+  }
+}
+
+/* Third metric on small screens: full width row under 2-col grid (matches Make flow) */
+@media (max-width: 767px) {
+  .brief-paper-cp-stat:nth-child(3) {
+    grid-column: 1 / -1;
+    padding-top: 0;
+  }
+}
+
+.brief-paper-cp-stat-value {
+  color: #070d14;
+  display: block;
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.brief-paper-cp-stat-label {
+  color: #475569;
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  margin: 8px 0 0;
+  padding: 0;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+/* Body grid */
+.brief-paper-cp-body {
+  display: grid;
+  gap: 40px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 80rem;
+  padding: 56px 24px 80px;
+}
+
+@media (min-width: 1024px) {
+  .brief-paper-cp-body {
+    gap: 64px;
+    grid-template-columns: minmax(220px, 1fr) minmax(0, 3fr);
+    padding: 80px 40px 96px;
+  }
+}
+
+.brief-paper-cp-sidebar {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: sticky;
+  top: 7rem;
+}
+
+.brief-paper-cp-nav-title {
+  color: var(--cp-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin: 0 0 20px;
+  text-transform: uppercase;
+}
+
+.brief-paper-cp-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.brief-paper-cp-nav-link {
+  align-items: flex-start;
+  border-top: 1px solid var(--cp-border);
+  color: #475569;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 12px;
+  line-height: 1.625;
+  padding: 12px 0;
+  text-decoration: none;
+}
+
+.brief-paper-company-profile--make .brief-paper-cp-nav-link {
+  color: #475569;
+}
+
+.brief-paper-cp-nav-link:hover,
+.brief-paper-company-profile--make .brief-paper-cp-nav-link:hover {
+  color: var(--cp-green);
+}
+
+.brief-paper-cp-nav-link--overview,
+.brief-paper-company-profile--make .brief-paper-cp-nav-link--overview {
+  color: var(--cp-green);
+  font-weight: 700;
+}
+
+.brief-paper-cp-nav-link--updates,
+.brief-paper-company-profile--make .brief-paper-cp-nav-link--updates {
+  border-bottom: 1px solid var(--cp-border);
+  color: #475569;
+  font-weight: 600;
+}
+
+.brief-paper-cp-nav-index,
+.brief-paper-company-profile--make .brief-paper-cp-nav-link .brief-paper-cp-nav-index {
+  color: var(--cp-green);
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 1.25rem;
+}
+
+.brief-paper-cp-nav-label,
+.brief-paper-company-profile--make .brief-paper-cp-nav-link .brief-paper-cp-nav-label {
+  color: inherit;
+  flex: 1;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.brief-paper-cp-sidebar-card {
+  background: var(--cp-paper);
+  border: 0;
+  border-radius: 12px;
+  display: none;
+  margin-top: 28px;
+  padding: 20px;
+}
+
+@media (min-width: 1024px) {
+  .brief-paper-cp-sidebar-card {
+    display: block;
+  }
+}
+
+.brief-paper-cp-sidebar-name {
+  color: #070d14;
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.brief-paper-cp-sidebar-meta {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.625;
+  margin: 8px 0 0;
+}
+
+.brief-paper-cp-website-link {
+  color: var(--cp-green);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brief-paper-cp-website-link:hover {
+  text-decoration: underline;
+}
+
+.brief-paper-cp-main {
+  margin: 0;
+  max-width: none;
+  min-width: 0;
+}
+
+/* Sections — match Figma Make mb-12 / pb-12 / border-b (no stacked margin-top) */
+.brief-paper-company-profile .brief-paper-cp-section {
+  border-bottom: 1px solid var(--cp-border);
+  margin: 0 0 48px;
+  padding: 0 0 48px;
+  scroll-margin-top: 7rem;
+}
+
+.brief-paper-company-profile .brief-paper-cp-section + .brief-paper-cp-section {
+  margin-top: 0;
+}
+
+.brief-paper-company-profile .brief-paper-cp-section:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.brief-paper-cp-section-head {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 0;
+  width: 100%;
+}
+
+.brief-paper-cp-section--intro .brief-paper-cp-section-head {
+  gap: 12px;
+}
+
+.brief-paper-cp-kicker {
+  align-items: center;
+  color: #00b48a;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 12px;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0 0 0;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.brief-paper-cp-section--intro .brief-paper-cp-kicker {
+  margin: 0;
+}
+
+.brief-paper-cp-kicker--solo {
+  gap: 0;
+}
+
+.brief-paper-cp-index {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.brief-paper-cp-kicker-rule {
+  background: rgb(0 180 138 / 0.4);
+  flex-shrink: 0;
+  height: 1px;
+  width: 28px;
+}
+
+.brief-paper-cp-kicker-text {
+  color: #00b48a;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.brief-paper-company-profile .brief-paper-cp-section-head h2 {
+  color: #070d14;
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0 0 24px;
+  max-width: 48rem;
+  padding: 0;
+  text-transform: none;
+  width: 100%;
+}
+
+.brief-paper-cp-section--intro .brief-paper-cp-section-head h2 {
+  font-size: 1.875rem;
+  line-height: 1.25;
+  margin-bottom: 20px;
+  max-width: none;
+}
+
+@media (min-width: 640px) {
+  .brief-paper-company-profile .brief-paper-cp-section:not(.brief-paper-cp-section--intro) .brief-paper-cp-section-head h2 {
+    font-size: 2.25rem;
+    line-height: 1.1;
+  }
+}
+
+.brief-paper-company-profile .brief-paper-cp-section h2::after {
+  display: none;
+}
+
+.brief-paper-cp-section--intro .brief-paper-cp-lede {
+  color: #475569;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.75;
+  margin: 0 0 20px;
+  max-width: 48rem;
+}
+
+.brief-paper-cp-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.brief-paper-cp-tag {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--cp-muted);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0;
+}
+
+@media (min-width: 1024px) {
+  .brief-paper-cp-section--intro .brief-paper-cp-tag-row {
+    display: none;
+  }
+}
+
+.brief-paper-company-profile .brief-paper-cp-section-body p {
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.75;
+  margin: 0 0 20px;
+}
+
+.brief-paper-cp-section-intro {
+  color: var(--cp-body);
+  font-size: 16px;
+  line-height: 1.65;
+  margin: 0 0 24px;
+}
+
+/* Fuel perspective — Figma Make blockquote (mt-7 p-6 sm:p-8) */
+.brief-paper-cp-fuel-perspective {
+  background: rgb(0 180 138 / 0.05);
+  border: 0;
+  border-left: 4px solid #00b48a;
+  border-radius: 12px;
+  color: #070d14;
+  margin: 28px 0 0;
+  padding: 24px;
+}
+
+@media (min-width: 640px) {
+  .brief-paper-cp-fuel-perspective {
+    padding: 32px;
+  }
+}
+
+.brief-paper-cp-fuel-perspective--navy {
+  background: #0c1424;
+  border-left-color: #00b48a;
+  color: #ffffff;
+}
+
+.brief-paper-cp-fuel-label {
+  color: #00b48a;
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.brief-paper-cp-fuel-perspective--navy .brief-paper-cp-fuel-label {
+  color: #a0fada;
+}
+
+.brief-paper-cp-fuel-body {
+  color: #070d14;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.625;
+  margin: 0;
+}
+
+.brief-paper-cp-fuel-perspective--navy .brief-paper-cp-fuel-body {
+  color: #ffffff;
+}
+
+/* Published page only — ignore Fuel app dark/light theme (matches Figma Make site) */
+.brief-paper-company-profile--make,
+.brief-paper-company-profile--make .brief-paper-cp-hero,
+.brief-paper-company-profile--make .brief-paper-cp-stats-wrap,
+.brief-paper-company-profile--make .brief-paper-cp-body {
+  color-scheme: light;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero-main p.brief-paper-cp-tagline {
+  color: #f3dc5e;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero-actions,
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-verified {
+  color: #a0fada;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero-website {
+  color: #ffffff;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-fuel-body {
+  color: #070d14;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.625;
+  margin: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make blockquote.brief-paper-cp-fuel-perspective--navy .brief-paper-cp-fuel-body {
+  color: #ffffff;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make blockquote.brief-paper-cp-fuel-perspective--navy .brief-paper-cp-fuel-label {
+  color: #a0fada;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-sidebar-meta {
+  color: #475569;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-post-title {
+  border: 0;
+  color: #070d14;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make h2 {
+  color: #070d14;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-kicker,
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-kicker-text {
+  color: #00b48a;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-index {
+  color: #94a3b8;
+}
+
+/* Tiles */
+.brief-paper-cp-milestones .brief-paper-blog-tile,
+.brief-paper-cp-pricing .brief-paper-blog-tile {
+  background: var(--cp-paper);
+  border: 0;
+  border-radius: 12px;
+}
+
+.brief-paper-cp-milestones .brief-paper-blog-tile-value {
+  color: var(--cp-green);
+  font-size: 1.875rem;
+  font-weight: 800;
+}
+
+.brief-paper-cp-pricing .brief-paper-blog-tile-value {
+  color: var(--cp-green);
+  font-size: 1.875rem;
+  font-weight: 800;
+}
+
+.brief-paper-blog-tiles {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+  margin: 28px 0 0;
+}
+
+@media (min-width: 640px) {
+  .brief-paper-blog-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .brief-paper-cp-milestones.brief-paper-blog-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.brief-paper-blog-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+}
+
+.brief-paper-blog-tile-label {
+  color: var(--cp-ink);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.brief-paper-blog-tile-hint {
+  color: var(--cp-body);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* Posts */
+.brief-paper-cp-post-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.brief-paper-cp-post-card {
+  background: var(--cp-paper);
+  border: 1px solid var(--cp-border);
+  border-radius: 14px;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  padding: 18px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.brief-paper-cp-post-card:hover {
+  border-color: color-mix(in srgb, var(--cp-green) 45%, var(--cp-border));
+  box-shadow: 0 10px 28px rgb(15 23 42 / 0.08);
+}
+
+.brief-paper-cp-post-card time {
+  color: var(--cp-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.brief-paper-cp-post-title {
+  color: #070d14;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.brief-paper-cp-post-excerpt {
+  color: var(--cp-body);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 960px) {
+  .brief-paper-cp-hero-inner {
+    padding: 36px 20px 40px;
+  }
+
+  .brief-paper-cp-body {
+    grid-template-columns: 1fr;
+    padding: 24px 20px 40px;
+  }
+
+  .brief-paper-cp-sidebar {
+    position: static;
+  }
+
+  .brief-paper-cp-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .brief-paper-blog-tiles,
+  .brief-paper-cp-post-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brief-paper-cp-stats-bar {
+    column-gap: 24px;
+    grid-template-columns: 1fr;
+    padding: 12px 24px;
+  }
+
+  .brief-paper-cp-stat {
+    border-right: 0 !important;
+    padding: 20px 0;
+  }
+
+  .brief-paper-cp-stat:nth-child(3) {
+    grid-column: auto;
+  }
+
+  .brief-paper-cp-stat + .brief-paper-cp-stat {
+    border-top: 1px solid var(--cp-border);
+  }
+}

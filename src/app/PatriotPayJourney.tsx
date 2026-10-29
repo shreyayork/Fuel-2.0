@@ -2,6 +2,10 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { SIGNAL_CATALOG, SIGNAL_CATALOG_BY_KEY, SIGNAL_CATEGORY_KEYS } from "./signalCatalog";
 import { createPortal } from "react-dom";
 import "./PatriotPayJourney.css";
+import "./briefDocEditor.css";
+import "./publicProfileCompanyPage.css";
+import { loadPublishedBrief } from "./briefDocStorage.ts";
+import { buildPatriotPublicPaperHtml, isPatriotPayName, isCurrentPatriotPublicHtml } from "./patriotPublicStory.ts";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
 import { FuelHelpFaqPage } from "./FuelHelpFaq.tsx";
 import { FuelIcon } from "./icons.tsx";
@@ -9496,6 +9500,50 @@ function ClaimedProfileBrief({
   );
 }
 
+type FounderProfileSectionTab = "my-profile" | "about-company";
+
+function PublicProfileAboutView({
+  companyName,
+  onEdit,
+}: {
+  companyName: string;
+  onEdit: () => void;
+}) {
+  const record = useMemo(() => loadPublishedBrief(companyName, "public"), [companyName]);
+  const previewHtml = useMemo(() => {
+    if (record?.html && isCurrentPatriotPublicHtml(record.html)) return record.html;
+    if (isPatriotPayName(companyName)) return buildPatriotPublicPaperHtml();
+    return record?.html ?? null;
+  }, [companyName, record]);
+  const publicBlog = Boolean(previewHtml && isCurrentPatriotPublicHtml(previewHtml));
+
+  return (
+    <section className="profile-about-company" aria-label="About company public profile">
+      <div className="profile-about-company-toolbar">
+        <button type="button" className="company-add-list-btn" onClick={onEdit}>
+          Edit public profile
+        </button>
+      </div>
+      {previewHtml ? (
+        <div className={`brief-doc-canvas profile-about-company-canvas${publicBlog ? " is-public-blog" : ""}`}>
+          <div
+            className={`brief-paper${publicBlog ? " is-public-blog" : ""}`}
+            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          />
+        </div>
+      ) : (
+        <article className="overview-panel profile-about-company-empty">
+          <span>No public profile yet</span>
+          <p>Publish your About company page so investors can learn about you outside the private workspace.</p>
+          <button type="button" className="company-add-list-btn" onClick={onEdit}>
+            Create public profile
+          </button>
+        </article>
+      )}
+    </section>
+  );
+}
+
 function ExternalCompanyOverview({
   company,
 }: {
@@ -10934,6 +10982,7 @@ function PatriotPayJourneyInner({
       : startsWithOverview ? "signals-loading"
       : initialPage,
   );
+  const [founderProfileSectionTab, setFounderProfileSectionTab] = useState<FounderProfileSectionTab>("my-profile");
   const [tourOpen, setTourOpen] = useState(startsWithTour);
   const [tourStep, setTourStep] = useState(0);
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
@@ -11070,6 +11119,7 @@ function PatriotPayJourneyInner({
     && activePage !== "account"
     && activePage !== "connectors";
   const isClaimedFounderCompany = !isInvestorPersona && selectedCompany.id === FOUNDER_CLAIMED_COMPANY_ID;
+  const isFounderProfileHub = isClaimedFounderCompany && (activePage === "profile" || activePage === "public-profile");
   const isInvestorCompanyView = isInvestorPersona && isOnCompanyWorkspace;
   const usesPerCompanyWorkspace = isOnCompanyWorkspace && !isClaimedFounderCompany;
   const sharedCompanyAccess = usesPerCompanyWorkspace ? sharedAdvisorAccess(selectedCompany.id) : null;
@@ -12412,9 +12462,24 @@ function PatriotPayJourneyInner({
               </div>
             </button>
             <div className="header-actions">
-              {(isClaimedFounderCompany || showClaimedProfileBrief) && activePage !== "profile" ? (
-                <button type="button" className="company-add-list-btn" onClick={() => setActivePage("profile")}>
+              {(isClaimedFounderCompany || showClaimedProfileBrief) && !isFounderProfileHub ? (
+                <button
+                  type="button"
+                  className="company-add-list-btn"
+                  onClick={() => {
+                    setFounderProfileSectionTab("my-profile");
+                    setActivePage("profile");
+                  }}
+                >
                   View profile
+                </button>
+              ) : isFounderProfileHub ? (
+                <button
+                  type="button"
+                  className="company-add-list-btn"
+                  onClick={() => setActivePage("scorecard-v2")}
+                >
+                  View overview
                 </button>
               ) : usesPerCompanyWorkspace && !companyInPortfolio ? (
                 <button type="button" className="company-add-list-btn">
@@ -12447,16 +12512,29 @@ function PatriotPayJourneyInner({
           </div>
         </div> : null}
 
-        {!isProfileWizard && !isInvestorShellPage ? <div className="tabs">
-          <div className={`tab ${(usesPerCompanyWorkspace && !showClaimedProfileBrief ? activePage === "overview" : isClaimedFounderCompany ? activePage === "scorecard-v2" : activePage === "overview") ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage(isClaimedFounderCompany ? "scorecard-v2" : "overview")}>{usesPerCompanyWorkspace && !showClaimedProfileBrief ? "Profile" : "Overview"}</div>
-          {isClaimedFounderCompany ? (
+        {!isProfileWizard && !isInvestorShellPage && activePage === "profile" && isClaimedFounderCompany ? (
+          <div className="tabs" role="tablist" aria-label="Company profile sections">
             <div
-              className={`tab${activePage === "public-profile" ? " active" : ""}`}
-              onClick={() => setActivePage("public-profile")}
+              role="tab"
+              aria-selected={founderProfileSectionTab === "my-profile"}
+              className={`tab${founderProfileSectionTab === "my-profile" ? " active" : ""}`}
+              onClick={() => setFounderProfileSectionTab("my-profile")}
             >
-              Public profile
+              My profile
             </div>
-          ) : null}
+            <div
+              role="tab"
+              aria-selected={founderProfileSectionTab === "about-company"}
+              className={`tab${founderProfileSectionTab === "about-company" ? " active" : ""}`}
+              onClick={() => setFounderProfileSectionTab("about-company")}
+            >
+              About company
+            </div>
+          </div>
+        ) : null}
+
+        {!isProfileWizard && !isInvestorShellPage && !isFounderProfileHub ? <div className="tabs">
+          <div className={`tab ${(usesPerCompanyWorkspace && !showClaimedProfileBrief ? activePage === "overview" : isClaimedFounderCompany ? activePage === "scorecard-v2" : activePage === "overview") ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage(isClaimedFounderCompany ? "scorecard-v2" : "overview")}>{usesPerCompanyWorkspace && !showClaimedProfileBrief ? "Profile" : "Overview"}</div>
           <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>
             Intelligence
             {tabIntelligenceCount > 0 ? (
@@ -12614,7 +12692,18 @@ function PatriotPayJourneyInner({
               }}
             />
           ) : activePage === "profile" ? (
-            <ExternalCompanyOverview company={selectedCompany} />
+            isClaimedFounderCompany ? (
+              founderProfileSectionTab === "about-company" ? (
+                <PublicProfileAboutView
+                  companyName={selectedCompany.displayName}
+                  onEdit={() => setActivePage("public-profile")}
+                />
+              ) : (
+                <ExternalCompanyOverview company={selectedCompany} />
+              )
+            ) : (
+              <ExternalCompanyOverview company={selectedCompany} />
+            )
           ) : activePage === "overview" ? (
             usesPerCompanyWorkspace ? (
               showClaimedProfileBrief ? claimedProfileBrief : <ExternalCompanyOverview company={selectedCompany} />
@@ -12746,7 +12835,10 @@ function PatriotPayJourneyInner({
           ) : (activePage === "scorecard-v2" || activePage === "public-profile") && !usesPerCompanyWorkspace ? (
             <ScorecardV2
               presentation={activePage === "public-profile" ? "public-profile-editor" : "workspace"}
-              onClosePublicProfileEditor={() => setActivePage("scorecard-v2")}
+              onClosePublicProfileEditor={() => {
+                setFounderProfileSectionTab("about-company");
+                setActivePage("profile");
+              }}
               benchmark={scorecardBenchmark}
               onBenchmarkChange={(next, context) => {
                 applyBenchmarkSubmission({

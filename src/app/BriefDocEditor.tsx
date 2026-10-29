@@ -27,8 +27,9 @@ import {
   unpublishBriefShare,
   withPatriotPublicStory,
 } from "./briefDocStorage";
-import { buildPatriotPublicPaperHtml, isPatriotPayName, PATRIOT_PUBLIC_BLOG_MARKER } from "./patriotPublicStory";
+import { buildPatriotPublicPaperHtml, isPatriotPayName, isCurrentPatriotPublicHtml } from "./patriotPublicStory";
 import "./briefDocEditor.css";
+import "./publicProfileCompanyPage.css";
 
 const AUDIENCES: { id: BriefAudience; label: string }[] = [
   { id: "investor", label: "Investor" },
@@ -479,6 +480,9 @@ export function BriefDocEditor({
     };
   }, []);
 
+  /** Public company profile matches Figma Make (fixed light layout) — no in-editor theme switching. */
+  const fixedPublicDesign = publicOnly || audience === "public";
+
   const writePaper = (html: string, editable: boolean) => {
     const paper = paperRef.current;
     if (!paper) return;
@@ -494,14 +498,14 @@ export function BriefDocEditor({
   useEffect(() => {
     if (!isPatriotPayName(companyName)) return;
     let html = draftRef.current.publicHtml;
-    if (!html.includes(PATRIOT_PUBLIC_BLOG_MARKER)) {
+    if (!isCurrentPatriotPublicHtml(html)) {
       html = buildPatriotPublicPaperHtml();
       draftRef.current = { ...draftRef.current, publicHtml: html };
       saveBriefDraft(companyName, draftRef.current);
       markDirty();
     }
     const paper = paperRef.current;
-    if (audienceRef.current === "public" && paper && !paper.innerHTML.includes(PATRIOT_PUBLIC_BLOG_MARKER)) {
+    if (audienceRef.current === "public" && paper && !isCurrentPatriotPublicHtml(paper.innerHTML)) {
       paper.innerHTML = html;
     }
   });
@@ -1093,10 +1097,12 @@ export function BriefDocEditor({
           </div>
         </div>
         <div className="brief-doc-controls">
-          <div className="brief-doc-theme" role="group" aria-label="Appearance">
-            <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "is-active" : undefined} onClick={() => chooseTheme("dark")}>Dark</button>
-            <button type="button" aria-pressed={theme === "light"} className={theme === "light" ? "is-active" : undefined} onClick={() => chooseTheme("light")}>Light</button>
-          </div>
+          {fixedPublicDesign ? null : (
+            <div className="brief-doc-theme" role="group" aria-label="Appearance">
+              <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "is-active" : undefined} onClick={() => chooseTheme("dark")}>Dark</button>
+              <button type="button" aria-pressed={theme === "light"} className={theme === "light" ? "is-active" : undefined} onClick={() => chooseTheme("light")}>Light</button>
+            </div>
+          )}
           {publicOnly ? null : (
             <div className="brief-doc-tabs" role="tablist" aria-label="Brief version">
               {AUDIENCES.map(item => (

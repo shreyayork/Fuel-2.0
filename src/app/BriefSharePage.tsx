@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadPublishedBriefByToken } from "./briefDocStorage";
-import { PATRIOT_PUBLIC_BLOG_MARKER } from "./patriotPublicStory";
+import { isCurrentPatriotPublicHtml } from "./patriotPublicStory";
 import "./briefDocEditor.css";
+import "./publicProfileCompanyPage.css";
 
 type Appearance = "dark" | "light";
 
@@ -29,10 +30,12 @@ function applyFuelTheme(theme: Appearance) {
 export function BriefSharePage({ token }: { token: string }) {
   const record = useMemo(() => loadPublishedBriefByToken(token), [token]);
   const [theme, setTheme] = useState<Appearance>(() => readFuelTheme());
+  const fixedPublicDesign = record?.audience === "public";
 
   useEffect(() => {
+    if (fixedPublicDesign) return;
     applyFuelTheme(theme);
-  }, [theme]);
+  }, [fixedPublicDesign, theme]);
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -57,7 +60,7 @@ export function BriefSharePage({ token }: { token: string }) {
   }
 
   const versionLabel = record.audience === "investor" ? "Investor brief" : "Public profile";
-  const publicBlog = record.audience === "public" && record.html.includes(PATRIOT_PUBLIC_BLOG_MARKER);
+  const publicBlog = record.audience === "public" && isCurrentPatriotPublicHtml(record.html);
 
   return (
     <div className="brief-doc-screen" role="document" aria-label={`${record.companyName} ${versionLabel}`}>
@@ -69,10 +72,12 @@ export function BriefSharePage({ token }: { token: string }) {
           </div>
         </div>
         <div className="brief-doc-controls">
-          <div className="brief-doc-theme" role="group" aria-label="Appearance">
-            <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "is-active" : undefined} onClick={() => setTheme("dark")}>Dark</button>
-            <button type="button" aria-pressed={theme === "light"} className={theme === "light" ? "is-active" : undefined} onClick={() => setTheme("light")}>Light</button>
-          </div>
+          {fixedPublicDesign ? null : (
+            <div className="brief-doc-theme" role="group" aria-label="Appearance">
+              <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "is-active" : undefined} onClick={() => setTheme("dark")}>Dark</button>
+              <button type="button" aria-pressed={theme === "light"} className={theme === "light" ? "is-active" : undefined} onClick={() => setTheme("light")}>Light</button>
+            </div>
+          )}
         </div>
       </header>
       <div className={`brief-doc-canvas${publicBlog ? " is-public-blog" : ""}`}>

@@ -35,6 +35,7 @@ const FOUNDER_ACTIVE_PAGES = new Set([
   "help",
   "advisors",
   "company-profile",
+  "profile",
   "public-profile",
 ]);
 

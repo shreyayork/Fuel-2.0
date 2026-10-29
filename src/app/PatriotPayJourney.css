@@ -14707,6 +14707,27 @@ html[data-theme="light"] .initiative-review-drawer .initiative-source-doc-downlo
   margin: 12px 0 0;
 }
 
+.profile-about-company {
+  margin-top: 4px;
+}
+
+.profile-about-company-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.profile-about-company-canvas {
+  border: 1px solid var(--border-1);
+  border-radius: 12px;
+  max-height: none;
+  overflow: visible;
+}
+
+.profile-about-company-empty {
+  margin-top: 8px;
+}
+
 .public-profile-page {
   margin-top: 8px;
   max-width: 680px;

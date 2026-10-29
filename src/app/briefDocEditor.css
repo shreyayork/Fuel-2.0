@@ -480,9 +480,114 @@ html[data-theme="light"] .brief-doc-canvas.is-public-blog {
 .brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v3,
 .brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v4,
 .brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v5,
-.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v6 {
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v6,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v7,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v8,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v10,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v11,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v12 {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make section.brief-paper-cp-stats-wrap {
+  background: #f5f8fa;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-stats-bar {
+  margin: 0;
+}
+
+@media (min-width: 768px) {
+  .brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-stat + .brief-paper-cp-stat {
+    padding-left: 24px;
+  }
+
+  .brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-stat:last-child {
+    padding-right: 0;
+  }
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make section.brief-paper-cp-section {
+  background: transparent;
+  border-radius: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-section-head {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-section--intro .brief-paper-cp-section-head {
+  gap: 12px;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make p.brief-paper-cp-kicker {
+  color: #00b48a;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-kicker-text {
+  color: #00b48a;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-index {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-section-head h2 {
+  border: 0;
+  color: #070d14;
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0 0 24px;
+  max-width: 48rem;
+  padding: 0;
+  text-transform: none;
+  width: 100%;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-section--intro .brief-paper-cp-section-head h2 {
+  margin-bottom: 20px;
+}
+
+@media (min-width: 640px) {
+  .brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-section:not(.brief-paper-cp-section--intro) .brief-paper-cp-section-head h2 {
+    font-size: 2.25rem;
+    line-height: 1.1;
+  }
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make h2 {
+  border: 0;
+  color: #070d14;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  padding: 0;
+  text-transform: none;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-blog-main {
+  margin: 0;
+  max-width: none;
 }
 
 .brief-paper-tail.is-public-blog {
@@ -499,7 +604,8 @@ html[data-theme="light"] .brief-doc-canvas.is-public-blog {
 .brief-paper-public-blog.brief-paper-public-blog-v3,
 .brief-paper-public-blog.brief-paper-public-blog-v4,
 .brief-paper-public-blog.brief-paper-public-blog-v5,
-.brief-paper-public-blog.brief-paper-public-blog-v6 {
+.brief-paper-public-blog.brief-paper-public-blog-v6,
+.brief-paper-public-blog.brief-paper-public-blog-v7 {
   background: var(--blog-article-bg);
   border: 1px solid var(--blog-article-border);
   border-radius: 16px;
@@ -665,10 +771,25 @@ html[data-theme="light"] .brief-doc-canvas.is-public-blog {
 .brief-paper-public-blog-v4 .brief-paper-blog-section p,
 .brief-paper-public-blog-v5 .brief-paper-blog-section p,
 .brief-paper-public-blog-v6 .brief-paper-blog-section p,
+.brief-paper-public-blog-v8 .brief-paper-cp-section-body p,
+.brief-paper-public-blog-v9 .brief-paper-blog-section p,
+.brief-paper-public-blog-v9 .brief-paper-cp-section-body p,
+.brief-paper-public-blog-v10 .brief-paper-blog-section p,
+.brief-paper-public-blog-v10 .brief-paper-cp-section-body p,
+.brief-paper-public-blog-v11 .brief-paper-blog-section p,
+.brief-paper-public-blog-v11 .brief-paper-cp-section-body p,
+.brief-paper-company-profile .brief-paper-cp-section-body p {
+  color: var(--panel-body, var(--text-2));
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin-bottom: 0;
+}
+
 .brief-paper-public-blog-v3 .brief-paper-blog-section li,
 .brief-paper-public-blog-v4 .brief-paper-blog-section li,
 .brief-paper-public-blog-v5 .brief-paper-blog-section li,
-.brief-paper-public-blog-v6 .brief-paper-blog-section li {
+.brief-paper-public-blog-v6 .brief-paper-blog-section li,
+.brief-paper-public-blog-v8 .brief-paper-blog-section li {
   color: var(--panel-body, var(--text-2));
   font-size: 13.5px;
   line-height: 1.55;
@@ -938,8 +1059,183 @@ html[data-theme="light"] .brief-doc-canvas.is-public-blog {
   color: #00b48a;
 }
 
-html[data-theme="light"] .brief-paper.is-public-blog a {
-  color: #008f6f;
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-nav-link {
+  color: #475569;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-nav-link--overview {
+  color: #00b48a;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-nav-link:hover {
+  color: #00b48a;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-nav-link .brief-paper-cp-nav-index {
+  color: #00b48a;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-section-body p {
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make h3.brief-paper-cp-post-title {
+  border: 0;
+  color: #070d14;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0;
+  padding: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make blockquote.brief-paper-cp-fuel-perspective {
+  border: 0;
+  border-left: 4px solid #00b48a;
+  border-radius: 12px;
+  margin: 28px 0 0;
+  padding: 24px;
+}
+
+@media (min-width: 640px) {
+  .brief-paper.is-public-blog .brief-paper-company-profile--make blockquote.brief-paper-cp-fuel-perspective {
+    padding: 32px;
+  }
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make blockquote.brief-paper-cp-fuel-perspective--navy {
+  background: #0c1424;
+  color: #ffffff;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-fuel-body {
+  color: #070d14;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.625;
+  margin: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make blockquote.brief-paper-cp-fuel-perspective--navy .brief-paper-cp-fuel-body {
+  color: #ffffff;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make blockquote.brief-paper-cp-fuel-perspective--navy .brief-paper-cp-fuel-label {
+  color: #a0fada;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-fuel-perspective:not(.brief-paper-cp-fuel-perspective--navy) {
+  background: rgb(0 180 138 / 0.05);
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-sidebar-meta {
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.625;
+  margin: 8px 0 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero p.brief-paper-cp-glance-title {
+  color: #a0fada;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero .brief-paper-cp-glance-label {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 400;
+  margin: 0 0 4px;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero .brief-paper-cp-glance-value {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero .brief-paper-cp-glance-dl {
+  gap: 16px;
+  margin: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero-main p.brief-paper-cp-eyebrow {
+  color: #a0fada;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  margin: 0 0 20px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make h1.brief-paper-cp-title {
+  border: 0;
+  color: #ffffff;
+  font-size: clamp(2.25rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0;
+  padding: 0;
+  text-transform: none;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-name {
+  color: #ffffff;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make p {
+  margin: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-section-body p {
+  margin: 0 0 20px;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero-main p.brief-paper-cp-tagline {
+  color: #f3dc5e;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 20px 0 0;
+  padding: 0;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero-website {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-verified {
+  color: #a0fada;
+  font-size: 12px;
+}
+
+html[data-theme="light"] .brief-paper.is-public-blog .brief-paper-company-profile--make a {
+  color: inherit;
+}
+
+html[data-theme="light"] .brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-hero-website {
+  color: #ffffff;
+}
+
+html[data-theme="light"] .brief-paper.is-public-blog .brief-paper-company-profile--make .brief-paper-cp-website-link {
+  color: #00b48a;
 }
 
 .brief-paper-blog-callout {

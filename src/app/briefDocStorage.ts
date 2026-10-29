@@ -1,4 +1,4 @@
-import { buildPatriotPublicPaperHtml, isPatriotPayName, PATRIOT_PUBLIC_BLOG_MARKER } from "./patriotPublicStory";
+import { buildPatriotPublicPaperHtml, isPatriotPayName, isCurrentPatriotPublicHtml, PATRIOT_PUBLIC_BLOG_MARKER } from "./patriotPublicStory";
 
 export type BriefAudience = "investor" | "public";
 
@@ -199,7 +199,7 @@ function fundingTable(rounds: BriefFundingRound[]): string {
 }
 
 function buildPublicHtml(input: BriefDocumentInput): string {
-  if (isPatriotPayName(input.companyName)) return buildPatriotPublicPaperHtml(input.reportDate);
+  if (isPatriotPayName(input.companyName)) return buildPatriotPublicPaperHtml();
   const about = filled(input.publicAbout);
   const details = factTable(input.publicDetails);
   const funding = fundingTable(input.fundingRounds);
@@ -402,7 +402,7 @@ export function saveBriefDraft(companyName: string, record: BriefDocRecord) {
 }
 
 export function withPatriotPublicStory(companyName: string, record: BriefDocRecord): BriefDocRecord {
-  if (!isPatriotPayName(companyName) || record.publicHtml.includes(PATRIOT_PUBLIC_BLOG_MARKER)) return record;
+  if (!isPatriotPayName(companyName) || isCurrentPatriotPublicHtml(record.publicHtml)) return record;
   return { ...record, publicHtml: buildPatriotPublicPaperHtml() };
 }
 
@@ -473,7 +473,7 @@ function writePublishIndex(index: Record<string, string>) {
   }
 }
 
-export function loadPublishedBrief(companyName: string, audience: BriefAudience): BriefPublishRecord | null {
+function readPublishedBriefRecord(companyName: string, audience: BriefAudience): BriefPublishRecord | null {
   const token = readPublishIndex()[publishIndexId(companyName, audience)];
   if (!token) return null;
   const record = loadPublishedBriefByToken(token);
@@ -481,24 +481,15 @@ export function loadPublishedBrief(companyName: string, audience: BriefAudience)
   return record;
 }
 
-export function loadPublishedBriefByToken(token: string): BriefPublishRecord | null {
-  if (!/^[a-zA-Z0-9-]{8,80}$/.test(token)) return null;
-  try {
-    const raw = window.localStorage.getItem(`${PUBLISH_ITEM_PREFIX}${token}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!isPublishRecord(parsed) || parsed.token !== token) return null;
-    return { ...parsed, html: sanitizeBriefHtml(parsed.html) };
-  } catch {
-    return null;
-  }
-}
-
-export function publishBriefShare(companyName: string, audience: BriefAudience, html: string): BriefPublishRecord | null {
+function upsertPublishedBriefRecord(
+  companyName: string,
+  audience: BriefAudience,
+  html: string,
+  existingToken?: string,
+): BriefPublishRecord | null {
   const safeHtml = sanitizeBriefHtml(html).trim();
   if (!safeHtml) return null;
-  const existing = loadPublishedBrief(companyName, audience);
-  const token = existing?.token ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
+  const token = existingToken ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
   const record: BriefPublishRecord = {
@@ -519,8 +510,44 @@ export function publishBriefShare(companyName: string, audience: BriefAudience, 
   return record;
 }
 
+export function loadPublishedBrief(companyName: string, audience: BriefAudience): BriefPublishRecord | null {
+  const record = readPublishedBriefRecord(companyName, audience);
+  if (!record) return null;
+  if (
+    audience === "public"
+    && isPatriotPayName(companyName)
+    && !isCurrentPatriotPublicHtml(record.html)
+  ) {
+    return upsertPublishedBriefRecord(
+      companyName,
+      "public",
+      buildPatriotPublicPaperHtml(),
+      record.token,
+    ) ?? record;
+  }
+  return record;
+}
+
+export function loadPublishedBriefByToken(token: string): BriefPublishRecord | null {
+  if (!/^[a-zA-Z0-9-]{8,80}$/.test(token)) return null;
+  try {
+    const raw = window.localStorage.getItem(`${PUBLISH_ITEM_PREFIX}${token}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isPublishRecord(parsed) || parsed.token !== token) return null;
+    return { ...parsed, html: sanitizeBriefHtml(parsed.html) };
+  } catch {
+    return null;
+  }
+}
+
+export function publishBriefShare(companyName: string, audience: BriefAudience, html: string): BriefPublishRecord | null {
+  const existing = readPublishedBriefRecord(companyName, audience);
+  return upsertPublishedBriefRecord(companyName, audience, html, existing?.token);
+}
+
 export function unpublishBriefShare(companyName: string, audience: BriefAudience) {
-  const existing = loadPublishedBrief(companyName, audience);
+  const existing = readPublishedBriefRecord(companyName, audience);
   const index = readPublishIndex();
   delete index[publishIndexId(companyName, audience)];
   writePublishIndex(index);
