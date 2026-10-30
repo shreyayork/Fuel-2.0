@@ -4,14 +4,17 @@ import { OverviewBuildPanel, type OverviewBuildPhase } from "../ScorecardV2.tsx"
 import { drawerPanelPointerProps, useScrimPointerClose } from "../drawerScrim";
 import { findFounderCompanyProfile } from "../OnboardingFlow.tsx";
 import { useDialogA11y } from "../a11y/useDialogA11y";
-import { FuelIcon } from "../icons.tsx";
+import { FuelIcon, type FuelIconName } from "../icons.tsx";
 import {
   ADVISOR_CONNECTION_CHANGE_EVENT,
   advisorInviteUrl,
   createAdvisorConnectionRequest,
   createAdvisorInvite,
+  connectPortfolioCompaniesForDemo,
   formatAdvisorConnectionStatus,
   getAdvisorConnection,
+  PORTFOLIO_ACTIVE_DEMO_BATCH,
+  PORTFOLIO_ACTIVE_DEMO_INITIAL,
   revokeAdvisorConnection,
   sharedAdvisorAccess,
   type AdvisorConnectionRecord,
@@ -55,7 +58,6 @@ import {
   companiesForPortfolioList,
   dealsForBoard,
   formatGrowthRate,
-  formatMoic,
   formatSuggestionScore,
   companyBenchmarkFacts,
   formatUsdCompact,
@@ -405,8 +407,8 @@ function HomeDashboard({
 
       <div className="investor-home-pulse" role="group" aria-label="Fund pulse">
         <div className="investor-home-pulse-stat">
-          <span>Portfolio MOIC</span>
-          <strong>{formatMoic(totals.blendedMoic)}</strong>
+          <span>Total invested</span>
+          <strong>{formatUsdCompact(totals.totalInvested)}</strong>
         </div>
         <div className="investor-home-pulse-stat">
           <span>Active companies</span>
@@ -434,8 +436,8 @@ function HomeDashboard({
           <strong>{formatUsdCompact(totals.estimatedValue)}</strong>
         </button>
         <button type="button" className="investor-home-kpi overview-metric-card" onClick={() => onNavigateSection?.("portfolios")}>
-          <span>Blended MOIC</span>
-          <strong>{formatMoic(totals.blendedMoic)}</strong>
+          <span>Active companies</span>
+          <strong>{totals.activeCompanies}</strong>
         </button>
         <button
           type="button"
@@ -452,7 +454,7 @@ function HomeDashboard({
         <div className="overview-panel-head investor-home-widget-head investor-portfolio-panel-head">
           <div>
             <span>Portfolio</span>
-            <em>{ranked.length} companies · ranked by MOIC</em>
+            <em>{ranked.length} companies · ranked by estimated value</em>
           </div>
           <SectionViewMore label="View all" onClick={() => onNavigateSection?.("portfolios")} />
         </div>
@@ -1397,7 +1399,7 @@ function BenchmarkPercentileBucketDetail({
         company?.arr,
         company?.runway,
         tier,
-        company ? `${company.moic.toFixed(1)}x` : "",
+        company?.invested,
       ]
         .filter(Boolean)
         .join(" ")
@@ -1519,7 +1521,7 @@ function BenchmarkPercentileBucketDetail({
                 <th scope="col">#</th>
                 <th scope="col">Company</th>
                 <th scope="col">Stage</th>
-                <th scope="col">MOIC</th>
+                <th scope="col">Invested</th>
                 <th scope="col">ARR</th>
                 <th scope="col">Runway</th>
                 <th scope="col">Tier</th>
@@ -1568,7 +1570,7 @@ function BenchmarkPercentileBucketDetail({
                       )}
                     </td>
                     <td>{company?.stage ?? "—"}</td>
-                    <td>{company ? `${company.moic.toFixed(1)}x` : "—"}</td>
+                    <td>{company?.invested ?? "—"}</td>
                     <td>{company?.arr ?? "—"}</td>
                     <td>{company?.runway ?? "—"}</td>
                     <td>
@@ -2520,10 +2522,8 @@ function BenchmarkTierHoverTip({
           <strong className={growthClass}>{growthLabel}</strong>
         </article>
         <article>
-          <span>MOIC</span>
-          <strong className={`investor-portfolio-moic-badge is-${moicTier(tip.company.moic)}`}>
-            {formatMoic(tip.company.moic)}
-          </strong>
+          <span>Invested</span>
+          <strong>{tip.company.invested}</strong>
         </article>
         <article>
           <span>Health</span>
@@ -2696,42 +2696,42 @@ function BenchmarkSummaryTiles({
   }, [companies, summary.metrics]);
 
   return (
-    <div className="investor-bench-tiles">
+    <div className="investor-bench-tiles investor-bench-tiles--compact">
       <article className="investor-bench-kpi-card investor-bench-kpi-card--cohort">
         <span className="investor-bench-kpi-label">Above cohort P50</span>
         <strong className="investor-bench-kpi-value">
           {aboveCohortP50Count}
           <span className="investor-bench-kpi-denom">/{metricTotal}</span>
         </strong>
-        <p>metrics where the portfolio median beats the cohort</p>
+        <p>Portfolio beats cohort median</p>
       </article>
 
       <article className="investor-bench-kpi-card investor-bench-kpi-card--performer">
         <span className="investor-bench-kpi-label">Top performer</span>
         <div className="investor-bench-kpi-performer">
           {topPerformerStats.company ? (
-            <PortfolioCompanyLogo company={topPerformerStats.company} size="md" />
+            <PortfolioCompanyLogo company={topPerformerStats.company} size="sm" />
           ) : (
             <span className="investor-bench-kpi-performer-fallback" aria-hidden="true">
               {topPerformerStats.name.slice(0, 1)}
             </span>
           )}
-          <strong className="investor-bench-kpi-value is-name">{topPerformerStats.name}</strong>
+          <div className="investor-bench-kpi-performer-copy">
+            <strong className="investor-bench-kpi-value is-name">{topPerformerStats.name}</strong>
+            <p>
+              Leads {topPerformerStats.wins}/{topPerformerStats.total}
+            </p>
+          </div>
         </div>
-        <p>
-          Leads on {topPerformerStats.wins} of {topPerformerStats.total} metric
-          {topPerformerStats.total === 1 ? "" : "s"}
-        </p>
       </article>
 
       <article className="investor-bench-kpi-card investor-bench-kpi-card--watchlist">
         <span className="investor-bench-kpi-label">
           On <em>watchlist</em>
         </span>
-        <strong className="investor-bench-kpi-value">{watchlistStats.count}</strong>
-        {watchlistStats.exampleCompanies.length > 0 ? (
-          <div className="investor-bench-kpi-examples">
-            <span className="investor-bench-kpi-examples-label">e.g.</span>
+        <div className="investor-bench-kpi-watch-row">
+          <strong className="investor-bench-kpi-value">{watchlistStats.count}</strong>
+          {watchlistStats.exampleCompanies.length > 0 ? (
             <span
               className="investor-watchlists-logo-stack investor-bench-kpi-logo-stack"
               aria-label={watchlistStats.exampleCompanies.map(company => company.displayName).join(", ")}
@@ -2740,12 +2740,68 @@ function BenchmarkSummaryTiles({
                 <PortfolioCompanyLogo key={company.id} company={company} size="xs" />
               ))}
             </span>
-          </div>
-        ) : (
-          <p>No companies flagged for follow-up</p>
-        )}
+          ) : (
+            <p>None flagged</p>
+          )}
+        </div>
       </article>
     </div>
+  );
+}
+
+function BenchmarkMetricGlanceCard({
+  metric,
+  onOpen,
+}: {
+  metric: PortfolioBenchmarkMetric;
+  onOpen: () => void;
+}) {
+  const beats = metric.lowerIsBetter
+    ? metric.portfolioPosition < 50
+    : metric.portfolioPosition > 50;
+  const bandLeft = Math.min(metric.bandStart, metric.bandEnd);
+  const bandWidth = Math.max(4, Math.abs(metric.bandEnd - metric.bandStart));
+  const markerLeft = Math.max(0, Math.min(100, metric.portfolioPosition));
+  const companyCount = metric.portfolioDots.length;
+
+  return (
+    <button
+      type="button"
+      className={`investor-bench-glance-card${beats ? " is-good" : ""}`}
+      onClick={onOpen}
+      aria-label={`${metric.label}: portfolio ${metric.portfolioLabel}, cohort p50 ${metric.cohortP50Label}`}
+    >
+      <div className="investor-bench-glance-card-top">
+        <span className="investor-bench-glance-label">{metric.label}</span>
+        {metric.hint ? <em className="investor-bench-glance-hint">{metric.hint}</em> : null}
+      </div>
+      <div className="investor-bench-glance-values">
+        <strong className={beats ? "is-good" : undefined}>{metric.portfolioLabel}</strong>
+        <span>
+          <em>p50</em>
+          {metric.cohortP50Label}
+        </span>
+      </div>
+      <div
+        className="investor-bench-glance-track"
+        aria-hidden="true"
+      >
+        <span
+          className="investor-bench-glance-band"
+          style={{ left: `${bandLeft}%`, width: `${bandWidth}%` }}
+        />
+        <span
+          className="investor-bench-glance-marker"
+          style={{ left: `${markerLeft}%` }}
+        />
+      </div>
+      <div className="investor-bench-glance-meta">
+        <span>{formatBenchmarkCount(companyCount)} cos</span>
+        <span className={beats ? "is-good" : "is-muted"}>
+          {beats ? "Beats p50" : "Trails p50"}
+        </span>
+      </div>
+    </button>
   );
 }
 
@@ -2782,15 +2838,30 @@ function PortfolioBenchmarkSection({
     return map;
   }, [companies, summary.metrics]);
 
+  const aboveCohortP50Count = useMemo(
+    () => summary.metrics.filter(metric => (
+      metric.lowerIsBetter
+        ? metric.portfolioPosition < 50
+        : metric.portfolioPosition > 50
+    )).length,
+    [summary.metrics],
+  );
+
   return (
-    <section className="investor-bench-section" aria-label="Benchmark distribution">
+    <section className="investor-bench-section investor-bench-section--fit" aria-label="Benchmark distribution">
       <div className="investor-bench-section-panel">
-        <div className="investor-bench-section-head">
+        <div className="investor-bench-section-head investor-bench-section-head--fit">
           <div className="investor-bench-section-head-copy">
             <span>Benchmark distribution</span>
             <h2>How the portfolio stacks up</h2>
           </div>
-          <div className="investor-bench-section-filters">
+          <div className="investor-bench-section-head-aside">
+            <p className="investor-bench-section-summary-line">
+              <strong>{aboveCohortP50Count}/{summary.metrics.length}</strong>
+              {" "}above cohort p50
+              <span aria-hidden="true"> · </span>
+              {formatBenchmarkCount(companies.length)} companies
+            </p>
             <label className="investor-bench-filter">
               <span className="investor-bench-filter-label">cohort</span>
               <select defaultValue={summary.filterLabel} aria-label="Filter cohort">
@@ -2802,22 +2873,14 @@ function PortfolioBenchmarkSection({
           </div>
         </div>
 
-        <BenchmarkSummaryTiles summary={summary} companies={companies} />
-
-        <div className="investor-bench-grid">
+        <div className="investor-bench-glance-grid" role="list" aria-label="All benchmark metrics">
           {summary.metrics.map(metric => (
-            <PortfolioBenchmarkChart
-              key={metric.id}
-              metric={metric}
-              companiesById={companiesById}
-              onOpenCompanyProfile={onOpenCompanyProfile}
-              onOpenCompanyList={opts => setDrawerState({
-                metric,
-                tier: opts.tier,
-                positionRange: opts.positionRange,
-                highlightCompanyId: opts.companyId,
-              })}
-            />
+            <div key={metric.id} role="listitem">
+              <BenchmarkMetricGlanceCard
+                metric={metric}
+                onOpen={() => setDrawerState({ metric })}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -2998,7 +3061,6 @@ function AdvisorPortfolioConnectionDialog({
                       connection.permissions.sharedIntelligence ? "intelligence" : null,
                       connection.permissions.sharedInitiatives ? "initiative progress" : null,
                       connection.permissions.sharedDataRoomFiles ? "selected data room files" : null,
-                      connection.permissions.sharedPublishedBrief ? "published brief" : null,
                     ].filter(Boolean).join(", ") || "nothing yet"}.`
                     : "The company accepted the connection."}
                   {" "}Private chats, drafts, unshared files, billing, and credentials stay private.
@@ -3136,6 +3198,7 @@ function PortfoliosPage({
   const buildPlayedForId = useRef<string | null>(
     playOnboardingBuild ? null : initialOnboardingList?.id ?? null,
   );
+  const activeDemoSeedForListId = useRef<string | null>(null);
 
   const activeList = lists.find(row => row.id === activeId) ?? null;
 
@@ -3238,7 +3301,7 @@ function PortfoliosPage({
   const detailCompanies = useMemo(() => {
     if (!activeList) return [];
     return companiesForPortfolioList(activeList).map(buildPortfolioCompanyView)
-      .sort((left, right) => right.moic - left.moic);
+      .sort((left, right) => right.estimatedValue - left.estimatedValue);
   }, [activeList]);
 
   const filteredDetailCompanies = useMemo(() => {
@@ -3267,13 +3330,52 @@ function PortfoliosPage({
       counts[portfolioCompanyAccessTab(company, receivedInviteCompanyIds)] += 1;
     });
     return counts;
-  }, [detailCompanies, receivedInviteCompanyIds]);
+  }, [detailCompanies, receivedInviteCompanyIds, connectionVersion]);
 
   const companiesForAccessTab = useMemo(() => (
     filteredDetailCompanies.filter(company => (
       portfolioCompanyAccessTab(company, receivedInviteCompanyIds) === companyAccessTab
     ))
-  ), [companyAccessTab, filteredDetailCompanies, receivedInviteCompanyIds]);
+  ), [companyAccessTab, filteredDetailCompanies, receivedInviteCompanyIds, connectionVersion]);
+
+  const inactiveDetailCompanies = useMemo(
+    () => detailCompanies.filter(company => (
+      portfolioCompanyAccessTab(company, receivedInviteCompanyIds) !== "active"
+    )),
+    [detailCompanies, receivedInviteCompanyIds, connectionVersion],
+  );
+
+  useEffect(() => {
+    if (!activeList || detailCompanies.length === 0) return;
+    if (companyAccessTabCounts.active > 0) {
+      activeDemoSeedForListId.current = activeList.id;
+      return;
+    }
+    // Active empty (e.g. all rows stuck in request_pending) — promote a demo batch.
+    if (activeDemoSeedForListId.current === `empty:${activeList.id}`) return;
+    const added = connectPortfolioCompaniesForDemo(
+      detailCompanies.map(company => ({
+        id: company.id,
+        displayName: company.displayName,
+        domain: company.domain,
+      })),
+      PORTFOLIO_ACTIVE_DEMO_INITIAL,
+    );
+    activeDemoSeedForListId.current = added > 0 ? activeList.id : `empty:${activeList.id}`;
+    if (added > 0) setConnectionVersion(version => version + 1);
+  }, [activeList, companyAccessTabCounts.active, detailCompanies]);
+
+  const loadMoreActiveCompanies = useCallback(() => {
+    const added = connectPortfolioCompaniesForDemo(
+      inactiveDetailCompanies.map(company => ({
+        id: company.id,
+        displayName: company.displayName,
+        domain: company.domain,
+      })),
+      PORTFOLIO_ACTIVE_DEMO_BATCH,
+    );
+    if (added > 0) setConnectionVersion(version => version + 1);
+  }, [inactiveDetailCompanies]);
 
   const availableToAdd = useMemo(() => {
     if (!activeList) return [];
@@ -3346,7 +3448,7 @@ function PortfoliosPage({
     const displayCompanyCount = detailCompanies.length || activeList.companyCount;
 
     return (
-      <section className="investor-portfolios-page">
+      <section className="investor-portfolios-page investor-portfolios-page--detail">
         <div className="investor-portfolio-detail-head">
           <button
             type="button"
@@ -3419,30 +3521,6 @@ function PortfoliosPage({
           </button>
         </div>
 
-        {detailView === "table" && detailCompanies.length > 0 ? (
-          <div
-            className="investor-watchlists-tabs investor-portfolios-tabs investor-portfolio-companies-access-tabs"
-            role="tablist"
-            aria-label="Company access filters"
-          >
-            {PORTFOLIO_COMPANY_ACCESS_TABS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={companyAccessTab === id}
-                className={companyAccessTab === id ? "is-active" : ""}
-                onClick={() => setCompanyAccessTab(id)}
-              >
-                {label}
-                <span className="investor-portfolios-tab-count">
-                  {formatBenchmarkCount(companyAccessTabCounts[id])}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-
         {addingCompanies && detailView === "table" ? (
           <article className="overview-panel investor-portfolio-add-panel">
             <div className="overview-panel-head">
@@ -3491,9 +3569,27 @@ function PortfoliosPage({
               </article>
             ) : (
               <article className="overview-panel investor-portfolio-panel">
-                <div className="investor-portfolio-detail-toolbar">
-                  <div className="investor-portfolio-detail-toolbar-copy">
-                    <strong>Companies</strong>
+                <div className="workspace-list-search-tabs-row investor-portfolio-search-tabs-row">
+                  <div
+                    className="investor-portfolio-companies-access-tabs"
+                    role="tablist"
+                    aria-label="Company access filters"
+                  >
+                    {PORTFOLIO_COMPANY_ACCESS_TABS.map(({ id, label }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        aria-selected={companyAccessTab === id}
+                        className={companyAccessTab === id ? "is-active" : ""}
+                        onClick={() => setCompanyAccessTab(id)}
+                      >
+                        {label}
+                        <span className="investor-portfolio-companies-access-count">
+                          {formatBenchmarkCount(companyAccessTabCounts[id])}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                   <label className="investor-portfolio-detail-search">
                     <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -3523,6 +3619,7 @@ function PortfoliosPage({
                   companies={companiesForAccessTab}
                   onOpenCompanyProfile={onOpenCompanyProfile}
                   onManageConnection={setConnectionCompany}
+                  embedded
                   emptyLabel={
                     companyQuery.trim()
                       ? "No companies match your search in this tab."
@@ -3530,6 +3627,16 @@ function PortfoliosPage({
                   }
                   resetKey={`${activeList?.id ?? "none"}:${companyQuery}:${companyAccessTab}:${connectionVersion}`}
                 />
+                {companyAccessTab === "active" && !companyQuery.trim() && inactiveDetailCompanies.length > 0 ? (
+                  <div className="investor-portfolio-active-load-more">
+                    <button type="button" className="investor-suggested-secondary" onClick={loadMoreActiveCompanies}>
+                      Load more active companies
+                    </button>
+                    <span>
+                      Connects up to {PORTFOLIO_ACTIVE_DEMO_BATCH} more companies for this demo.
+                    </span>
+                  </div>
+                ) : null}
               </article>
             )}
           </div>
@@ -3822,16 +3929,37 @@ function PortfoliosPage({
   );
 }
 
-function moicTier(moic: number): "strong" | "watch" | "concern" {
-  if (moic >= 2) return "strong";
-  if (moic >= 1) return "watch";
-  return "concern";
-}
-
 function healthLabel(health: PortfolioCompanyView["health"]): string {
   if (health === "strong") return "Strong";
   if (health === "watch") return "Watch";
   return "Struggling";
+}
+
+/** Header detail under the name — strips values already shown as title or tags. */
+function companyDrawerHeaderDetail(company: PortfolioCompanyView): string | null {
+  const blocked = new Set(
+    [
+      company.displayName,
+      company.displayName.replace(/\s+\d+$/u, "").trim(),
+      company.stage,
+      company.sector,
+    ]
+      .filter(Boolean)
+      .map(value => value.toLowerCase()),
+  );
+
+  const metaParts = company.meta
+    .split("·")
+    .map(part => part.trim())
+    .filter(Boolean)
+    .filter(part => !blocked.has(part.toLowerCase()));
+
+  const domain = company.domain?.replace(/^www\./iu, "").trim();
+  if (domain && !metaParts.some(part => part.toLowerCase() === domain.toLowerCase())) {
+    metaParts.push(domain);
+  }
+
+  return metaParts.length > 0 ? metaParts.join(" · ") : null;
 }
 
 function PortfolioCompanyLogo({
@@ -3878,7 +4006,203 @@ function PortfolioCompanyLogo({
   );
 }
 
-type CompanyDrawerTab = "investment" | "profile" | "benchmarks" | "intelligence" | "initiatives" | "files" | "brief" | "about";
+type CompanyDrawerTab = "profile" | "benchmarks" | "initiatives" | "files" | "about";
+
+type SharedInitiativePreview = {
+  id: string;
+  title: string;
+  status: string;
+  owner: string;
+  due: string;
+  progress: number;
+  /** Initiative was created by the investor viewer (not the company). */
+  createdByViewer?: boolean;
+};
+
+type SharedDataRoomFilePreview = {
+  id: string;
+  name: string;
+  kind: string;
+  updated: string;
+};
+
+function dataRoomFileIconMeta(kind: string, fileName: string): {
+  icon: FuelIconName;
+  tone: "pdf" | "xls" | "deck" | "doc";
+} {
+  const haystack = `${kind} ${fileName}`.toLowerCase();
+  if (haystack.includes("sheet") || haystack.includes("xls") || haystack.includes("csv")) {
+    return { icon: "fileSpreadsheet", tone: "xls" };
+  }
+  if (haystack.includes("deck") || haystack.includes("slide") || haystack.includes("pitch")) {
+    return { icon: "fileDeck", tone: "deck" };
+  }
+  if (haystack.includes("pdf")) {
+    return { icon: "file", tone: "pdf" };
+  }
+  return { icon: "file", tone: "doc" };
+}
+
+/**
+ * Demo share patterns for Initiatives + Data room.
+ * - full: Patriot Pay — company shared initiatives and files
+ * - viewer_initiatives: Operator AI — only initiatives, created by you
+ * - empty: Sync Sports — sections open but nothing shared yet
+ */
+type CompanyShareDemoScenario = "full" | "viewer_initiatives" | "empty";
+
+function companyShareDemoScenario(
+  company: Pick<PortfolioCompanyView, "id" | "displayName">,
+): CompanyShareDemoScenario {
+  const { id: companyId, displayName } = company;
+  // Explicit demos: full share (initiatives + data room)
+  if (companyId === "patriotpay") return "full";
+  if (displayName === "Brex 30" || companyId === "seed-fund-brex-w30-881") return "full";
+  if (companyId === "operator-ai") return "viewer_initiatives";
+  if (companyId === "sync-sports") return "empty";
+  let hash = 0;
+  for (let i = 0; i < companyId.length; i += 1) {
+    hash = ((hash << 5) - hash) + companyId.charCodeAt(i);
+    hash |= 0;
+  }
+  const bucket = Math.abs(hash) % 3;
+  if (bucket === 0) return "full";
+  if (bucket === 1) return "viewer_initiatives";
+  return "empty";
+}
+
+function companySharedInitiatives(company: PortfolioCompanyView): SharedInitiativePreview[] {
+  const scenario = companyShareDemoScenario(company);
+  if (scenario === "empty") return [];
+
+  if (scenario === "viewer_initiatives") {
+    const focus = company.strugglingAreas[0] || "pipeline conversion";
+    return [
+      {
+        id: `${company.id}-init-you-1`,
+        title: `Board prep: ${focus.toLowerCase()}`,
+        status: "In progress",
+        owner: "You",
+        due: "Before next check-in",
+        progress: 42,
+        createdByViewer: true,
+      },
+      {
+        id: `${company.id}-init-you-2`,
+        title: "Ask founder for updated cohort metrics",
+        status: "On track",
+        owner: "You",
+        due: "This week",
+        progress: 60,
+        createdByViewer: true,
+      },
+    ];
+  }
+
+  const focus = company.strugglingAreas[0] || company.sector || "Go-to-market";
+  const base: SharedInitiativePreview[] = [
+    {
+      id: `${company.id}-init-gtm`,
+      title: `Improve ${focus.toLowerCase()} efficiency`,
+      status: company.health === "strong" ? "On track" : "In progress",
+      owner: "Founder",
+      due: "This quarter",
+      progress: company.health === "strong" ? 72 : company.health === "watch" ? 48 : 28,
+    },
+    {
+      id: `${company.id}-init-runway`,
+      title: company.runwayMonths < 9 ? "Extend runway plan" : "Hiring plan sync",
+      status: company.runwayMonths < 9 ? "Needs review" : "On track",
+      owner: "CEO",
+      due: company.runwayMonths < 9 ? "Next 30 days" : "This half",
+      progress: company.runwayMonths < 9 ? 35 : 64,
+    },
+  ];
+  if (company.redFlags.length > 0 || company.health === "struggling") {
+    base.push({
+      id: `${company.id}-init-risk`,
+      title: company.urgentFlag?.label || company.redFlags[0]?.label || "Stabilize key operating metrics",
+      status: "Needs review",
+      owner: "Founder",
+      due: "This month",
+      progress: 18,
+    });
+  }
+  return base;
+}
+
+function companySharedDataRoomFiles(company: PortfolioCompanyView): SharedDataRoomFilePreview[] {
+  if (companyShareDemoScenario(company) !== "full") return [];
+  return [
+    {
+      id: `${company.id}-file-board`,
+      name: `${company.displayName} board update.pdf`,
+      kind: "Deck",
+      updated: "4d ago",
+    },
+    {
+      id: `${company.id}-file-metrics`,
+      name: "Shared metrics pack.xlsx",
+      kind: "Spreadsheet",
+      updated: "1w ago",
+    },
+    {
+      id: `${company.id}-file-cap`,
+      name: "Cap table summary.pdf",
+      kind: "Document",
+      updated: "3w ago",
+    },
+  ];
+}
+
+function CompanyDrawerAccordion({
+  id,
+  title,
+  meta,
+  icon,
+  open,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  meta?: string;
+  icon?: FuelIconName;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const panelId = `investor-company-drawer-panel-${id}`;
+  const buttonId = `investor-company-drawer-acc-${id}`;
+  return (
+    <section className={`investor-company-drawer-acc${open ? " is-open" : ""}`}>
+      <button
+        type="button"
+        id={buttonId}
+        className="investor-company-drawer-acc-trigger"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={onToggle}
+      >
+        {icon ? (
+          <span className="investor-company-drawer-acc-icon" aria-hidden="true">
+            <FuelIcon name={icon} size={15} />
+          </span>
+        ) : null}
+        <span className="investor-company-drawer-acc-copy">
+          <span className="investor-company-drawer-acc-title">{title}</span>
+          {meta ? <span className="investor-company-drawer-acc-meta">{meta}</span> : null}
+        </span>
+        <span className="investor-company-drawer-acc-chevron" aria-hidden="true" />
+      </button>
+      {open ? (
+        <div id={panelId} role="region" aria-labelledby={buttonId} className="investor-company-drawer-acc-body">
+          {children}
+        </div>
+      ) : null}
+    </section>
+  );
+}
 
 export function InvestorCompanyProfileDrawer({
   company,
@@ -3894,7 +4218,7 @@ export function InvestorCompanyProfileDrawer({
   founderOverride?: { name: string; title?: string; email?: string; linkedin?: string };
 }) {
   const dialogRef = useRef<HTMLElement>(null);
-  const [activeTab, setActiveTab] = useState<CompanyDrawerTab>("investment");
+  const [activeTab, setActiveTab] = useState<CompanyDrawerTab>("profile");
   const [accessVersion, setAccessVersion] = useState(0);
   const open = Boolean(company);
   useDialogA11y(open, dialogRef, onClose);
@@ -3910,34 +4234,20 @@ export function InvestorCompanyProfileDrawer({
   }, [open]);
 
   useEffect(() => {
-    if (open) setActiveTab(aboutOnly ? "about" : "investment");
-  }, [company?.id, open, aboutOnly]);
-
-  useEffect(() => {
     const refresh = () => setAccessVersion(version => version + 1);
     window.addEventListener(ADVISOR_CONNECTION_CHANGE_EVENT, refresh);
     return () => window.removeEventListener(ADVISOR_CONNECTION_CHANGE_EVENT, refresh);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    setActiveTab(aboutOnly ? "about" : "profile");
+  }, [company?.id, open, aboutOnly]);
+
   if (!company || !open) return null;
 
   const returnLabel = formatUsdCompact(company.estimatedValue);
   const access = accessVersion >= 0 ? sharedAdvisorAccess(company.id) : null;
-  const benchmarkFacts = access?.approvedBenchmarks ? companyBenchmarkFacts(company) : [];
-  const sharedTabs: { id: CompanyDrawerTab; label: string }[] = access
-    ? [
-      { id: "investment", label: "Investment" },
-      access.sharedProfile ? { id: "profile", label: "Profile" } : null,
-      access.approvedBenchmarks ? { id: "benchmarks", label: "Benchmarks" } : null,
-      access.sharedIntelligence ? { id: "intelligence", label: "Intelligence" } : null,
-      access.sharedInitiatives ? { id: "initiatives", label: "Initiatives" } : null,
-      access.sharedDataRoomFiles ? { id: "files", label: "Files" } : null,
-      access.sharedPublishedBrief ? { id: "brief", label: "Brief" } : null,
-    ].filter((tab): tab is { id: CompanyDrawerTab; label: string } => Boolean(tab))
-    : [];
-  const visibleTab = sharedTabs.some(tab => tab.id === activeTab)
-    ? activeTab
-    : (sharedTabs[0]?.id ?? "investment");
   const founderProfile = access?.sharedProfile
     ? findFounderCompanyProfile({ name: company.displayName, domain: company.domain })
     : null;
@@ -3956,12 +4266,68 @@ export function InvestorCompanyProfileDrawer({
       linkedin: "",
     };
   const mailSubject = encodeURIComponent(`${company.displayName} — portfolio check-in`);
-  const founderPanelId = "investor-company-drawer-founder-panel";
-  const portfolioPanelId = "investor-company-drawer-portfolio-panel";
-  const aboutPanelId = "investor-company-drawer-about-panel";
+  const shareScenario = companyShareDemoScenario(company);
+  const sharedInitiatives = access?.sharedInitiatives ? companySharedInitiatives(company) : [];
+  const sharedFiles = access?.sharedDataRoomFiles ? companySharedDataRoomFiles(company) : [];
+  const viewerCreatedCount = sharedInitiatives.filter(item => item.createdByViewer).length;
+  const hasProfile = Boolean(access?.sharedProfile);
+  const hasBenchmarks = Boolean(access?.approvedBenchmarks);
+  const hasInitiatives = Boolean(access?.sharedInitiatives);
+  const hasFiles = Boolean(access?.sharedDataRoomFiles) && shareScenario !== "viewer_initiatives";
+  const headerDetail = companyDrawerHeaderDetail(company);
+  const hasConnection = Boolean(access);
 
-  const showFounderTab = () => {
-    setActiveTab("profile");
+  const drawerTabs: Array<{ id: CompanyDrawerTab; label: string }> = aboutOnly
+    ? []
+    : [
+      { id: "profile", label: "Profile" },
+      { id: "benchmarks", label: "Benchmarks" },
+      { id: "initiatives", label: "Initiatives" },
+      { id: "files", label: "Data room" },
+    ];
+
+  const resolvedTab: CompanyDrawerTab = aboutOnly
+    ? "about"
+    : drawerTabs.some(tab => tab.id === activeTab)
+      ? activeTab
+      : "profile";
+
+  const drawerBenchmarks = hasBenchmarks ? companyBenchmarkFacts(company) : [];
+  const profileFacts: Array<{ label: string; value: string }> = [
+    company.domain ? { label: "Website", value: company.domain } : null,
+    company.headquarters ? { label: "Headquarters", value: company.headquarters } : null,
+    company.employees ? { label: "Team size", value: company.employees } : null,
+    company.stage ? { label: "Stage", value: company.stage } : null,
+    (founderProfile?.industry || company.sector)
+      ? { label: "Industry", value: founderProfile?.industry || company.sector }
+      : null,
+    founderProfile?.founded ? { label: "Founded", value: founderProfile.founded } : null,
+    founderProfile?.businessModel
+      ? { label: "Model", value: founderProfile.businessModel }
+      : null,
+    ...(founderProfile?.funding.slice(0, 2).map(round => ({
+      label: round.type,
+      value: round.investors ? `${round.amount} · ${round.investors}` : round.amount,
+    })) ?? []),
+  ].filter((fact): fact is { label: string; value: string } => Boolean(fact));
+
+  const emptyCopy = (tab: CompanyDrawerTab): { title: string; body: string } => {
+    if (!hasConnection) {
+      return {
+        title: "Connection pending",
+        body: `${company.displayName} has not accepted yet. Shared details appear here once they connect.`,
+      };
+    }
+    if (tab === "profile" && !hasProfile) {
+      return { title: "Profile not shared", body: "The founding team has not shared their company profile with you yet." };
+    }
+    if (tab === "benchmarks" && !hasBenchmarks) {
+      return { title: "Benchmarks not shared", body: "Operating metrics appear here when the company shares benchmark access." };
+    }
+    if (tab === "initiatives") {
+      return { title: "No initiatives yet", body: "Shared initiative progress from the founding team will show up here." };
+    }
+    return { title: "No files shared", body: "Selected data room files will appear here once shared with you." };
   };
 
   return createPortal(
@@ -3972,7 +4338,7 @@ export function InvestorCompanyProfileDrawer({
     >
       <aside
         ref={dialogRef}
-        className="investor-company-drawer profile-complete-drawer"
+        className="investor-company-drawer profile-complete-drawer investor-company-drawer--v2 investor-company-drawer--polish"
         {...drawerPanelPointerProps()}
         role="dialog"
         aria-modal="true"
@@ -3980,341 +4346,341 @@ export function InvestorCompanyProfileDrawer({
       >
         <header className="investor-company-drawer-head">
           <div className="investor-company-drawer-identity">
-            <PortfolioCompanyLogo company={company} size="lg" />
-            <div>
-              <span className="investor-company-drawer-eyebrow">Portfolio company</span>
-              <strong id="investor-company-drawer-title">{company.displayName}</strong>
-              <p>{company.meta}</p>
-              <div className="investor-company-drawer-head-actions">
+            <span className="investor-company-drawer-logo-frame">
+              <PortfolioCompanyLogo company={company} size="lg" />
+            </span>
+            <div className="investor-company-drawer-identity-copy">
+              <div className="investor-company-drawer-title-row">
+                <div className="investor-company-drawer-title-stack">
+                  <div className="investor-company-drawer-title-line">
+                    <strong id="investor-company-drawer-title">{company.displayName}</strong>
+                    {(!aboutOnly && hasBenchmarks) || company.onFuel ? (
+                      <div className="investor-company-drawer-tags">
+                        {!aboutOnly && hasBenchmarks ? (
+                          <span className={`investor-company-drawer-tag is-health-${company.health}`}>
+                            {healthLabel(company.health)}
+                          </span>
+                        ) : null}
+                        {company.onFuel ? (
+                          <span className="investor-company-drawer-tag is-fuel">On Fuel</span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="investor-company-drawer-detail">
+                    {[company.stage, company.sector, headerDetail].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
                 <button
                   type="button"
-                  className="investor-company-drawer-profile-link"
-                  onClick={() => onOpenWorkspace(company)}
+                  className="investor-company-drawer-close profile-complete-drawer-x"
+                  onClick={onClose}
+                  aria-label="Close company profile"
+                  data-autofocus
                 >
-                  View full company profile
+                  <FuelIcon name="close" size={14} />
                 </button>
-                {founder.email ? (
-                  <button
-                    type="button"
-                    className="investor-company-drawer-profile-link is-muted"
-                    onClick={showFounderTab}
-                  >
-                    Contact founder
-                  </button>
-                ) : null}
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            className="investor-company-drawer-close profile-complete-drawer-x"
-            onClick={onClose}
-            aria-label="Close company profile"
-            data-autofocus
-          >
-            ✕
-          </button>
         </header>
 
-        <div className="investor-company-drawer-tags">
-          {company.stage ? <span className="investor-company-drawer-tag">{company.stage}</span> : null}
-          {company.sector ? <span className="investor-company-drawer-tag">{company.sector}</span> : null}
-          {aboutOnly || !access?.approvedBenchmarks ? null : (
-            <span className={`investor-company-drawer-tag is-health-${company.health}`}>
-              {healthLabel(company.health)}
-            </span>
-          )}
-          {company.onFuel ? (
-            <span className="investor-company-drawer-tag is-fuel">On Fuel</span>
-          ) : null}
-        </div>
-
-        {aboutOnly || sharedTabs.length === 0 ? null : (
-        <div className="investor-company-drawer-tabs" role="tablist" aria-label="Shared company information">
-          {sharedTabs.map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              id={`investor-company-drawer-tab-${tab.id}`}
-              className={visibleTab === tab.id ? "is-active" : undefined}
-              aria-selected={visibleTab === tab.id}
-              aria-controls={portfolioPanelId}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        )}
-
         <div className="investor-company-drawer-body">
-          {!aboutOnly && access ? (
-            <div
-              id={portfolioPanelId}
-              role="tabpanel"
-              aria-labelledby={`investor-company-drawer-tab-${visibleTab}`}
-            >
-              {visibleTab === "investment" ? (
-                <section className="investor-company-drawer-section">
-                  <span className="investor-company-drawer-section-label">Your position</span>
-                  <div className="investor-company-drawer-metrics">
-                    <article>
-                      <em>Invested</em>
-                      <strong>{company.invested}</strong>
-                    </article>
-                    <article>
-                      <em>Est. value</em>
-                      <strong>{returnLabel}</strong>
-                    </article>
-                    <article>
-                      <em>MOIC</em>
-                      <strong className={`investor-portfolio-moic-badge is-${moicTier(company.moic)}`}>
-                        {formatMoic(company.moic)}
-                      </strong>
-                    </article>
-                    <article>
-                      <em>Ownership</em>
-                      <strong>{company.ownership}</strong>
-                    </article>
-                    <article>
-                      <em>Invested</em>
-                      <strong>{company.investedAt}</strong>
-                    </article>
-                  </div>
-                </section>
-              ) : null}
-
-              {visibleTab === "profile" ? (
-                <section className="investor-company-drawer-section">
-                  <span className="investor-company-drawer-section-label">Company profile</span>
-                  {founderProfile?.whatTheyDo ? <p>{founderProfile.whatTheyDo}</p> : null}
-                  <div className="investor-company-drawer-facts">
-                    {company.domain ? (
-                      <div>
-                        <em>Website</em>
-                        <strong>{company.domain}</strong>
-                      </div>
-                    ) : null}
-                    {company.linkedin ? (
-                      <div>
-                        <em>LinkedIn</em>
-                        <strong>{company.linkedin.replace(/^https?:\/\//, "")}</strong>
-                      </div>
-                    ) : null}
-                    {company.headquarters ? (
-                      <div>
-                        <em>Headquarters</em>
-                        <strong>{company.headquarters}</strong>
-                      </div>
-                    ) : null}
-                    {company.employees ? (
-                      <div>
-                        <em>Team size</em>
-                        <strong>{company.employees}</strong>
-                      </div>
-                    ) : null}
-                    {company.stage ? (
-                      <div>
-                        <em>Stage</em>
-                        <strong>{company.stage}</strong>
-                      </div>
-                    ) : null}
-                    {(founderProfile?.industry || company.sector) ? (
-                      <div>
-                        <em>Industry</em>
-                        <strong>{founderProfile?.industry || company.sector}</strong>
-                      </div>
-                    ) : null}
-                    {founderProfile?.founded ? (
-                      <div>
-                        <em>Founded</em>
-                        <strong>{founderProfile.founded}</strong>
-                      </div>
-                    ) : null}
-                    {founderProfile?.businessModel ? (
-                      <div>
-                        <em>Organization</em>
-                        <strong>{founderProfile.businessModel}</strong>
-                      </div>
-                    ) : null}
-                    {founderProfile?.funding.map(round => (
-                      <div key={`${round.type}-${round.amount}`}>
-                        <em>{round.type}</em>
-                        <strong>{round.investors ? `${round.amount} · ${round.investors}` : round.amount}</strong>
-                      </div>
-                    ))}
-                    {sharedFounderEmail ? (
-                      <div>
-                        <em>Founder email</em>
-                        <strong>{sharedFounderEmail}</strong>
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-              ) : null}
-
-              {visibleTab === "benchmarks" ? (
-                <>
-                  <section className="investor-company-drawer-section">
-                    <span className="investor-company-drawer-section-label">Approved benchmarks</span>
-                    <div className="investor-company-drawer-metrics">
-                      {benchmarkFacts.map(fact => (
-                        <article key={fact.id}>
-                          <em>{fact.label}</em>
-                          <strong className={fact.id === "runway" && company.runwayMonths < 6 ? "is-flagged" : undefined}>
-                            {fact.value}
-                          </strong>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                  {company.redFlags.length > 0 ? (
-                    <section className="investor-company-drawer-section">
-                      <span className="investor-company-drawer-section-label">Signals</span>
-                      <ul className="investor-company-drawer-flags">
-                        {company.redFlags.map(flag => (
-                          <li key={flag.kind}>{flag.label}</li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null}
-                  {company.strugglingAreas.length > 0 ? (
-                    <section className="investor-company-drawer-section">
-                      <span className="investor-company-drawer-section-label">Focus areas</span>
-                      <div className="investor-company-drawer-chips">
-                        {company.strugglingAreas.map(area => (
-                          <span key={area} className="investor-company-drawer-chip">{area}</span>
-                        ))}
-                      </div>
-                    </section>
-                  ) : null}
-                </>
-              ) : null}
-
-              {visibleTab === "intelligence" ? (
-                <section className="investor-company-drawer-section">
-                  <span className="investor-company-drawer-section-label">Intelligence</span>
-                  <p>No shared intelligence on file yet.</p>
-                </section>
-              ) : null}
-
-              {visibleTab === "initiatives" ? (
-                <section className="investor-company-drawer-section">
-                  <span className="investor-company-drawer-section-label">Initiatives</span>
-                  <p>No shared initiatives on file yet.</p>
-                </section>
-              ) : null}
-
-              {visibleTab === "files" ? (
-                <section className="investor-company-drawer-section">
-                  <span className="investor-company-drawer-section-label">Data room</span>
-                  <p>No selected files on file yet.</p>
-                </section>
-              ) : null}
-
-              {visibleTab === "brief" ? (
-                <section className="investor-company-drawer-section">
-                  <span className="investor-company-drawer-section-label">Published brief</span>
-                  <p>No published brief on file yet.</p>
-                </section>
-              ) : null}
-            </div>
-          ) : !aboutOnly ? (
-            <div id={portfolioPanelId} role="tabpanel">
-              <section className="investor-company-drawer-section">
-                <span className="investor-company-drawer-section-label">Waiting for acceptance</span>
-                <p>
-                  {company.displayName} has not accepted this connection. Investment figures, benchmarks, and the rest of the company data stay hidden until they accept and choose what to share.
-                </p>
-              </section>
+          {aboutOnly ? (
+            <div className="investor-company-drawer-panel overview-panel">
+              <div className="investor-company-drawer-facts is-dense">
+                <div>
+                  <em>Website</em>
+                  <strong>{company.domain}</strong>
+                </div>
+                <div>
+                  <em>Headquarters</em>
+                  <strong>{company.headquarters}</strong>
+                </div>
+                <div>
+                  <em>Team size</em>
+                  <strong>{company.employees}</strong>
+                </div>
+                <div>
+                  <em>On Fuel</em>
+                  <strong>{company.onFuel ? "Yes" : "No"}</strong>
+                </div>
+              </div>
             </div>
           ) : (
-            <div
-              id={aboutPanelId}
-              role="tabpanel"
-              aria-labelledby="investor-company-drawer-tab-about"
-            >
-              <section className="investor-company-drawer-section">
-                <span className="investor-company-drawer-section-label">Company</span>
-                <div className="investor-company-drawer-facts">
-                  <div>
-                    <em>Website</em>
-                    <strong>{company.domain}</strong>
+            <>
+              <section className="investor-company-drawer-position-strip" aria-label="Your position">
+                <div className="investor-company-drawer-position-strip-head">
+                  <span>Your position</span>
+                  {company.investedAt ? <em>Since {company.investedAt}</em> : null}
+                </div>
+                <div className="investor-company-drawer-position-strip-stats" role="list">
+                  <div className="investor-company-drawer-position-stat" role="listitem">
+                    <span className="investor-company-drawer-position-stat-label">
+                      <span className="investor-company-drawer-position-stat-icon" aria-hidden="true">
+                        <FuelIcon name="fundraising" size={13} strokeWidth={1.85} />
+                      </span>
+                      <em>Invested</em>
+                    </span>
+                    <strong>{hasConnection ? company.invested : "—"}</strong>
                   </div>
-                  <div>
-                    <em>Headquarters</em>
-                    <strong>{company.headquarters}</strong>
+                  <div className="investor-company-drawer-position-stat" role="listitem">
+                    <span className="investor-company-drawer-position-stat-label">
+                      <span className="investor-company-drawer-position-stat-icon" aria-hidden="true">
+                        <FuelIcon name="growth" size={13} strokeWidth={1.85} />
+                      </span>
+                      <em>Est. value</em>
+                    </span>
+                    <strong>{hasConnection ? returnLabel : "—"}</strong>
                   </div>
-                  <div>
-                    <em>Team size</em>
-                    <strong>{company.employees}</strong>
-                  </div>
-                  {aboutOnly ? null : (
-                    <div>
-                      <em>Last update</em>
-                      <strong>{company.lastUpdate}</strong>
-                    </div>
-                  )}
-                  {aboutOnly ? null : (
-                    <div>
-                      <em>Benchmark</em>
-                      <strong>{company.daysSinceBenchmark}d ago</strong>
-                    </div>
-                  )}
-                  <div>
-                    <em>On Fuel</em>
-                    <strong>{company.onFuel ? "Yes" : "No"}</strong>
+                  <div className="investor-company-drawer-position-stat" role="listitem">
+                    <span className="investor-company-drawer-position-stat-label">
+                      <span className="investor-company-drawer-position-stat-icon" aria-hidden="true">
+                        <FuelIcon name="gauge" size={13} strokeWidth={1.85} />
+                      </span>
+                      <em>Ownership</em>
+                    </span>
+                    <strong>{hasConnection ? company.ownership : "—"}</strong>
                   </div>
                 </div>
               </section>
 
-              {founder.name || founder.email ? (
-              <section
-                id={founderPanelId}
-                className="investor-company-drawer-section investor-company-drawer-founder"
+              <div className="investor-company-drawer-easy-tabs" role="tablist" aria-label="Company details">
+                {drawerTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    id={`investor-company-drawer-tab-${tab.id}`}
+                    aria-selected={resolvedTab === tab.id}
+                    aria-controls={`investor-company-drawer-panel-${tab.id}`}
+                    className={resolvedTab === tab.id ? "is-active" : undefined}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                id={`investor-company-drawer-panel-${resolvedTab}`}
+                role="tabpanel"
+                aria-labelledby={`investor-company-drawer-tab-${resolvedTab}`}
+                className="investor-company-drawer-panel overview-panel"
               >
-                <span className="investor-company-drawer-section-label">Founder</span>
-                <article className="investor-company-drawer-founder-card">
-                  <div className="investor-company-drawer-founder-main">
-                    <span className="investor-company-drawer-founder-avatar" aria-hidden="true">
-                      {(founder.name || founder.email).slice(0, 1)}
-                    </span>
-                    <div className="investor-company-drawer-founder-copy">
-                      <strong>{founder.name || founder.email}</strong>
-                      {founder.title ? <p>{founder.title}</p> : null}
-                      {founder.email && founder.name ? (
-                        <a href={`mailto:${founder.email}?subject=${mailSubject}`}>
-                          {founder.email}
-                        </a>
+                {resolvedTab === "profile" ? (
+                  hasProfile ? (
+                    <div className="investor-company-drawer-fit-stack">
+                      {founderProfile?.whatTheyDo ? (
+                        <p className="investor-company-drawer-blurb">{founderProfile.whatTheyDo}</p>
+                      ) : null}
+                      <div className="investor-company-drawer-facts is-dense">
+                        {profileFacts.map(fact => (
+                          <div key={fact.label}>
+                            <em>{fact.label}</em>
+                            <strong title={fact.value}>{fact.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="investor-company-drawer-empty">
+                      <strong>{emptyCopy("profile").title}</strong>
+                      <p>{emptyCopy("profile").body}</p>
+                    </div>
+                  )
+                ) : null}
+
+                {resolvedTab === "benchmarks" ? (
+                  hasBenchmarks && drawerBenchmarks.length > 0 ? (
+                    <div className="icd-bench">
+                      <header className="icd-bench-head">
+                        <div className="icd-bench-head-main">
+                          <span className="icd-bench-eyebrow">Health</span>
+                          <strong className={`icd-bench-health-pill is-health-${company.health}`}>
+                            {healthLabel(company.health)}
+                          </strong>
+                        </div>
+                        <p className="icd-bench-head-copy">
+                          {drawerBenchmarks.length} shared metrics at this stage
+                        </p>
+                      </header>
+
+                      <div className="icd-bench-hero">
+                        {([
+                          { id: "arr" as const, icon: "growth" as const },
+                          { id: "runway" as const, icon: "pulse" as const },
+                          { id: "nrr" as const, icon: "retention" as const },
+                        ]).map(({ id, icon }) => {
+                          const fact = drawerBenchmarks.find(item => item.id === id);
+                          if (!fact) return null;
+                          return (
+                            <article key={fact.id} className="icd-bench-hero-card">
+                              <span className="icd-bench-hero-label">
+                                <span className="icd-bench-hero-icon" aria-hidden="true">
+                                  <FuelIcon name={icon} size={13} strokeWidth={1.85} />
+                                </span>
+                                <em>{fact.label}</em>
+                              </span>
+                              <strong className={fact.id === "runway" && company.runwayMonths < 6 ? "is-flagged" : undefined}>
+                                {fact.value}
+                              </strong>
+                            </article>
+                          );
+                        })}
+                      </div>
+
+                      <div className="icd-bench-list-wrap">
+                        <span className="icd-bench-eyebrow">All metrics</span>
+                        <ul className="icd-bench-list">
+                          {drawerBenchmarks
+                            .filter(fact => !["arr", "runway", "nrr"].includes(fact.id))
+                            .map(fact => (
+                              <li key={fact.id}>
+                                <span>{fact.label}</span>
+                                <strong>{fact.value}</strong>
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+
+                      {(company.redFlags.length > 0 || company.strugglingAreas.length > 0) ? (
+                        <div className="icd-bench-signals">
+                          {company.redFlags.length > 0 ? (
+                            <div className="icd-bench-signal-block">
+                              <span className="icd-bench-eyebrow">Watch signals</span>
+                              <div className="icd-bench-chip-row">
+                                {company.redFlags.map(flag => (
+                                  <span key={flag.kind} className="icd-bench-chip is-flag">
+                                    {flag.label}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                          {company.strugglingAreas.length > 0 ? (
+                            <div className="icd-bench-signal-block">
+                              <span className="icd-bench-eyebrow">Focus areas</span>
+                              <div className="icd-bench-chip-row">
+                                {company.strugglingAreas.map(area => (
+                                  <span key={area} className="icd-bench-chip">
+                                    {area}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
-                    {founder.email ? (
-                      <a
-                        className="investor-company-drawer-founder-cta"
-                        href={`mailto:${founder.email}?subject=${mailSubject}`}
-                      >
-                        Email founder
-                      </a>
-                    ) : null}
-                  </div>
-                  {founder.linkedin ? (
-                    <a
-                      className="investor-company-drawer-founder-link"
-                      href={founder.linkedin.startsWith("http") ? founder.linkedin : `https://${founder.linkedin}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      View LinkedIn profile
-                    </a>
-                  ) : null}
-                </article>
-              </section>
-              ) : null}
-            </div>
+                  ) : (
+                    <div className="investor-company-drawer-empty">
+                      <strong>{emptyCopy("benchmarks").title}</strong>
+                      <p>{emptyCopy("benchmarks").body}</p>
+                    </div>
+                  )
+                ) : null}
+
+                {resolvedTab === "initiatives" ? (
+                  hasInitiatives && sharedInitiatives.length > 0 ? (
+                    <div className="investor-company-drawer-fit-stack">
+                      {viewerCreatedCount > 0 ? (
+                        <p className="investor-company-drawer-privacy-line">
+                          Private to you — the founding team cannot see these.
+                        </p>
+                      ) : null}
+                      <ul className="investor-company-drawer-initiative-list">
+                        {sharedInitiatives.map(item => (
+                          <li key={item.id} className={item.createdByViewer ? "is-viewer-created" : undefined}>
+                            <div className="investor-company-drawer-initiative-head">
+                              <strong title={item.title}>{item.title}</strong>
+                              <span className={`investor-company-drawer-initiative-status is-${item.status === "On track" ? "good" : item.status === "Needs review" ? "bad" : "watch"}`}>
+                                {item.status}
+                              </span>
+                            </div>
+                            <div className="investor-company-drawer-initiative-meta">
+                              {item.createdByViewer ? (
+                                <span className="investor-company-drawer-you-tag">Private</span>
+                              ) : null}
+                              <span>{item.owner}</span>
+                              <span>{item.due}</span>
+                              <span>{item.progress}%</span>
+                            </div>
+                            <div
+                              className="investor-company-drawer-initiative-progress"
+                              role="progressbar"
+                              aria-valuenow={item.progress}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-label={`${item.progress}% complete`}
+                            >
+                              <span style={{ width: `${item.progress}%` }} />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="investor-company-drawer-empty">
+                      <strong>{emptyCopy("initiatives").title}</strong>
+                      <p>{emptyCopy("initiatives").body}</p>
+                    </div>
+                  )
+                ) : null}
+
+                {resolvedTab === "files" ? (
+                  hasFiles && sharedFiles.length > 0 ? (
+                    <ul className="investor-company-drawer-file-list">
+                      {sharedFiles.map(file => {
+                        const fileIcon = dataRoomFileIconMeta(file.kind, file.name);
+                        return (
+                          <li key={file.id}>
+                            <span
+                              className={`investor-company-drawer-file-icon is-${fileIcon.tone}`}
+                              aria-hidden="true"
+                            >
+                              <FuelIcon name={fileIcon.icon} size={18} strokeWidth={1.65} />
+                            </span>
+                            <div className="investor-company-drawer-file-copy">
+                              <strong title={file.name}>{file.name}</strong>
+                              <em>{file.kind} · Updated {file.updated}</em>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <div className="investor-company-drawer-empty">
+                      <strong>{emptyCopy("files").title}</strong>
+                      <p>{emptyCopy("files").body}</p>
+                    </div>
+                  )
+                ) : null}
+              </div>
+            </>
           )}
         </div>
 
+        {!aboutOnly ? (
+          <footer className="investor-company-drawer-foot">
+            <button
+              type="button"
+              className="investor-suggested-primary"
+              onClick={() => onOpenWorkspace(company)}
+            >
+              Open company workspace
+              <FuelIcon name="investors" size={14} />
+            </button>
+            {founder.email ? (
+              <a
+                className="investor-suggested-ghost"
+                href={`mailto:${founder.email}?subject=${mailSubject}`}
+              >
+                Contact founder
+              </a>
+            ) : null}
+          </footer>
+        ) : null}
       </aside>
     </div>,
     document.body,
@@ -4368,12 +4734,12 @@ function PortfolioCompaniesTable({
       <div
         className="workspace-table data-room-list investor-companies-table"
         role="table"
-        aria-label="Portfolio companies ranked by MOIC"
+        aria-label="Portfolio companies ranked by estimated value"
       >
         <div className="workspace-table-head" role="row">
           <span role="columnheader">Company</span>
           <span role="columnheader">Stage</span>
-          <span role="columnheader">{onManageConnection ? "Invested" : "MOIC"}</span>
+          <span role="columnheader">Invested</span>
           <span role="columnheader">{onManageConnection ? "ARR" : compact ? "ARR" : "Return"}</span>
           <span role="columnheader">{onManageConnection ? "Actions" : "Trend"}</span>
         </div>
@@ -5557,7 +5923,6 @@ function PortfolioCompanyRow({
 }) {
   const growthLabel = formatGrowthRate(company.arrGrowthQoQ);
   const returnLabel = formatUsdCompact(company.estimatedValue);
-  const moicClass = moicTier(company.moic);
   const connection = getAdvisorConnection(company.id);
   const connectionStatus = connection?.status ?? "not_connected";
   const benchmarksShared = sharedAdvisorAccess(company.id)?.approvedBenchmarks === true;
@@ -5633,9 +5998,9 @@ function PortfolioCompanyRow({
       ) : (
         <>
           <span className="workspace-table-keyfact" role="cell">
-            <span className={`investor-portfolio-moic-badge is-${moicClass}`}>{formatMoic(company.moic)}</span>
+            <strong>{company.invested}</strong>
             {!compact ? (
-              <span className="workspace-table-subtitle">{company.invested} invested</span>
+              <span className="workspace-table-subtitle">{company.ownership} ownership</span>
             ) : null}
           </span>
           <span className="workspace-table-keyfact" role="cell">

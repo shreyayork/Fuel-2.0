@@ -1910,7 +1910,7 @@ export function buildPortfolioFundTotals(portfolio: PortfolioCompany[]): Portfol
 export function rankPortfolioCompanies(portfolio: PortfolioCompany[]): PortfolioCompanyView[] {
   return portfolio
     .map(buildPortfolioCompanyView)
-    .sort((left, right) => right.moic - left.moic);
+    .sort((left, right) => right.estimatedValue - left.estimatedValue);
 }
 
 export function buildSectorAllocation(portfolio: PortfolioCompany[]): SectorAllocationSlice[] {
@@ -2035,11 +2035,11 @@ export function buildInvestorFundSummary(portfolio: PortfolioCompany[]) {
   const flagged = ranked.filter(company => company.redFlags.length > 0);
 
   return {
-    headline: `${totals.activeCompanies} active companies · ${formatMoic(totals.blendedMoic)} blended MOIC`,
+    headline: `${totals.activeCompanies} active companies · ${formatUsdCompact(totals.estimatedValue)} estimated value`,
     lede: flagged.length
-      ? `${flagged.length} compan${flagged.length === 1 ? "y needs" : "ies need"} attention — ${flagged.map(c => c.displayName).join(", ")}. ${top ? `${top.displayName} leads on MOIC at ${formatMoic(top.moic)}.` : ""}`.trim()
+      ? `${flagged.length} compan${flagged.length === 1 ? "y needs" : "ies need"} attention — ${flagged.map(c => c.displayName).join(", ")}. ${top ? `${top.displayName} leads on estimated value at ${formatUsdCompact(top.estimatedValue)}.` : ""}`.trim()
       : top
-        ? `Portfolio is clear of red flags. ${top.displayName} leads on MOIC at ${formatMoic(top.moic)}.`
+        ? `Portfolio is clear of red flags. ${top.displayName} leads on estimated value at ${formatUsdCompact(top.estimatedValue)}.`
         : "No portfolio companies yet.",
     totals,
     ranked,

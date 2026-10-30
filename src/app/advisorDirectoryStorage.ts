@@ -194,7 +194,33 @@ const SEED_LINKS: CompanyAdvisorLink[] = [
   { id: "link-dana-harbor", companyId: "harbor", companyName: "Harbor", advisorId: "adv-dana", status: "linked", linkedAt: 1 },
   { id: "link-alex-relay", companyId: "relay", companyName: "Relay", advisorId: "adv-alex", status: "connected", linkedAt: 1 },
   { id: "link-jordan-apex", companyId: "apex", companyName: "Apex", advisorId: "adv-jordan", status: "linked", linkedAt: 1 },
+  { id: "link-matt-patriotpay", companyId: "patriotpay", companyName: "Patriot Pay", advisorId: "adv-matt", status: "connected", linkedAt: 1 },
+  { id: "link-priya-patriotpay", companyId: "patriotpay", companyName: "Patriot Pay", advisorId: "adv-priya", status: "connected", linkedAt: 1 },
 ];
+
+/** Ensure demo founder company always has connected investors for Share with. */
+export function ensureDemoShareInvestorLinks(companyId: string, companyName: string) {
+  const links = readLinks();
+  const needed = ["adv-matt", "adv-priya"] as const;
+  let changed = false;
+  needed.forEach(advisorId => {
+    const existing = Object.values(links).find(
+      link => link.companyId === companyId && link.advisorId === advisorId,
+    );
+    if (existing) return;
+    const id = `link-${advisorId}-${companyId}`;
+    links[id] = {
+      id,
+      companyId,
+      companyName,
+      advisorId,
+      status: "connected",
+      linkedAt: Date.now(),
+    };
+    changed = true;
+  });
+  if (changed) writeLinks(links);
+}
 
 function emitChange() {
   window.dispatchEvent(new CustomEvent(ADVISOR_DIRECTORY_CHANGE_EVENT));

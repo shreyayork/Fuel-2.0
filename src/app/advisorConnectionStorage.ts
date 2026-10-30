@@ -189,6 +189,86 @@ export function createAdvisorInvite(company: {
   return next;
 }
 
+/** How many portfolio holdings to mark connected on first portfolio open (demo). */
+export const PORTFOLIO_ACTIVE_DEMO_INITIAL = 30;
+
+/** Batch size for “Load more” on the portfolio Active tab. */
+export const PORTFOLIO_ACTIVE_DEMO_BATCH = 20;
+
+/** Demo Active tab may promote pending/invite rows to connected so the list is never empty. */
+function canDemoConnectExisting(record: AdvisorConnectionRecord | null): boolean {
+  if (!record) return true;
+  return (
+    record.status === "not_connected"
+    || record.status === "declined"
+    || record.status === "expired"
+    || record.status === "revoked"
+    || record.status === "request_pending"
+    || record.status === "invite_sent"
+  );
+}
+
+function upsertConnectedAdvisorConnection(company: {
+  id: string;
+  name: string;
+  domain: string;
+  source?: AdvisorConnectionRecord["source"];
+}): AdvisorConnectionRecord {
+  const records = readAll();
+  const key = normalizedCompanyId(company.id);
+  const previous = records[key];
+  const next: AdvisorConnectionRecord = {
+    companyId: company.id,
+    companyName: company.name,
+    companyDomain: company.domain,
+    advisorId: DEFAULT_ADVISOR_ID,
+    advisorName: DEFAULT_ADVISOR_NAME,
+    source: company.source ?? "crunchbase",
+    status: "connected",
+    requestedAt: previous?.requestedAt ?? Date.now(),
+    respondedAt: Date.now(),
+    termsVersion: ADVISOR_CONNECTION_TERMS_VERSION,
+    permissions: { ...DEFAULT_ADVISOR_PERMISSIONS, ...previous?.permissions },
+  };
+  records[key] = next;
+  writeAll(records);
+  return next;
+}
+
+/** Mark portfolio holdings as connected for investor demo (Active tab). */
+export function connectPortfolioCompaniesForDemo(
+  companies: ReadonlyArray<{ id: string; displayName: string; domain: string }>,
+  limit: number,
+): number {
+  if (limit <= 0 || companies.length === 0) return 0;
+  const records = readAll();
+  let added = 0;
+  const now = Date.now();
+  for (const company of companies) {
+    if (added >= limit) break;
+    const key = normalizedCompanyId(company.id);
+    const existing = records[key] ? normalizeExpiry(records[key]) : null;
+    if (existing?.status === "connected") continue;
+    if (!canDemoConnectExisting(existing)) continue;
+    records[key] = {
+      companyId: company.id,
+      companyName: company.displayName,
+      companyDomain: company.domain,
+      advisorId: DEFAULT_ADVISOR_ID,
+      advisorName: DEFAULT_ADVISOR_NAME,
+      source: existing?.source ?? "crunchbase",
+      status: "connected",
+      requestedAt: existing?.requestedAt ?? now,
+      respondedAt: now,
+      termsVersion: ADVISOR_CONNECTION_TERMS_VERSION,
+      permissions: { ...DEFAULT_ADVISOR_PERMISSIONS, ...existing?.permissions },
+    };
+    added += 1;
+  }
+  if (added > 0) writeAll(records);
+  return added;
+}
+
 export function acceptAdvisorConnection(
   companyId: string,
   permissions: AdvisorConnectionPermissions = DEFAULT_ADVISOR_PERMISSIONS,

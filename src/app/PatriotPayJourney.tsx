@@ -14,6 +14,16 @@ import type { NotificationAction, WorkspaceNotification } from "./notificationSt
 import { AdvisorsPage } from "./AdvisorsPage.tsx";
 import { ADVISOR_DIRECTORY_CHANGE_EVENT, countCompanyAdvisors } from "./advisorDirectoryStorage.ts";
 import { sharedAdvisorAccess } from "./advisorConnectionStorage.ts";
+import { ShareWithInvestorsControl } from "./ShareWithInvestorsControl.tsx";
+import {
+  formatShareWithSummary,
+  listShareableInvestorsForCompany,
+} from "./shareWithInvestors.ts";
+import {
+  getModuleShareAccess,
+  setModuleShareAccess,
+  subscribeModuleShareAccess,
+} from "./moduleShareStorage.ts";
 import "./credits/credits.css";
 import {
   CreditProvider,
@@ -2985,6 +2995,8 @@ type DataRoomFileRecord = {
   generationAttemptedAtMs?: number;
   emptyReason?: string;
   downloadUrl?: string;
+  /** Investors selected to view this file. Empty = private to founding team. */
+  sharedWithInvestorIds?: string[];
 };
 
 type DataRoomDocumentSlot = {
@@ -3095,6 +3107,7 @@ function upsertDocumentSlot(
     intelligenceCount: params.intelligenceCount,
     intelligenceIds: params.intelligenceIds,
     downloadUrl: URL.createObjectURL(params.file),
+    sharedWithInvestorIds: [],
   };
 
   const slotIndex = slots.findIndex(slot => slot.typeId === params.typeId);
@@ -4781,11 +4794,156 @@ function WorkspaceCompactToolbar({
   );
 }
 
-function WorkspaceListPanel({ children }: { children: React.ReactNode }) {
+function WorkspaceListPanel({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <article className="overview-panel workspace-list-panel">
+    <article className={`overview-panel workspace-list-panel${className ?? ""}`}>
       {children}
     </article>
+  );
+}
+
+type WorkspaceListFilterTab = {
+  id: string;
+  label: string;
+  count: number;
+};
+
+function WorkspaceListFilterTabs({
+  tabs,
+  activeId,
+  onChange,
+  ariaLabel,
+  className,
+}: {
+  tabs: WorkspaceListFilterTab[];
+  activeId: string;
+  onChange: (id: string) => void;
+  ariaLabel: string;
+  className?: string;
+}) {
+  if (tabs.length <= 1) return null;
+  return (
+    <div
+      className={`workspace-list-filter-tabs${className ? ` ${className}` : ""}`}
+      role="tablist"
+      aria-label={ariaLabel}
+    >
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={activeId === tab.id}
+          className={activeId === tab.id ? "is-active" : ""}
+          onClick={() => onChange(tab.id)}
+        >
+          {tab.label}
+          <span className="workspace-list-filter-tab-count">{tab.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function WorkspaceListSearchTabsRow({
+  tabs,
+  activeId,
+  onChange,
+  tabsAriaLabel,
+  searchValue,
+  onSearchChange,
+  searchPlaceholder,
+}: {
+  tabs: WorkspaceListFilterTab[];
+  activeId: string;
+  onChange: (id: string) => void;
+  tabsAriaLabel: string;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  searchPlaceholder: string;
+}) {
+  const showTabs = tabs.length > 1;
+  return (
+    <div className={`workspace-list-search-tabs-row${showTabs ? "" : " is-search-only"}`}>
+      {showTabs ? (
+        <WorkspaceListFilterTabs
+          tabs={tabs}
+          activeId={activeId}
+          onChange={onChange}
+          ariaLabel={tabsAriaLabel}
+        />
+      ) : null}
+      <label className="workspace-list-table-search">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="5.25" fill="none" stroke="currentColor" strokeWidth="1.75" />
+          <path d="M12.5 12.5 16 16" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.75" />
+        </svg>
+        <span className="sr-only">{searchPlaceholder}</span>
+        <input
+          type="search"
+          value={searchValue}
+          onChange={event => onSearchChange(event.target.value)}
+          placeholder={searchPlaceholder}
+        />
+        {searchValue.trim() ? (
+          <button
+            type="button"
+            className="workspace-list-table-search-clear"
+            aria-label="Clear search"
+            onClick={() => onSearchChange("")}
+          >
+            Clear
+          </button>
+        ) : null}
+      </label>
+    </div>
+  );
+}
+
+function WorkspaceListTableToolbar({
+  title,
+  searchValue,
+  onSearchChange,
+  searchPlaceholder,
+}: {
+  title: string;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  searchPlaceholder: string;
+}) {
+  return (
+    <div className="workspace-list-table-toolbar">
+      <strong className="workspace-list-table-toolbar-label">{title}</strong>
+      <label className="workspace-list-table-search">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="5.25" fill="none" stroke="currentColor" strokeWidth="1.75" />
+          <path d="M12.5 12.5 16 16" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.75" />
+        </svg>
+        <span className="sr-only">{searchPlaceholder}</span>
+        <input
+          type="search"
+          value={searchValue}
+          onChange={event => onSearchChange(event.target.value)}
+          placeholder={searchPlaceholder}
+        />
+        {searchValue.trim() ? (
+          <button
+            type="button"
+            className="workspace-list-table-search-clear"
+            aria-label="Clear search"
+            onClick={() => onSearchChange("")}
+          >
+            Clear
+          </button>
+        ) : null}
+      </label>
+    </div>
   );
 }
 
@@ -5058,28 +5216,51 @@ function DataRoomInvestorGate({
 
 function DataRoomPage({
   documentSlots,
+  companyId,
   processingDocumentTypeId = null,
   onUploadDocument,
   onViewIntelligence,
   onOpenDocumentHistory,
+  onShareDocument,
   investorMode = false,
   investorAccessRequested = false,
   companyName = "This company",
   onRequestDataRoomAccess,
 }: {
   documentSlots: DataRoomDocumentSlot[];
+  companyId: string;
   processingDocumentTypeId?: string | null;
   onUploadDocument: (typeId: string, typeLabel: string, file: File) => void;
   onViewIntelligence: (record: DataRoomFileRecord) => void;
   onOpenDocumentHistory: (slot: DataRoomDocumentSlot) => void;
+  onShareDocument: (typeId: string, sharedWithInvestorIds: string[]) => void;
   investorMode?: boolean;
   investorAccessRequested?: boolean;
   companyName?: string;
   onRequestDataRoomAccess?: () => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [intelligenceFilter, setIntelligenceFilter] = useState<"all" | "has_intelligence">("all");
+  const [listFilterTab, setListFilterTab] = useState<string>("all");
+  const [roomShareIds, setRoomShareIds] = useState<string[]>(() => (
+    getModuleShareAccess(companyId, "data-room")
+  ));
+
+  useEffect(() => {
+    const fromDocs = documentSlots
+      .map(slot => slot.current?.sharedWithInvestorIds ?? [])
+      .find(ids => ids.length > 0);
+    const stored = getModuleShareAccess(companyId, "data-room");
+    setRoomShareIds(stored.length > 0 ? stored : (fromDocs ?? []));
+    return subscribeModuleShareAccess(() => {
+      setRoomShareIds(getModuleShareAccess(companyId, "data-room"));
+    });
+  }, [companyId, documentSlots]);
+
+  const shareEntireDataRoom = (sharedWithInvestorIds: string[]) => {
+    setModuleShareAccess(companyId, "data-room", sharedWithInvestorIds);
+    setRoomShareIds(sharedWithInvestorIds);
+    onShareDocument("__entire-room__", sharedWithInvestorIds);
+  };
 
   const activeSlots = useMemo(
     () => getActiveDocumentSlots(documentSlots),
@@ -5087,15 +5268,38 @@ function DataRoomPage({
   );
   const activeCount = activeSlots.length;
 
-  const docTypeOptions = useMemo(
-    () => dataRoomUploadTypeFilterOptions(documentSlots),
-    [documentSlots],
-  );
+  const listFilterTabs = useMemo(() => {
+    const tabs: WorkspaceListFilterTab[] = [
+      { id: "all", label: "All files", count: activeSlots.length },
+    ];
+    const intelligenceCount = activeSlots.filter(
+      slot => (slot.current?.intelligenceCount ?? 0) > 0,
+    ).length;
+    if (intelligenceCount > 0) {
+      tabs.push({ id: "has_intelligence", label: "Has intelligence", count: intelligenceCount });
+    }
+    const typeCounts = new Map<string, { label: string; count: number }>();
+    activeSlots.forEach(slot => {
+      const existing = typeCounts.get(slot.typeId);
+      if (existing) existing.count += 1;
+      else typeCounts.set(slot.typeId, { label: slot.typeLabel, count: 1 });
+    });
+    typeCounts.forEach((meta, typeId) => {
+      tabs.push({ id: typeId, label: meta.label, count: meta.count });
+    });
+    return tabs;
+  }, [activeSlots]);
 
   const filteredSlots = useMemo(() => {
     return activeSlots.filter(slot => {
-      if (!dataRoomSlotMatchesTypeFilter(slot, typeFilter)) return false;
-      if (intelligenceFilter === "has_intelligence" && (slot.current?.intelligenceCount ?? 0) <= 0) {
+      if (listFilterTab === "has_intelligence" && (slot.current?.intelligenceCount ?? 0) <= 0) {
+        return false;
+      }
+      if (
+        listFilterTab !== "all"
+        && listFilterTab !== "has_intelligence"
+        && slot.typeId !== listFilterTab
+      ) {
         return false;
       }
       const current = slot.current;
@@ -5104,15 +5308,18 @@ function DataRoomPage({
         searchQuery,
       );
     });
-  }, [activeSlots, intelligenceFilter, searchQuery, typeFilter]);
+  }, [activeSlots, listFilterTab, searchQuery]);
 
-  const activeFilterCount =
-    (typeFilter !== "all" ? 1 : 0)
-    + (intelligenceFilter !== "all" ? 1 : 0);
   const pagination = useWorkspaceTablePagination(
     filteredSlots,
-    `${searchQuery}|${typeFilter}|${intelligenceFilter}`,
+    `${searchQuery}|${listFilterTab}`,
   );
+
+  useEffect(() => {
+    if (listFilterTab === "all" || listFilterTab === "has_intelligence") return;
+    const stillValid = activeSlots.some(slot => slot.typeId === listFilterTab);
+    if (!stillValid) setListFilterTab("all");
+  }, [activeSlots, listFilterTab]);
 
   if (investorMode) {
     return (
@@ -5143,68 +5350,51 @@ function DataRoomPage({
         </div>
       </div>
 
-      <WorkspaceListPanel>
-        <WorkspaceCompactToolbar
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder="Search files…"
-          activeFilterCount={activeFilterCount}
-          onClearFilters={() => {
-            setTypeFilter("all");
-            setIntelligenceFilter("all");
-          }}
-          filterPanel={(
-            <>
-              <WorkspaceFilterField label="Document type">
-                <select
-                  className="signals-intel-toolbar-select workspace-compact-toolbar-select"
-                  value={typeFilter}
-                  onChange={event => setTypeFilter(event.target.value)}
-                  aria-label="Document type"
-                >
-                  <option value="all">All document types</option>
-                  {docTypeOptions.map(option => (
-                    <option key={option.id} value={option.id}>{option.label}</option>
-                  ))}
-                </select>
-              </WorkspaceFilterField>
-              <WorkspaceFilterField label="Intelligence">
-                <select
-                  className="signals-intel-toolbar-select workspace-compact-toolbar-select"
-                  value={intelligenceFilter}
-                  onChange={event => setIntelligenceFilter(event.target.value as "all" | "has_intelligence")}
-                  aria-label="Intelligence filter"
-                >
-                  <option value="all">All files</option>
-                  <option value="has_intelligence">Has intelligence</option>
-                </select>
-              </WorkspaceFilterField>
-            </>
-          )}
-        />
+      <WorkspaceListPanel className={activeCount > 0 ? " workspace-list-panel--table-chrome" : undefined}>
+        {activeCount > 0 ? (
+          <WorkspaceListSearchTabsRow
+            tabs={listFilterTabs}
+            activeId={listFilterTab}
+            onChange={setListFilterTab}
+            tabsAriaLabel="Data room file filters"
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search by name, type, or format"
+          />
+        ) : null}
 
         {activeCount === 0 ? (
           <div className="data-room-empty">
             <strong>No documents yet</strong>
             <p>
               Choose a document type from <span>Upload document</span> — the same list as Intelligence — to add your first file.
+              You can still share Data Room access before anything is uploaded.
             </p>
+            <div className="data-room-empty-share">
+              <ShareWithInvestorsControl
+                companyId={companyId}
+                selectedIds={roomShareIds}
+                onChange={shareEntireDataRoom}
+                variant="field"
+                label="Share access with"
+              />
+            </div>
           </div>
         ) : filteredSlots.length === 0 ? (
           <WorkspaceListFilterEmpty onClear={() => {
             setSearchQuery("");
-            setTypeFilter("all");
-            setIntelligenceFilter("all");
+            setListFilterTab("all");
           }}
           />
         ) : (
-          <>
-            <div className="workspace-table data-room-list">
+          <div className="workspace-list-table-shell">
+            <div className="workspace-table data-room-list data-room-list--with-share">
               <div className="workspace-table-head data-room-table-head" role="row">
                 <span>Document</span>
                 <span>Format</span>
                 <span>Intelligence</span>
                 <span>Uploaded</span>
+                <span>Access</span>
                 <span>Actions</span>
               </div>
               {pagination.pageItems.map(slot => (
@@ -5247,6 +5437,15 @@ function DataRoomPage({
                       ? formatResearchDisplayDate(new Date(slot.current.uploadedAtMs).toISOString())
                       : "—"}
                   </time>
+                  <div className="workspace-table-keyfact data-room-share-cell">
+                    <ShareWithInvestorsControl
+                      companyId={companyId}
+                      selectedIds={roomShareIds}
+                      onChange={shareEntireDataRoom}
+                      variant="cell"
+                      label="Share access with"
+                    />
+                  </div>
                   <DocumentRowActions
                     slot={slot}
                     processingTypeId={processingDocumentTypeId}
@@ -5263,7 +5462,7 @@ function DataRoomPage({
               pageSize={pagination.pageSize}
               onPageChange={pagination.setPage}
             />
-          </>
+          </div>
         )}
       </WorkspaceListPanel>
     </section>
@@ -7136,6 +7335,8 @@ type InitiativeRecord = {
   /** Provenance — intelligence, benchmark, forms, data room, manual sources. */
   sources?: InitiativeSourceRef[];
   priority?: "high" | "medium" | "low";
+  /** Investors selected to view this initiative. Empty = private to founding team. */
+  sharedWithInvestorIds?: string[];
 };
 
 function initiativeMilestoneProgress(item: InitiativeRecord) {
@@ -7961,12 +8162,15 @@ function emptyInitiativeDraft(): InitiativeRecord {
     due: undefined,
     milestones: [],
     intelligenceLinks: [],
+    sharedWithInvestorIds: [],
   };
 }
 
 function InitiativeDetailDrawer({
   item,
   mode = "edit",
+  companyId,
+  investorMode = false,
   availableIntelligence,
   yorkOffer = null,
   onClose,
@@ -7978,6 +8182,8 @@ function InitiativeDetailDrawer({
 }: {
   item: InitiativeRecord;
   mode?: "edit" | "create";
+  companyId: string;
+  investorMode?: boolean;
   availableIntelligence: IntelligenceItem[];
   yorkOffer?: YorkServiceOffer | null;
   onClose: () => void;
@@ -8263,6 +8469,19 @@ function InitiativeDetailDrawer({
               </div>
             )}
           </div>
+
+          {!investorMode ? (
+          <div className="initiative-card-section initiative-card-section--share">
+            <ShareWithInvestorsControl
+              companyId={companyId}
+              selectedIds={item.sharedWithInvestorIds ?? []}
+              onChange={sharedWithInvestorIds => onPatch({ sharedWithInvestorIds })}
+              defaultOpen={isCreate}
+              variant="field"
+              label="Share access with"
+            />
+          </div>
+          ) : null}
 
           <div className="initiative-card-section">
             <div className="initiative-card-section-head">
@@ -8583,7 +8802,24 @@ function InitiativeDetailDrawer({
           </div>
         </div>
 
-        <footer className="bench-drawer-actions">
+        <footer className="bench-drawer-actions initiative-share-footer">
+          <p className="initiative-share-footer-note">
+            {investorMode ? (
+              <>
+                <strong>Private to your account.</strong> The founding team cannot see this initiative.
+              </>
+            ) : (
+              <>
+                Access:{" "}
+                <strong>
+                  {formatShareWithSummary(
+                    item.sharedWithInvestorIds ?? [],
+                    listShareableInvestorsForCompany(companyId),
+                  )}
+                </strong>
+              </>
+            )}
+          </p>
           <button type="button" className="bench-drawer-cancel" onClick={onClose}>
             {isCreate ? "Cancel" : "Close"}
           </button>
@@ -8615,6 +8851,7 @@ function createInitiativeRecord(input: {
   assignees?: string[];
   advisors?: InitiativeAdvisor[];
   due?: string;
+  sharedWithInvestorIds?: string[];
 }): InitiativeRecord {
   const title = input.title.trim();
   const pillar = input.pillar ?? "mkt";
@@ -8627,6 +8864,7 @@ function createInitiativeRecord(input: {
     topic: normalizeInitiativeTopic(pillar, input.topic),
     kind: input.kind ?? "continuous",
     status: normalizeInitiativeStatus(input.status ?? "Active"),
+    sharedWithInvestorIds: input.sharedWithInvestorIds ?? [],
     assignees,
     owner: assignees[0] ?? DEFAULT_INITIATIVE_ASSIGNEE,
     advisors: input.advisors ?? [],
@@ -8894,6 +9132,7 @@ function InitiativeDueQuarterField({
 
 function InitiativesPage({
   investorMode = false,
+  companyId,
   items = [],
   focusInitiativeId = null,
   availableIntelligence = [],
@@ -8906,6 +9145,7 @@ function InitiativesPage({
   onNavigateSourceView,
 }: {
   investorMode?: boolean;
+  companyId: string;
   items?: InitiativeRecord[];
   focusInitiativeId?: string | null;
   availableIntelligence?: IntelligenceItem[];
@@ -8926,7 +9166,6 @@ function InitiativesPage({
   const [suggestedOpen, setSuggestedOpen] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState<InitiativeRecord | null>(null);
-
   // One-shot focus from toasts / "View initiative" — consume so tab revisits don't reopen the drawer.
   useEffect(() => {
     if (!focusInitiativeId) return;
@@ -9134,7 +9373,7 @@ function InitiativesPage({
           <h2>Initiatives</h2>
           <p>
             {investorMode
-              ? "Your private initiatives on this company — not visible to the founding team or other investors."
+              ? "Work you track for this company on your account only—the founding team does not see these initiatives."
               : "Continuous + one-time work the operating team is running with this company."}
           </p>
         </div>
@@ -9235,7 +9474,7 @@ function InitiativesPage({
               : showSuggested
                 ? "Fuel has suggested initiatives from intelligence, benchmark, and your data room — review one to add it to Active."
                 : investorMode
-                  ? <>Create diligence or value-creation work with <span>+ New initiative</span> — kept private to your account.</>
+                  ? <>Use <span>+ New initiative</span> to track diligence or value-creation work—visible only on your account, not to the company.</>
                   : <>Start one with <span>+ New initiative</span>, or add ideas from a track detail page.</>}
           </p>
           {statusTab === "Active" && showSuggested ? (
@@ -9257,13 +9496,13 @@ function InitiativesPage({
           />
         ) : (
           <>
-            <div className="workspace-table initiatives-table">
+            <div className={`workspace-table initiatives-table${investorMode ? "" : " initiatives-table--with-share"}`}>
               <div className="workspace-table-head initiatives-table-head" role="row">
                 <span>Initiative</span>
                 <span>Status</span>
                 <span>Progress</span>
                 <span>Track</span>
-                <span>Kind</span>
+                {!investorMode ? <span>Access</span> : null}
                 <span>Actions</span>
               </div>
               {pagination.pageItems.map(item => {
@@ -9301,8 +9540,24 @@ function InitiativesPage({
                       {status}
                     </span>
                     <InitiativeTableProgressCell item={item} />
-                    <span className="workspace-table-keyfact">{initiativePillarLabel(item.pillar)}</span>
-                    <span className="workspace-table-date">{initiativeKindLabel(item.kind)}</span>
+                    <span className="workspace-table-date">{initiativePillarLabel(item.pillar)}</span>
+                    {!investorMode ? (
+                    <div
+                      className="workspace-table-keyfact initiative-share-cell"
+                      onClick={event => event.stopPropagation()}
+                      onKeyDown={event => event.stopPropagation()}
+                    >
+                      <ShareWithInvestorsControl
+                        companyId={companyId}
+                        selectedIds={item.sharedWithInvestorIds ?? []}
+                        onChange={sharedWithInvestorIds => {
+                          onUpdate?.({ ...item, sharedWithInvestorIds });
+                        }}
+                        variant="cell"
+                        label="Share access with"
+                      />
+                    </div>
+                    ) : null}
                     <div
                       className="workspace-table-actions"
                       onClick={event => event.stopPropagation()}
@@ -9341,6 +9596,8 @@ function InitiativesPage({
         <InitiativeDetailDrawer
           key={createDraft.id}
           mode="create"
+          companyId={companyId}
+          investorMode={investorMode}
           item={createDraft}
           availableIntelligence={availableIntelligence}
           onClose={resetCreateForm}
@@ -9414,6 +9671,8 @@ function InitiativesPage({
       {selectedItem ? (
         <InitiativeDetailDrawer
           key={selectedItem.id}
+          companyId={companyId}
+          investorMode={investorMode}
           item={selectedItem}
           availableIntelligence={availableIntelligence}
           yorkOffer={resolveYorkOfferForInitiative(selectedItem, yorkAnswers)}
@@ -12755,6 +13014,7 @@ function PatriotPayJourneyInner({
           ) : activePage === "initiatives" ? (
             <InitiativesPage
               investorMode={usesPerCompanyWorkspace}
+              companyId={selectedCompany.id}
               items={usesPerCompanyWorkspace
                 ? investorInitiativesByCompany[selectedCompany.id] ?? []
                 : founderInitiatives}
@@ -12820,10 +13080,25 @@ function PatriotPayJourneyInner({
           ) : activePage === "data-room" ? (
             <DataRoomPage
               documentSlots={documentSlots}
+              companyId={selectedCompany.id}
               processingDocumentTypeId={processingDocumentTypeId}
               onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Data Room · Private upload")}
               onViewIntelligence={handleViewIntelligenceFromDataRoom}
               onOpenDocumentHistory={setDocumentHistorySlot}
+              onShareDocument={(_typeId, sharedWithInvestorIds) => {
+                setModuleShareAccess(selectedCompany.id, "data-room", sharedWithInvestorIds);
+                setDocumentSlots(previous => previous.map(slot => (
+                  slot.current
+                    ? {
+                      ...slot,
+                      current: {
+                        ...slot.current,
+                        sharedWithInvestorIds,
+                      },
+                    }
+                    : slot
+                )));
+              }}
               investorMode={isInvestorCompanyView}
               investorAccessRequested={Boolean(dataRoomAccessRequests[selectedCompany.id])}
               companyName={selectedCompany.displayName}
