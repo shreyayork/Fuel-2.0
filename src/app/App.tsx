@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PatriotPayJourney, { type OnboardingBenchmarkInput } from "./PatriotPayJourney.tsx";
+import FounderView from "./founder-view/FounderView.tsx";
 import OnboardingFlow, {
   answersToOnboardingBenchmark,
   isInvestorPersona,
@@ -62,7 +63,13 @@ import {
   type WorkspaceNotification,
 } from "./notificationStorage.ts";
 
-type View = "landing" | "signin" | "onboarding" | "integrations" | "workspace" | "legal";
+type View = "landing" | "signin" | "onboarding" | "integrations" | "workspace" | "legal" | "founder-view";
+
+function readFounderViewFromUrl(): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("founder-view") === "1" || params.get("founderView") === "1";
+}
 
 export function resetInviteWorkflowDemoState() {
   resetAdvisorInviteWorkflowDemoState();
@@ -101,7 +108,10 @@ function founderCompanyIdFromAnswers(answers: OnboardingFlowAnswers | null | und
 }
 
 export default function App() {
-  const [view, setView] = useState<View>(() => readAdvisorInviteTokenFromUrl() ? "signin" : "landing");
+  const [view, setView] = useState<View>(() => {
+    if (readFounderViewFromUrl()) return "founder-view";
+    return readAdvisorInviteTokenFromUrl() ? "signin" : "landing";
+  });
   const [legalDoc, setLegalDoc] = useState<LegalDocId>("terms");
   const [legalReturnView, setLegalReturnView] = useState<View>("landing");
   const [onboardingBenchmark, setOnboardingBenchmark] = useState<OnboardingBenchmarkInput | null>(null);
@@ -346,6 +356,20 @@ export default function App() {
   const briefShareToken = readBriefShareTokenFromUrl();
   if (briefShareToken) {
     return <BriefSharePage token={briefShareToken} />;
+  }
+
+  if (view === "founder-view") {
+    return (
+      <FounderView
+        onExit={() => {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("founder-view");
+          url.searchParams.delete("founderView");
+          window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+          setView("landing");
+        }}
+      />
+    );
   }
 
   if (view === "legal") {

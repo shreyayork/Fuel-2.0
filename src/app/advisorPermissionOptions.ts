@@ -1,4 +1,13 @@
 import type { AdvisorConnectionPermissions } from "./advisorConnectionStorage.ts";
+import type { FuelIconName } from "./icons.tsx";
+
+export const ADVISOR_PERMISSION_ICON: Record<keyof AdvisorConnectionPermissions, FuelIconName> = {
+  sharedProfile: "company",
+  approvedBenchmarks: "benchmarks",
+  sharedInitiatives: "initiatives",
+  sharedDataRoomFiles: "filePdf",
+  sharedPublishedBrief: "publicProfile",
+};
 
 export const ADVISOR_PERMISSION_OPTIONS: Array<{
   key: keyof AdvisorConnectionPermissions;

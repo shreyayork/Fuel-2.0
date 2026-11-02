@@ -2,11 +2,15 @@ import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } f
 import { createPortal } from "react-dom";
 import {
   formatShareWithSummary,
+  groupShareInvestorsByFirm,
   listShareableInvestorsForCompany,
+  shareInvestorRowSubtitle,
   toggleShareInvestorId,
   type ShareInvestorOption,
 } from "./shareWithInvestors.ts";
+import { getCompanyLogoColors } from "./companyLogoColors.ts";
 import "./shareWithInvestors.css";
+import "./formConfirm.css";
 import { FuelIcon } from "./icons.tsx";
 
 type ShareWithInvestorsControlProps = {
@@ -19,19 +23,57 @@ type ShareWithInvestorsControlProps = {
   defaultOpen?: boolean;
 };
 
-const MODAL_SUGGESTION_COUNT = 5;
-const MODAL_CHIP_COLLAPSE = 8;
 const MODAL_BULK_SHARE_THRESHOLD = 8;
+const DRAWER_LIST_MAX = 480;
 
 function initialFromName(name: string) {
   return (name.trim().charAt(0) || "?").toUpperCase();
+}
+
+function personInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]!.charAt(0)}${parts[parts.length - 1]!.charAt(0)}`.toUpperCase();
+  }
+  return initialFromName(name);
+}
+
+function SharePersonAvatar({
+  name,
+  photoUrl,
+  size = 40,
+  className = "",
+  title,
+}: {
+  name: string;
+  photoUrl?: string;
+  size?: number;
+  className?: string;
+  title?: string;
+}) {
+  const { bg, fg } = getCompanyLogoColors(name);
+  return (
+    <span
+      className={`share-access-person-avatar${className ? ` ${className}` : ""}`}
+      style={{
+        height: size,
+        width: size,
+        fontSize: size >= 40 ? 13 : size >= 28 ? 11 : 10,
+        ...(photoUrl ? {} : { background: bg, color: fg }),
+      }}
+      aria-hidden="true"
+      title={title ?? name}
+    >
+      {photoUrl ? <img src={photoUrl} alt="" /> : personInitials(name)}
+    </span>
+  );
 }
 
 function ShareAvatarStack({
   people,
   max = 3,
 }: {
-  people: Array<{ id: string; label: string }>;
+  people: Array<{ id: string; label: string; photoUrl?: string }>;
   max?: number;
 }) {
   const visible = people.slice(0, max);
@@ -39,15 +81,27 @@ function ShareAvatarStack({
   return (
     <span className="share-access-avatar-stack" aria-hidden="true">
       {visible.map(person => (
-        <span key={person.id} className="share-access-avatar-stack-item" title={person.label}>
-          {initialFromName(person.label)}
-        </span>
+        <SharePersonAvatar
+          key={person.id}
+          name={person.label}
+          photoUrl={person.photoUrl}
+          size={22}
+          className="share-access-avatar-stack-item"
+          title={person.label}
+        />
       ))}
       {overflow > 0 ? (
         <span className="share-access-avatar-stack-item is-more">+{overflow}</span>
       ) : null}
     </span>
   );
+}
+
+function matchesShareQuery(option: ShareInvestorOption, q: string) {
+  return option.name.toLowerCase().includes(q)
+    || option.subtitle.toLowerCase().includes(q)
+    || option.id.toLowerCase().includes(q)
+    || (option.email?.toLowerCase().includes(q) ?? false);
 }
 
 export function ShareWithInvestorsControl({
@@ -61,12 +115,13 @@ export function ShareWithInvestorsControl({
 }: ShareWithInvestorsControlProps) {
   const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState("");
-  const [chipsExpanded, setChipsExpanded] = useState(false);
-  const [activePickerIndex, setActivePickerIndex] = useState(-1);
+  const [removeConfirm, setRemoveConfirm] = useState<ShareInvestorOption | null>(null);
+  const [drawerInitialShareSession, setDrawerInitialShareSession] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const drawerSearchRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const options = listShareableInvestorsForCompany(companyId);
   const useDrawer = variant === "cell";
@@ -84,6 +139,7 @@ export function ShareWithInvestorsControl({
         label: match?.name ?? id,
         email: match?.email,
         subtitle: match?.subtitle,
+        photoUrl: match?.photoUrl,
       };
     }),
     [investorIds, options],
@@ -104,14 +160,34 @@ export function ShareWithInvestorsControl({
       if (selected.has(option.id)) shared.push(option);
       else available.push(option);
     });
-    return [...available, ...shared];
+    return [...shared, ...available];
   }, [options, investorIds]);
 
-  const matchesShareQuery = (option: ShareInvestorOption, q: string) => (
-    option.name.toLowerCase().includes(q)
-    || option.subtitle.toLowerCase().includes(q)
-    || option.id.toLowerCase().includes(q)
-    || (option.email?.toLowerCase().includes(q) ?? false)
+  const drawerShowFullList = drawerInitialShareSession;
+
+  const drawerListSource = useMemo(() => {
+    if (drawerShowFullList) return options;
+    if (hasAccess) return orderedOptions;
+    return options;
+  }, [drawerShowFullList, hasAccess, options, orderedOptions]);
+
+  const drawerFilteredOptions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return drawerListSource;
+    return drawerListSource.filter(option => matchesShareQuery(option, q));
+  }, [drawerListSource, query]);
+
+  const drawerGroups = useMemo(
+    () => groupShareInvestorsByFirm(drawerFilteredOptions).map(group => ({
+      ...group,
+      items: [...group.items].sort((left, right) => {
+        const leftShared = investorIds.includes(left.id) ? 0 : 1;
+        const rightShared = investorIds.includes(right.id) ? 0 : 1;
+        if (leftShared !== rightShared) return leftShared - rightShared;
+        return left.name.localeCompare(right.name);
+      }),
+    })),
+    [drawerFilteredOptions, investorIds],
   );
 
   const filteredOptions = useMemo(() => {
@@ -120,30 +196,7 @@ export function ShareWithInvestorsControl({
     return orderedOptions.filter(option => matchesShareQuery(option, q));
   }, [orderedOptions, query]);
 
-  const availableOptions = useMemo(
-    () => options.filter(option => !investorIds.includes(option.id)),
-    [options, investorIds],
-  );
-
-  const modalPickerOptions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (q) return availableOptions.filter(option => matchesShareQuery(option, q));
-    return availableOptions.slice(0, MODAL_SUGGESTION_COUNT);
-  }, [availableOptions, query]);
-
-  const hiddenChipCount = chipsExpanded
-    ? 0
-    : Math.max(0, selectedPeople.length - MODAL_CHIP_COLLAPSE);
-
-  const visibleChips = chipsExpanded
-    ? selectedPeople
-    : selectedPeople.slice(0, MODAL_CHIP_COLLAPSE);
-
   const showBulkShareAction = options.length >= MODAL_BULK_SHARE_THRESHOLD && remainingToShare > 0;
-
-  useEffect(() => {
-    setActivePickerIndex(modalPickerOptions.length > 0 ? 0 : -1);
-  }, [query, modalPickerOptions.length, open]);
 
   useLayoutEffect(() => {
     if (!open || useDrawer || !triggerRef.current) {
@@ -185,7 +238,10 @@ export function ShareWithInvestorsControl({
 
   useEffect(() => {
     if (!open) return;
-    const timer = window.setTimeout(() => searchRef.current?.focus(), useDrawer ? 60 : 20);
+    const timer = window.setTimeout(
+      () => (useDrawer ? drawerSearchRef : searchRef).current?.focus(),
+      useDrawer ? 60 : 20,
+    );
     return () => window.clearTimeout(timer);
   }, [open, useDrawer]);
 
@@ -200,10 +256,12 @@ export function ShareWithInvestorsControl({
       setQuery("");
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        setQuery("");
+      if (event.key !== "Escape") return;
+      if (removeConfirm) {
+        setRemoveConfirm(null);
+        return;
       }
+      closePanel();
     };
     if (!useDrawer) {
       window.addEventListener("mousedown", onPointer);
@@ -215,14 +273,28 @@ export function ShareWithInvestorsControl({
       }
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, useDrawer]);
+  }, [open, useDrawer, removeConfirm]);
 
   const closePanel = () => {
     setOpen(false);
     setQuery("");
-    setChipsExpanded(false);
-    setActivePickerIndex(-1);
+    setRemoveConfirm(null);
+    setDrawerInitialShareSession(false);
   };
+
+  const drawerCloseLabel = drawerShowFullList
+    ? (hasAccess ? "Save sharing" : "Close")
+    : "Close";
+
+  const drawerHeaderTitle = drawerShowFullList
+    ? "Share access"
+    : (hasAccess ? "Manage access" : "Share access");
+
+  const drawerHeaderSub = drawerShowFullList
+    ? "Everyone you’re connected to is listed below. Tap Add for each person you want to share with."
+    : hasAccess
+      ? "People with access show first in each firm. Tap Add for anyone else you want to include."
+      : "Private until you share. Tap Add for each person you want to share with.";
 
   const toggle = (investorId: string) => {
     onChange(toggleShareInvestorId(investorIds, investorId));
@@ -240,25 +312,23 @@ export function ShareWithInvestorsControl({
     onChange(options.map(option => option.id));
   };
 
-  const addInvestor = (investorId: string) => {
+  const addSingleInvestor = (investorId: string) => {
     if (investorIds.includes(investorId)) return;
     onChange([...investorIds, investorId]);
-    setQuery("");
   };
 
-  const onModalSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (modalPickerOptions.length === 0) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setActivePickerIndex(index => Math.min(index + 1, modalPickerOptions.length - 1));
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActivePickerIndex(index => Math.max(index - 1, 0));
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      const pick = modalPickerOptions[activePickerIndex] ?? modalPickerOptions[0];
-      if (pick) addInvestor(pick.id);
-    }
+  const requestRemoveAccess = (option: ShareInvestorOption) => {
+    setRemoveConfirm(option);
+  };
+
+  const cancelRemoveAccess = () => {
+    setRemoveConfirm(null);
+  };
+
+  const confirmRemoveAccess = () => {
+    if (!removeConfirm) return;
+    removeId(removeConfirm.id);
+    setRemoveConfirm(null);
   };
 
   const shareAccessPanelBody = (
@@ -266,17 +336,22 @@ export function ShareWithInvestorsControl({
       <section className="initiative-card-section share-access-drawer-section">
         <div className="initiative-card-section-head">
           <span className="initiative-card-section-label">
-            {hasAccess ? "Add people" : "Select people"}
+            {hasAccess ? "Share access" : "Connected investors"}
           </span>
-          {showBulkShareAction && !query.trim() ? (
-            <button
-              type="button"
-              className="initiative-edit-btn"
-              onClick={shareWithAllConnected}
-            >
-              Share with all ({options.length})
-            </button>
-          ) : null}
+          <span className="share-access-drawer-head-meta">
+            {hasAccess ? (
+              <span className="share-access-drawer-count">{selectedCount}</span>
+            ) : null}
+            {showBulkShareAction && !query.trim() ? (
+              <button
+                type="button"
+                className="initiative-edit-btn"
+                onClick={shareWithAllConnected}
+              >
+                Share with all ({options.length})
+              </button>
+            ) : null}
+          </span>
         </div>
 
         <label className="share-access-search--drawer">
@@ -285,117 +360,93 @@ export function ShareWithInvestorsControl({
           </span>
           <span className="sr-only">Search investors</span>
           <input
-            ref={searchRef}
+            ref={drawerSearchRef}
             className="share-access-search-input"
             type="search"
             value={query}
             onChange={event => setQuery(event.target.value)}
-            onKeyDown={onModalSearchKeyDown}
             placeholder="Search by name, email, or firm…"
             autoComplete="off"
-            role="combobox"
-            aria-expanded={modalPickerOptions.length > 0}
-            aria-controls={listId}
-            aria-activedescendant={
-              activePickerIndex >= 0 && modalPickerOptions[activePickerIndex]
-                ? `${listId}-opt-${modalPickerOptions[activePickerIndex].id}`
-                : undefined
-            }
           />
         </label>
 
-        {modalPickerOptions.length > 0 ? (
-          <div className="share-access-drawer-list" role="listbox" id={listId}>
-            {modalPickerOptions.map((option, index) => (
-              <button
-                key={option.id}
-                type="button"
-                id={`${listId}-opt-${option.id}`}
-                role="option"
-                aria-selected={index === activePickerIndex}
-                className={`share-access-drawer-row${
-                  index === activePickerIndex ? " is-active" : ""
-                }`}
-                onMouseEnter={() => setActivePickerIndex(index)}
-                onClick={() => addInvestor(option.id)}
-              >
-                <span className="share-access-drawer-avatar" aria-hidden="true">
-                  {initialFromName(option.name)}
-                </span>
-                <span className="share-access-drawer-row-copy">
-                  <strong>{option.name}</strong>
-                  <em>{option.email || option.subtitle}</em>
-                </span>
-                <span className="share-access-drawer-row-action">Add</span>
-              </button>
-            ))}
-          </div>
-        ) : query.trim() ? (
-          <p className="initiative-card-section-empty">
-            No investors match “{query.trim()}”.
-          </p>
-        ) : !hasAccess ? (
-          <p className="initiative-card-section-empty">
-            No connected investors available.
+        {hasAccess && remainingToShare > 0 && !query.trim() ? (
+          <p className="share-access-drawer-list-hint">
+            {remainingToShare} more {remainingToShare === 1 ? "person" : "people"} you can add — shown below people who already have access.
           </p>
         ) : null}
 
-        {hasAccess ? (
-          <div className="share-access-drawer-shared">
-            <div className="share-access-drawer-shared-head">
-              <span className="share-access-drawer-shared-label">Shared with</span>
-              <span className="share-access-drawer-count">{selectedCount}</span>
-            </div>
-            <div
-              className={`share-access-chips share-access-chips--email${
-                chipsExpanded ? " is-expanded" : ""
-              }`}
-            >
-              {visibleChips.map(person => {
-                const chipTitle = person.email || person.subtitle || person.label;
-                return (
-                  <div
-                    key={person.id}
-                    className="share-access-email-chip"
-                    title={chipTitle}
-                  >
-                    <span className="share-access-email-chip-avatar" aria-hidden="true">
-                      {initialFromName(person.label)}
-                    </span>
-                    <span className="share-access-email-chip-name">{person.label}</span>
-                    <button
-                      type="button"
-                      className="share-access-email-chip-x"
-                      aria-label={`Remove ${person.label}`}
-                      title={`Remove ${person.label}`}
-                      onClick={() => removeId(person.id)}
-                    >
-                      <FuelIcon name="close" size={12} strokeWidth={2} />
-                    </button>
-                  </div>
-                );
-              })}
-              {hiddenChipCount > 0 ? (
-                <button
-                  type="button"
-                  className="share-access-drawer-more"
-                  onClick={() => setChipsExpanded(true)}
-                >
-                  +{hiddenChipCount} more
-                </button>
-              ) : null}
-              {chipsExpanded && selectedPeople.length > MODAL_CHIP_COLLAPSE ? (
-                <button
-                  type="button"
-                  className="share-access-drawer-more"
-                  onClick={() => setChipsExpanded(false)}
-                >
-                  Show less
-                </button>
-              ) : null}
-            </div>
-          </div>
+        {drawerShowFullList && hasAccess ? (
+          <p className="share-access-drawer-list-hint">
+            {selectedCount} {selectedCount === 1 ? "person" : "people"} selected — tap Save sharing when you&apos;re finished.
+          </p>
         ) : null}
+
+        <div
+          className="share-access-drawer-list share-access-drawer-list--unified"
+          style={{ maxHeight: DRAWER_LIST_MAX }}
+        >
+          {drawerFilteredOptions.length === 0 ? (
+            <p className="initiative-card-section-empty">
+              {query.trim()
+                ? `No investors match “${query.trim()}”.`
+                : "No connected investors available."}
+            </p>
+          ) : (
+            drawerGroups.map(group => (
+              <div key={group.firm} className="share-access-firm-group">
+                <div className="share-access-firm-group-head">
+                  <span className="share-access-firm-group-label">{group.firm}</span>
+                  <span className="share-access-firm-group-meta">{group.items.length}</span>
+                </div>
+                <div className="share-access-workspace-rows">
+                  {group.items.map(option => {
+                    const shared = investorIds.includes(option.id);
+                    return (
+                      <div
+                        key={option.id}
+                        className={`share-access-drawer-row share-access-drawer-row--static${
+                          shared ? " is-shared" : ""
+                        }`}
+                      >
+                        <SharePersonAvatar
+                          name={option.name}
+                          photoUrl={option.photoUrl}
+                          size={40}
+                        />
+                        <span className="share-access-drawer-row-copy">
+                          <strong title={option.name}>{option.name}</strong>
+                          <em title={shareInvestorRowSubtitle(option)}>
+                            {shareInvestorRowSubtitle(option)}
+                          </em>
+                        </span>
+                        {shared ? (
+                          <button
+                            type="button"
+                            className="share-access-drawer-remove-icon"
+                            aria-label={`Remove access for ${option.name}`}
+                            title={`Remove ${option.name}`}
+                            onClick={() => requestRemoveAccess(option)}
+                          >
+                            <FuelIcon name="trash" size={15} strokeWidth={1.75} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="share-access-drawer-row-action"
+                            onClick={() => addSingleInvestor(option.id)}
+                          >
+                            Add
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </section>
     </div>
   );
@@ -417,9 +468,11 @@ export function ShareWithInvestorsControl({
                 onClick={() => removeId(chip.id)}
                 title={`Remove ${chip.label}`}
               >
-                <span className="share-access-chip-avatar" aria-hidden="true">
-                  {initialFromName(chip.label)}
-                </span>
+                <SharePersonAvatar
+                  name={chip.label}
+                  photoUrl={chip.photoUrl}
+                  size={28}
+                />
                 <span className="share-access-chip-copy">
                   <em>{chip.label}</em>
                   {chip.email ? <span className="share-access-chip-email">{chip.email}</span> : null}
@@ -469,9 +522,11 @@ export function ShareWithInvestorsControl({
                   checked={checked}
                   onChange={() => toggle(option.id)}
                 />
-                <span className="share-access-avatar" aria-hidden="true">
-                  {initialFromName(option.name)}
-                </span>
+                <SharePersonAvatar
+                  name={option.name}
+                  photoUrl={option.photoUrl}
+                  size={28}
+                />
                 <span className="share-access-option-copy">
                   <strong>{option.name}</strong>
                   <em>{option.subtitle}</em>
@@ -520,7 +575,7 @@ export function ShareWithInvestorsControl({
               className="bench-drawer-save"
               onClick={closePanel}
             >
-              Done
+              {drawerCloseLabel}
             </button>
           </div>
         </>
@@ -539,18 +594,67 @@ export function ShareWithInvestorsControl({
             className="share-access-done"
             onClick={closePanel}
           >
-            Done
+            Close
           </button>
         </>
       )}
     </footer>
   );
 
+  const removeAccessConfirmDialog = removeConfirm && typeof document !== "undefined"
+    ? createPortal(
+      <div
+        className="form-confirm-backdrop share-access-remove-confirm-backdrop"
+        onPointerDown={cancelRemoveAccess}
+        role="presentation"
+      >
+        <div
+          className="form-confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="share-access-remove-title"
+          aria-describedby="share-access-remove-desc"
+          onPointerDown={event => event.stopPropagation()}
+        >
+          <h3 id="share-access-remove-title">Remove access?</h3>
+          <p id="share-access-remove-desc">
+            {removeConfirm.name} will no longer be able to view this company&apos;s shared data.
+            You can add them back anytime.
+          </p>
+          <div className="form-confirm-actions">
+            <button
+              type="button"
+              className="form-confirm-btn secondary"
+              onClick={cancelRemoveAccess}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="form-confirm-btn primary share-access-confirm-remove"
+              autoFocus
+              onClick={confirmRemoveAccess}
+            >
+              Remove access
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )
+    : null;
+
   const drawer = open && useDrawer && typeof document !== "undefined"
     ? createPortal(
       <div
         className="bench-drawer-scrim share-access-drawer-scrim"
-        onClick={closePanel}
+        onClick={() => {
+          if (removeConfirm) {
+            setRemoveConfirm(null);
+            return;
+          }
+          closePanel();
+        }}
         role="presentation"
       >
         <aside
@@ -563,14 +667,8 @@ export function ShareWithInvestorsControl({
           <header className="bench-drawer-head initiative-drawer-head">
             <div className="initiative-drawer-head-copy">
               <div className="initiative-drawer-eyebrow">Access</div>
-              <h2 className="bench-drawer-title">
-                {hasAccess ? "Manage access" : "Share access"}
-              </h2>
-              <p className="bench-drawer-sub">
-                {hasAccess
-                  ? "Search to add someone, or remove access from the list below."
-                  : "Private until you share. Search connected investors to give access."}
-              </p>
+              <h2 className="bench-drawer-title">{drawerHeaderTitle}</h2>
+              <p className="bench-drawer-sub">{drawerHeaderSub}</p>
             </div>
             <button
               type="button"
@@ -637,6 +735,7 @@ export function ShareWithInvestorsControl({
   const openShare = (event?: React.MouseEvent) => {
     event?.stopPropagation();
     if (useDrawer) {
+      setDrawerInitialShareSession(!hasAccess);
       setOpen(true);
       return;
     }
@@ -735,6 +834,7 @@ export function ShareWithInvestorsControl({
         </button>
       )}
       {drawer}
+      {removeAccessConfirmDialog}
       {menu}
     </div>
   );

@@ -8,6 +8,7 @@ import { loadPublishedBrief } from "./briefDocStorage.ts";
 import { buildPatriotPublicPaperHtml, isPatriotPayName, isCurrentPatriotPublicHtml } from "./patriotPublicStory.ts";
 import ConnectorsPage from "./IntegrationSetupPage.tsx";
 import { FuelHelpFaqPage } from "./FuelHelpFaq.tsx";
+import { dataRoomFileIconMeta } from "./dataRoomFileIcons.ts";
 import { FuelIcon } from "./icons.tsx";
 import { NotificationCenter } from "./NotificationCenter.tsx";
 import type { NotificationAction, WorkspaceNotification } from "./notificationStorage.ts";
@@ -35,6 +36,7 @@ import {
   useCreditsOptional,
 } from "./credits";
 import { dailyRemaining, totalRemaining } from "./credits/creditLogic";
+import { FounderDesignCompare } from "./founder-view/FounderDesignCompare.tsx";
 import ScorecardV2, {
   type OverviewBuildPhase,
   BenchmarkEditDrawer,
@@ -4159,13 +4161,27 @@ function DocumentHistorySidebar({
         </div>
         <div className="document-history-sidebar-body">
           {versions.length ? (
-            versions.map((version, index) => (
+            versions.map((version, index) => {
+              const fileIcon = dataRoomFileIconMeta(
+                version.typeLabel,
+                version.name,
+                version.format,
+              );
+              return (
               <div className="document-history-sidebar-item" key={version.id}>
                 <div className="document-history-sidebar-item-head">
                   <span>{index === 0 ? "Latest" : "Archived"}</span>
                   <time>{version.uploadedAt}</time>
                 </div>
-                <strong>{version.name}</strong>
+                <div className="document-history-sidebar-file">
+                  <span
+                    className={`data-room-file-icon is-${fileIcon.tone}`}
+                    aria-hidden="true"
+                  >
+                    <FuelIcon name={fileIcon.icon} size={18} strokeWidth={1.65} />
+                  </span>
+                  <strong>{version.name}</strong>
+                </div>
                 <div className="document-history-sidebar-meta">
                   <span>{version.format}</span>
                   <span>{version.source}</span>
@@ -4179,7 +4195,8 @@ function DocumentHistorySidebar({
                   </a>
                 ) : null}
               </div>
-            ))
+              );
+            })
           ) : (
             <div className="document-history-sidebar-empty">
               <strong>No uploads yet</strong>
@@ -5397,16 +5414,30 @@ function DataRoomPage({
                 <span>Access</span>
                 <span>Actions</span>
               </div>
-              {pagination.pageItems.map(slot => (
+              {pagination.pageItems.map(slot => {
+                const fileIcon = dataRoomFileIconMeta(
+                  slot.typeLabel,
+                  slot.current?.name ?? "",
+                  slot.current?.format ?? "",
+                );
+                return (
                 <div
                   className={`workspace-table-row data-room-table-row${slot.typeId.startsWith("custom:") ? " data-room-row-custom" : ""}`}
                   key={slot.typeId}
                 >
-                  <div className="workspace-table-title-cell">
-                    <strong title={slot.typeLabel}>{slot.typeLabel}</strong>
-                    <span className="workspace-table-subtitle">
-                      {slot.current?.name || "No file uploaded yet"}
+                  <div className="workspace-table-title-cell data-room-title-cell">
+                    <span
+                      className={`data-room-file-icon is-${fileIcon.tone}`}
+                      aria-hidden="true"
+                    >
+                      <FuelIcon name={fileIcon.icon} size={18} strokeWidth={1.65} />
                     </span>
+                    <div className="data-room-title-copy">
+                      <strong title={slot.typeLabel}>{slot.typeLabel}</strong>
+                      <span className="workspace-table-subtitle">
+                        {slot.current?.name || "No file uploaded yet"}
+                      </span>
+                    </div>
                   </div>
                   <span className="workspace-table-badge">
                     {slot.current?.format || "Empty"}
@@ -5453,7 +5484,8 @@ function DataRoomPage({
                     onOpenHistory={onOpenDocumentHistory}
                   />
                 </div>
-              ))}
+                );
+              })}
             </div>
             <WorkspaceTablePagination
               page={pagination.page}
@@ -13108,6 +13140,8 @@ function PatriotPayJourneyInner({
               }))}
             />
           ) : (activePage === "scorecard-v2" || activePage === "public-profile") && !usesPerCompanyWorkspace ? (
+            (() => {
+              const founderScorecard = (
             <ScorecardV2
               presentation={activePage === "public-profile" ? "public-profile-editor" : "workspace"}
               onClosePublicProfileEditor={() => {
@@ -13274,6 +13308,32 @@ function PatriotPayJourneyInner({
               }}
               onDismissOverviewReady={skipOverviewReadyPrompt}
             />
+              );
+              if (activePage === "public-profile") return founderScorecard;
+              return (
+                <FounderDesignCompare
+                  embedded
+                  oldDesign={founderScorecard}
+                  onOpenTrack={() => setActivePage("scorecard-v2")}
+                  onOpenBrief={() => {
+                    setBriefFocusSignal(s => s + 1);
+                    setAskFuelOpen(true);
+                  }}
+                  onAddDetails={() => setActivePage("scorecard-v2")}
+                  onAskFuel={() => {
+                    setBriefFocusSignal(0);
+                    setAskFuelOpen(true);
+                  }}
+                  onViewProfile={() => setActivePage("public-profile")}
+                  onOpenWorkspaceTab={tab => {
+                    if (tab === "intelligence") setActivePage("signals");
+                    else if (tab === "initiatives") setActivePage("initiatives");
+                    else if (tab === "research") setActivePage("research");
+                    else setActivePage("data-room");
+                  }}
+                />
+              );
+            })()
           ) : activePage === "journey" ? (
             <>
               <div className="journey-header">

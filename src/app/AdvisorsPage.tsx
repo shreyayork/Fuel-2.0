@@ -452,9 +452,11 @@ function AdvisorProfileDrawer({
         </div>
 
         <div className="investor-company-drawer-body">
-          <section className="investor-company-drawer-section">
-            <span className="investor-company-drawer-section-label">Profile</span>
-            <div className="investor-company-drawer-facts">
+          <section className="investor-company-drawer-section overview-panel investor-drawer-module">
+            <div className="overview-panel-head investor-drawer-module-head">
+              <span>Profile</span>
+            </div>
+            <div className="investor-company-drawer-facts investor-drawer-fact-grid">
               {advisor.title ? (
                 <div>
                   <em>Title</em>

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDialogA11y } from "./a11y/useDialogA11y.ts";
-import { ADVISOR_PERMISSION_OPTIONS } from "./advisorPermissionOptions.ts";
+import { AdvisorConnectionPermissionsList } from "./AdvisorConnectionPermissionsList.tsx";
+import { AdvisorConnectionPermissionDetails } from "./AdvisorConnectionPermissionDetails.tsx";
 import {
   DEFAULT_ADVISOR_PERMISSIONS,
   type AdvisorConnectionPermissions,
@@ -67,38 +68,13 @@ export function CompanyAdvisorShareDialog({
         </header>
 
         <div className="advisor-connection-dialog-body">
-          <div className="advisor-connection-permissions">
-            <div className="advisor-connection-permissions-head">
-              <strong>Choose what to share</strong>
-              <span>{selectedCount} of {ADVISOR_PERMISSION_OPTIONS.length} selected</span>
-            </div>
-            {ADVISOR_PERMISSION_OPTIONS.map(option => (
-              <label key={option.key} className="advisor-connection-permission">
-                <input
-                  type="checkbox"
-                  checked={permissions[option.key]}
-                  onChange={event => setPermissions(current => ({
-                    ...current,
-                    [option.key]: event.target.checked,
-                  }))}
-                />
-                <span>
-                  <strong>{option.title}</strong>
-                </span>
-              </label>
-            ))}
-          </div>
+          <AdvisorConnectionPermissionsList
+            permissions={permissions}
+            permissionsHead="Choose what to share"
+            onChange={setPermissions}
+          />
 
-          <details className="advisor-connection-permission-details">
-            <summary>What each selection shares</summary>
-            <ul>
-              {ADVISOR_PERMISSION_OPTIONS.map(option => (
-                <li key={option.key}>
-                  <strong>{option.title}:</strong> {option.description}
-                </li>
-              ))}
-            </ul>
-          </details>
+          <AdvisorConnectionPermissionDetails />
 
           <p className="advisor-connection-private">
             <strong>Always private:</strong> chats, drafts, internal notes, unshared files, billing, credentials,

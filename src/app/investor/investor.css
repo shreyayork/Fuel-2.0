@@ -2250,6 +2250,143 @@ html[data-theme="light"] .investor-company-drawer--fit .investor-company-drawer-
   padding: 12px 14px;
 }
 
+/* First drawer modules — overview-panel + metric tiles (company + advisor profiles) */
+.investor-drawer-module.overview-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--panel-strong, #0f172a) 5%, transparent);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0;
+  margin: 0;
+  padding: 18px 20px 20px;
+}
+
+.investor-drawer-module-head.overview-panel-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.investor-drawer-module-head > span {
+  color: rgb(0, 180, 138);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.investor-drawer-module-meta {
+  color: var(--panel-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.investor-drawer-metric-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.investor-drawer-metric-card {
+  background: var(--panel-inset, rgba(10, 20, 28, 0.35));
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 80px;
+  min-width: 0;
+  padding: 14px 14px 12px;
+}
+
+.investor-drawer-metric-card .investor-company-drawer-position-stat-label {
+  gap: 7px;
+}
+
+.investor-drawer-metric-card .investor-company-drawer-position-stat-icon {
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--panel-border));
+  border-radius: 8px;
+  color: var(--accent);
+  height: 26px;
+  width: 26px;
+}
+
+.investor-drawer-metric-card .investor-company-drawer-position-stat-label em {
+  color: var(--panel-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.investor-drawer-metric-card strong {
+  color: var(--panel-strong);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  padding-left: 0;
+}
+
+.investor-drawer-fact-grid.investor-company-drawer-facts {
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.investor-drawer-module .investor-drawer-fact-grid > div {
+  background: var(--panel-inset, rgba(10, 20, 28, 0.35));
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  gap: 8px;
+  min-height: 76px;
+  padding: 14px 16px;
+}
+
+.investor-drawer-module .investor-drawer-fact-grid em {
+  color: rgb(0, 180, 138);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.investor-drawer-module .investor-drawer-fact-grid strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.investor-company-drawer--polish .investor-company-drawer-position-strip.investor-drawer-module {
+  gap: 0;
+  padding: 18px 20px 20px;
+}
+
+html[data-theme="light"] .investor-drawer-module.overview-panel {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme="light"] .investor-drawer-metric-card,
+html[data-theme="light"] .investor-drawer-module .investor-drawer-fact-grid > div {
+  background: color-mix(in srgb, var(--panel-inset, #f4f6f8) 70%, #fff);
+}
+
+@media (max-width: 520px) {
+  .investor-drawer-metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .investor-drawer-fact-grid.investor-company-drawer-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .investor-company-drawer--polish .investor-company-drawer-facts.is-dense {
   display: grid;
   gap: 8px;
@@ -3463,10 +3600,14 @@ html[data-theme="light"] .icd-bench-health-pill.is-health-struggling {
   width: 36px;
 }
 
-.investor-company-drawer--v3 .icd-file-icon.is-pdf,
-.investor-company-drawer--v3 .icd-file-icon.is-doc {
+.investor-company-drawer--v3 .icd-file-icon.is-pdf {
   background: rgba(224, 92, 92, 0.1);
   color: #e05c5c;
+}
+
+.investor-company-drawer--v3 .icd-file-icon.is-doc {
+  background: rgba(79, 124, 172, 0.12);
+  color: #3d6a94;
 }
 
 .investor-company-drawer--v3 .icd-file-icon.is-xls {
@@ -3474,10 +3615,14 @@ html[data-theme="light"] .icd-bench-health-pill.is-health-struggling {
   color: #12b886;
 }
 
-.investor-company-drawer--v3 .icd-file-icon.is-deck,
-.investor-company-drawer--v3 .icd-file-icon.is-file {
+.investor-company-drawer--v3 .icd-file-icon.is-deck {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
+}
+
+.investor-company-drawer--v3 .icd-file-icon.is-file {
+  background: color-mix(in srgb, var(--panel-muted) 14%, transparent);
+  color: var(--panel-strong);
 }
 
 .investor-company-drawer--v3 .icd-file-copy {
@@ -3918,15 +4063,15 @@ html[data-theme="light"] .investor-company-drawer--v3 .icd-close:hover {
 }
 
 .investor-company-drawer-file-icon.is-doc {
-  background: color-mix(in srgb, var(--panel-muted) 14%, var(--panel));
-  border-color: var(--panel-border);
-  color: var(--panel-strong);
+  background: color-mix(in srgb, #4f7cac 12%, var(--panel));
+  border-color: color-mix(in srgb, #4f7cac 24%, var(--panel-border));
+  color: #3d6a94;
 }
 
 .investor-company-drawer-file-icon.is-file {
-  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
-  border-color: color-mix(in srgb, var(--accent) 22%, var(--panel-border));
-  color: var(--accent);
+  background: color-mix(in srgb, var(--panel-muted) 12%, var(--panel));
+  border-color: var(--panel-border);
+  color: var(--panel-strong);
 }
 
 .investor-company-drawer-file-copy {

@@ -10,6 +10,7 @@ export type ShareInvestorOption = {
   name: string;
   subtitle: string;
   email?: string;
+  photoUrl?: string;
 };
 
 /** Baseline investors always available to share with on the demo founder company. */
@@ -43,6 +44,7 @@ function optionFromAdvisorId(advisorId: string): ShareInvestorOption | null {
     name: profile.name,
     subtitle,
     email: profile.email?.trim() || undefined,
+    photoUrl: profile.photoUrl?.trim() || undefined,
   };
 }
 
@@ -74,6 +76,10 @@ export function listShareableInvestorsForCompany(companyId: string): ShareInvest
     }
   });
 
+  scaleDemoShareInvestors(companyId).forEach(option => {
+    if (!byId.has(option.id)) byId.set(option.id, option);
+  });
+
   return [...byId.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
@@ -101,4 +107,75 @@ export function toggleShareInvestorId(
     return selectedIds.filter(id => id !== investorId);
   }
   return [...selectedIds, investorId];
+}
+
+/** Firm label for grouping roster rows (parsed from subtitle). */
+export function shareInvestorFirmLabel(option: ShareInvestorOption): string {
+  const parts = option.subtitle.split("·").map(part => part.trim()).filter(Boolean);
+  if (parts.length === 0) return "Other connections";
+  const last = parts[parts.length - 1]!;
+  if (/^(connected|linked|pending)$/i.test(last) && parts.length >= 2) {
+    return parts[parts.length - 2]!;
+  }
+  if (/^(connected|linked|pending)$/i.test(last)) {
+    if (option.email?.includes("york.ie")) return "York IE";
+    return "Independent";
+  }
+  return last;
+}
+
+export function shareInvestorRowSubtitle(option: ShareInvestorOption): string {
+  const firm = shareInvestorFirmLabel(option);
+  const contact = option.email?.trim() || "Connected";
+  return `${firm} · ${contact}`;
+}
+
+export function groupShareInvestorsByFirm(
+  options: ReadonlyArray<ShareInvestorOption>,
+): Array<{ firm: string; items: ShareInvestorOption[] }> {
+  const byFirm = new Map<string, ShareInvestorOption[]>();
+  options.forEach(option => {
+    const firm = shareInvestorFirmLabel(option);
+    const bucket = byFirm.get(firm) ?? [];
+    bucket.push(option);
+    byFirm.set(firm, bucket);
+  });
+  return [...byFirm.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([firm, items]) => ({
+      firm,
+      items: [...items].sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+}
+
+const SCALE_DEMO_FIRMS = [
+  "York IE",
+  "Atlas Venture",
+  "Northview Capital",
+  "Summit Partners",
+  "Harbor Street",
+  "Redwood Growth",
+] as const;
+
+function scaleDemoShareInvestors(companyId: string): ShareInvestorOption[] {
+  if (companyId !== "patriotpay") return [];
+  const firstNames = ["Alex", "Jordan", "Sam", "Taylor", "Morgan", "Casey", "Riley", "Avery", "Quinn", "Blake"];
+  const lastInitials = ["A", "B", "C", "D", "E", "F", "G", "H", "J", "K"];
+  const rows: ShareInvestorOption[] = [];
+  let index = 0;
+  for (const firm of SCALE_DEMO_FIRMS) {
+    for (let slot = 0; slot < 12; slot += 1) {
+      const fn = firstNames[slot % firstNames.length]!;
+      const li = lastInitials[(slot + index) % lastInitials.length]!;
+      const id = `scale-demo-${firm.toLowerCase().replace(/\s+/g, "-")}-${slot}`;
+      rows.push({
+        id,
+        name: `${fn} ${li}.`,
+        subtitle: slot % 3 === 0 ? `Partner · ${firm}` : `Principal · ${firm}`,
+        email: `${fn.toLowerCase()}.${li.toLowerCase()}@${firm.split(" ")[0]!.toLowerCase()}.vc`,
+      });
+      index += 1;
+    }
+  }
+  return rows;
 }

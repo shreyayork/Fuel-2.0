@@ -8562,7 +8562,20 @@ html[data-theme="light"] .fuel-help-item {
   font-size: 11px;
 }
 
-.document-history-sidebar-item strong {
+.document-history-sidebar-file {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.document-history-sidebar-file .data-room-file-icon {
+  height: 36px;
+  width: 36px;
+}
+
+.document-history-sidebar-item strong,
+.document-history-sidebar-file strong {
   color: var(--panel-strong);
   font-size: 13px;
   font-weight: 600;
@@ -8826,6 +8839,70 @@ div.workspace-table-row[role="button"].is-selected,
   min-width: 0;
   text-align: left;
   width: 100%;
+}
+
+.workspace-table-title-cell.data-room-title-cell {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+
+.data-room-title-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.data-room-file-icon {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
+  box-sizing: border-box;
+  color: var(--panel-muted);
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.data-room-file-icon svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.data-room-file-icon.is-pdf {
+  background: color-mix(in srgb, var(--status-bad, #e05c5c) 10%, var(--panel));
+  border-color: color-mix(in srgb, var(--status-bad, #e05c5c) 22%, var(--panel-border));
+  color: var(--status-bad, #e05c5c);
+}
+
+.data-room-file-icon.is-xls {
+  background: color-mix(in srgb, var(--status-good, #12b886) 10%, var(--panel));
+  border-color: color-mix(in srgb, var(--status-good, #12b886) 22%, var(--panel-border));
+  color: var(--status-good, #12b886);
+}
+
+.data-room-file-icon.is-deck {
+  background: color-mix(in srgb, var(--fuel-accent, var(--accent)) 10%, var(--panel));
+  border-color: color-mix(in srgb, var(--fuel-accent, var(--accent)) 22%, var(--panel-border));
+  color: var(--fuel-accent, var(--accent));
+}
+
+.data-room-file-icon.is-doc {
+  background: color-mix(in srgb, #4f7cac 12%, var(--panel));
+  border-color: color-mix(in srgb, #4f7cac 24%, var(--panel-border));
+  color: #3d6a94;
+}
+
+.data-room-file-icon.is-file {
+  background: color-mix(in srgb, var(--panel-muted) 12%, var(--panel));
+  border-color: var(--panel-border);
+  color: var(--panel-strong);
 }
 
 .workspace-table-title-cell strong,

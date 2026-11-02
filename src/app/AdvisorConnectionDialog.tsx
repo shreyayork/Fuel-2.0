@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDialogA11y } from "./a11y/useDialogA11y.ts";
 import { openAdvisorFuelPublicProfile, openCompanyFuelPublicProfile } from "./advisorFuelProfile.ts";
-import { ADVISOR_PERMISSION_OPTIONS } from "./advisorPermissionOptions.ts";
+import { AdvisorConnectionPermissionsList } from "./AdvisorConnectionPermissionsList.tsx";
+import { AdvisorConnectionPermissionDetails } from "./AdvisorConnectionPermissionDetails.tsx";
 import type { CompanyAdvisorLink } from "./advisorDirectoryStorage.ts";
 import {
   DEFAULT_ADVISOR_PERMISSIONS,
@@ -81,7 +82,6 @@ export function AdvisorConnectionDialog({
   if (!advisorReview && !connection) return null;
   if (advisorReview && !companyInvite) return null;
 
-  const permissionOptions = ADVISOR_PERMISSION_OPTIONS;
   const selectedCount = Object.values(permissions).filter(Boolean).length;
 
   let eyebrow: string;
@@ -154,43 +154,14 @@ export function AdvisorConnectionDialog({
         </header>
 
         <div className="advisor-connection-dialog-body">
-          <div className="advisor-connection-permissions">
-            <div className="advisor-connection-permissions-head">
-              <strong>{permissionsHead}</strong>
-              <span>{selectedCount} of {permissionOptions.length} selected</span>
-            </div>
-            {permissionOptions.map(option => (
-              <label
-                key={option.key}
-                className={`advisor-connection-permission${advisorReview ? " is-readonly" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={permissions[option.key]}
-                  disabled={advisorReview}
-                  readOnly={advisorReview}
-                  onChange={advisorReview ? undefined : event => setPermissions(current => ({
-                    ...current,
-                    [option.key]: event.target.checked,
-                  }))}
-                />
-                <span>
-                  <strong>{option.title}</strong>
-                </span>
-              </label>
-            ))}
-          </div>
+          <AdvisorConnectionPermissionsList
+            permissions={permissions}
+            permissionsHead={permissionsHead}
+            readOnly={Boolean(advisorReview)}
+            onChange={advisorReview ? undefined : setPermissions}
+          />
 
-          <details className="advisor-connection-permission-details">
-            <summary>What each selection shares</summary>
-            <ul>
-              {permissionOptions.map(option => (
-                <li key={option.key}>
-                  <strong>{option.title}:</strong> {option.description}
-                </li>
-              ))}
-            </ul>
-          </details>
+          <AdvisorConnectionPermissionDetails />
 
           <p className="advisor-connection-private">
             {advisorReview && companyInvite ? (

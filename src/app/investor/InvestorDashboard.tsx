@@ -4,6 +4,7 @@ import { OverviewBuildPanel, type OverviewBuildPhase } from "../ScorecardV2.tsx"
 import { drawerPanelPointerProps, useScrimPointerClose } from "../drawerScrim";
 import { findFounderCompanyProfile } from "../OnboardingFlow.tsx";
 import { useDialogA11y } from "../a11y/useDialogA11y";
+import { dataRoomFileIconMeta } from "../dataRoomFileIcons.ts";
 import { FuelIcon, type FuelIconName } from "../icons.tsx";
 import {
   ADVISOR_CONNECTION_CHANGE_EVENT,
@@ -4026,22 +4027,6 @@ type SharedDataRoomFilePreview = {
   updated: string;
 };
 
-function dataRoomFileIconMeta(kind: string, fileName: string): {
-  icon: FuelIconName;
-  tone: "pdf" | "xls" | "deck" | "doc";
-} {
-  const haystack = `${kind} ${fileName}`.toLowerCase();
-  if (haystack.includes("sheet") || haystack.includes("xls") || haystack.includes("csv")) {
-    return { icon: "fileSpreadsheet", tone: "xls" };
-  }
-  if (haystack.includes("deck") || haystack.includes("slide") || haystack.includes("pitch")) {
-    return { icon: "fileDeck", tone: "deck" };
-  }
-  if (haystack.includes("pdf")) {
-    return { icon: "file", tone: "pdf" };
-  }
-  return { icon: "file", tone: "doc" };
-}
 
 /**
  * Demo share patterns for Initiatives + Data room.
@@ -4149,8 +4134,14 @@ function companySharedDataRoomFiles(company: PortfolioCompanyView): SharedDataRo
     {
       id: `${company.id}-file-cap`,
       name: "Cap table summary.pdf",
-      kind: "Document",
+      kind: "PDF",
       updated: "3w ago",
+    },
+    {
+      id: `${company.id}-file-memo`,
+      name: "Investment memo.docx",
+      kind: "Document",
+      updated: "1mo ago",
     },
   ];
 }
@@ -4387,8 +4378,11 @@ export function InvestorCompanyProfileDrawer({
 
         <div className="investor-company-drawer-body">
           {aboutOnly ? (
-            <div className="investor-company-drawer-panel overview-panel">
-              <div className="investor-company-drawer-facts is-dense">
+            <div className="investor-company-drawer-panel overview-panel investor-drawer-module">
+              <div className="overview-panel-head investor-drawer-module-head">
+                <span>Company</span>
+              </div>
+              <div className="investor-company-drawer-facts is-dense investor-drawer-fact-grid">
                 <div>
                   <em>Website</em>
                   <strong>{company.domain}</strong>
@@ -4409,13 +4403,21 @@ export function InvestorCompanyProfileDrawer({
             </div>
           ) : (
             <>
-              <section className="investor-company-drawer-position-strip" aria-label="Your position">
-                <div className="investor-company-drawer-position-strip-head">
+              <section
+                className="investor-company-drawer-position-strip overview-panel investor-drawer-module"
+                aria-label="Your position"
+              >
+                <div className="overview-panel-head investor-drawer-module-head">
                   <span>Your position</span>
-                  {company.investedAt ? <em>Since {company.investedAt}</em> : null}
+                  {company.investedAt ? (
+                    <em className="investor-drawer-module-meta">Since {company.investedAt}</em>
+                  ) : null}
                 </div>
-                <div className="investor-company-drawer-position-strip-stats" role="list">
-                  <div className="investor-company-drawer-position-stat" role="listitem">
+                <div
+                  className="investor-drawer-metric-grid investor-company-drawer-position-strip-stats"
+                  role="list"
+                >
+                  <article className="investor-drawer-metric-card investor-company-drawer-position-stat" role="listitem">
                     <span className="investor-company-drawer-position-stat-label">
                       <span className="investor-company-drawer-position-stat-icon" aria-hidden="true">
                         <FuelIcon name="fundraising" size={13} strokeWidth={1.85} />
@@ -4423,8 +4425,8 @@ export function InvestorCompanyProfileDrawer({
                       <em>Invested</em>
                     </span>
                     <strong>{hasConnection ? company.invested : "—"}</strong>
-                  </div>
-                  <div className="investor-company-drawer-position-stat" role="listitem">
+                  </article>
+                  <article className="investor-drawer-metric-card investor-company-drawer-position-stat" role="listitem">
                     <span className="investor-company-drawer-position-stat-label">
                       <span className="investor-company-drawer-position-stat-icon" aria-hidden="true">
                         <FuelIcon name="growth" size={13} strokeWidth={1.85} />
@@ -4432,8 +4434,8 @@ export function InvestorCompanyProfileDrawer({
                       <em>Est. value</em>
                     </span>
                     <strong>{hasConnection ? returnLabel : "—"}</strong>
-                  </div>
-                  <div className="investor-company-drawer-position-stat" role="listitem">
+                  </article>
+                  <article className="investor-drawer-metric-card investor-company-drawer-position-stat" role="listitem">
                     <span className="investor-company-drawer-position-stat-label">
                       <span className="investor-company-drawer-position-stat-icon" aria-hidden="true">
                         <FuelIcon name="gauge" size={13} strokeWidth={1.85} />
@@ -4441,7 +4443,7 @@ export function InvestorCompanyProfileDrawer({
                       <em>Ownership</em>
                     </span>
                     <strong>{hasConnection ? company.ownership : "—"}</strong>
-                  </div>
+                  </article>
                 </div>
               </section>
 
