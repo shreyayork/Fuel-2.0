@@ -570,6 +570,109 @@
   color: var(--f21-text-muted);
 }
 
+/* —— Fuel Brief (dashboard) —— */
+.f21-fuel-brief {
+  padding: 20px 22px 16px;
+}
+
+.f21-fuel-brief-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.f21-fuel-brief-head .f21-eyebrow {
+  padding: 0;
+}
+
+.f21-fuel-brief-quote {
+  font-size: 42px;
+  line-height: 0.7;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--f21-accent) 45%, transparent);
+  user-select: none;
+}
+
+.f21-fuel-brief-summary {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--f21-text);
+  max-width: 56rem;
+}
+
+.f21-fuel-brief-initiatives {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.f21-fuel-brief-initiatives li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--f21-border);
+  background: var(--f21-inset);
+}
+
+.f21-fuel-brief-initiatives strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--f21-text);
+}
+
+.f21-fuel-brief-initiatives p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--f21-text-muted);
+}
+
+.f21-fuel-brief-foot {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--f21-border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.f21-fuel-brief-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.f21-fuel-brief-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--f21-border);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--f21-text-muted);
+  background: transparent;
+}
+
+@media (max-width: 1100px) {
+  .f21-fuel-brief-initiatives {
+    grid-template-columns: 1fr;
+  }
+}
+
 .f21-dash-mid {
   display: grid;
   grid-template-columns: 1.05fr 1fr;

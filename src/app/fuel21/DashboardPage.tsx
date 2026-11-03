@@ -12,6 +12,7 @@ import {
   CONNECTORS,
   DASHBOARD_INITIATIVES,
   DATA_ROOM_FILES,
+  FUEL_BRIEF,
   LATEST_INTELLIGENCE,
   PLAYBOOK_SUGGESTIONS,
   SCORE_CARDS,
@@ -87,6 +88,42 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         })}
       </div>
       <p className="f21-footnote">Scores refresh from accepted context and benchmarks.</p>
+
+      <section className="f21-panel f21-fuel-brief" aria-label="Fuel brief">
+        <div className="f21-fuel-brief-head">
+          <span className="f21-eyebrow">Fuel brief</span>
+          <span className="f21-fuel-brief-quote" aria-hidden="true">
+            “
+          </span>
+        </div>
+        <p className="f21-fuel-brief-summary">{FUEL_BRIEF.summary}</p>
+        <ul className="f21-fuel-brief-initiatives">
+          {FUEL_BRIEF.initiativeBriefs.map(item => (
+            <li key={item.title}>
+              <span className={`f21-track-tag track-${item.track.replace("&", "").toLowerCase()}`}>
+                {item.track}
+              </span>
+              <div>
+                <strong>{item.title}</strong>
+                <p>{item.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="f21-fuel-brief-foot">
+          <button type="button" className="f21-link-btn">
+            Read full brief
+            <ArrowUpRight size={13} strokeWidth={2} aria-hidden="true" />
+          </button>
+          <div className="f21-fuel-brief-tags">
+            {FUEL_BRIEF.tags.map(tag => (
+              <span key={tag} className="f21-fuel-brief-tag">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <div className="f21-dash-mid">
         <section className="f21-panel">

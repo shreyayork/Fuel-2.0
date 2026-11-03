@@ -31,6 +31,30 @@ export const SCORE_CARDS = [
   { id: "ga" as const, label: "G&A", score: 74, delta: "+3 vs. 8 weeks ago", spark: [64, 66, 68, 69, 71, 72, 74] },
 ];
 
+/** Dashboard Fuel Brief — summary + short initiative briefs for the founder. */
+export const FUEL_BRIEF = {
+  summary:
+    "Retention is a strength for Patriot Pay, but growth sits in the bottom quartile of the FinTech · Seed cohort. Completing cash and burn inputs will unlock a sharper finance and operations score.",
+  initiativeBriefs: [
+    {
+      track: "R&D",
+      title: "Close the payment-flow test gap",
+      detail: "Twelve critical checkout paths are still untested — protect releases before the next ship window.",
+    },
+    {
+      track: "GTM",
+      title: "Rebalance the paid growth mix",
+      detail: "Shift spend toward channels with clearer payback so growth can move off the bottom of the cohort.",
+    },
+    {
+      track: "G&A",
+      title: "Finish cash and burn inputs",
+      detail: "A living 13-week cash view unlocks a sharper finance and operations score for the board.",
+    },
+  ],
+  tags: ["Benchmark · Q3 2025", "Pitch deck · Nov 3"],
+};
+
 export const LATEST_INTELLIGENCE = [
   { label: "ARR", value: "$35M", meta: "Latest", metaTone: "muted" as const },
   { label: "Automated test coverage", value: "84%", meta: "+9pp", metaTone: "good" as const },
