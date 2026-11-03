@@ -2,17 +2,18 @@ import {
   ArrowUpRight,
   BarChart3,
   BookOpen,
-  CircleDot,
+  Building2,
+  Code2,
   Compass,
   FileSpreadsheet,
   FileText,
   Gem,
   Megaphone,
   Settings2,
-  Target,
   Upload,
   Wallet,
 } from "lucide-react";
+import { ConnectorBrandIcon } from "./BrandIcons.tsx";
 import {
   CONNECTORS,
   DASHBOARD_INITIATIVES,
@@ -29,11 +30,22 @@ const PLAYBOOK_ICONS = [Compass, BookOpen, Wallet];
 
 const MODULE_ICONS = {
   profile: Gem,
-  rd: Target,
+  rd: Code2,
   gtm: Megaphone,
-  ga: CircleDot,
+  ga: Building2,
   benchmark: BarChart3,
 } as const;
+
+const SCORE_ICONS = {
+  rd: Code2,
+  gtm: Megaphone,
+  ga: Building2,
+} as const;
+
+function FileTypeIcon({ type }: { type: string }) {
+  if (type === "XLS") return <FileSpreadsheet size={14} strokeWidth={2} />;
+  return <FileText size={14} strokeWidth={2} />;
+}
 
 export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void }) {
   return (
@@ -65,6 +77,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         <div className="f21-score-strip">
           {SCORE_CARDS.map(card => {
             const goesToRd = card.id === "rd";
+            const ScoreIcon = SCORE_ICONS[card.id] ?? Code2;
             return (
               <button
                 key={card.id}
@@ -75,7 +88,10 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
                 aria-label={`${card.label} ${card.score} of 100`}
               >
                 <div className="f21-score-cell-top">
-                  <span className="f21-score-label">{card.label}</span>
+                  <span className="f21-score-label-row">
+                    <ScoreIcon size={13} strokeWidth={2} aria-hidden="true" />
+                    <span className="f21-score-label">{card.label}</span>
+                  </span>
                   <ArrowUpRight className="f21-score-arrow" size={15} strokeWidth={2} aria-hidden="true" />
                 </div>
                 <strong className="f21-score-num">
@@ -233,9 +249,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
           </div>
           <ul className="f21-connector-rows">
             {CONNECTORS.map(c => (
-              <li key={c.name}>
-                <span className="f21-connector-mark" aria-hidden="true">
-                  {c.name.slice(0, 1)}
+              <li key={c.id}>
+                <span className={`f21-connector-mark brand-${c.id}`} aria-hidden="true">
+                  <ConnectorBrandIcon brand={c.id} size={14} />
                 </span>
                 <strong className="f21-connector-name">{c.name}</strong>
                 <span className="f21-connector-badge is-on">
@@ -269,12 +285,8 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
           <ul className="f21-file-list">
             {DATA_ROOM_FILES.map(file => (
               <li key={file.name}>
-                <span className="f21-file-icon" aria-hidden="true">
-                  {file.type === "XLS" ? (
-                    <FileSpreadsheet size={14} strokeWidth={2} />
-                  ) : (
-                    <FileText size={14} strokeWidth={2} />
-                  )}
+                <span className={`f21-file-icon type-${file.type.toLowerCase()}`} aria-hidden="true">
+                  <FileTypeIcon type={file.type} />
                 </span>
                 <span className="f21-file-name">{file.name}</span>
                 <em className="f21-file-type">{file.type}</em>

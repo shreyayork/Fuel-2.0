@@ -2180,6 +2180,13 @@
   justify-content: space-between;
 }
 
+.f21-score-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--f21-accent-strong);
+}
+
 .f21-score-label {
   color: var(--f21-accent-strong);
   font-size: 11px;
@@ -2591,13 +2598,145 @@
   border-radius: 7px;
   display: grid;
   place-items: center;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
   color: var(--f21-text-body);
   background: var(--f21-inset);
   border: 1px solid var(--f21-border-soft);
   flex-shrink: 0;
+}
+
+.f21-connector-mark.is-compact {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+}
+
+.f21-connector-mark.brand-slack {
+  color: #611f69;
+  background: rgba(97, 31, 105, 0.1);
+  border-color: rgba(97, 31, 105, 0.22);
+}
+
+.f21-connector-mark.brand-hubspot {
+  color: #ff7a59;
+  background: rgba(255, 122, 89, 0.12);
+  border-color: rgba(255, 122, 89, 0.28);
+}
+
+.f21-connector-mark.brand-granola {
+  color: #6b8f3c;
+  background: rgba(178, 194, 72, 0.16);
+  border-color: rgba(107, 143, 60, 0.28);
+}
+
+.f21-app[data-f21-theme="dark"] .f21-connector-mark.brand-slack {
+  color: #e0b3e8;
+  background: rgba(97, 31, 105, 0.28);
+  border-color: rgba(224, 179, 232, 0.22);
+}
+
+.f21-app[data-f21-theme="dark"] .f21-connector-mark.brand-hubspot {
+  color: #ff9b7a;
+  background: rgba(255, 122, 89, 0.16);
+  border-color: rgba(255, 155, 122, 0.28);
+}
+
+.f21-app[data-f21-theme="dark"] .f21-connector-mark.brand-granola {
+  color: #c5d46a;
+  background: rgba(178, 194, 72, 0.14);
+  border-color: rgba(197, 212, 106, 0.28);
+}
+
+.f21-recent-brand {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--f21-border-soft);
+  background: var(--f21-inset);
+}
+
+.f21-recent-brand.brand-stripe {
+  color: #635bff;
+}
+
+.f21-recent-brand.brand-adyen {
+  color: #0abf53;
+}
+
+.f21-app[data-f21-theme="dark"] .f21-recent-brand.brand-stripe {
+  color: #8b85ff;
+}
+
+.f21-app[data-f21-theme="dark"] .f21-recent-brand.brand-adyen {
+  color: #3dd68c;
+}
+
+.f21-source-icon.brand-slack,
+.f21-source-icon.brand-hubspot,
+.f21-source-icon.brand-granola {
+  color: inherit;
+}
+
+.f21-source-icon.brand-slack {
+  color: #611f69;
+  background: rgba(97, 31, 105, 0.1);
+}
+
+.f21-source-icon.brand-hubspot {
+  color: #ff7a59;
+  background: rgba(255, 122, 89, 0.12);
+}
+
+.f21-source-icon.brand-granola {
+  color: #6b8f3c;
+  background: rgba(178, 194, 72, 0.16);
+}
+
+.f21-app[data-f21-theme="dark"] .f21-source-icon.brand-slack {
+  color: #e0b3e8;
+  background: rgba(97, 31, 105, 0.28);
+}
+
+.f21-app[data-f21-theme="dark"] .f21-source-icon.brand-hubspot {
+  color: #ff9b7a;
+  background: rgba(255, 122, 89, 0.16);
+}
+
+.f21-app[data-f21-theme="dark"] .f21-source-icon.brand-granola {
+  color: #c5d46a;
+  background: rgba(178, 194, 72, 0.14);
+}
+
+.f21-connector-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.f21-file-icon.type-pdf {
+  color: #e2554a;
+}
+
+.f21-file-icon.type-xls {
+  color: #1d9e57;
+}
+
+.f21-file-icon.type-doc {
+  color: #2b6cb0;
+}
+
+.f21-app[data-f21-theme="dark"] .f21-file-icon.type-pdf {
+  color: #f07167;
+}
+
+.f21-app[data-f21-theme="dark"] .f21-file-icon.type-xls {
+  color: #3dd68c;
+}
+
+.f21-app[data-f21-theme="dark"] .f21-file-icon.type-doc {
+  color: #6bb3f0;
 }
 
 .f21-connector-name {

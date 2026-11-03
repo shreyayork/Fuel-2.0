@@ -33,4 +33,13 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  // Cloud agent / Try Live: bind all interfaces so the preview tunnel can reach Vite.
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
+    // Allow Cursor Try Live / forwarded hosts
+    allowedHosts: true,
+  },
 })

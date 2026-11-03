@@ -3,13 +3,13 @@ import {
   ChevronRight,
   Filter,
   Lock,
-  MessageSquare,
   NotebookPen,
   Pencil,
   Search,
   Upload,
   FileText,
 } from "lucide-react";
+import { ConnectorBrandIcon, type ConnectorBrand } from "./BrandIcons.tsx";
 import {
   CONNECTORS,
   CONTEXT_TABS,
@@ -18,10 +18,12 @@ import {
   type ContextTab,
 } from "./demoData.ts";
 
-function sourceIcon(tab: ContextTab) {
-  if (tab === "slack") return MessageSquare;
-  if (tab === "manual") return NotebookPen;
-  return FileText;
+function SourceGlyph({ tab }: { tab: ContextTab }) {
+  if (tab === "slack" || tab === "granola" || tab === "hubspot") {
+    return <ConnectorBrandIcon brand={tab as ConnectorBrand} size={13} />;
+  }
+  if (tab === "manual") return <NotebookPen size={13} strokeWidth={2} aria-hidden="true" />;
+  return <FileText size={13} strokeWidth={2} aria-hidden="true" />;
 }
 
 export function ContextEnginePage() {
@@ -97,7 +99,6 @@ export function ContextEnginePage() {
           </div>
           <ul className="f21-source-list">
             {filtered.map(item => {
-              const Icon = sourceIcon(item.tab);
               const active = selected?.id === item.id;
               return (
                 <li key={item.id}>
@@ -106,8 +107,8 @@ export function ContextEnginePage() {
                     className={`f21-source-row${active ? " is-selected" : ""}`}
                     onClick={() => setSelectedId(item.id)}
                   >
-                    <span className="f21-source-icon" data-tab={item.tab}>
-                      <Icon size={14} strokeWidth={2} aria-hidden="true" />
+                    <span className={`f21-source-icon brand-${item.tab}`} data-tab={item.tab}>
+                      <SourceGlyph tab={item.tab} />
                     </span>
                     <span className="f21-source-main">
                       <strong>{item.title}</strong>
@@ -134,7 +135,7 @@ export function ContextEnginePage() {
           {selected ? (
             <section className="f21-panel f21-detail-card">
               <div className="f21-detail-kicker">
-                <MessageSquare size={13} strokeWidth={2} aria-hidden="true" />
+                <SourceGlyph tab={selected.tab} />
                 <span>{selected.detail.channel ?? selected.source}</span>
               </div>
               <h3>{selected.title}</h3>
@@ -191,8 +192,10 @@ export function ContextEnginePage() {
       <footer className="f21-context-footer">
         <div className="f21-connector-status">
           {CONNECTORS.map(c => (
-            <span key={c.name}>
-              <span className="f21-dot" aria-hidden="true" />
+            <span key={c.id} className="f21-connector-status-item">
+              <span className={`f21-connector-mark brand-${c.id} is-compact`} aria-hidden="true">
+                <ConnectorBrandIcon brand={c.id} size={11} />
+              </span>
               {c.name} · Connected
             </span>
           ))}

@@ -21,8 +21,8 @@ export const USER = {
 };
 
 export const RECENTLY_VIEWED = [
-  { id: "stripe", label: "Stripe · Company research" },
-  { id: "adyen", label: "Adyen · Company research" },
+  { id: "stripe" as const, label: "Stripe · Company research" },
+  { id: "adyen" as const, label: "Adyen · Company research" },
 ];
 
 export const SCORE_CARDS = [
@@ -164,9 +164,9 @@ export const PLAYBOOK_SUGGESTIONS = [
 ];
 
 export const CONNECTORS = [
-  { name: "Slack", status: "Connected" },
-  { name: "Granola", status: "Connected" },
-  { name: "HubSpot", status: "Connected" },
+  { id: "slack" as const, name: "Slack", status: "Connected" },
+  { id: "granola" as const, name: "Granola", status: "Connected" },
+  { id: "hubspot" as const, name: "HubSpot", status: "Connected" },
 ];
 
 export type ContextTab = "all" | "manual" | "files" | "slack" | "granola" | "hubspot";

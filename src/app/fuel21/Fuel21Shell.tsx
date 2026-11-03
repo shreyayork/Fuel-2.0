@@ -4,13 +4,13 @@ import {
   ChevronsUpDown,
   CircleHelp,
   Code2,
-  FileText,
   LayoutDashboard,
   Layers,
   Moon,
   Search,
   Sun,
 } from "lucide-react";
+import { AdyenIcon, StripeIcon } from "./BrandIcons.tsx";
 import { FuelPlatformMark } from "./FuelPlatformMark.tsx";
 import {
   NAV_ITEMS,
@@ -80,7 +80,9 @@ export function Fuel21Shell({
             <div className="f21-recent-label">Recently viewed</div>
             {RECENTLY_VIEWED.map(item => (
               <div key={item.id} className="f21-recent-item f21-recent-item--static">
-                <FileText size={14} strokeWidth={2} aria-hidden="true" />
+                <span className={`f21-recent-brand brand-${item.id}`} aria-hidden="true">
+                  {item.id === "stripe" ? <StripeIcon size={13} /> : <AdyenIcon size={13} />}
+                </span>
                 <span>{item.label}</span>
               </div>
             ))}
