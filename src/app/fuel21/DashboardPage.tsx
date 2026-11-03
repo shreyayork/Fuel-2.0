@@ -1,16 +1,22 @@
 import {
   ArrowUpRight,
+  BarChart3,
   BookOpen,
+  CircleDot,
   Compass,
   FileSpreadsheet,
   FileText,
+  Gem,
+  Megaphone,
   Settings2,
+  Target,
   Upload,
   Wallet,
 } from "lucide-react";
 import {
   CONNECTORS,
   DASHBOARD_INITIATIVES,
+  DASHBOARD_MODULES,
   DATA_ROOM_FILES,
   FUEL_BRIEF,
   LATEST_INTELLIGENCE,
@@ -40,6 +46,14 @@ function Sparkline({ values }: { values: number[] }) {
 
 const PLAYBOOK_ICONS = [Compass, BookOpen, Wallet];
 
+const MODULE_ICONS = {
+  profile: Gem,
+  rd: Target,
+  gtm: Megaphone,
+  ga: CircleDot,
+  benchmark: BarChart3,
+} as const;
+
 export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void }) {
   return (
     <div className="f21-page f21-dashboard">
@@ -59,36 +73,51 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         </div>
       </div>
 
-      <div className="f21-score-grid">
-        {SCORE_CARDS.map(card => {
-          const goesToRd = card.id === "rd";
-          return (
-            <button
-              key={card.id}
-              type="button"
-              className="f21-score-card"
-              onClick={goesToRd ? () => onNavigate("rd") : undefined}
-              style={goesToRd ? undefined : { cursor: "default" }}
-            >
-              <div className="f21-score-card-top">
-                <span>{card.label}</span>
-                <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
-              </div>
-              <div className="f21-score-card-body">
-                <div>
-                  <div className="f21-score-value">
-                    {card.score} <span>/ 100</span>
-                  </div>
-                  <div className="f21-score-delta">{card.delta}</div>
+      {/* 1 — Modules first (actionable completion) */}
+      <section className="f21-modules" aria-label="Your 5 modules">
+        <div className="f21-section-head">
+          <h2 className="f21-section-title">Your 5 modules</h2>
+          <p className="f21-section-hint">Finish these to unlock a sharper brief and peer scores.</p>
+        </div>
+        <div className="f21-modules-grid">
+          {DASHBOARD_MODULES.map(mod => {
+            const Icon = MODULE_ICONS[mod.id as keyof typeof MODULE_ICONS] ?? Gem;
+            const statusClass =
+              mod.status === "Complete" ? "is-complete" : mod.status === "Not started" ? "is-idle" : "is-progress";
+            return (
+              <button
+                key={mod.id}
+                type="button"
+                className={`f21-module-card ${statusClass}`}
+                onClick={() => {
+                  if (mod.href) onNavigate(mod.href);
+                }}
+                style={mod.href ? undefined : { cursor: "default" }}
+              >
+                <div className="f21-module-card-top">
+                  <span className="f21-module-icon" aria-hidden="true">
+                    <Icon size={16} strokeWidth={2} />
+                  </span>
+                  <span className={`f21-module-status ${statusClass}`}>{mod.status}</span>
                 </div>
-                <Sparkline values={card.spark} />
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      <p className="f21-footnote">Scores refresh from accepted context and benchmarks.</p>
+                <strong className="f21-module-title">{mod.title}</strong>
+                <div className="f21-module-progress">{mod.progress}</div>
+                <div className="f21-module-tags">
+                  {mod.tags.map(tag => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+                <div className="f21-module-card-foot">
+                  <em>{mod.credit}</em>
+                  <span className="f21-link-btn">{mod.action}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
+      {/* 2 — Fuel Brief: intelligence highlights only */}
       <section className="f21-panel f21-fuel-brief" aria-label="Fuel brief">
         <div className="f21-fuel-brief-head">
           <span className="f21-eyebrow">Fuel brief</span>
@@ -97,16 +126,15 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
           </span>
         </div>
         <p className="f21-fuel-brief-summary">{FUEL_BRIEF.summary}</p>
-        <ul className="f21-fuel-brief-initiatives">
-          {FUEL_BRIEF.initiativeBriefs.map(item => (
-            <li key={item.title}>
-              <span className={`f21-track-tag track-${item.track.replace("&", "").toLowerCase()}`}>
-                {item.track}
-              </span>
-              <div>
-                <strong>{item.title}</strong>
-                <p>{item.detail}</p>
+        <div className="f21-brief-intel-label">What intelligence is saying</div>
+        <ul className="f21-fuel-brief-intel">
+          {FUEL_BRIEF.intelligenceHighlights.map(item => (
+            <li key={item.label}>
+              <div className="f21-brief-intel-metric">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
               </div>
+              <p>{item.point}</p>
             </li>
           ))}
         </ul>
@@ -125,6 +153,43 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         </div>
       </section>
 
+      {/* 3 — Score pulse */}
+      <section aria-label="Track scores">
+        <div className="f21-section-head">
+          <h2 className="f21-section-title">Track scores</h2>
+          <p className="f21-section-hint">Scores refresh from accepted context and benchmarks.</p>
+        </div>
+        <div className="f21-score-grid">
+          {SCORE_CARDS.map(card => {
+            const goesToRd = card.id === "rd";
+            return (
+              <button
+                key={card.id}
+                type="button"
+                className="f21-score-card"
+                onClick={goesToRd ? () => onNavigate("rd") : undefined}
+                style={goesToRd ? undefined : { cursor: "default" }}
+              >
+                <div className="f21-score-card-top">
+                  <span>{card.label}</span>
+                  <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
+                </div>
+                <div className="f21-score-card-body">
+                  <div>
+                    <div className="f21-score-value">
+                      {card.score} <span>/ 100</span>
+                    </div>
+                    <div className="f21-score-delta">{card.delta}</div>
+                  </div>
+                  <Sparkline values={card.spark} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 4 — Intelligence + initiatives */}
       <div className="f21-dash-mid">
         <section className="f21-panel">
           <div className="f21-panel-head">
@@ -170,6 +235,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         </section>
       </div>
 
+      {/* 5 — Supporting widgets */}
       <div className="f21-dash-bottom">
         <section className="f21-panel">
           <div className="f21-panel-head">
@@ -220,9 +286,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Connectors</h2>
-            <span className="f21-link-btn" aria-hidden="true">
+            <button type="button" className="f21-link-btn" onClick={() => onNavigate("context")}>
               Manage →
-            </span>
+            </button>
           </div>
           <ul className="f21-connector-list">
             {CONNECTORS.map(c => (

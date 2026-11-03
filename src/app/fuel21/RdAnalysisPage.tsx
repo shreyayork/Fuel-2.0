@@ -41,9 +41,12 @@ export function RdAnalysisPage({ onNavigate }: { onNavigate: (id: NavId) => void
           </div>
           <div className="f21-rd-trend">↗ +6 over 8 weeks</div>
         </div>
-        <p className="f21-rd-summary-copy">
-          Reliable delivery and ownership, but payment testing and a fresh security review need attention.
-        </p>
+        <div className="f21-rd-summary-copy-wrap">
+          <div className="f21-eyebrow">Analysis</div>
+          <p className="f21-rd-summary-copy">
+            Reliable delivery and ownership, but payment testing and a fresh security review need attention.
+          </p>
+        </div>
       </section>
 
       <div className="f21-rd-mid">

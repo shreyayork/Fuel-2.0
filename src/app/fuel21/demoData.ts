@@ -31,25 +31,87 @@ export const SCORE_CARDS = [
   { id: "ga" as const, label: "G&A", score: 74, delta: "+3 vs. 8 weeks ago", spark: [64, 66, 68, 69, 71, 72, 74] },
 ];
 
-/** Dashboard Fuel Brief — summary + short initiative briefs for the founder. */
+/** Dashboard modules — complete-profile style progress cards. */
+export const DASHBOARD_MODULES = [
+  {
+    id: "profile",
+    title: "Complete Profile",
+    progress: "9/16 answered",
+    tags: ["Company", "Industry", "Location", "Headcount", "Context"],
+    status: "In progress" as const,
+    credit: "+55 unlocked",
+    action: "Continue →",
+    href: null as NavId | null,
+  },
+  {
+    id: "rd",
+    title: "R&D",
+    progress: "1/14 answered",
+    tags: ["Stage", "Type", "Constraint"],
+    status: "In progress" as const,
+    credit: "Get +55",
+    action: "Continue →",
+    href: "rd" as NavId | null,
+  },
+  {
+    id: "gtm",
+    title: "GTM",
+    progress: "1/19 answered",
+    tags: ["Motion", "ICP", "Pipeline"],
+    status: "In progress" as const,
+    credit: "Get +55",
+    action: "Continue →",
+    href: null as NavId | null,
+  },
+  {
+    id: "ga",
+    title: "G&A",
+    progress: "0/12 answered",
+    tags: ["Runway", "Finance", "Capital"],
+    status: "Not started" as const,
+    credit: "Get +55",
+    action: "Start →",
+    href: null as NavId | null,
+  },
+  {
+    id: "benchmark",
+    title: "Benchmark",
+    progress: "12/12 answered",
+    tags: ["Metrics", "Cohort", "Peer scores"],
+    status: "Complete" as const,
+    credit: "+55 unlocked",
+    action: "Review →",
+    href: null as NavId | null,
+  },
+];
+
+/**
+ * Fuel Brief — narrative + intelligence highlights only
+ * (no R&D / GTM / G&A initiative track cards).
+ */
 export const FUEL_BRIEF = {
   summary:
     "Retention is a strength for Patriot Pay, but growth sits in the bottom quartile of the FinTech · Seed cohort. Completing cash and burn inputs will unlock a sharper finance and operations score.",
-  initiativeBriefs: [
+  intelligenceHighlights: [
     {
-      track: "R&D",
-      title: "Close the payment-flow test gap",
-      detail: "Twelve critical checkout paths are still untested — protect releases before the next ship window.",
+      label: "Annual recurring revenue",
+      value: "$35M",
+      point: "Latest revenue pulse from accepted finance context — a clear strength signal for the board narrative.",
     },
     {
-      track: "GTM",
-      title: "Rebalance the paid growth mix",
-      detail: "Shift spend toward channels with clearer payback so growth can move off the bottom of the cohort.",
+      label: "Automated test coverage",
+      value: "84%",
+      point: "Up nine points — quality is improving, which protects release confidence as you scale.",
     },
     {
-      track: "G&A",
-      title: "Finish cash and burn inputs",
-      detail: "A living 13-week cash view unlocks a sharper finance and operations score for the board.",
+      label: "Customer acquisition payback",
+      value: "19 months",
+      point: "Payback lengthened two months — watch channel efficiency before increasing paid spend.",
+    },
+    {
+      label: "Peer growth position",
+      value: "Bottom quartile",
+      point: "Growth lags FinTech · Seed peers even while retention holds — prioritize signals that move acquisition quality.",
     },
   ],
   tags: ["Benchmark · Q3 2025", "Pitch deck · Nov 3"],
