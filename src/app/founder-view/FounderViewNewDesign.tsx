@@ -1,11 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { FuelIcon, type FuelIconName } from "../icons.tsx";
 import {
+  FOUNDER_VIEW_BRIEF,
   FOUNDER_VIEW_COMPANY,
-  FOUNDER_VIEW_NEXT_ACTION,
-  FOUNDER_VIEW_PULSE,
-  FOUNDER_VIEW_READ,
-  FOUNDER_VIEW_SETUP,
+  FOUNDER_VIEW_EVIDENCE,
+  FOUNDER_VIEW_IN_MOTION,
+  FOUNDER_VIEW_KEY_METRICS,
+  FOUNDER_VIEW_NEXT_STEP,
+  FOUNDER_VIEW_TRACK_BANNER,
+  FOUNDER_VIEW_TRACK_GAPS,
   FOUNDER_VIEW_TRACKS,
   type FounderViewTrack,
   type FounderViewTrackId,
@@ -28,19 +31,10 @@ const TRACK_ICONS: Record<FounderViewTrackId, FuelIconName> = {
   ga: "finance",
 };
 
-const SETUP_ICONS: Record<string, FuelIconName> = {
-  company: "company",
-  rd: "development",
-  gtm: "gtm",
-  ga: "finance",
-  benchmark: "benchmarks",
-};
-
-const FEED_ICONS: Record<FounderViewWorkspaceTab, FuelIconName> = {
-  intelligence: "pulse",
-  initiatives: "initiatives",
-  research: "playbooks",
-  "data-room": "file",
+const TRACK_TITLES: Record<FounderViewTrackId, string> = {
+  rd: "R&D",
+  gtm: "Go-to-Market",
+  ga: "G&A",
 };
 
 function statusToneCss(status: FounderViewTrack["status"] | "watch") {
@@ -52,15 +46,13 @@ function statusToneCss(status: FounderViewTrack["status"] | "watch") {
 function ScoreRing({
   score,
   status,
-  size,
-  stroke,
-  label,
+  size = 88,
+  stroke = 6,
 }: {
   score: number;
-  status: FounderViewTrack["status"] | "watch";
-  size: number;
-  stroke: number;
-  label: string;
+  status: FounderViewTrack["status"];
+  size?: number;
+  stroke?: number;
 }) {
   const tone = statusToneCss(status);
   const radius = (size - stroke) / 2;
@@ -75,7 +67,7 @@ function ScoreRing({
       aria-valuenow={score}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-label={label}
+      aria-label={`Score ${score} of 100`}
     >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
         <circle
@@ -83,7 +75,7 @@ function ScoreRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--fv-score-track, #e8eaed)"
+          stroke="var(--fv-score-track)"
           strokeWidth={stroke}
         />
         <circle
@@ -99,275 +91,279 @@ function ScoreRing({
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </svg>
-      <strong style={{ color: tone }}>{score}</strong>
+      <strong style={{ color: tone }}>
+        {score}
+        <em>/100</em>
+      </strong>
     </div>
   );
 }
 
-function peerDeltaLabel(track: FounderViewTrack) {
-  const delta = track.score - track.peerAverage;
-  if (Math.abs(delta) <= 3) return `Near median ${track.peerAverage}`;
-  if (delta < 0) return `${Math.abs(delta)} behind median`;
-  return `${delta} ahead of median`;
-}
-
-function buildWorkspaceFeed() {
-  const { intelligence, initiatives, dataRoom, research } = FOUNDER_VIEW_PULSE;
-  return [
-    {
-      id: "intel-0",
-      tab: intelligence.tab,
-      source: intelligence.title,
-      title: intelligence.items[0].title,
-      meta: intelligence.items[0].meta,
-    },
-    {
-      id: "init-0",
-      tab: initiatives.tab,
-      source: initiatives.title,
-      title: initiatives.items[0].title,
-      meta: initiatives.items[0].meta,
-      progress: initiatives.items[0].progress,
-    },
-    {
-      id: "data-0",
-      tab: dataRoom.tab,
-      source: dataRoom.title,
-      title: dataRoom.items[1].title,
-      meta: dataRoom.items[1].meta,
-    },
-    {
-      id: "research-0",
-      tab: research.tab,
-      source: research.title,
-      title: research.items[0].title,
-      meta: research.items[0].meta,
-    },
-  ] as const;
-}
-
-function VerdictBand({
-  onOpenTrack,
-}: {
-  onOpenTrack?: (trackId: FounderViewTrackId) => void;
-}) {
+function KeyMetrics({ onAddDetails }: { onAddDetails?: () => void }) {
   return (
-    <section className="fvx-verdict overview-panel" aria-label="Scorecard verdict">
-      <header className="fvx-verdict-head">
-        <span className="fvx-eyebrow">Scorecard</span>
-        <p className="fvx-cohort">{FOUNDER_VIEW_COMPANY.cohort}</p>
+    <section className="fvx-metrics overview-panel" aria-label="Key metrics">
+      <header className="fvx-section-head">
+        <div>
+          <span className="fvx-eyebrow">Performance</span>
+          <h2>Key metrics</h2>
+          <p>vs FinTech · Seed cohort</p>
+        </div>
+        <button type="button" className="fvx-ghost-btn" onClick={onAddDetails}>
+          Update benchmark
+        </button>
       </header>
-
-      <div className="fvx-verdict-body">
-        <div className="fvx-hero">
-          <ScoreRing
-            score={FOUNDER_VIEW_COMPANY.compositeScore}
-            status="watch"
-            size={96}
-            stroke={6.5}
-            label={`Overall score ${FOUNDER_VIEW_COMPANY.compositeScore} of 100`}
-          />
-          <div className="fvx-hero-copy">
-            <span className="fvx-tier">{FOUNDER_VIEW_COMPANY.compositeStatus}</span>
-            <p>{FOUNDER_VIEW_COMPANY.compositeVerdict}</p>
-          </div>
-        </div>
-
-        <div className="fvx-tracks" role="list">
-          {FOUNDER_VIEW_TRACKS.map(track => (
-            <button
-              key={track.id}
-              type="button"
-              role="listitem"
-              className={`fvx-track is-${track.status}`}
-              onClick={() => onOpenTrack?.(track.id)}
-            >
-              <ScoreRing
-                score={track.score}
-                status={track.status}
-                size={48}
-                stroke={4}
-                label={`${track.label} score ${track.score}`}
-              />
-              <span className="fvx-track-copy">
-                <span className="fvx-track-top">
-                  <span className="fvx-track-label">
-                    <FuelIcon name={TRACK_ICONS[track.id]} size={13} strokeWidth={1.75} />
-                    {track.label}
-                  </span>
-                  <em className="fvx-track-status">{track.statusLabel}</em>
-                </span>
-                <span className="fvx-track-peer">
-                  <span>{peerDeltaLabel(track)}</span>
-                  <span className="fvx-peer-bar" aria-hidden="true">
-                    <i
-                      className="fvx-peer-med"
-                      style={{ left: `${Math.min(96, Math.max(4, track.peerAverage))}%` }}
-                    />
-                    <i
-                      className="fvx-peer-you"
-                      style={{
-                        left: `${Math.min(96, Math.max(4, track.score))}%`,
-                        background: statusToneCss(track.status),
-                      }}
-                    />
-                  </span>
-                </span>
+      <div className="fvx-metric-grid">
+        {FOUNDER_VIEW_KEY_METRICS.map((metric, index) => (
+          <article
+            key={metric.id}
+            className={`fvx-metric-card${metric.missing ? " is-missing" : ""}`}
+            style={{ ["--fvx-i" as string]: index }}
+          >
+            <span className="fvx-metric-label">{metric.label}</span>
+            <strong className="fvx-metric-value">{metric.value}</strong>
+            <em className="fvx-metric-cohort">{metric.cohort}</em>
+            {!metric.missing && metric.percentile != null ? (
+              <span className="fvx-metric-bar" aria-hidden="true">
+                <i style={{ width: `${metric.percentile}%` }} />
               </span>
-              <FuelIcon name="arrowUpRight" size={14} strokeWidth={2} />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="fvx-gaps">
-        <span className="fvx-eyebrow">Biggest gaps</span>
-        <ul>
-          {FOUNDER_VIEW_TRACKS.map((track, index) => (
-            <li key={`${track.id}-gap`}>
-              <button type="button" onClick={() => onOpenTrack?.(track.id)}>
-                <span className="fvx-gap-idx">{String(index + 1).padStart(2, "0")}</span>
-                <span className="fvx-gap-copy">
-                  <span className="fvx-gap-track">{track.label}</span>
-                  <strong>{track.topGap}</strong>
-                </span>
-                <FuelIcon name="arrowUpRight" size={14} strokeWidth={2} />
-              </button>
-            </li>
-          ))}
-        </ul>
+            ) : (
+              <span className="fvx-metric-bar is-empty" aria-hidden="true">
+                <i style={{ width: "0%" }} />
+              </span>
+            )}
+          </article>
+        ))}
       </div>
     </section>
   );
 }
 
-function BriefSplit({
+function BriefAndNext({
   onOpenBrief,
   onAddDetails,
 }: {
   onOpenBrief?: () => void;
   onAddDetails?: () => void;
 }) {
+  const [cash, setCash] = useState("");
+  const [burn, setBurn] = useState("");
+
   return (
-    <section className="fvx-split" aria-label="Brief and next step">
+    <section className="fvx-insight" aria-label="Brief and next step">
       <article className="fvx-brief overview-panel">
-        <header>
-          <span className="fvx-eyebrow">Fuel AI brief</span>
-          <button type="button" className="fvx-ghost-btn" onClick={onOpenBrief}>
-            Open brief
+        <div className="fvx-brief-top">
+          <span className="fvx-eyebrow">{FOUNDER_VIEW_BRIEF.title}</span>
+          <span className="fvx-brief-mark" aria-hidden="true">
+            ”
+          </span>
+        </div>
+        <p className="fvx-brief-body">{FOUNDER_VIEW_BRIEF.body}</p>
+        <div className="fvx-brief-foot">
+          <button type="button" className="fvx-text-link" onClick={onOpenBrief}>
+            {FOUNDER_VIEW_BRIEF.cta}
+            <FuelIcon name="arrowUpRight" size={14} strokeWidth={2} />
+          </button>
+          <div className="fvx-source-pills">
+            {FOUNDER_VIEW_BRIEF.sources.map(source => (
+              <span key={source.id}>{source.label}</span>
+            ))}
+          </div>
+        </div>
+      </article>
+
+      <article className="fvx-next overview-panel">
+        <div className="fvx-next-badge">2 min</div>
+        <span className="fvx-eyebrow">{FOUNDER_VIEW_NEXT_STEP.title}</span>
+        <h3>{FOUNDER_VIEW_NEXT_STEP.headline}</h3>
+        <p className="fvx-next-lede">Unlock a sharper G&A score with two finance inputs.</p>
+        <div className="fvx-next-fields">
+          <label>
+            <span>{FOUNDER_VIEW_NEXT_STEP.fields[0].label}</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder={FOUNDER_VIEW_NEXT_STEP.fields[0].placeholder}
+              value={cash}
+              onChange={event => setCash(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>{FOUNDER_VIEW_NEXT_STEP.fields[1].label}</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder={FOUNDER_VIEW_NEXT_STEP.fields[1].placeholder}
+              value={burn}
+              onChange={event => setBurn(event.target.value)}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          className="founder-view-btn founder-view-btn-primary fvx-next-cta"
+          onClick={onAddDetails}
+        >
+          {FOUNDER_VIEW_NEXT_STEP.cta}
+        </button>
+      </article>
+    </section>
+  );
+}
+
+function BenchmarkByTrack({
+  onOpenTrack,
+  onAddDetails,
+}: {
+  onOpenTrack?: (trackId: FounderViewTrackId) => void;
+  onAddDetails?: () => void;
+}) {
+  return (
+    <section className="fvx-benchmark overview-panel" aria-label="Benchmark by track">
+      <header className="fvx-section-head">
+        <div>
+          <span className="fvx-eyebrow">Scorecard</span>
+          <h2>Benchmark by track</h2>
+          <p>Score by function · add missing inputs to improve</p>
+        </div>
+      </header>
+
+      <div className="fvx-track-grid">
+        {FOUNDER_VIEW_TRACKS.map((track, index) => {
+          const gaps = FOUNDER_VIEW_TRACK_GAPS[track.id];
+          return (
+            <article
+              key={track.id}
+              className={`fvx-track-card is-${track.status}`}
+              style={{ ["--fvx-i" as string]: index }}
+            >
+              <header className="fvx-track-head">
+                <span className="fvx-track-name">
+                  <span className="fvx-track-icon">
+                    <FuelIcon name={TRACK_ICONS[track.id]} size={15} strokeWidth={1.75} />
+                  </span>
+                  {TRACK_TITLES[track.id]}
+                </span>
+                <button
+                  type="button"
+                  className="fvx-icon-link"
+                  onClick={() => onOpenTrack?.(track.id)}
+                  aria-label={`Open ${TRACK_TITLES[track.id]}`}
+                >
+                  <FuelIcon name="arrowUpRight" size={15} strokeWidth={2} />
+                </button>
+              </header>
+
+              <div className="fvx-track-body">
+                <div className="fvx-track-score-row">
+                  <ScoreRing score={track.score} status={track.status} />
+                  <div className="fvx-track-score-copy">
+                    <em className="fvx-track-status">{track.statusLabel}</em>
+                    <p>Updates as profile fills</p>
+                  </div>
+                </div>
+
+                <div className="fvx-track-gaps-head">Needs input</div>
+                <ul className="fvx-track-gaps">
+                  {gaps.map(gap => (
+                    <li key={gap.id}>
+                      <span>{gap.label}</span>
+                      <button type="button" className="fvx-add-chip" onClick={onAddDetails}>
+                        Add
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="fvx-track-banner">
+        <div className="fvx-track-banner-copy">
+          <span className="fvx-eyebrow">York IE suggestion</span>
+          <p>{FOUNDER_VIEW_TRACK_BANNER.text}</p>
+        </div>
+        <button type="button" className="founder-view-btn founder-view-btn-primary">
+          {FOUNDER_VIEW_TRACK_BANNER.cta}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function MotionAndEvidence({
+  onOpenWorkspaceTab,
+}: {
+  onOpenWorkspaceTab?: (tab: FounderViewWorkspaceTab) => void;
+}) {
+  return (
+    <section className="fvx-lower" aria-label="In motion and evidence">
+      <article className="fvx-motion overview-panel">
+        <header className="fvx-section-head">
+          <div>
+            <span className="fvx-eyebrow">Initiatives</span>
+            <h2>{FOUNDER_VIEW_IN_MOTION.title}</h2>
+          </div>
+          <button
+            type="button"
+            className="fvx-text-link"
+            onClick={() => onOpenWorkspaceTab?.("initiatives")}
+          >
+            {FOUNDER_VIEW_IN_MOTION.viewAll}
+            <FuelIcon name="arrowUpRight" size={13} strokeWidth={2} />
           </button>
         </header>
-        <h3>{FOUNDER_VIEW_READ.headline}</h3>
         <ul>
-          {FOUNDER_VIEW_READ.takeaways.slice(0, 2).map(item => (
-            <li key={item.title}>
-              <span className="fvx-brief-tag">{item.impact}</span>
-              <strong>{item.title}</strong>
-              <p>{item.desc}</p>
+          {FOUNDER_VIEW_IN_MOTION.items.map((item, index) => (
+            <li key={item.id}>
+              <button type="button" onClick={() => onOpenWorkspaceTab?.("initiatives")}>
+                <span className="fvx-motion-idx">{String(index + 1).padStart(2, "0")}</span>
+                <span className="fvx-motion-copy">
+                  <strong>{item.title}</strong>
+                  <em>{item.impact}</em>
+                </span>
+                <span className="fvx-motion-progress">{item.progress}</span>
+              </button>
             </li>
           ))}
         </ul>
       </article>
 
-      <article className="fvx-next overview-panel">
-        <span className="fvx-eyebrow">Do next</span>
-        <h3>{FOUNDER_VIEW_NEXT_ACTION.title}</h3>
-        <p className="fvx-next-meta">
-          <span>{FOUNDER_VIEW_NEXT_ACTION.track}</span>
-          <span aria-hidden="true">·</span>
-          <span>{FOUNDER_VIEW_NEXT_ACTION.timeEstimate}</span>
-        </p>
-        <p className="fvx-next-desc">{FOUNDER_VIEW_NEXT_ACTION.description}</p>
-        <button
-          type="button"
-          className="founder-view-btn founder-view-btn-primary"
-          onClick={onAddDetails}
-        >
-          Add details
-        </button>
-      </article>
-    </section>
-  );
-}
-
-function WorkspaceFeed({
-  onOpenWorkspaceTab,
-}: {
-  onOpenWorkspaceTab?: (tab: FounderViewWorkspaceTab) => void;
-}) {
-  const feed = buildWorkspaceFeed();
-
-  return (
-    <section className="fvx-feed overview-panel" aria-label="Across the workspace">
-      <header>
-        <span className="fvx-eyebrow">Workspace</span>
-        <h3>Latest from every tab</h3>
-      </header>
-      <ul>
-        {feed.map(item => (
-          <li key={item.id}>
-            <button type="button" onClick={() => onOpenWorkspaceTab?.(item.tab)}>
-              <span className="fvx-feed-source">
-                <FuelIcon name={FEED_ICONS[item.tab]} size={14} strokeWidth={1.85} />
-                {item.source}
-              </span>
-              <span className="fvx-feed-body">
-                <strong>{item.title}</strong>
-                <em>{item.meta}</em>
-                {"progress" in item && typeof item.progress === "number" ? (
-                  <span className="fvx-bar" aria-hidden="true">
-                    <i style={{ width: `${item.progress}%` }} />
-                  </span>
-                ) : null}
-              </span>
-              <FuelIcon name="arrowUpRight" size={14} strokeWidth={2} />
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function SetupStrip({ onAddDetails }: { onAddDetails?: () => void }) {
-  return (
-    <section className="fvx-setup overview-panel" aria-label="Your 5 modules">
-      <header>
-        <div>
-          <span className="fvx-eyebrow">Context</span>
-          <h3>{FOUNDER_VIEW_SETUP.title}</h3>
-        </div>
-        <button type="button" className="fvx-ghost-btn" onClick={onAddDetails}>
-          {FOUNDER_VIEW_SETUP.skipLabel}
-        </button>
-      </header>
-      <div className="fvx-setup-grid">
-        {FOUNDER_VIEW_SETUP.modules.map(module => {
-          const pct = Math.round((module.answered / module.total) * 100);
-          const complete = module.status === "complete";
-          return (
-            <button
-              key={module.id}
-              type="button"
-              className={complete ? "is-complete" : undefined}
-              onClick={onAddDetails}
-            >
-              <span className="fvx-setup-top">
-                <span>
-                  <FuelIcon name={SETUP_ICONS[module.id] ?? "file"} size={13} strokeWidth={1.85} />
-                  {module.name}
+      <article className="fvx-evidence overview-panel">
+        <header className="fvx-section-head">
+          <div>
+            <span className="fvx-eyebrow">Data room</span>
+            <h2>{FOUNDER_VIEW_EVIDENCE.title}</h2>
+          </div>
+          <button
+            type="button"
+            className="fvx-text-link"
+            onClick={() => onOpenWorkspaceTab?.("data-room")}
+          >
+            {FOUNDER_VIEW_EVIDENCE.viewAll}
+            <FuelIcon name="arrowUpRight" size={13} strokeWidth={2} />
+          </button>
+        </header>
+        <ul>
+          {FOUNDER_VIEW_EVIDENCE.items.map(item => (
+            <li key={item.id} className={item.action === "Upload" ? "is-missing" : undefined}>
+              <button type="button" onClick={() => onOpenWorkspaceTab?.("data-room")}>
+                <span className="fvx-evidence-icon">
+                  <FuelIcon name="file" size={16} strokeWidth={1.75} />
                 </span>
-                <em>
-                  {module.answered}/{module.total}
-                </em>
-              </span>
-              <span className="fvx-bar" aria-hidden="true">
-                <i style={{ width: `${pct}%` }} />
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                <span className="fvx-evidence-copy">
+                  <strong>{item.title}</strong>
+                  <em>{item.meta}</em>
+                </span>
+                <span className={item.action === "Upload" ? "fvx-add-chip" : "fvx-text-link"}>
+                  {item.action}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </article>
     </section>
   );
 }
@@ -380,12 +376,10 @@ function OverviewBody({
 }: Pick<NewDesignHandlers, "onOpenTrack" | "onOpenBrief" | "onAddDetails" | "onOpenWorkspaceTab">) {
   return (
     <div className="fvx">
-      <VerdictBand onOpenTrack={onOpenTrack} />
-      <BriefSplit onOpenBrief={onOpenBrief} onAddDetails={onAddDetails} />
-      <div className="fvx-lower">
-        <WorkspaceFeed onOpenWorkspaceTab={onOpenWorkspaceTab} />
-        <SetupStrip onAddDetails={onAddDetails} />
-      </div>
+      <KeyMetrics onAddDetails={onAddDetails} />
+      <BriefAndNext onOpenBrief={onOpenBrief} onAddDetails={onAddDetails} />
+      <BenchmarkByTrack onOpenTrack={onOpenTrack} onAddDetails={onAddDetails} />
+      <MotionAndEvidence onOpenWorkspaceTab={onOpenWorkspaceTab} />
     </div>
   );
 }
@@ -416,7 +410,7 @@ export function FounderViewNewDesign({
     <div className="fv-pro" aria-label="Overview — new design">
       <div className="fv-pro-topbar">
         <div className="fv-pro-crumb">
-          Fuel / <em>Company</em>
+          Companies / <em>{FOUNDER_VIEW_COMPANY.name}</em>
         </div>
         <div className="fv-pro-topbar-actions">
           <span className="fv-pro-search" role="search">
@@ -459,20 +453,26 @@ export function FounderViewNewDesign({
           className="founder-view-btn founder-view-btn-ghost"
           onClick={onViewProfile}
         >
-          View profile
+          View public profile
         </button>
       </section>
 
       <div className="fv-pro-tabs" role="tablist" aria-label="Company workspace">
-        {["Overview", "Intelligence", "Initiatives", "Research", "Data room"].map((tab, index) => (
+        {[
+          { label: "Overview", count: null },
+          { label: "Initiatives", count: 3 },
+          { label: "Evidence", count: 4 },
+          { label: "Research", count: 1 },
+        ].map((tab, index) => (
           <button
-            key={tab}
+            key={tab.label}
             type="button"
             role="tab"
             aria-selected={index === 0}
             tabIndex={index === 0 ? 0 : -1}
           >
-            {tab}
+            {tab.label}
+            {tab.count != null ? <em>{tab.count}</em> : null}
           </button>
         ))}
       </div>

@@ -373,6 +373,140 @@ export const FOUNDER_VIEW_NEXT_ACTION = {
   timeEstimate: "2 min",
 } as const;
 
+/** Wireframe overview — Key metrics row */
+export const FOUNDER_VIEW_KEY_METRICS = [
+  {
+    id: "arr",
+    label: "ARR",
+    value: "$480k",
+    cohort: "P48 vs cohort",
+    percentile: 48,
+    missing: false,
+  },
+  {
+    id: "arr-growth",
+    label: "ARR growth",
+    value: "+18%",
+    cohort: "P22 vs cohort",
+    percentile: 22,
+    missing: false,
+  },
+  {
+    id: "nrr",
+    label: "Net revenue retention",
+    value: "104%",
+    cohort: "P71 vs cohort",
+    percentile: 71,
+    missing: false,
+  },
+  {
+    id: "burn-multiple",
+    label: "Burn multiple",
+    value: "—",
+    cohort: "Not entered",
+    percentile: null,
+    missing: true,
+  },
+] as const;
+
+/** Wireframe overview — Fuel brief + sources */
+export const FOUNDER_VIEW_BRIEF = {
+  title: "Fuel brief",
+  body: "Retention is a strength for Patriot Pay, but growth sits in the bottom quartile of the FinTech · Seed cohort. Completing cash and burn inputs will unlock a sharper G&A score.",
+  cta: "Read full brief",
+  sources: [
+    { id: "benchmark", label: "Benchmark · Q3 2025" },
+    { id: "deck", label: "Pitch deck · Nov 3" },
+  ],
+} as const;
+
+/** Wireframe overview — Next best step form */
+export const FOUNDER_VIEW_NEXT_STEP = {
+  title: "Next best step",
+  headline: "Add cash on hand and net burn",
+  fields: [
+    { id: "cash", label: "Cash on hand", placeholder: "$" },
+    { id: "burn", label: "Net burn / month", placeholder: "$" },
+  ],
+  cta: "Save and rescore",
+} as const;
+
+/** Wireframe overview — track missing inputs shown as Add links */
+export const FOUNDER_VIEW_TRACK_GAPS: Record<
+  FounderViewTrackId,
+  ReadonlyArray<{ id: string; label: string }>
+> = {
+  rd: [
+    { id: "rd-spend", label: "R&D spend % of revenue" },
+    { id: "rd-cadence", label: "Release cadence" },
+  ],
+  gtm: [
+    { id: "gtm-cac", label: "CAC payback" },
+    { id: "gtm-motion", label: "Primary sales motion" },
+  ],
+  ga: [
+    { id: "ga-cash", label: "Cash on hand" },
+    { id: "ga-burn", label: "Net burn" },
+  ],
+};
+
+export const FOUNDER_VIEW_TRACK_BANNER = {
+  text: "Growth is in the bottom quartile of your FinTech · Seed cohort.",
+  cta: "Talk to York IE",
+} as const;
+
+/** Wireframe overview — In motion (initiatives) */
+export const FOUNDER_VIEW_IN_MOTION = {
+  title: "In motion",
+  viewAll: "View all",
+  items: [
+    {
+      id: "init-series-a",
+      title: "Prepare Series A fundraising materials",
+      progress: "0/3",
+      impact: "Impacts ARR growth · burn multiple",
+    },
+    {
+      id: "init-gtm",
+      title: "Define primary GTM sales motion",
+      progress: "1/3",
+      impact: "Impacts CAC payback · peer score",
+    },
+    {
+      id: "init-rd",
+      title: "Instrument engineering delivery cadence",
+      progress: "0/2",
+      impact: "Impacts R&D score confidence",
+    },
+  ],
+} as const;
+
+/** Wireframe overview — Evidence (data room) */
+export const FOUNDER_VIEW_EVIDENCE = {
+  title: "Evidence",
+  viewAll: "View all",
+  items: [
+    {
+      id: "ev-deck",
+      title: "Pitch deck",
+      meta: "Uploaded · Nov 3",
+      action: "Open" as const,
+    },
+    {
+      id: "ev-brief",
+      title: "Intelligence brief",
+      meta: "Fuel AI · This week",
+      action: "Open" as const,
+    },
+    {
+      id: "ev-model",
+      title: "Financial model",
+      meta: "Missing",
+      action: "Upload" as const,
+    },
+  ],
+} as const;
+
 export const FOUNDER_VIEW_SETUP = {
   title: "Your 5 modules",
   description: "Open any module to add or update the context Fuel uses across your Overview.",
