@@ -7,7 +7,7 @@ import { PlaceholderPage } from "./PlaceholderPage.tsx";
 import type { NavId } from "./demoData.ts";
 import "./fuel21.css";
 
-const THEME_KEY = "fuel-ui-theme";
+const THEME_KEY = "fuel21-theme";
 
 function readTheme(): "dark" | "light" {
   try {
@@ -21,6 +21,7 @@ function readTheme(): "dark" | "light" {
 
 function applyTheme(theme: "dark" | "light") {
   document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-f21-theme", theme);
   try {
     localStorage.setItem(THEME_KEY, theme);
   } catch {
@@ -32,6 +33,7 @@ function readInitialPage(): NavId {
   if (typeof window === "undefined") return "dashboard";
   const hash = window.location.hash.replace(/^#\/?/, "");
   const map: Record<string, NavId> = {
+    "": "dashboard",
     dashboard: "dashboard",
     rd: "rd",
     "r-and-d": "rd",
@@ -49,17 +51,20 @@ function readInitialPage(): NavId {
   return map[hash] ?? "dashboard";
 }
 
-export default function Fuel21Workspace({
-  onLogOut,
-}: {
-  onLogOut?: () => void;
-}) {
+/** Standalone Fuel 2.1 app — mockup screens only (no legacy Fuel shell). */
+export default function Fuel21Workspace() {
   const [theme, setTheme] = useState<"dark" | "light">(() => readTheme());
   const [page, setPage] = useState<NavId>(() => readInitialPage());
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    const onHash = () => setPage(readInitialPage());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   useEffect(() => {
     const slug =
@@ -70,14 +75,11 @@ export default function Fuel21Workspace({
           : page === "context"
             ? "context-engine"
             : page;
-    const next = `#/${slug}`;
+    const next = page === "dashboard" ? "#/dashboard" : `#/${slug}`;
     if (window.location.hash !== next) {
-      window.history.replaceState(null, "", next);
+      window.history.replaceState(null, "", `/${next}`);
     }
   }, [page]);
-
-  // Keep logout available for shell extension without unused-var lint noise.
-  void onLogOut;
 
   return (
     <Fuel21Shell
