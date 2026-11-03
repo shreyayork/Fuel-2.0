@@ -849,6 +849,95 @@
   gap: 16px;
 }
 
+.f21-brief-row {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.f21-fuel-brief--compact {
+  padding: 16px 18px 14px;
+}
+
+.f21-fuel-brief--compact .f21-fuel-brief-summary {
+  font-size: 13.5px;
+  line-height: 1.45;
+  max-width: none;
+}
+
+.f21-fuel-brief--compact .f21-fuel-brief-quote {
+  font-size: 32px;
+}
+
+.f21-fuel-brief-intel--compact {
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.f21-fuel-brief-intel--compact li {
+  padding: 10px 12px;
+}
+
+.f21-fuel-brief--compact .f21-fuel-brief-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.f21-side-highlights {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.f21-side-highlights li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--f21-border-soft);
+  background: var(--f21-inset);
+}
+
+.f21-side-highlights strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 750;
+  color: var(--f21-text);
+}
+
+.f21-side-highlights p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--f21-text-muted);
+}
+
+.f21-initiative-list--row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.f21-initiative-list--row li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--f21-border-soft);
+  border-radius: 10px;
+  background: var(--f21-inset);
+  border-top: 1px solid var(--f21-border-soft);
+}
+
+.f21-initiative-list--row li:first-child {
+  padding-top: 12px;
+  border-top: 1px solid var(--f21-border-soft);
+}
+
 .f21-dash-bottom {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1546,12 +1635,14 @@
 @media (max-width: 1100px) {
   .f21-score-grid,
   .f21-dash-mid,
+  .f21-brief-row,
   .f21-dash-bottom,
   .f21-rd-mid,
   .f21-rd-bottom,
   .f21-context-layout,
   .f21-init-grid,
-  .f21-rd-summary {
+  .f21-rd-summary,
+  .f21-initiative-list--row {
     grid-template-columns: 1fr;
   }
 

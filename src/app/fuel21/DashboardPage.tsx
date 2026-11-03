@@ -73,7 +73,43 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         </div>
       </div>
 
-      {/* 1 — Modules first (actionable completion) */}
+      {/* 1 — Track scores */}
+      <section aria-label="Track scores">
+        <div className="f21-section-head">
+          <h2 className="f21-section-title">Track scores</h2>
+          <p className="f21-section-hint">Scores refresh from accepted context and benchmarks.</p>
+        </div>
+        <div className="f21-score-grid">
+          {SCORE_CARDS.map(card => {
+            const goesToRd = card.id === "rd";
+            return (
+              <button
+                key={card.id}
+                type="button"
+                className="f21-score-card"
+                onClick={goesToRd ? () => onNavigate("rd") : undefined}
+                style={goesToRd ? undefined : { cursor: "default" }}
+              >
+                <div className="f21-score-card-top">
+                  <span>{card.label}</span>
+                  <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
+                </div>
+                <div className="f21-score-card-body">
+                  <div>
+                    <div className="f21-score-value">
+                      {card.score} <span>/ 100</span>
+                    </div>
+                    <div className="f21-score-delta">{card.delta}</div>
+                  </div>
+                  <Sparkline values={card.spark} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 2 — Complete profile / modules */}
       <section className="f21-modules" aria-label="Your 5 modules">
         <div className="f21-section-head">
           <h2 className="f21-section-title">Your 5 modules</h2>
@@ -117,80 +153,42 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         </div>
       </section>
 
-      {/* 2 — Fuel Brief: intelligence highlights only */}
-      <section className="f21-panel f21-fuel-brief" aria-label="Fuel brief">
-        <div className="f21-fuel-brief-head">
-          <span className="f21-eyebrow">Fuel brief</span>
-          <span className="f21-fuel-brief-quote" aria-hidden="true">
-            “
-          </span>
-        </div>
-        <p className="f21-fuel-brief-summary">{FUEL_BRIEF.summary}</p>
-        <div className="f21-brief-intel-label">What intelligence is saying</div>
-        <ul className="f21-fuel-brief-intel">
-          {FUEL_BRIEF.intelligenceHighlights.map(item => (
-            <li key={item.label}>
-              <div className="f21-brief-intel-metric">
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </div>
-              <p>{item.point}</p>
-            </li>
-          ))}
-        </ul>
-        <div className="f21-fuel-brief-foot">
-          <button type="button" className="f21-link-btn">
-            Read full brief
-            <ArrowUpRight size={13} strokeWidth={2} aria-hidden="true" />
-          </button>
-          <div className="f21-fuel-brief-tags">
-            {FUEL_BRIEF.tags.map(tag => (
-              <span key={tag} className="f21-fuel-brief-tag">
-                {tag}
-              </span>
-            ))}
+      {/* 3 — Compact brief + latest intelligence beside it */}
+      <div className="f21-brief-row">
+        <section className="f21-panel f21-fuel-brief f21-fuel-brief--compact" aria-label="Fuel brief">
+          <div className="f21-fuel-brief-head">
+            <span className="f21-eyebrow">Fuel brief</span>
+            <span className="f21-fuel-brief-quote" aria-hidden="true">
+              “
+            </span>
           </div>
-        </div>
-      </section>
-
-      {/* 3 — Score pulse */}
-      <section aria-label="Track scores">
-        <div className="f21-section-head">
-          <h2 className="f21-section-title">Track scores</h2>
-          <p className="f21-section-hint">Scores refresh from accepted context and benchmarks.</p>
-        </div>
-        <div className="f21-score-grid">
-          {SCORE_CARDS.map(card => {
-            const goesToRd = card.id === "rd";
-            return (
-              <button
-                key={card.id}
-                type="button"
-                className="f21-score-card"
-                onClick={goesToRd ? () => onNavigate("rd") : undefined}
-                style={goesToRd ? undefined : { cursor: "default" }}
-              >
-                <div className="f21-score-card-top">
-                  <span>{card.label}</span>
-                  <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
+          <p className="f21-fuel-brief-summary">{FUEL_BRIEF.summary}</p>
+          <ul className="f21-fuel-brief-intel f21-fuel-brief-intel--compact">
+            {FUEL_BRIEF.intelligenceHighlights.slice(0, 2).map(item => (
+              <li key={item.label}>
+                <div className="f21-brief-intel-metric">
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
                 </div>
-                <div className="f21-score-card-body">
-                  <div>
-                    <div className="f21-score-value">
-                      {card.score} <span>/ 100</span>
-                    </div>
-                    <div className="f21-score-delta">{card.delta}</div>
-                  </div>
-                  <Sparkline values={card.spark} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+                <p>{item.point}</p>
+              </li>
+            ))}
+          </ul>
+          <div className="f21-fuel-brief-foot">
+            <button type="button" className="f21-link-btn">
+              Read full brief
+              <ArrowUpRight size={13} strokeWidth={2} aria-hidden="true" />
+            </button>
+            <div className="f21-fuel-brief-tags">
+              {FUEL_BRIEF.tags.map(tag => (
+                <span key={tag} className="f21-fuel-brief-tag">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
 
-      {/* 4 — Intelligence + initiatives */}
-      <div className="f21-dash-mid">
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Latest intelligence</h2>
@@ -207,33 +205,47 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
               </li>
             ))}
           </ul>
-        </section>
-
-        <section className="f21-panel">
-          <div className="f21-panel-head">
-            <h2>Initiatives</h2>
-            <span className="f21-link-btn" aria-hidden="true">
-              View all →
-            </span>
+          <div className="f21-brief-intel-label" style={{ marginTop: 8 }}>
+            More from the brief
           </div>
-          <ul className="f21-initiative-list">
-            {DASHBOARD_INITIATIVES.map(item => (
-              <li key={item.title}>
-                <span className={`f21-track-tag track-${item.track.replace("&", "").toLowerCase()}`}>
-                  {item.track}
-                </span>
-                <div className="f21-initiative-copy">
-                  <strong>{item.title}</strong>
-                  <p>{item.detail}</p>
-                </div>
-                <span className="f21-link-btn" aria-hidden="true">
-                  Review →
-                </span>
+          <ul className="f21-side-highlights">
+            {FUEL_BRIEF.intelligenceHighlights.slice(2).map(item => (
+              <li key={item.label}>
+                <strong>
+                  {item.label}: {item.value}
+                </strong>
+                <p>{item.point}</p>
               </li>
             ))}
           </ul>
         </section>
       </div>
+
+      {/* 4 — Initiatives */}
+      <section className="f21-panel">
+        <div className="f21-panel-head">
+          <h2>Initiatives</h2>
+          <span className="f21-link-btn" aria-hidden="true">
+            View all →
+          </span>
+        </div>
+        <ul className="f21-initiative-list f21-initiative-list--row">
+          {DASHBOARD_INITIATIVES.map(item => (
+            <li key={item.title}>
+              <span className={`f21-track-tag track-${item.track.replace("&", "").toLowerCase()}`}>
+                {item.track}
+              </span>
+              <div className="f21-initiative-copy">
+                <strong>{item.title}</strong>
+                <p>{item.detail}</p>
+              </div>
+              <span className="f21-link-btn" aria-hidden="true">
+                Review →
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {/* 5 — Supporting widgets */}
       <div className="f21-dash-bottom">
