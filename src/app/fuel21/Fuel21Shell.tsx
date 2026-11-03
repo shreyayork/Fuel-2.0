@@ -3,20 +3,13 @@ import {
   Bell,
   ChevronsUpDown,
   CircleHelp,
+  Code2,
   FileText,
   LayoutDashboard,
+  Layers,
   Moon,
   Search,
   Sun,
-  Code2,
-  Megaphone,
-  Landmark,
-  Layers,
-  Rocket,
-  Activity,
-  FolderOpen,
-  Users,
-  ArrowUpRight,
 } from "lucide-react";
 import { FuelPlatformMark } from "./FuelPlatformMark.tsx";
 import {
@@ -31,14 +24,7 @@ import {
 const NAV_ICONS: Record<NavId, typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
   rd: Code2,
-  gtm: Megaphone,
-  ga: Landmark,
   context: Layers,
-  initiatives: Rocket,
-  intelligence: Activity,
-  "data-room": FolderOpen,
-  advisors: Users,
-  investors: ArrowUpRight,
 };
 
 export function Fuel21Shell({
@@ -93,10 +79,10 @@ export function Fuel21Shell({
           <div className="f21-recent">
             <div className="f21-recent-label">Recently viewed</div>
             {RECENTLY_VIEWED.map(item => (
-              <button key={item.id} type="button" className="f21-recent-item">
+              <div key={item.id} className="f21-recent-item f21-recent-item--static">
                 <FileText size={14} strokeWidth={2} aria-hidden="true" />
                 <span>{item.label}</span>
-              </button>
+              </div>
             ))}
           </div>
         </div>

@@ -85,14 +85,14 @@ export function RdAnalysisPage({ onNavigate }: { onNavigate: (id: NavId) => void
           <div className="f21-section-title">Initiative suggestions</div>
           <div className="f21-init-grid">
             {RD_INITIATIVES.map(item => (
-              <button key={item.title} type="button" className="f21-panel f21-init-card">
+              <div key={item.title} className="f21-panel f21-init-card">
                 <div className="f21-init-card-top">
                   <span className="f21-mini-tag">{item.tag}</span>
                   <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
                 </div>
                 <strong>{item.title}</strong>
                 <p>{item.detail}</p>
-              </button>
+              </div>
             ))}
           </div>
         </section>

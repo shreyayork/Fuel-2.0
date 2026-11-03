@@ -3,7 +3,6 @@ import { Fuel21Shell } from "./Fuel21Shell.tsx";
 import { DashboardPage } from "./DashboardPage.tsx";
 import { ContextEnginePage } from "./ContextEnginePage.tsx";
 import { RdAnalysisPage } from "./RdAnalysisPage.tsx";
-import { PlaceholderPage } from "./PlaceholderPage.tsx";
 import type { NavId } from "./demoData.ts";
 import "./fuel21.css";
 
@@ -32,26 +31,12 @@ function applyTheme(theme: "dark" | "light") {
 function readInitialPage(): NavId {
   if (typeof window === "undefined") return "dashboard";
   const hash = window.location.hash.replace(/^#\/?/, "");
-  const map: Record<string, NavId> = {
-    "": "dashboard",
-    dashboard: "dashboard",
-    rd: "rd",
-    "r-and-d": "rd",
-    gtm: "gtm",
-    ga: "ga",
-    "g-and-a": "ga",
-    context: "context",
-    "context-engine": "context",
-    initiatives: "initiatives",
-    intelligence: "intelligence",
-    "data-room": "data-room",
-    advisors: "advisors",
-    investors: "investors",
-  };
-  return map[hash] ?? "dashboard";
+  if (hash === "rd" || hash === "r-and-d") return "rd";
+  if (hash === "context" || hash === "context-engine") return "context";
+  return "dashboard";
 }
 
-/** Standalone Fuel 2.1 app — mockup screens only (no legacy Fuel shell). */
+/** Standalone mockup app: Dashboard, Context Engine, R&D only. */
 export default function Fuel21Workspace() {
   const [theme, setTheme] = useState<"dark" | "light">(() => readTheme());
   const [page, setPage] = useState<NavId>(() => readInitialPage());
@@ -67,15 +52,8 @@ export default function Fuel21Workspace() {
   }, []);
 
   useEffect(() => {
-    const slug =
-      page === "rd"
-        ? "rd"
-        : page === "ga"
-          ? "ga"
-          : page === "context"
-            ? "context-engine"
-            : page;
-    const next = page === "dashboard" ? "#/dashboard" : `#/${slug}`;
+    const slug = page === "context" ? "context-engine" : page;
+    const next = `#/${slug}`;
     if (window.location.hash !== next) {
       window.history.replaceState(null, "", `/${next}`);
     }
@@ -91,9 +69,6 @@ export default function Fuel21Workspace() {
       {page === "dashboard" ? <DashboardPage onNavigate={setPage} /> : null}
       {page === "context" ? <ContextEnginePage /> : null}
       {page === "rd" ? <RdAnalysisPage onNavigate={setPage} /> : null}
-      {page !== "dashboard" && page !== "context" && page !== "rd" ? (
-        <PlaceholderPage page={page} />
-      ) : null}
     </Fuel21Shell>
   );
 }

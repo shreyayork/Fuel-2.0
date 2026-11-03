@@ -59,28 +59,32 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
       </div>
 
       <div className="f21-score-grid">
-        {SCORE_CARDS.map(card => (
-          <button
-            key={card.id}
-            type="button"
-            className="f21-score-card"
-            onClick={() => onNavigate(card.id === "rd" ? "rd" : card.id === "gtm" ? "gtm" : "ga")}
-          >
-            <div className="f21-score-card-top">
-              <span>{card.label}</span>
-              <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
-            </div>
-            <div className="f21-score-card-body">
-              <div>
-                <div className="f21-score-value">
-                  {card.score} <span>/ 100</span>
-                </div>
-                <div className="f21-score-delta">{card.delta}</div>
+        {SCORE_CARDS.map(card => {
+          const goesToRd = card.id === "rd";
+          return (
+            <button
+              key={card.id}
+              type="button"
+              className="f21-score-card"
+              onClick={goesToRd ? () => onNavigate("rd") : undefined}
+              style={goesToRd ? undefined : { cursor: "default" }}
+            >
+              <div className="f21-score-card-top">
+                <span>{card.label}</span>
+                <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
               </div>
-              <Sparkline values={card.spark} />
-            </div>
-          </button>
-        ))}
+              <div className="f21-score-card-body">
+                <div>
+                  <div className="f21-score-value">
+                    {card.score} <span>/ 100</span>
+                  </div>
+                  <div className="f21-score-delta">{card.delta}</div>
+                </div>
+                <Sparkline values={card.spark} />
+              </div>
+            </button>
+          );
+        })}
       </div>
       <p className="f21-footnote">Scores refresh from accepted context and benchmarks.</p>
 
@@ -88,9 +92,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Latest intelligence</h2>
-            <button type="button" className="f21-link-btn" onClick={() => onNavigate("intelligence")}>
+            <span className="f21-link-btn" aria-hidden="true">
               View all →
-            </button>
+            </span>
           </div>
           <ul className="f21-intel-list">
             {LATEST_INTELLIGENCE.map(row => (
@@ -106,9 +110,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Initiatives</h2>
-            <button type="button" className="f21-link-btn" onClick={() => onNavigate("initiatives")}>
+            <span className="f21-link-btn" aria-hidden="true">
               View all →
-            </button>
+            </span>
           </div>
           <ul className="f21-initiative-list">
             {DASHBOARD_INITIATIVES.map(item => (
@@ -120,9 +124,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
                   <strong>{item.title}</strong>
                   <p>{item.detail}</p>
                 </div>
-                <button type="button" className="f21-link-btn" onClick={() => onNavigate("initiatives")}>
+                <span className="f21-link-btn" aria-hidden="true">
                   Review →
-                </button>
+                </span>
               </li>
             ))}
           </ul>
@@ -133,9 +137,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Data room</h2>
-            <button type="button" className="f21-link-btn" onClick={() => onNavigate("data-room")}>
+            <span className="f21-link-btn" aria-hidden="true">
               View all →
-            </button>
+            </span>
           </div>
           <ul className="f21-file-list">
             {DATA_ROOM_FILES.map(file => (
@@ -156,9 +160,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Playbook suggestions</h2>
-            <button type="button" className="f21-link-btn">
+            <span className="f21-link-btn" aria-hidden="true">
               View all →
-            </button>
+            </span>
           </div>
           <ul className="f21-playbook-list">
             {PLAYBOOK_SUGGESTIONS.map((item, i) => {
@@ -179,9 +183,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Connectors</h2>
-            <button type="button" className="f21-link-btn">
+            <span className="f21-link-btn" aria-hidden="true">
               Manage →
-            </button>
+            </span>
           </div>
           <ul className="f21-connector-list">
             {CONNECTORS.map(c => (

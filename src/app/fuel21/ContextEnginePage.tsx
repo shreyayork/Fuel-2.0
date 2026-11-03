@@ -175,9 +175,9 @@ export function ContextEnginePage() {
           <section className="f21-panel f21-review-card">
             <div className="f21-panel-head">
               <h2>2 items to review</h2>
-              <button type="button" className="f21-link-btn">
+              <span className="f21-link-btn" aria-hidden="true">
                 Open →
-              </button>
+              </span>
             </div>
             <ul className="f21-review-list">
               {REVIEW_ITEMS.map(item => (

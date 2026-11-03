@@ -1,28 +1,11 @@
-/** Demo content matching Fuel 2.1.0 mockups (PatriotPay.ai). */
+/** Content + nav matching the provided Fuel mockup screenshots only. */
 
-export type NavId =
-  | "dashboard"
-  | "rd"
-  | "gtm"
-  | "ga"
-  | "context"
-  | "initiatives"
-  | "intelligence"
-  | "data-room"
-  | "advisors"
-  | "investors";
+export type NavId = "dashboard" | "context" | "rd";
 
 export const NAV_ITEMS: { id: NavId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "rd", label: "R&D" },
-  { id: "gtm", label: "GTM" },
-  { id: "ga", label: "G&A" },
   { id: "context", label: "Context Engine" },
-  { id: "initiatives", label: "Initiatives" },
-  { id: "intelligence", label: "Intelligence" },
-  { id: "data-room", label: "Data room" },
-  { id: "advisors", label: "Advisors" },
-  { id: "investors", label: "Investors" },
 ];
 
 export const WORKSPACE = {
@@ -322,6 +305,5 @@ export const RD_PLAYBOOKS = [
 ];
 
 export function breadcrumbFor(page: NavId): string {
-  const item = NAV_ITEMS.find(n => n.id === page);
-  return item?.label ?? "Dashboard";
+  return NAV_ITEMS.find(n => n.id === page)?.label ?? "Dashboard";
 }
