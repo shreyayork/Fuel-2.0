@@ -69,7 +69,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
               <button
                 key={card.id}
                 type="button"
-                className="f21-score-cell"
+                className={`f21-score-cell track-${card.id}`}
                 onClick={goesToRd ? () => onNavigate("rd") : undefined}
                 style={goesToRd ? undefined : { cursor: "default" }}
                 aria-label={`${card.label} ${card.score} of 100`}
@@ -141,7 +141,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
       </section>
 
       {/* 3 — Compact brief + intelligence */}
-      <div className="f21-brief-row">
+      <div className="f21-dash-pair">
         <section className="f21-panel f21-brief-panel" aria-label="Fuel brief">
           <div className="f21-panel-head">
             <h2>Fuel brief</h2>
@@ -168,7 +168,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
           </div>
         </section>
 
-        <section className="f21-panel">
+        <section className="f21-panel f21-intel-panel">
           <div className="f21-panel-head">
             <h2>Latest intelligence</h2>
             <button type="button" className="f21-ghost-btn">
@@ -185,14 +185,12 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
             ))}
           </ul>
           <div className="f21-divider" />
-          <div className="f21-eyebrow" style={{ padding: "4px 0 8px" }}>
-            Also from the brief
-          </div>
+          <div className="f21-eyebrow f21-eyebrow--inline">Also from the brief</div>
           <ul className="f21-side-notes">
             {FUEL_BRIEF.intelligenceHighlights.slice(2).map(item => (
               <li key={item.label}>
                 <strong>
-                  {item.label} · {item.value}
+                  {item.label} · <span className="f21-side-note-val">{item.value}</span>
                 </strong>
                 <p>{item.point}</p>
               </li>
@@ -201,8 +199,8 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         </section>
       </div>
 
-      {/* 4 — Initiatives | Connectors side by side */}
-      <div className="f21-action-row">
+      {/* 4 — Initiatives | Connectors */}
+      <div className="f21-dash-pair">
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Initiatives</h2>
@@ -213,45 +211,54 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
           <div className="f21-init-table">
             {DASHBOARD_INITIATIVES.map(item => (
               <div key={item.title} className="f21-init-row">
-                <span className="f21-track-tag">{item.track}</span>
+                <span className={`f21-track-tag track-${item.track.toLowerCase().replace("&", "")}`}>{item.track}</span>
                 <div className="f21-initiative-copy">
                   <strong>{item.title}</strong>
                   <p>{item.detail}</p>
                 </div>
-                <span className="f21-link-btn">Review →</span>
+                <button type="button" className="f21-link-btn">
+                  Review →
+                </button>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="f21-panel">
+        <section className="f21-panel f21-connectors-panel">
           <div className="f21-panel-head">
             <h2>Connectors</h2>
             <button type="button" className="f21-ghost-btn" onClick={() => onNavigate("context")}>
               Manage
             </button>
           </div>
-          <ul className="f21-connector-list">
+          <ul className="f21-connector-rows">
             {CONNECTORS.map(c => (
               <li key={c.name}>
-                <span className="f21-dot" aria-hidden="true" />
-                <strong>{c.name}</strong>
-                <em>· {c.status}</em>
+                <span className="f21-connector-mark" aria-hidden="true">
+                  {c.name.slice(0, 1)}
+                </span>
+                <strong className="f21-connector-name">{c.name}</strong>
+                <span className="f21-connector-badge is-on">
+                  <span className="f21-connector-live" aria-hidden="true" />
+                  {c.status}
+                </span>
               </li>
             ))}
-            <li className="f21-connector-upload">
-              <span>File upload</span>
-              <button type="button" className="f21-link-btn" onClick={() => onNavigate("context")}>
-                <Upload size={12} strokeWidth={2} aria-hidden="true" />
-                Upload files
-              </button>
-            </li>
           </ul>
+          <button type="button" className="f21-connector-upload-btn" onClick={() => onNavigate("context")}>
+            <span className="f21-connector-upload-icon" aria-hidden="true">
+              <Upload size={14} strokeWidth={2} />
+            </span>
+            <span className="f21-connector-copy">
+              <strong>Upload files</strong>
+              <em>Add PDFs, sheets, or notes to context</em>
+            </span>
+          </button>
         </section>
       </div>
 
-      {/* 5 — Supporting */}
-      <div className="f21-dash-bottom f21-dash-bottom--two">
+      {/* 5 — Data room | Playbooks — same pair grid */}
+      <div className="f21-dash-pair">
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Data room</h2>
@@ -262,13 +269,15 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
           <ul className="f21-file-list">
             {DATA_ROOM_FILES.map(file => (
               <li key={file.name}>
-                {file.type === "XLS" ? (
-                  <FileSpreadsheet size={15} strokeWidth={2} aria-hidden="true" />
-                ) : (
-                  <FileText size={15} strokeWidth={2} aria-hidden="true" />
-                )}
-                <span>{file.name}</span>
-                <em>{file.type}</em>
+                <span className="f21-file-icon" aria-hidden="true">
+                  {file.type === "XLS" ? (
+                    <FileSpreadsheet size={14} strokeWidth={2} />
+                  ) : (
+                    <FileText size={14} strokeWidth={2} />
+                  )}
+                </span>
+                <span className="f21-file-name">{file.name}</span>
+                <em className="f21-file-type">{file.type}</em>
               </li>
             ))}
           </ul>
@@ -286,11 +295,14 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
               const Icon = PLAYBOOK_ICONS[i] ?? BookOpen;
               return (
                 <li key={item.title}>
-                  <Icon size={15} strokeWidth={2} aria-hidden="true" />
+                  <span className="f21-playbook-icon" aria-hidden="true">
+                    <Icon size={14} strokeWidth={2} />
+                  </span>
                   <div>
                     <strong>{item.title}</strong>
                     <em>{item.track}</em>
                   </div>
+                  <ArrowUpRight className="f21-playbook-arrow" size={14} strokeWidth={2} aria-hidden="true" />
                 </li>
               );
             })}
