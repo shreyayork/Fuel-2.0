@@ -57,8 +57,9 @@ const MODULE_ICONS = {
 export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void }) {
   return (
     <div className="f21-page f21-dashboard">
-      <div className="f21-page-head">
+      <div className="f21-page-head f21-page-head--hero">
         <div>
+          <span className="f21-eyebrow">Founder workspace</span>
           <h1>Dashboard</h1>
           <p className="f21-lede">Your company in focus.</p>
         </div>
@@ -86,10 +87,11 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
               <button
                 key={card.id}
                 type="button"
-                className="f21-score-card"
+                className={`f21-score-card track-${card.id}`}
                 onClick={goesToRd ? () => onNavigate("rd") : undefined}
                 style={goesToRd ? undefined : { cursor: "default" }}
               >
+                <div className="f21-score-card-glow" aria-hidden="true" />
                 <div className="f21-score-card-top">
                   <span>{card.label}</span>
                   <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
@@ -102,6 +104,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
                     <div className="f21-score-delta">{card.delta}</div>
                   </div>
                   <Sparkline values={card.spark} />
+                </div>
+                <div className="f21-score-bar" aria-hidden="true">
+                  <span style={{ width: `${card.score}%` }} />
                 </div>
               </button>
             );
@@ -138,6 +143,9 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
                 </div>
                 <strong className="f21-module-title">{mod.title}</strong>
                 <div className="f21-module-progress">{mod.progress}</div>
+                <div className="f21-module-bar" aria-hidden="true">
+                  <span style={{ width: `${Math.round((mod.answered / mod.total) * 100)}%` }} />
+                </div>
                 <div className="f21-module-tags">
                   {mod.tags.map(tag => (
                     <span key={tag}>{tag}</span>

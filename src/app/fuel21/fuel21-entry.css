@@ -17,7 +17,7 @@ body {
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  font-family: "SF Pro Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Manrope", "Sora", "SF Pro Display", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   background: #0b1220;
   color: #f2f5f2;

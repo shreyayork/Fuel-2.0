@@ -36,6 +36,8 @@ export const DASHBOARD_MODULES = [
   {
     id: "profile",
     title: "Complete Profile",
+    answered: 9,
+    total: 16,
     progress: "9/16 answered",
     tags: ["Company", "Industry", "Location", "Headcount", "Context"],
     status: "In progress" as const,
@@ -46,6 +48,8 @@ export const DASHBOARD_MODULES = [
   {
     id: "rd",
     title: "R&D",
+    answered: 1,
+    total: 14,
     progress: "1/14 answered",
     tags: ["Stage", "Type", "Constraint"],
     status: "In progress" as const,
@@ -56,6 +60,8 @@ export const DASHBOARD_MODULES = [
   {
     id: "gtm",
     title: "GTM",
+    answered: 1,
+    total: 19,
     progress: "1/19 answered",
     tags: ["Motion", "ICP", "Pipeline"],
     status: "In progress" as const,
@@ -66,6 +72,8 @@ export const DASHBOARD_MODULES = [
   {
     id: "ga",
     title: "G&A",
+    answered: 0,
+    total: 12,
     progress: "0/12 answered",
     tags: ["Runway", "Finance", "Capital"],
     status: "Not started" as const,
@@ -76,6 +84,8 @@ export const DASHBOARD_MODULES = [
   {
     id: "benchmark",
     title: "Benchmark",
+    answered: 12,
+    total: 12,
     progress: "12/12 answered",
     tags: ["Metrics", "Cohort", "Peer scores"],
     status: "Complete" as const,
