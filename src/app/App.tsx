@@ -61,8 +61,29 @@ import {
   type NotificationAction,
   type WorkspaceNotification,
 } from "./notificationStorage.ts";
+import Fuel21Workspace from "./fuel21/Fuel21Workspace.tsx";
 
-type View = "landing" | "signin" | "onboarding" | "integrations" | "workspace" | "legal";
+type View = "landing" | "signin" | "onboarding" | "integrations" | "workspace" | "fuel21" | "legal";
+
+function wantsFuel21Ui(): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("ui") === "21" || params.get("fuel21") === "1") return true;
+  const hash = window.location.hash.replace(/^#\/?/, "");
+  return [
+    "dashboard",
+    "rd",
+    "gtm",
+    "ga",
+    "context",
+    "context-engine",
+    "initiatives",
+    "intelligence",
+    "data-room",
+    "advisors",
+    "investors",
+  ].includes(hash);
+}
 
 export function resetInviteWorkflowDemoState() {
   resetAdvisorInviteWorkflowDemoState();
@@ -101,7 +122,10 @@ function founderCompanyIdFromAnswers(answers: OnboardingFlowAnswers | null | und
 }
 
 export default function App() {
-  const [view, setView] = useState<View>(() => readAdvisorInviteTokenFromUrl() ? "signin" : "landing");
+  const [view, setView] = useState<View>(() => {
+    if (wantsFuel21Ui()) return "fuel21";
+    return readAdvisorInviteTokenFromUrl() ? "signin" : "landing";
+  });
   const [legalDoc, setLegalDoc] = useState<LegalDocId>("terms");
   const [legalReturnView, setLegalReturnView] = useState<View>("landing");
   const [onboardingBenchmark, setOnboardingBenchmark] = useState<OnboardingBenchmarkInput | null>(null);
@@ -403,6 +427,18 @@ export default function App() {
           onOpenLegal={doc => openLegal(doc, "signin")}
         />
       </LegalNavProvider>
+    );
+  }
+
+  if (view === "fuel21") {
+    return (
+      <Fuel21Workspace
+        onLogOut={() => {
+          markLoggedOutToLanding();
+          setView("landing");
+          window.history.replaceState(null, "", "/");
+        }}
+      />
     );
   }
 
