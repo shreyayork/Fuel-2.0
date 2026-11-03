@@ -38,9 +38,8 @@ const MODULE_ICONS = {
 export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void }) {
   return (
     <div className="f21-page f21-dashboard">
-      <div className="f21-page-head f21-page-head--hero">
+      <header className="f21-page-head">
         <div>
-          <span className="f21-eyebrow">Founder workspace</span>
           <h1>Dashboard</h1>
           <p className="f21-lede">Your company in focus.</p>
         </div>
@@ -53,130 +52,128 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
             + Add context
           </button>
         </div>
-      </div>
+      </header>
 
       {/* 1 — Track scores */}
-      <section aria-label="Track scores">
-        <div className="f21-section-head">
-          <h2 className="f21-section-title">Track scores</h2>
-          <p className="f21-section-hint">Scores refresh from accepted context and benchmarks.</p>
+      <section className="f21-panel f21-score-board" aria-label="Track scores">
+        <div className="f21-panel-head">
+          <div>
+            <h2>Track scores</h2>
+            <p className="f21-section-hint">Scores refresh from accepted context and benchmarks.</p>
+          </div>
         </div>
-        <div className="f21-score-grid">
+        <div className="f21-score-strip">
           {SCORE_CARDS.map(card => {
             const goesToRd = card.id === "rd";
             return (
               <button
                 key={card.id}
                 type="button"
-                className={`f21-score-card track-${card.id}`}
+                className="f21-score-cell"
                 onClick={goesToRd ? () => onNavigate("rd") : undefined}
                 style={goesToRd ? undefined : { cursor: "default" }}
+                aria-label={`${card.label} ${card.score} of 100`}
               >
-                <div className="f21-score-card-glow" aria-hidden="true" />
-                <div className="f21-score-card-top">
-                  <span>{card.label}</span>
-                  <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
+                <div className="f21-score-cell-top">
+                  <span className="f21-score-label">{card.label}</span>
+                  <ArrowUpRight className="f21-score-arrow" size={15} strokeWidth={2} aria-hidden="true" />
                 </div>
-                <div className="f21-score-card-body">
-                  <div className="f21-score-value">
-                    {card.score} <span>/ 100</span>
-                  </div>
-                </div>
+                <strong className="f21-score-num">
+                  {card.score}
+                  <span>/100</span>
+                </strong>
               </button>
             );
           })}
         </div>
       </section>
 
-      {/* 2 — Complete profile / modules */}
-      <section className="f21-modules" aria-label="Your 5 modules">
-        <div className="f21-section-head">
-          <h2 className="f21-section-title">Your 5 modules</h2>
-          <p className="f21-section-hint">Finish these to unlock a sharper brief and peer scores.</p>
+      {/* 2 — Modules */}
+      <section className="f21-panel f21-module-board" aria-label="Your 5 modules">
+        <div className="f21-panel-head">
+          <div>
+            <h2>Your 5 modules</h2>
+            <p className="f21-section-hint">Finish these to unlock a sharper brief and peer scores.</p>
+          </div>
         </div>
-        <div className="f21-modules-grid">
+        <div className="f21-module-strip">
           {DASHBOARD_MODULES.map(mod => {
             const Icon = MODULE_ICONS[mod.id as keyof typeof MODULE_ICONS] ?? Gem;
+            const pct = Math.round((mod.answered / mod.total) * 100);
             const statusClass =
               mod.status === "Complete" ? "is-complete" : mod.status === "Not started" ? "is-idle" : "is-progress";
             return (
               <button
                 key={mod.id}
                 type="button"
-                className={`f21-module-card ${statusClass}`}
+                className={`f21-module-cell ${statusClass}`}
                 onClick={() => {
                   if (mod.href) onNavigate(mod.href);
                 }}
                 style={mod.href ? undefined : { cursor: "default" }}
               >
-                <div className="f21-module-card-top">
-                  <span className="f21-module-icon" aria-hidden="true">
-                    <Icon size={16} strokeWidth={2} />
+                <div className="f21-module-cell-top">
+                  <span className="f21-module-icon-wrap" aria-hidden="true">
+                    <Icon size={14} strokeWidth={2} />
                   </span>
                   <span className={`f21-module-status ${statusClass}`}>{mod.status}</span>
                 </div>
-                <strong className="f21-module-title">{mod.title}</strong>
-                <div className="f21-module-progress">{mod.progress}</div>
-                <div className="f21-module-bar" aria-hidden="true">
-                  <span style={{ width: `${Math.round((mod.answered / mod.total) * 100)}%` }} />
+                <strong>{mod.title}</strong>
+                <div className="f21-module-meta">
+                  <span>
+                    {mod.answered}/{mod.total} answered
+                  </span>
+                  <em>{mod.credit}</em>
+                </div>
+                <div className="f21-module-meter" aria-hidden="true">
+                  <span style={{ width: `${pct}%` }} />
                 </div>
                 <div className="f21-module-tags">
-                  {mod.tags.map(tag => (
+                  {mod.tags.slice(0, 3).map(tag => (
                     <span key={tag}>{tag}</span>
                   ))}
                 </div>
-                <div className="f21-module-card-foot">
-                  <em>{mod.credit}</em>
-                  <span className="f21-link-btn">{mod.action}</span>
-                </div>
+                <span className="f21-module-cta">{mod.action}</span>
               </button>
             );
           })}
         </div>
       </section>
 
-      {/* 3 — Compact brief + latest intelligence beside it */}
+      {/* 3 — Compact brief + intelligence */}
       <div className="f21-brief-row">
-        <section className="f21-panel f21-fuel-brief f21-fuel-brief--compact" aria-label="Fuel brief">
-          <div className="f21-fuel-brief-head">
-            <span className="f21-eyebrow">Fuel brief</span>
-            <span className="f21-fuel-brief-quote" aria-hidden="true">
-              “
-            </span>
-          </div>
-          <p className="f21-fuel-brief-summary">{FUEL_BRIEF.summary}</p>
-          <ul className="f21-fuel-brief-intel f21-fuel-brief-intel--compact">
-            {FUEL_BRIEF.intelligenceHighlights.slice(0, 2).map(item => (
-              <li key={item.label}>
-                <div className="f21-brief-intel-metric">
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-                <p>{item.point}</p>
-              </li>
-            ))}
-          </ul>
-          <div className="f21-fuel-brief-foot">
-            <button type="button" className="f21-link-btn">
+        <section className="f21-panel f21-brief-panel" aria-label="Fuel brief">
+          <div className="f21-panel-head">
+            <h2>Fuel brief</h2>
+            <button type="button" className="f21-ghost-btn">
               Read full brief
-              <ArrowUpRight size={13} strokeWidth={2} aria-hidden="true" />
             </button>
-            <div className="f21-fuel-brief-tags">
-              {FUEL_BRIEF.tags.map(tag => (
-                <span key={tag} className="f21-fuel-brief-tag">
-                  {tag}
-                </span>
-              ))}
-            </div>
+          </div>
+          <p className="f21-brief-lead">{FUEL_BRIEF.summary}</p>
+          <dl className="f21-brief-points">
+            {FUEL_BRIEF.intelligenceHighlights.slice(0, 2).map(item => (
+              <div key={item.label} className="f21-brief-point">
+                <dt>
+                  {item.label}
+                  <strong>{item.value}</strong>
+                </dt>
+                <dd>{item.point}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="f21-brief-meta">
+            {FUEL_BRIEF.tags.map(tag => (
+              <span key={tag}>{tag}</span>
+            ))}
           </div>
         </section>
 
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Latest intelligence</h2>
-            <span className="f21-link-btn" aria-hidden="true">
-              View all →
-            </span>
+            <button type="button" className="f21-ghost-btn">
+              View all
+            </button>
           </div>
           <ul className="f21-intel-list">
             {LATEST_INTELLIGENCE.map(row => (
@@ -187,14 +184,15 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
               </li>
             ))}
           </ul>
-          <div className="f21-brief-intel-label" style={{ marginTop: 8 }}>
-            More from the brief
+          <div className="f21-divider" />
+          <div className="f21-eyebrow" style={{ padding: "4px 0 8px" }}>
+            Also from the brief
           </div>
-          <ul className="f21-side-highlights">
+          <ul className="f21-side-notes">
             {FUEL_BRIEF.intelligenceHighlights.slice(2).map(item => (
               <li key={item.label}>
                 <strong>
-                  {item.label}: {item.value}
+                  {item.label} · {item.value}
                 </strong>
                 <p>{item.point}</p>
               </li>
@@ -203,85 +201,34 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
         </section>
       </div>
 
-      {/* 4 — Initiatives */}
-      <section className="f21-panel">
-        <div className="f21-panel-head">
-          <h2>Initiatives</h2>
-          <span className="f21-link-btn" aria-hidden="true">
-            View all →
-          </span>
-        </div>
-        <ul className="f21-initiative-list f21-initiative-list--row">
-          {DASHBOARD_INITIATIVES.map(item => (
-            <li key={item.title}>
-              <span className={`f21-track-tag track-${item.track.replace("&", "").toLowerCase()}`}>
-                {item.track}
-              </span>
-              <div className="f21-initiative-copy">
-                <strong>{item.title}</strong>
-                <p>{item.detail}</p>
+      {/* 4 — Initiatives | Connectors side by side */}
+      <div className="f21-action-row">
+        <section className="f21-panel">
+          <div className="f21-panel-head">
+            <h2>Initiatives</h2>
+            <button type="button" className="f21-ghost-btn">
+              View all
+            </button>
+          </div>
+          <div className="f21-init-table">
+            {DASHBOARD_INITIATIVES.map(item => (
+              <div key={item.title} className="f21-init-row">
+                <span className="f21-track-tag">{item.track}</span>
+                <div className="f21-initiative-copy">
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                </div>
+                <span className="f21-link-btn">Review →</span>
               </div>
-              <span className="f21-link-btn" aria-hidden="true">
-                Review →
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* 5 — Supporting widgets */}
-      <div className="f21-dash-bottom">
-        <section className="f21-panel">
-          <div className="f21-panel-head">
-            <h2>Data room</h2>
-            <span className="f21-link-btn" aria-hidden="true">
-              View all →
-            </span>
-          </div>
-          <ul className="f21-file-list">
-            {DATA_ROOM_FILES.map(file => (
-              <li key={file.name}>
-                {file.type === "XLS" ? (
-                  <FileSpreadsheet size={15} strokeWidth={2} aria-hidden="true" />
-                ) : (
-                  <FileText size={15} strokeWidth={2} aria-hidden="true" />
-                )}
-                <span>{file.name}</span>
-                <em>{file.type}</em>
-                <ArrowUpRight size={13} strokeWidth={2} aria-hidden="true" />
-              </li>
             ))}
-          </ul>
-        </section>
-
-        <section className="f21-panel">
-          <div className="f21-panel-head">
-            <h2>Playbook suggestions</h2>
-            <span className="f21-link-btn" aria-hidden="true">
-              View all →
-            </span>
           </div>
-          <ul className="f21-playbook-list">
-            {PLAYBOOK_SUGGESTIONS.map((item, i) => {
-              const Icon = PLAYBOOK_ICONS[i] ?? BookOpen;
-              return (
-                <li key={item.title}>
-                  <Icon size={15} strokeWidth={2} aria-hidden="true" />
-                  <div>
-                    <strong>{item.title}</strong>
-                    <em>{item.track}</em>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
         </section>
 
         <section className="f21-panel">
           <div className="f21-panel-head">
             <h2>Connectors</h2>
-            <button type="button" className="f21-link-btn" onClick={() => onNavigate("context")}>
-              Manage →
+            <button type="button" className="f21-ghost-btn" onClick={() => onNavigate("context")}>
+              Manage
             </button>
           </div>
           <ul className="f21-connector-list">
@@ -296,9 +243,57 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: NavId) => void 
               <span>File upload</span>
               <button type="button" className="f21-link-btn" onClick={() => onNavigate("context")}>
                 <Upload size={12} strokeWidth={2} aria-hidden="true" />
-                Upload files ↗
+                Upload files
               </button>
             </li>
+          </ul>
+        </section>
+      </div>
+
+      {/* 5 — Supporting */}
+      <div className="f21-dash-bottom f21-dash-bottom--two">
+        <section className="f21-panel">
+          <div className="f21-panel-head">
+            <h2>Data room</h2>
+            <button type="button" className="f21-ghost-btn">
+              View all
+            </button>
+          </div>
+          <ul className="f21-file-list">
+            {DATA_ROOM_FILES.map(file => (
+              <li key={file.name}>
+                {file.type === "XLS" ? (
+                  <FileSpreadsheet size={15} strokeWidth={2} aria-hidden="true" />
+                ) : (
+                  <FileText size={15} strokeWidth={2} aria-hidden="true" />
+                )}
+                <span>{file.name}</span>
+                <em>{file.type}</em>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="f21-panel">
+          <div className="f21-panel-head">
+            <h2>Playbook suggestions</h2>
+            <button type="button" className="f21-ghost-btn">
+              View all
+            </button>
+          </div>
+          <ul className="f21-playbook-list">
+            {PLAYBOOK_SUGGESTIONS.map((item, i) => {
+              const Icon = PLAYBOOK_ICONS[i] ?? BookOpen;
+              return (
+                <li key={item.title}>
+                  <Icon size={15} strokeWidth={2} aria-hidden="true" />
+                  <div>
+                    <strong>{item.title}</strong>
+                    <em>{item.track}</em>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </section>
       </div>
