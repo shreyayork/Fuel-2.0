@@ -2,33 +2,140 @@
 
 export type NavId = "dashboard" | "context" | "rd";
 
-export const NAV_ITEMS: { id: NavId; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "rd", label: "R&D" },
-  { id: "context", label: "Context Engine" },
+export interface SidebarNavItem {
+  id: string;
+  label: string;
+  badge?: string;
+  badgeTone?: "green" | "muted";
+  badgeShape?: "circle" | "pill";
+  targetNav: NavId;
+  scrollTarget?: string;
+}
+
+export interface SidebarSection {
+  id: string;
+  label: string;
+  items: SidebarNavItem[];
+}
+
+export const SIDEBAR_SECTIONS: SidebarSection[] = [
+  {
+    id: "functions",
+    label: "Functions",
+    items: [
+      { id: "rd", label: "Research & Development", targetNav: "rd" },
+      { id: "gtm", label: "Go-To-Market", targetNav: "context" },
+      { id: "ga", label: "General & Administrative", targetNav: "context" },
+    ],
+  },
+  {
+    id: "strategy",
+    label: "Strategy",
+    items: [
+      { id: "intelligence", label: "Intelligence", badge: "5 new", badgeTone: "green", targetNav: "dashboard", scrollTarget: ".f21-telemetry-panel" },
+      { id: "initiatives", label: "Initiatives", badge: "3", badgeShape: "circle", targetNav: "dashboard", scrollTarget: ".f21-initiatives-panel" },
+      { id: "playbooks", label: "Playbooks", targetNav: "dashboard" },
+      { id: "artifacts", label: "Artifacts", badge: "5", badgeShape: "circle", targetNav: "context" },
+      { id: "benchmarks", label: "Benchmarks", targetNav: "context" },
+    ],
+  },
+  {
+    id: "your-data",
+    label: "Your data",
+    items: [
+      { id: "context", label: "Context engine", badge: "4/7", badgeShape: "pill", targetNav: "context" },
+      { id: "dataroom", label: "Data room", badge: "12", badgeShape: "pill", targetNav: "dashboard", scrollTarget: ".f21-dataroom-panel" },
+    ],
+  },
+  {
+    id: "network",
+    label: "Network",
+    items: [
+      { id: "advisors", label: "Advisors", badge: "2", badgeShape: "circle", targetNav: "context" },
+      { id: "investors", label: "Investors", targetNav: "context" },
+    ],
+  },
+  {
+    id: "public-presence",
+    label: "Public presence",
+    items: [
+      { id: "public-profile", label: "Public profile", targetNav: "context" },
+      { id: "blog", label: "Blog", targetNav: "context" },
+    ],
+  },
+  {
+    id: "recently-viewed",
+    label: "Recently viewed",
+    items: [
+      { id: "stripe", label: "Stripe, company research", targetNav: "context" },
+      { id: "adyen", label: "Adyen, company research", targetNav: "context" },
+    ],
+  },
 ];
 
+export const SIDEBAR_NAV_ITEMS: SidebarNavItem[] = [
+  { id: "dashboard", label: "Dashboard", targetNav: "dashboard" },
+  ...SIDEBAR_SECTIONS.flatMap(s => s.items),
+];
+
+export const ARTIFACT_ITEMS: SidebarNavItem[] = [
+  { id: "watchlists", label: "Watchlists", targetNav: "context" },
+];
+
+export const VALUE_CREATION_ITEMS: SidebarNavItem[] = [
+  { id: "benchmarks", label: "Benchmarks", targetNav: "context" },
+  { id: "playbooks", label: "Playbooks", targetNav: "dashboard" },
+];
+
+export const NETWORK_ITEMS: SidebarNavItem[] = [
+  { id: "advisors", label: "Advisors", badge: "2", targetNav: "context" },
+  { id: "investors", label: "Investors", targetNav: "context" },
+];
+
+export const NAV_ITEMS = SIDEBAR_NAV_ITEMS;
+
 export const WORKSPACE = {
-  name: "PatriotPay.ai",
+  name: "PartriotPay.ai",
   kind: "Founder workspace",
   initial: "P",
 };
 
 export const USER = {
   name: "Jordan Davis",
+  email: "jordan@patriotpay.ai",
   role: "Founder",
   initials: "JD",
 };
 
 export const RECENTLY_VIEWED = [
-  { id: "stripe" as const, label: "Stripe · Company research" },
-  { id: "adyen" as const, label: "Adyen · Company research" },
+  { id: "stripe" as const, label: "Stripe, company research" },
+  { id: "adyen" as const, label: "Adyen, company research" },
+];
+
+export const RECENTLY_VIEWED_COMPANIES = [
+  { id: "volur" as const, label: "Völur", type: "volur" as const },
+  { id: "yorkie-1" as const, label: "York IE", type: "yorkie" as const },
+  { id: "yorkie-2" as const, label: "York IE", type: "yorkie" as const },
+  { id: "swiggy" as const, label: "Swiggy", type: "swiggy" as const },
+];
+
+export const USAGE_PLAN = {
+  tier: "FREE",
+  current: 220,
+  total: 220,
+  pct: 100,
+};
+
+export const INPUT_UPDATE_ITEMS = [
+  { id: "benchmarks" as const, label: "Benchmarks", targetNav: "context" as const },
+  { id: "update-info" as const, label: "Update information", targetNav: "context" as const },
+  { id: "add-context" as const, label: "Add context", targetNav: "context" as const },
 ];
 
 export const SCORE_CARDS = [
-  { id: "rd" as const, label: "R&D", score: 78, delta: "+6 vs. 8 weeks ago", spark: [62, 64, 68, 70, 72, 74, 78] },
-  { id: "gtm" as const, label: "GTM", score: 71, delta: "+4 vs. 8 weeks ago", spark: [58, 60, 63, 65, 67, 69, 71] },
-  { id: "ga" as const, label: "G&A", score: 74, delta: "+3 vs. 8 weeks ago", spark: [64, 66, 68, 69, 71, 72, 74] },
+  { id: "rd" as const, label: "R&D", score: 60, delta: "+6 vs. 8 weeks ago", spark: [50, 52, 54, 56, 58, 59, 60] },
+  { id: "gtm" as const, label: "GTM", score: 50, delta: "+4 vs. 8 weeks ago", spark: [42, 44, 46, 47, 48, 49, 50] },
+  { id: "ga" as const, label: "G&A", score: 75, delta: "+3 vs. 8 weeks ago", spark: [68, 69, 70, 71, 72, 73, 75] },
 ];
 
 /** Dashboard modules — complete-profile style progress cards. */

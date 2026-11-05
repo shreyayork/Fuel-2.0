@@ -19,8 +19,14 @@ body {
   min-height: 100dvh;
   font-family: "IBM Plex Sans", "SF Pro Display", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background: #0b1220;
-  color: #f2f5f2;
+  background: #ffffff;
+  color: #284256;
+}
+
+html[data-theme="dark"] body,
+html[data-f21-theme="dark"] body {
+  background: #0f1a24;
+  color: #f4f6f8;
 }
 
 button,
@@ -28,17 +34,33 @@ input {
   font: inherit;
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(143, 169, 154, 0.4) transparent;
+/* Hide scrollbars on desktop; keep scrolling. Show thin bars only on narrow viewports. */
+@media (min-width: 861px) {
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
 }
 
-*::-webkit-scrollbar {
-  width: 2px;
-  height: 2px;
-}
+@media (max-width: 860px) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(143, 169, 154, 0.4) transparent;
+  }
 
-*::-webkit-scrollbar-thumb {
-  background: rgba(143, 169, 154, 0.35);
-  border-radius: 999px;
+  *::-webkit-scrollbar {
+    width: 2px;
+    height: 2px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(143, 169, 154, 0.35);
+    border-radius: 999px;
+  }
 }

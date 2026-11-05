@@ -67,7 +67,7 @@ function SvgLockup({
   theme: "dark" | "light";
   variant: MarkVariant;
 }) {
-  const yorkColor = theme === "dark" ? "#FFFFFF" : "#0B1220";
+  const yorkColor = theme === "dark" ? "#F4F6F8" : "#284256";
   return (
     <>
       <FuelIsometricIcon size={variant === "full" ? 30 : 26} color={LOGO_GREEN} />
@@ -91,6 +91,42 @@ function SvgLockup({
         )}
       </div>
     </>
+  );
+}
+
+export function FuelSidebarBrand({
+  theme = "dark",
+  className,
+  style,
+}: {
+  theme?: "dark" | "light";
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const src = theme === "light" ? LOGO_FULL_LIGHT : LOGO_FULL_DARK;
+  const label = "York IE Fuel Platform";
+
+  return (
+    <div
+      className={`f21-sidebar-brand${className ? ` ${className}` : ""}`}
+      style={style}
+      aria-label={label}
+    >
+      {imgFailed ? (
+        <SvgLockup theme={theme} variant="full" />
+      ) : (
+        <img
+          className="f21-sidebar-brand-img"
+          src={src}
+          alt={label}
+          width={152}
+          height={34}
+          draggable={false}
+          onError={() => setImgFailed(true)}
+        />
+      )}
+    </div>
   );
 }
 

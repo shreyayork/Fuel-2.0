@@ -6,16 +6,20 @@ import { RdAnalysisPage } from "./RdAnalysisPage.tsx";
 import type { NavId } from "./demoData.ts";
 import "./fuel21.css";
 
-const THEME_KEY = "fuel21-theme";
+const THEME_KEY = "fuel21-theme-v3";
 
 function readTheme(): "dark" | "light" {
   try {
+    if (typeof window !== "undefined") {
+      if (window.location.search.includes("theme=dark")) return "dark";
+      if (window.location.search.includes("theme=light")) return "light";
+    }
     const stored = localStorage.getItem(THEME_KEY);
     if (stored === "light" || stored === "dark") return stored;
   } catch {
     /* ignore */
   }
-  return "dark";
+  return "light";
 }
 
 function applyTheme(theme: "dark" | "light") {
