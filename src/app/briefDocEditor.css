@@ -1840,6 +1840,26 @@ html[data-theme="light"] .brief-paper-tone-callout {
   }
 }
 
+.brief-share-public-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.brief-share-public-main {
+  background: #ffffff;
+  flex: 1;
+  min-width: 0;
+}
+
+.brief-share-public-page .brief-share-public-canvas.profile-about-company-canvas {
+  border: 0;
+  border-radius: 0;
+  max-height: none;
+  overflow: visible;
+}
+
 .brief-share-missing {
   align-items: center;
   background: var(--bg-main);

@@ -37,7 +37,7 @@ import {
   isCompanyAdvisorInviteRecipient,
   type CompanyAdvisorLink,
 } from "./advisorDirectoryStorage.ts";
-import { readBriefShareTokenFromUrl } from "./briefDocStorage.ts";
+import { clearBriefShareTokenFromUrl, readBriefShareTokenFromUrl } from "./briefDocStorage.ts";
 import {
   acceptAdvisorConnection,
   type AdvisorConnectionPermissions,
@@ -345,7 +345,32 @@ export default function App() {
 
   const briefShareToken = readBriefShareTokenFromUrl();
   if (briefShareToken) {
-    return <BriefSharePage token={briefShareToken} />;
+    const leaveShareLink = () => {
+      clearBriefShareTokenFromUrl();
+    };
+    return (
+      <BriefSharePage
+        token={briefShareToken}
+        onSignIn={() => {
+          leaveShareLink();
+          setView("signin");
+        }}
+        onGetStarted={() => {
+          leaveShareLink();
+          setView("signin");
+        }}
+        onHome={() => {
+          leaveShareLink();
+          setView("landing");
+        }}
+        onOpenLegal={doc => {
+          leaveShareLink();
+          setLegalDoc(doc);
+          setLegalReturnView("landing");
+          setView("legal");
+        }}
+      />
+    );
   }
 
   if (view === "legal") {

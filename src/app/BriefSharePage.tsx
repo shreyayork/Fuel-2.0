@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadPublishedBriefByToken } from "./briefDocStorage";
 import { isCurrentPatriotPublicHtml } from "./patriotPublicStory";
+import type { LegalDocId } from "./legal/legalContent";
+import { FuelMarketingFooter, FuelMarketingHeader } from "./marketing/FuelMarketingChrome";
 import "./briefDocEditor.css";
 import "./publicProfileCompanyPage.css";
+import "./marketing/marketing.css";
 
 type Appearance = "dark" | "light";
 
@@ -27,19 +30,32 @@ function applyFuelTheme(theme: Appearance) {
   }
 }
 
-export function BriefSharePage({ token }: { token: string }) {
+export function BriefSharePage({
+  token,
+  onSignIn,
+  onGetStarted,
+  onHome,
+  onOpenLegal,
+}: {
+  token: string;
+  onSignIn: () => void;
+  onGetStarted: () => void;
+  onHome: () => void;
+  onOpenLegal?: (doc: LegalDocId) => void;
+}) {
   const record = useMemo(() => loadPublishedBriefByToken(token), [token]);
   const [theme, setTheme] = useState<Appearance>(() => readFuelTheme());
-  const fixedPublicDesign = record?.audience === "public";
+  const isPublicProfile = record?.audience === "public";
+  const publicBlog = Boolean(record?.html && isCurrentPatriotPublicHtml(record.html));
 
   useEffect(() => {
-    if (fixedPublicDesign) return;
+    if (isPublicProfile) return;
     applyFuelTheme(theme);
-  }, [fixedPublicDesign, theme]);
+  }, [isPublicProfile, theme]);
 
   useEffect(() => {
     const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow = isPublicProfile ? "" : "hidden";
     const previousTitle = document.title;
     document.title = record
       ? `${record.companyName} · ${record.audience === "investor" ? "Investor brief" : "Public profile"}`
@@ -48,7 +64,7 @@ export function BriefSharePage({ token }: { token: string }) {
       document.body.style.overflow = previous;
       document.title = previousTitle;
     };
-  }, [record]);
+  }, [isPublicProfile, record]);
 
   if (!record) {
     return (
@@ -60,7 +76,29 @@ export function BriefSharePage({ token }: { token: string }) {
   }
 
   const versionLabel = record.audience === "investor" ? "Investor brief" : "Public profile";
-  const publicBlog = record.audience === "public" && isCurrentPatriotPublicHtml(record.html);
+
+  if (isPublicProfile) {
+    return (
+      <div className="mkt-root brief-share-public-page" role="document" aria-label={`${record.companyName} ${versionLabel}`}>
+        <FuelMarketingHeader
+          onSignIn={onSignIn}
+          onGetStarted={onGetStarted}
+          onBrandClick={onHome}
+        />
+        <main className="brief-share-public-main">
+          <div
+            className={`brief-doc-canvas profile-about-company-canvas brief-share-public-canvas${publicBlog ? " is-public-blog" : ""}`}
+          >
+            <div
+              className={`brief-paper${publicBlog ? " is-public-blog" : ""}`}
+              dangerouslySetInnerHTML={{ __html: record.html }}
+            />
+          </div>
+        </main>
+        <FuelMarketingFooter onSignIn={onSignIn} onOpenLegal={onOpenLegal} />
+      </div>
+    );
+  }
 
   return (
     <div className="brief-doc-screen" role="document" aria-label={`${record.companyName} ${versionLabel}`}>
@@ -72,16 +110,14 @@ export function BriefSharePage({ token }: { token: string }) {
           </div>
         </div>
         <div className="brief-doc-controls">
-          {fixedPublicDesign ? null : (
-            <div className="brief-doc-theme" role="group" aria-label="Appearance">
-              <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "is-active" : undefined} onClick={() => setTheme("dark")}>Dark</button>
-              <button type="button" aria-pressed={theme === "light"} className={theme === "light" ? "is-active" : undefined} onClick={() => setTheme("light")}>Light</button>
-            </div>
-          )}
+          <div className="brief-doc-theme" role="group" aria-label="Appearance">
+            <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "is-active" : undefined} onClick={() => setTheme("dark")}>Dark</button>
+            <button type="button" aria-pressed={theme === "light"} className={theme === "light" ? "is-active" : undefined} onClick={() => setTheme("light")}>Light</button>
+          </div>
         </div>
       </header>
-      <div className={`brief-doc-canvas${publicBlog ? " is-public-blog" : ""}`}>
-        <div className={`brief-paper${publicBlog ? " is-public-blog" : ""}`} dangerouslySetInnerHTML={{ __html: record.html }} />
+      <div className="brief-doc-canvas">
+        <div className="brief-paper" dangerouslySetInnerHTML={{ __html: record.html }} />
       </div>
     </div>
   );

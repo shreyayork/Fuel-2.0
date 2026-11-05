@@ -100,6 +100,14 @@ import {
   watchlistTeamLabels,
   watchlistVisibilityCopy,
 } from "./investorData.ts";
+import {
+  countPortfolioInitiativesForCompanies,
+  listPortfolioInitiativesForCompanies,
+  portfolioInitiativeDisplayStatus,
+  portfolioInitiativeListStatus,
+  portfolioInitiativePillarLabel,
+} from "./investorPortfolioInitiatives.ts";
+import { PortfolioInitiativesSection } from "./PortfolioInitiativesSection.tsx";
 import "./investor.css";
 
 export type InvestorDashboardSection = "home" | "portfolios" | "pipeline" | "watchlists";
@@ -2837,6 +2845,7 @@ function PortfolioBenchmarkSection({
 }
 
 type PortfolioCompanyAccessTab = "active" | "requested" | "invites" | "not_linked";
+type PortfolioCompanyAccessFilter = PortfolioCompanyAccessTab | "all";
 
 const PORTFOLIO_COMPANY_ACCESS_TABS: { id: PortfolioCompanyAccessTab; label: string }[] = [
   { id: "active", label: "Active" },
@@ -3129,8 +3138,8 @@ function PortfoliosPage({
   const [buildPhase, setBuildPhase] = useState<OverviewBuildPhase>("summary");
   const [addingCompanies, setAddingCompanies] = useState(false);
   const [companyQuery, setCompanyQuery] = useState("");
-  const [companyAccessTab, setCompanyAccessTab] = useState<PortfolioCompanyAccessTab>("active");
-  const [detailView, setDetailView] = useState<"table" | "graphs">("table");
+  const [companyAccessTab, setCompanyAccessTab] = useState<PortfolioCompanyAccessFilter>("all");
+  const [detailView, setDetailView] = useState<"table" | "graphs" | "initiatives">("table");
   const [connectionCompany, setConnectionCompany] = useState<PortfolioCompanyView | null>(null);
   const [connectionVersion, setConnectionVersion] = useState(0);
   const buildPlayedForId = useRef<string | null>(
@@ -3142,7 +3151,7 @@ function PortfoliosPage({
   useEffect(() => {
     setDetailView("table");
     setCompanyQuery("");
-    setCompanyAccessTab("active");
+    setCompanyAccessTab("all");
     setAddingCompanies(false);
   }, [activeId]);
 
@@ -3269,11 +3278,12 @@ function PortfoliosPage({
     return counts;
   }, [detailCompanies, receivedInviteCompanyIds]);
 
-  const companiesForAccessTab = useMemo(() => (
-    filteredDetailCompanies.filter(company => (
+  const companiesForAccessTab = useMemo(() => {
+    if (companyAccessTab === "all") return filteredDetailCompanies;
+    return filteredDetailCompanies.filter(company => (
       portfolioCompanyAccessTab(company, receivedInviteCompanyIds) === companyAccessTab
-    ))
-  ), [companyAccessTab, filteredDetailCompanies, receivedInviteCompanyIds]);
+    ));
+  }, [companyAccessTab, filteredDetailCompanies, receivedInviteCompanyIds]);
 
   const availableToAdd = useMemo(() => {
     if (!activeList) return [];
@@ -3344,6 +3354,7 @@ function PortfoliosPage({
   if (activeList && activeBenchmarks && !buildingPortfolio) {
     const benchmarks = activeBenchmarks;
     const displayCompanyCount = detailCompanies.length || activeList.companyCount;
+    const portfolioInitiativeCount = countPortfolioInitiativesForCompanies(detailCompanies);
 
     return (
       <section className="investor-portfolios-page">
@@ -3415,33 +3426,26 @@ function PortfoliosPage({
             onClick={() => setDetailView("graphs")}
             disabled={detailCompanies.length === 0}
           >
-            Portfolio graphs
+            Portfolio Benchmark
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="portfolio-detail-tab-initiatives"
+            aria-selected={detailView === "initiatives"}
+            aria-controls="portfolio-detail-panel-initiatives"
+            className={detailView === "initiatives" ? "is-active" : ""}
+            onClick={() => setDetailView("initiatives")}
+            disabled={detailCompanies.length === 0}
+          >
+            Initiatives
+            {portfolioInitiativeCount > 0 ? (
+              <span className="investor-portfolios-tab-count">
+                {formatBenchmarkCount(portfolioInitiativeCount)}
+              </span>
+            ) : null}
           </button>
         </div>
-
-        {detailView === "table" && detailCompanies.length > 0 ? (
-          <div
-            className="investor-watchlists-tabs investor-portfolios-tabs investor-portfolio-companies-access-tabs"
-            role="tablist"
-            aria-label="Company access filters"
-          >
-            {PORTFOLIO_COMPANY_ACCESS_TABS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={companyAccessTab === id}
-                className={companyAccessTab === id ? "is-active" : ""}
-                onClick={() => setCompanyAccessTab(id)}
-              >
-                {label}
-                <span className="investor-portfolios-tab-count">
-                  {formatBenchmarkCount(companyAccessTabCounts[id])}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         {addingCompanies && detailView === "table" ? (
           <article className="overview-panel investor-portfolio-add-panel">
@@ -3495,7 +3499,25 @@ function PortfoliosPage({
                   <div className="investor-portfolio-detail-toolbar-copy">
                     <strong>Companies</strong>
                   </div>
-                  <label className="investor-portfolio-detail-search">
+                  <div className="investor-portfolio-detail-toolbar-actions">
+                    <label className="investor-portfolio-access-filter">
+                      <span className="investor-portfolio-access-filter-label">Status</span>
+                      <select
+                        value={companyAccessTab}
+                        onChange={event => setCompanyAccessTab(event.target.value as PortfolioCompanyAccessFilter)}
+                        aria-label="Filter companies by connection status"
+                      >
+                        <option value="all">
+                          All ({formatBenchmarkCount(detailCompanies.length)})
+                        </option>
+                        {PORTFOLIO_COMPANY_ACCESS_TABS.map(({ id, label }) => (
+                          <option key={id} value={id}>
+                            {label} ({formatBenchmarkCount(companyAccessTabCounts[id])})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="investor-portfolio-detail-search">
                     <svg viewBox="0 0 20 20" aria-hidden="true">
                       <circle cx="8.5" cy="8.5" r="5.25" fill="none" stroke="currentColor" strokeWidth="1.75" />
                       <path d="M12.5 12.5 16 16" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.75" />
@@ -3518,6 +3540,7 @@ function PortfoliosPage({
                       </button>
                     ) : null}
                   </label>
+                  </div>
                 </div>
                 <PortfolioCompaniesTable
                   companies={companiesForAccessTab}
@@ -3525,8 +3548,10 @@ function PortfoliosPage({
                   onManageConnection={setConnectionCompany}
                   emptyLabel={
                     companyQuery.trim()
-                      ? "No companies match your search in this tab."
-                      : `No ${PORTFOLIO_COMPANY_ACCESS_TABS.find(tab => tab.id === companyAccessTab)?.label.toLowerCase() ?? "matching"} companies in this portfolio.`
+                      ? "No companies match your search."
+                      : companyAccessTab === "all"
+                        ? "No companies in this portfolio."
+                        : `No ${PORTFOLIO_COMPANY_ACCESS_TABS.find(tab => tab.id === companyAccessTab)?.label.toLowerCase() ?? "matching"} companies in this portfolio.`
                   }
                   resetKey={`${activeList?.id ?? "none"}:${companyQuery}:${companyAccessTab}:${connectionVersion}`}
                 />
@@ -3543,6 +3568,19 @@ function PortfoliosPage({
           >
             <PortfolioBenchmarkSection
               summary={benchmarks}
+              companies={detailCompanies}
+              onOpenCompanyProfile={onOpenCompanyProfile}
+            />
+          </div>
+        ) : null}
+
+        {detailView === "initiatives" && detailCompanies.length > 0 ? (
+          <div
+            id="portfolio-detail-panel-initiatives"
+            role="tabpanel"
+            aria-labelledby="portfolio-detail-tab-initiatives"
+          >
+            <PortfolioInitiativesSection
               companies={detailCompanies}
               onOpenCompanyProfile={onOpenCompanyProfile}
             />
@@ -4202,7 +4240,26 @@ export function InvestorCompanyProfileDrawer({
               {visibleTab === "initiatives" ? (
                 <section className="investor-company-drawer-section">
                   <span className="investor-company-drawer-section-label">Initiatives</span>
-                  <p>No shared initiatives on file yet.</p>
+                  {(() => {
+                    const rows = listPortfolioInitiativesForCompanies([company]);
+                    if (rows.length === 0) {
+                      return <p>No shared initiatives on file yet.</p>;
+                    }
+                    return (
+                      <ul className="investor-company-drawer-initiatives">
+                        {rows.map(row => (
+                          <li key={row.id}>
+                            <strong>{row.title}</strong>
+                            <span>
+                              {portfolioInitiativePillarLabel(row.pillar)}
+                              {" · "}
+                              {portfolioInitiativeDisplayStatus(portfolioInitiativeListStatus(row))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
                 </section>
               ) : null}
 

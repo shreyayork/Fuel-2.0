@@ -535,7 +535,20 @@ export function loadPublishedBriefByToken(token: string): BriefPublishRecord | n
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!isPublishRecord(parsed) || parsed.token !== token) return null;
-    return { ...parsed, html: sanitizeBriefHtml(parsed.html) };
+    const record = { ...parsed, html: sanitizeBriefHtml(parsed.html) };
+    if (
+      record.audience === "public"
+      && isPatriotPayName(record.companyName)
+      && !isCurrentPatriotPublicHtml(record.html)
+    ) {
+      return upsertPublishedBriefRecord(
+        record.companyName,
+        "public",
+        buildPatriotPublicPaperHtml(),
+        record.token,
+      ) ?? record;
+    }
+    return record;
   } catch {
     return null;
   }
@@ -570,5 +583,16 @@ export function readBriefShareTokenFromUrl(): string | null {
     return new URL(window.location.href).searchParams.get("brief");
   } catch {
     return null;
+  }
+}
+
+export function clearBriefShareTokenFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("brief")) return;
+    url.searchParams.delete("brief");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    /* ignore */
   }
 }
