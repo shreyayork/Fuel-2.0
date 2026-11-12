@@ -8467,7 +8467,6 @@ export function InitiativeDetailDrawer({
                 )}
             </p>
           </div>
-          <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
           <div className="initiative-drawer-head-actions">
             <div className="initiative-fuel-ai-anchor" ref={fuelAiAnchorRef}>
               <button
