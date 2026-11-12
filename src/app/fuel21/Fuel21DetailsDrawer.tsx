@@ -4,10 +4,20 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { isOnboardingBenchmarkComplete } from "../OnboardingFlow.tsx";
 import type { OnboardingBenchmarkInput } from "../PatriotPayJourney.tsx";
+import {
+  moduleCreditsHeadline,
+  moduleCreditsMessage,
+  tryMarkBenchmarkEarned,
+  tryMarkModuleEarned,
+  type EarnedProfileCredits,
+  type ProfileCreditReward,
+} from "../profileCredits.ts";
 import {
   DetailsDrawer,
   drawerStepIndexForId,
@@ -16,7 +26,7 @@ import {
   type DrawerStepId,
   type ScorecardBenchmarkContext,
 } from "../ScorecardV2.tsx";
-import type { DetailAnswers, DetailSectionId } from "../trackQuestions.ts";
+import { completedOnboardingModules, type DetailAnswers, type DetailSectionId } from "../trackQuestions.ts";
 import "../PatriotPayJourney.css";
 import "./fuel21-details-drawer-stack.css";
 import "./fuel21-companion-drawer.css";
@@ -92,6 +102,12 @@ export function Fuel21DetailsDrawerProvider({
   request = null,
   elevate = false,
   onDetailsDrawerClosed,
+  companyKey = "patriotpay",
+  onProfileCreditsChange,
+  onProfileCreditReward,
+  onDetailsFieldEdited,
+  onboardingAnswers = null,
+  creditRewardVisible = false,
 }: {
   children: ReactNode;
   /** Raise the details drawer above Ask Fuel AI. */
@@ -106,6 +122,19 @@ export function Fuel21DetailsDrawerProvider({
   onBenchmarkChange?: (next: OnboardingBenchmarkInput, context: ScorecardBenchmarkContext) => void;
   live?: Fuel21ActionDrawerLive;
   onOpenContextEngine?: () => void;
+  /** Same key the footer reads earned credits from. */
+  companyKey?: string;
+  onProfileCreditsChange?: (earned: EarnedProfileCredits) => void;
+  onProfileCreditReward?: (reward: ProfileCreditReward) => void;
+  /** Arms the reward toast. Credits saved before this stay silent. */
+  onDetailsFieldEdited?: () => void;
+  /** Profile answers captured during onboarding, before the drawer stores them. */
+  onboardingAnswers?: {
+    profileCompany?: string;
+    profileProductDescription?: string;
+    profileIndustry?: string;
+  } | null;
+  creditRewardVisible?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [benchPanel, setBenchPanel] = useState<Fuel21CompanionBenchPanel | null>(null);
@@ -121,6 +150,39 @@ export function Fuel21DetailsDrawerProvider({
     () => detailAnswers.profile_company?.trim() || companyName,
     [companyName, detailAnswers.profile_company],
   );
+  const fieldEditedRef = useRef(false);
+
+  const awardModuleCredits = useCallback((answers: DetailAnswers, toast: boolean) => {
+    const ready = completedOnboardingModules({
+      ...answers,
+      profileCompany: answers.profile_company || onboardingAnswers?.profileCompany,
+      profileProductDescription: answers.profile_product_description || onboardingAnswers?.profileProductDescription,
+      profileIndustry: answers.profile_industry || onboardingAnswers?.profileIndustry,
+    });
+    ready.forEach(module => {
+      const { earned, reward } = tryMarkModuleEarned(
+        module,
+        companyKey,
+        moduleCreditsHeadline(module),
+        moduleCreditsMessage(module),
+      );
+      if (!reward) return;
+      onProfileCreditsChange?.(earned);
+      if (toast) onProfileCreditReward?.(reward);
+    });
+  }, [companyKey, onboardingAnswers, onProfileCreditReward, onProfileCreditsChange]);
+
+  // Forms already saved — in the drawer or during onboarding — raise the footer meter, without a toast.
+  useEffect(() => {
+    awardModuleCredits(detailAnswers, false);
+    // Re-check when the saved profile arrives. Later edits award from selectDetail.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    companyKey,
+    onboardingAnswers?.profileCompany,
+    onboardingAnswers?.profileIndustry,
+    onboardingAnswers?.profileProductDescription,
+  ]);
 
   const closeBench = useCallback(() => setBenchPanel(null), []);
 
@@ -137,15 +199,18 @@ export function Fuel21DetailsDrawerProvider({
 
   const selectDetail = useCallback(
     (qid: string, value: string) => {
+      fieldEditedRef.current = true;
+      onDetailsFieldEdited?.();
       setDetailAnswers(prev => {
         const next = { ...prev };
         if (value) next[qid] = value;
         else delete next[qid];
         saveDetailAnswers(companyName, next);
+        awardModuleCredits(next, fieldEditedRef.current);
         return next;
       });
     },
-    [companyName],
+    [awardModuleCredits, companyName, onDetailsFieldEdited],
   );
 
   const persistDrawerBenchmark = useCallback(
@@ -156,9 +221,14 @@ export function Fuel21DetailsDrawerProvider({
         setLocalBenchmark(next);
       }
       if (!commit) return;
+      onDetailsFieldEdited?.();
       saveStoredQuarter(`fuel-benchmark-q-${displayCompanyName}`);
+      if (!isOnboardingBenchmarkComplete(next)) return;
+      const { earned, reward } = tryMarkBenchmarkEarned(companyKey);
+      onProfileCreditsChange?.(earned);
+      if (reward) onProfileCreditReward?.(reward);
     },
-    [displayCompanyName, onBenchmarkChange],
+    [companyKey, displayCompanyName, onBenchmarkChange, onDetailsFieldEdited, onProfileCreditReward, onProfileCreditsChange],
   );
 
   const openContextDrawer = useCallback(() => {
@@ -198,7 +268,7 @@ export function Fuel21DetailsDrawerProvider({
           benchmark={benchmarkValues}
           benchmarkContext={benchmarkContext}
           onBenchmarkChange={persistDrawerBenchmark}
-          creditRewardVisible={false}
+          creditRewardVisible={creditRewardVisible}
           onSelect={selectDetail}
           elevate={elevate}
           onSaveClose={() => {

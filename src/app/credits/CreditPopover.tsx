@@ -53,9 +53,20 @@ export function CreditPopover() {
           <p>
             Complete your company profile, tracks, and benchmark. Each one adds 50 credits you can spend on chat, uploads, and playbooks.
           </p>
+          <div className="credit-cost-list">
+            {creditCostRows().map(row => (
+              <div key={row.action} className="credit-cost-row">
+                <span>{row.label}</span>
+                <span>{row.cost} cr</span>
+              </div>
+            ))}
+          </div>
           {renderActions(
-            <button type="button" className="credit-btn-primary" onClick={() => setPopoverOpen(false)}>
-              Got it
+            <button type="button" className="credit-btn-primary" onClick={() => openUpgrade("pro", "healthy")}>
+              {advisorCta}
+            </button>,
+            <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "healthy")}>
+              Top up credits
             </button>,
           )}
         </>
@@ -174,8 +185,11 @@ export function CreditPopover() {
             ))}
           </div>
           {isFree ? renderActions(
-            <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("pro", "healthy")}>
+            <button type="button" className="credit-btn-primary" onClick={() => openUpgrade("pro", "healthy")}>
               {advisorCta}
+            </button>,
+            <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "healthy")}>
+              Top up credits
             </button>,
           ) : renderActions(
             <button type="button" className="credit-btn-ghost" onClick={() => openUpgrade("topup", "healthy")}>

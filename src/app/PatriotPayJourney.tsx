@@ -11226,13 +11226,14 @@ function FounderShellFooter({
         total={total}
         low={barTone !== "teal"}
         menuOpen={menuOpen}
+        planOpen={popoverOpen}
         onOpenMenu={() => {
           setPopoverOpen(false);
           setMenuOpen(open => !open);
         }}
         onOpenPlan={() => {
           setMenuOpen(false);
-          setPopoverOpen(!popoverOpen);
+          setPopoverOpen(open => !open);
         }}
         menu={menu}
         planPopover={popoverOpen ? <CreditPopover /> : null}
@@ -13353,6 +13354,12 @@ function PatriotPayJourneyInner({
           openToIntros: context.openToIntros,
         });
       }}
+      companyKey={FOUNDER_CLAIMED_COMPANY_ID}
+      onProfileCreditsChange={setEarnedProfileCredits}
+      onProfileCreditReward={handleProfileCreditReward}
+      onDetailsFieldEdited={armProfileCreditToast}
+      onboardingAnswers={initialOnboardingAnswers}
+      creditRewardVisible={Boolean(profileCreditReward)}
       live={{
         intelligenceItems,
         onLogIntelligence: item => setIntelligenceItems(previous => [item, ...previous]),

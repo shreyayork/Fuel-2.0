@@ -4358,16 +4358,22 @@
   background: transparent;
 }
 
-/* Profile footer: whole row opens the user menu; gear opens plan details. */
+/* Profile footer: name opens the user menu; the credit bar opens plan details. */
 .f21-user-card-wrap {
   position: relative;
+}
+
+.f21-user-card-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .f21-user-card-hit {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  flex: 1;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -4376,6 +4382,24 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.f21-user-usage {
+  margin-left: 42px;
+  width: calc(100% - 42px);
+  border: 0;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.f21-user-usage:hover,
+.f21-user-usage.is-open {
+  background: var(--f21-nav-hover);
 }
 
 /* Standard buttons.

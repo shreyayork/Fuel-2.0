@@ -362,6 +362,7 @@ export function Fuel21UserFooter({
   onOpenMenu,
   onOpenPlan,
   menuOpen = false,
+  planOpen = false,
   menu,
   planPopover,
 }: {
@@ -375,6 +376,7 @@ export function Fuel21UserFooter({
   onOpenMenu: () => void;
   onOpenPlan: () => void;
   menuOpen?: boolean;
+  planOpen?: boolean;
   menu?: ReactNode;
   planPopover?: ReactNode;
 }) {
@@ -384,43 +386,49 @@ export function Fuel21UserFooter({
       {menu}
       {planPopover}
       <div className="f21-user-card">
-        <button
-          type="button"
-          className="f21-user-card-hit"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          aria-label="Open user menu"
-          onClick={onOpenMenu}
-        >
-          <span className="f21-user-avatar" aria-hidden="true">
-            {initials}
-          </span>
-          <span className="f21-user-copy">
-            <strong className="f21-user-name">{name}</strong>
-            <span className="f21-user-role">{subtitle}</span>
-            <span
-              className={`f21-user-usage${low ? " is-low" : ""}`}
-              aria-label={`${tier} plan, ${remaining} of ${total} credits available`}
-            >
-              <span className="f21-user-usage-line">
-                <span className="f21-user-usage-tier">{tier}</span>
-                <span className="f21-usage-counts">
-                  <strong>{remaining.toLocaleString()}</strong>
-                  <span> / {total.toLocaleString()}</span>
-                </span>
-              </span>
-              <span
-                className="f21-usage-meter-track"
-                role="progressbar"
-                aria-valuenow={remaining}
-                aria-valuemin={0}
-                aria-valuemax={total}
-              >
-                <span className="f21-usage-meter-fill" style={{ width: `${pct}%` }} />
+        <div className="f21-user-card-main">
+          <button
+            type="button"
+            className="f21-user-card-hit"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="Open user menu"
+            onClick={onOpenMenu}
+          >
+            <span className="f21-user-avatar" aria-hidden="true">
+              {initials}
+            </span>
+            <span className="f21-user-copy">
+              <strong className="f21-user-name">{name}</strong>
+              <span className="f21-user-role">{subtitle}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`f21-user-usage${low ? " is-low" : ""}${planOpen ? " is-open" : ""}`}
+            aria-haspopup="dialog"
+            aria-expanded={planOpen}
+            aria-label={`${tier} plan, ${remaining} of ${total} credits available. Open credit details`}
+            onClick={onOpenPlan}
+          >
+            <span className="f21-user-usage-line">
+              <span className="f21-user-usage-tier">{tier}</span>
+              <span className="f21-usage-counts">
+                <strong>{remaining.toLocaleString()}</strong>
+                <span> / {total.toLocaleString()}</span>
               </span>
             </span>
-          </span>
-        </button>
+            <span
+              className="f21-usage-meter-track"
+              role="progressbar"
+              aria-valuenow={remaining}
+              aria-valuemin={0}
+              aria-valuemax={total}
+            >
+              <span className="f21-usage-meter-fill" style={{ width: `${pct}%` }} />
+            </span>
+          </button>
+        </div>
         <button type="button" className="f21-user-settings-btn" aria-label="Plan and settings" onClick={onOpenPlan}>
           <Settings size={15} strokeWidth={1.85} aria-hidden="true" />
         </button>
