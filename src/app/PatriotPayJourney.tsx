@@ -5812,6 +5812,7 @@ function SignalsPage({
   isProfileComplete,
   onLogBenchmarkData,
   onLinkConnectors,
+  hideSourceActions = false,
   documentSlots,
   processingDocumentTypeId = null,
   onUploadDocument,
@@ -6281,14 +6282,16 @@ function SignalsPage({
         </div>
         {showIntelligenceHeadActions ? (
           <div className="data-room-head-actions">
-            <button
-              type="button"
-              className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
-              data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
-              onClick={() => setSourceFormOpen(true)}
-            >
-              Add source
-            </button>
+            {!hideSourceActions ? (
+              <button
+                type="button"
+                className={`initiatives-secondary-btn${activeTourTarget === "add-source" ? " tour-highlight" : ""}`}
+                data-tour-target={activeTourTarget === "add-source" ? "add-source" : undefined}
+                onClick={() => setSourceFormOpen(true)}
+              >
+                Add source
+              </button>
+            ) : null}
             <button
               type="button"
               className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
@@ -6302,15 +6305,17 @@ function SignalsPage({
                 Update benchmark
               </button>
             ) : null}
-            <button
-              type="button"
-              className={`initiatives-secondary-btn intel-sources-head-btn${showSourcesDrawer ? " is-active" : ""}`}
-              onClick={() => setShowSourcesDrawer(open => !open)}
-            >
-              <FuelIcon name="file" size={14} />
-              Sources
-              <em>{pendingSources.length}</em>
-            </button>
+            {!hideSourceActions ? (
+              <button
+                type="button"
+                className={`initiatives-secondary-btn intel-sources-head-btn${showSourcesDrawer ? " is-active" : ""}`}
+                onClick={() => setShowSourcesDrawer(open => !open)}
+              >
+                <FuelIcon name="file" size={14} />
+                Sources
+                <em>{pendingSources.length}</em>
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -12752,6 +12757,7 @@ function PatriotPayJourneyInner({
               isProfileComplete={profileComplete}
               onLogBenchmarkData={() => setActivePage("profile-wizard")}
               onLinkConnectors={() => setActivePage("connectors")}
+              hideSourceActions={usesFuelShell}
               documentSlots={documentSlots}
               processingDocumentTypeId={processingDocumentTypeId}
               onUploadDocument={(typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Intelligence · Private upload")}
