@@ -8446,26 +8446,29 @@ export function InitiativeDetailDrawer({
   const panel = (
     <>
         <header className="bench-drawer-head initiative-drawer-head">
-          <div className="initiative-drawer-head-copy">
-            <div className="initiative-drawer-eyebrow sc-drawer-eyebrow f21-companion-eyebrow">{companionEyebrow}</div>
-            <h2 className="bench-drawer-title">
-              {isCreate ? "New initiative" : (item.title || "Untitled initiative")}
-            </h2>
-            <p className="bench-drawer-sub">
-              {isCreate
-                ? "Name the work, assign owners, link advisors, and set milestones before you create."
-                : (
-                  <>
-                    {initiativeKindLabel(item.kind)}
-                    {" · "}
-                    {initiativePillarLabel(item.pillar)}
-                    {" · "}
-                    {initiativeTopicLabel(item.pillar, item.topic)}
-                    {" · "}
-                    {displayInitiativeDue(item.due)}
-                  </>
-                )}
-            </p>
+          <div className="initiative-drawer-head-top">
+            <div className="initiative-drawer-head-copy">
+              <div className="initiative-drawer-eyebrow sc-drawer-eyebrow f21-companion-eyebrow">{companionEyebrow}</div>
+              <h2 className="bench-drawer-title">
+                {isCreate ? "New initiative" : (item.title || "Untitled initiative")}
+              </h2>
+              <p className="bench-drawer-sub">
+                {isCreate
+                  ? "Name the work, assign owners, link advisors, and set milestones before you create."
+                  : (
+                    <>
+                      {initiativeKindLabel(item.kind)}
+                      {" · "}
+                      {initiativePillarLabel(item.pillar)}
+                      {" · "}
+                      {initiativeTopicLabel(item.pillar, item.topic)}
+                      {" · "}
+                      {displayInitiativeDue(item.due)}
+                    </>
+                  )}
+              </p>
+            </div>
+            <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
           </div>
           <div className="initiative-drawer-head-actions">
             <div className="initiative-fuel-ai-anchor" ref={fuelAiAnchorRef}>
@@ -8978,11 +8981,11 @@ export function InitiativeDetailDrawer({
           </div>
         </div>
 
-        <footer className="bench-drawer-actions">
-          <button type="button" className="bench-drawer-cancel" onClick={onClose}>
-            {isCreate ? "Cancel" : "Close"}
-          </button>
-          {isCreate ? (
+        {isCreate ? (
+          <footer className="bench-drawer-actions">
+            <button type="button" className="bench-drawer-cancel" onClick={onClose}>
+              Cancel
+            </button>
             <button
               type="button"
               className="bench-drawer-save"
@@ -8991,8 +8994,8 @@ export function InitiativeDetailDrawer({
             >
               Create initiative
             </button>
-          ) : null}
-        </footer>
+          </footer>
+        ) : null}
     </>
   );
 

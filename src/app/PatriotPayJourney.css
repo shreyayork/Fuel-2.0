@@ -13542,6 +13542,18 @@ html[data-theme="light"] .initiative-review-drawer .initiative-source-doc-downlo
   min-width: 0;
 }
 
+.initiative-drawer-head-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.initiative-drawer-head-top > .bench-drawer-x {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
 .initiative-drawer-head-copy {
   min-width: 0;
 }
