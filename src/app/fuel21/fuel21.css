@@ -1582,15 +1582,15 @@
 }
 
 .f21-btn-primary {
-  background: var(--f21-accent);
-  border-color: var(--f21-accent);
-  color: #FFFFFF;
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-border);
+  color: var(--btn-primary-text);
   box-shadow: 0 1px 3px rgba(0, 180, 138, 0.25);
 }
 
 .f21-btn-primary:hover {
-  background: var(--f21-accent-strong);
-  border-color: var(--f21-accent-strong);
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 180, 138, 0.35);
 }
@@ -1599,23 +1599,17 @@
   transform: translateY(0);
 }
 
-.f21-app[data-f21-theme="dark"] .f21-btn-primary {
-  background: var(--f21-accent);
-  border-color: var(--f21-accent);
-  color: #042018;
-}
-
 .f21-btn-secondary {
-  background: #FFFFFF;
-  border: 1px solid var(--f21-border);
-  color: var(--f21-text);
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
+  color: var(--btn-secondary-text);
   box-shadow: 0 1px 2px rgba(40, 66, 86, 0.04);
 }
 
 .f21-btn-secondary:hover {
-  background: #F8FAFC;
-  border-color: #CBD5E1;
-  color: var(--f21-accent);
+  background: var(--btn-secondary-hover-bg);
+  border-color: var(--btn-secondary-hover-border);
+  color: var(--btn-secondary-hover-text);
   transform: translateY(-1px);
 }
 
@@ -1624,16 +1618,7 @@
 }
 
 .f21-app[data-f21-theme="dark"] .f21-btn-secondary {
-  background: #172632;
-  border-color: #263947;
-  color: #F4F6F8;
   box-shadow: none;
-}
-
-.f21-app[data-f21-theme="dark"] .f21-btn-secondary:hover {
-  background: #1F3140;
-  border-color: rgba(0, 180, 138, 0.4);
-  color: var(--f21-accent);
 }
 
 .f21-panel {
@@ -4391,5 +4376,84 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* Standard buttons.
+   The shell theme owns these. .f21-btn and every main-page button that reads
+   --btn-* (Initiatives, Intelligence, Data room, Advisors, drawers) share them.
+   Scoped to data-f21-theme so the investor layout keeps main's button colors. */
+html[data-theme][data-f21-theme="dark"] {
+  --btn-primary-bg: #00B48A;
+  --btn-primary-border: #00B48A;
+  --btn-primary-text: #042018;
+  --btn-primary-hover: #009E6D;
+  --btn-secondary-bg: #172632;
+  --btn-secondary-border: #263947;
+  --btn-secondary-text: #F4F6F8;
+  --btn-secondary-hover-bg: #1F3140;
+  --btn-secondary-hover-border: rgba(0, 180, 138, 0.4);
+  --btn-secondary-hover-text: #00B48A;
+}
+
+html[data-theme][data-f21-theme="light"] {
+  --btn-primary-bg: #00B48A;
+  --btn-primary-border: #00B48A;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover: #009E6D;
+  --btn-secondary-bg: #ffffff;
+  --btn-secondary-border: #E4E8EC;
+  --btn-secondary-text: #284256;
+  --btn-secondary-hover-bg: #F8FAFC;
+  --btn-secondary-hover-border: rgba(0, 180, 138, 0.45);
+  --btn-secondary-hover-text: #00B48A;
+}
+
+html[data-f21-theme] .journey-primary-btn {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+/* Light theme hardcodes navy on primary actions. Inside the shell, those
+   actions follow the same tokens as .f21-btn. */
+html[data-theme="light"][data-f21-theme="light"] .header-btn.primary,
+html[data-theme="light"][data-f21-theme="light"] .initiatives-primary-btn,
+html[data-theme="light"][data-f21-theme="light"] .signals-private-btn.primary,
+html[data-theme="light"][data-f21-theme="light"] .sc-drawer-btn.primary,
+html[data-theme="light"][data-f21-theme="light"] .bench-drawer-save,
+html[data-theme="light"][data-f21-theme="light"] .afc-brief-btn.primary,
+html[data-theme="light"][data-f21-theme="light"] .wizard-primary,
+html[data-theme="light"][data-f21-theme="light"] .credit-btn-primary,
+html[data-theme="light"][data-f21-theme="light"] .sc-overview-ready-actions button:not(.secondary),
+html[data-theme="light"][data-f21-theme="light"] .source-add-form-actions button.primary,
+html[data-theme="light"][data-f21-theme="light"] .signals-finish-profile-action,
+html[data-theme="light"][data-f21-theme="light"] .guided-tour-actions button:not(.secondary),
+html[data-theme="light"][data-f21-theme="light"] .signals-connectors-action,
+html[data-theme="light"][data-f21-theme="light"] .tour-prompt-actions button:not(.secondary),
+html[data-theme="light"][data-f21-theme="light"] .context-connectors-head > button,
+html[data-theme="light"][data-f21-theme="light"] .context-connectors-actions button:not(.secondary),
+html[data-theme="light"][data-f21-theme="light"] .context-form-actions button:not(.secondary),
+html[data-theme="light"][data-f21-theme="light"] .sc-investor-brief-print,
+html[data-theme="light"][data-f21-theme="light"] .header-tour-coachmark button,
+html[data-theme="light"][data-f21-theme="light"] .investor-suggested-primary:not(.is-done):not(:disabled),
+html[data-theme="light"][data-f21-theme="light"] .profile-complete-drawer .profile-wizard-foot .sc-drawer-btn.primary {
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-border);
+  color: var(--btn-primary-text);
+}
+
+html[data-theme="light"][data-f21-theme="light"] .header-btn.primary:hover,
+html[data-theme="light"][data-f21-theme="light"] .initiatives-primary-btn:hover,
+html[data-theme="light"][data-f21-theme="light"] .signals-private-btn.primary:hover,
+html[data-theme="light"][data-f21-theme="light"] .sc-drawer-btn.primary:hover,
+html[data-theme="light"][data-f21-theme="light"] .bench-drawer-save:hover,
+html[data-theme="light"][data-f21-theme="light"] .afc-brief-btn.primary:hover,
+html[data-theme="light"][data-f21-theme="light"] .wizard-primary:hover,
+html[data-theme="light"][data-f21-theme="light"] .credit-btn-primary:hover,
+html[data-theme="light"][data-f21-theme="light"] .sc-overview-ready-actions button:not(.secondary):hover,
+html[data-theme="light"][data-f21-theme="light"] .source-add-form-actions button.primary:hover,
+html[data-theme="light"][data-f21-theme="light"] .profile-complete-drawer .profile-wizard-foot .sc-drawer-btn.primary:hover:not(:disabled) {
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-hover);
+  color: var(--btn-primary-text);
 }
 
