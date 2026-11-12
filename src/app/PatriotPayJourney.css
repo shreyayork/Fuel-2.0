@@ -13529,6 +13529,27 @@ html[data-theme="light"] .initiative-review-drawer .initiative-source-doc-downlo
   align-items: flex-start;
 }
 
+/* Title gets the full row. Actions sit on their own line so a long name
+   does not collapse into a narrow column beside Fuel AI and status. */
+.bench-drawer-head.initiative-drawer-head:has(.initiative-drawer-head-actions) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 12px;
+  row-gap: 14px;
+}
+
+.bench-drawer-head.initiative-drawer-head:has(.initiative-drawer-head-actions) .initiative-drawer-head-copy {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.bench-drawer-head.initiative-drawer-head:has(.initiative-drawer-head-actions) > .bench-drawer-x {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 .initiative-drawer-head-copy {
   min-width: 0;
 }
@@ -13548,10 +13569,14 @@ html[data-theme="light"] .initiative-review-drawer .initiative-source-doc-downlo
 .initiative-drawer-head-actions {
   align-items: center;
   display: flex;
-  flex-shrink: 0;
   flex-wrap: wrap;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: flex-start;
+}
+
+.bench-drawer-head.initiative-drawer-head:has(.initiative-drawer-head-actions) .initiative-drawer-head-actions {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 .initiative-fuel-ai-anchor {
