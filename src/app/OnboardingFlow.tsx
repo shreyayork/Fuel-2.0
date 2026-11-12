@@ -1149,16 +1149,18 @@ function benchPercentileCopy(
   return { title: labels[mark], body: bodies[mark] };
 }
 
-function OnboardingBenchmarkBar({
+export function OnboardingBenchmarkBar({
   field,
   dotPct,
   dotColorValue,
   glow,
+  dotHalfPx = 8,
 }: {
   field: BenchmarkWizardField;
   dotPct: number | null;
   dotColorValue: string;
   glow: string;
+  dotHalfPx?: number;
 }) {
   const barRef = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState<{ pct: number; mark: BenchPercentile } | null>(null);
@@ -1204,9 +1206,9 @@ function OnboardingBenchmarkBar({
           <div
             className="ob-bench-bar-dot"
             style={{
-              left: `calc(${dotPct}% - 8px)`,
+              left: `calc(${dotPct}% - ${dotHalfPx}px)`,
               background: dotColorValue,
-              boxShadow: glow,
+              ...(glow && glow !== "none" ? { boxShadow: glow } : {}),
             }}
           />
         ) : null}

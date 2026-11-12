@@ -1,0 +1,114 @@
+.f21-action-drawer-scrim {
+  z-index: 1190;
+}
+
+.f21-action-dataroom-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.f21-dataroom-upload-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.f21-action-dataroom-body .data-room-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.f21-dataroom-files {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.f21-dataroom-files-head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.f21-dataroom-files-head em {
+  color: var(--text-3, var(--f21-text-muted));
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.f21-dataroom-empty {
+  color: var(--text-3, var(--f21-text-muted));
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--border, var(--panel-border));
+  background: var(--wash, rgba(255, 255, 255, 0.03));
+}
+
+.f21-dataroom-empty strong {
+  color: var(--text-2, var(--f21-text));
+  font-weight: 650;
+}
+
+.f21-dataroom-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.f21-dataroom-file-item {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border, var(--panel-border));
+  background: var(--panel-inset, rgba(255, 255, 255, 0.04));
+}
+
+.f21-dataroom-file-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.f21-dataroom-file-copy strong {
+  color: var(--text-1, var(--f21-text));
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.f21-dataroom-file-copy span {
+  color: var(--text-3, var(--f21-text-muted));
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.f21-dataroom-file-meta {
+  color: var(--status-good, #00b48a);
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.f21-dataroom-file-meta--muted {
+  color: var(--text-3, var(--f21-text-muted));
+}

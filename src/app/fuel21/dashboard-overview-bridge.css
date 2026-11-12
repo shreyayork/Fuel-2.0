@@ -1,0 +1,375 @@
+/* Dashboard — match company profile (.overview-tour-page) spacing, surfaces, type */
+
+.f21-dashboard {
+  gap: 16px;
+}
+
+.f21-dashboard .f21-page-head {
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+}
+
+.f21-dashboard .f21-page-head h1,
+.f21-dashboard .f21-v2-main-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.f21-dashboard .overview-tour-page {
+  margin-top: 0;
+  gap: 24px;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-container {
+  gap: 24px;
+}
+
+/* Single panel surface system (overview-panel / overview-metric-card) */
+.f21-dashboard .overview-tour-page .f21-panel,
+.f21-dashboard .overview-tour-page .f21-v2-brief-card,
+.f21-dashboard .overview-tour-page .f21-v2-track-card,
+.f21-dashboard .overview-tour-page .f21-v2-modules-section.f21-complete-profile-panel,
+.f21-dashboard .overview-tour-page .f21-roadmap-dismissed-strip {
+  background: var(--panel, var(--f21-panel));
+  border: 1px solid var(--panel-border, var(--f21-border));
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-panel,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-brief-card,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-track-card {
+  background: var(--panel, #ffffff);
+  border-color: var(--panel-border, var(--f21-border));
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-section.f21-complete-profile-panel {
+  background: #00B48A;
+  border-color: rgba(4, 32, 24, 0.12);
+}
+
+/* Calmer section headers — drop icon chips, overview-style weight */
+.f21-dashboard .overview-tour-page .f21-sec-icon-wrap {
+  display: none;
+}
+
+.f21-dashboard .overview-tour-page .f21-head-with-icon {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(0, 180, 138);
+  gap: 0;
+}
+
+.f21-dashboard .overview-tour-page .f21-panel-head,
+.f21-dashboard .overview-tour-page .f21-dash-list-panel-head,
+.f21-dashboard .overview-tour-page .f21-v2-brief-meta-head,
+.f21-dashboard .overview-tour-page .f21-v2-modules-head {
+  margin-bottom: 14px;
+}
+
+.f21-dashboard .overview-tour-page .f21-section-hint,
+.f21-dashboard .overview-tour-page .f21-v2-modules-head .f21-section-hint {
+  color: var(--panel-muted, var(--f21-text-muted));
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Executive brief — flat panel, no aurora */
+.f21-dashboard .overview-tour-page .f21-v2-brief-card::before {
+  display: none;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-brief-card {
+  padding: 22px 24px;
+  gap: 16px;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-narrative-lead,
+.f21-dashboard .overview-tour-page .f21-v2-narrative-bullets li,
+.f21-dashboard .overview-tour-page .f21-v2-track-brief,
+.f21-dashboard .overview-tour-page .f21-clean-row-desc {
+  color: var(--panel-body, var(--f21-text-body));
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Track score cards */
+.f21-dashboard .overview-tour-page .f21-v2-track-grid {
+  gap: 16px;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-track-card {
+  min-height: 0;
+  padding: 22px 24px;
+  gap: 14px;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-track-card:hover {
+  background: var(--panel, var(--f21-panel));
+  border-color: color-mix(in srgb, var(--panel-border, var(--f21-border)) 70%, #ffffff 30%);
+  transform: none;
+}
+
+.f21-app[data-f21-theme="dark"] .f21-dashboard .overview-tour-page .f21-v2-track-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-track-cta-row {
+  border-top-color: var(--panel-border, var(--f21-border-soft));
+}
+
+/* Complete profile module strip */
+.f21-dashboard .overview-tour-page .f21-v2-modules-section.f21-complete-profile-panel {
+  padding: 22px 24px;
+  gap: 16px;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-modules-section .f21-module-card {
+  background: var(--wash, rgba(10, 20, 28, 0.35));
+  border: 1px solid var(--panel-border, var(--f21-border));
+  border-radius: 10px;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-modules-section .f21-module-card:hover {
+  background: var(--wash, rgba(10, 20, 28, 0.35));
+  border-color: rgba(0, 180, 138, 0.35);
+  transform: none;
+}
+
+/* Light strip (#00B48A): white tiles, dark type, accent #00B48A */
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-section.f21-complete-profile-panel .f21-module-card {
+  background: #ffffff;
+  border-color: rgba(4, 32, 24, 0.1);
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-section.f21-complete-profile-panel .f21-module-card:hover {
+  background: #ffffff;
+  border-color: rgba(4, 32, 24, 0.28);
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-section.f21-complete-profile-panel .f21-module-card.is-complete {
+  background: #ffffff;
+  border-color: rgba(4, 32, 24, 0.16);
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-title {
+  color: #042018;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-progress-count {
+  color: #3d5c52;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-progress-count em {
+  color: #042018;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-card.is-complete .f21-module-progress-count em {
+  color: #00B48A;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-card.is-idle .f21-module-progress-count em {
+  color: #3d5c52;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-cta-btn {
+  color: #00B48A;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-card.mod-profile .f21-module-icon-wrap,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-card.mod-rd .f21-module-icon-wrap,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-card.mod-benchmark .f21-module-icon-wrap {
+  color: #00B48A;
+  background: rgba(0, 180, 138, 0.12);
+  border-color: rgba(0, 180, 138, 0.28);
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-card.mod-gtm .f21-module-icon-wrap {
+  color: #ecd67f;
+  background: rgba(236, 214, 127, 0.12);
+  border-color: rgba(236, 214, 127, 0.28);
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-module-card.mod-ga .f21-module-icon-wrap {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+/* Bento + quad panels */
+.f21-dashboard .overview-tour-page .f21-v2-bento-grid,
+.f21-dashboard .overview-tour-page .f21-quad-pair {
+  gap: 16px;
+}
+
+.f21-dashboard .overview-tour-page .f21-quad-panel,
+.f21-dashboard .overview-tour-page .f21-telemetry-panel,
+.f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-panel {
+  padding: 22px 24px;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-panel {
+  gap: 16px;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-intel-row:first-child,
+.f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-initiative-row:first-child,
+.f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-row:first-child {
+  padding-top: 0;
+}
+
+.f21-dashboard .overview-tour-page .f21-telemetry-benchmark-row-head .f21-telemetry-label,
+.f21-dashboard .overview-tour-page .f21-telemetry-benchmark-row-head .f21-telemetry-val {
+  color: var(--f21-text-body, var(--panel-body));
+  text-transform: none;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-modules-section .f21-module-progress-count em {
+  color: var(--f21-text-body, var(--panel-body));
+  font-weight: 550;
+}
+
+.f21-dashboard .overview-tour-page .f21-telemetry-benchmark-scale {
+  font-size: 10px;
+}
+
+/* Nested tiles — inset wells, not extra white cards */
+.f21-dashboard .overview-tour-page .f21-vertical-card {
+  background: var(--wash, rgba(10, 20, 28, 0.35));
+  border: 1px solid var(--panel-border, var(--f21-border));
+  border-radius: 10px;
+  min-height: 0;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-vertical-card {
+  background: var(--wash, rgba(26, 35, 50, 0.03));
+}
+
+.f21-dashboard .overview-tour-page .f21-dataroom-vcard:hover,
+.f21-dashboard .overview-tour-page .f21-vertical-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.f21-dashboard .overview-tour-page .f21-vcard-footer {
+  border-top-color: var(--panel-border, var(--f21-border-soft));
+}
+
+/* List rows — hairline dividers like overview detail rows */
+.f21-dashboard .overview-tour-page .f21-clean-row {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--panel-border, var(--f21-border-soft));
+  border-radius: 0;
+}
+
+.f21-dashboard .overview-tour-page .f21-clean-row:hover {
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-panel-title {
+  color: rgb(0, 180, 138);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-row-main strong {
+  color: var(--f21-text-body, var(--panel-body));
+  font-weight: 550;
+}
+
+.f21-dashboard .overview-tour-page .f21-clean-row-title {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--f21-text-body, var(--panel-body));
+}
+
+.f21-dashboard .overview-tour-page .f21-track-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 6px;
+}
+
+/* Initiatives hub — GTM & G&A pills match R&D green */
+.f21-dashboard .overview-tour-page .f21-dash-initiative-row .f21-track-pill.track-gtm,
+.f21-dashboard .overview-tour-page .f21-dash-initiative-row .f21-track-pill.track-ga {
+  color: var(--f21-track-rd-fg, var(--f21-track-rd));
+  background: var(--f21-track-rd-bg);
+  border-color: var(--f21-track-rd-border);
+}
+
+.f21-dashboard .overview-tour-page .f21-telemetry-panel-foot,
+.f21-dashboard .overview-tour-page .f21-v2-brief-footer,
+.f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-panel-foot {
+  border-top-color: var(--panel-border, var(--f21-border-soft));
+}
+
+/* Light dashboard — neutral type, ink CTAs (no green link noise) */
+.f21-app[data-f21-theme="light"] .f21-dashboard {
+  --f21-dash-ink: rgb(44, 64, 82);
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-head-with-icon,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-panel-title {
+  color: var(--f21-dash-ink);
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-track-cta-btn,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-dash-initiative-review,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-dash-list-panel-foot-hit .f21-v2-track-cta-btn,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-telemetry-panel-more-hit .f21-v2-track-cta-btn,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-dash-connector-upload {
+  color: var(--f21-dash-ink);
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-head-with-icon {
+  color: #ffffff;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-section-hint {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Skip sits on #00B48A — dark fill so it stays a button */
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-head .f21-skip-btn.f21-ghost-btn {
+  background: #284256;
+  border: none;
+  box-shadow: none;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  filter: none;
+  transform: none;
+}
+
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-head .f21-skip-btn.f21-ghost-btn:hover {
+  background: #1e3142;
+  border: none;
+  box-shadow: none;
+  color: #ffffff;
+  filter: none;
+  transform: none;
+}
+
+.f21-app[data-f21-theme="light"] .ob-bench-bar-range,
+.f21-app[data-f21-theme="light"] .ob-bench-bar-tick,
+.f21-app[data-f21-theme="light"] .f21-usage-meter-fill {
+  background: #00B48A;
+}
+
+.f21-app[data-f21-theme="light"] .f21-track-pill.track-rd,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-dash-initiative-row .f21-track-pill.track-gtm,
+.f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-dash-initiative-row .f21-track-pill.track-ga {
+  color: #00B48A;
+}

@@ -14,6 +14,7 @@ import type { NotificationAction, WorkspaceNotification } from "./notificationSt
 import { AdvisorsPage } from "./AdvisorsPage.tsx";
 import { ADVISOR_DIRECTORY_CHANGE_EVENT, countCompanyAdvisors } from "./advisorDirectoryStorage.ts";
 import { sharedAdvisorAccess } from "./advisorConnectionStorage.ts";
+import { ExternalCompanyOverview } from "./companyProfile/ExternalCompanyOverview.tsx";
 import "./credits/credits.css";
 import {
   CreditProvider,
@@ -27,8 +28,18 @@ import {
 import { dailyRemaining, totalRemaining } from "./credits/creditLogic";
 import ScorecardV2, {
   type OverviewBuildPhase,
+  type ScorecardView,
   BenchmarkEditDrawer,
 } from "./ScorecardV2";
+import { CreditPopover } from "./credits/CreditPopover";
+import { Fuel21Shell, Fuel21UserFooter, type Fuel21DockId } from "./fuel21/Fuel21Shell.tsx";
+import { DashboardPage } from "./fuel21/DashboardPage.tsx";
+import { ContextEnginePage } from "./fuel21/ContextEnginePage.tsx";
+import {
+  Fuel21DetailsDrawerProvider,
+  type Fuel21DrawerRequest,
+} from "./fuel21/Fuel21DetailsDrawer.tsx";
+import "./fuel21/fuel21.css";
 import { ProfileCreditRewardToast } from "./ProfileCreditRewardToast";
 import { ProfileCompletionPrompt } from "./ProfileCompletionPrompt";
 import {
@@ -2738,7 +2749,7 @@ type IntelligenceSource = {
   ref?: string;
 };
 
-type IntelligenceItem = {
+export type IntelligenceItem = {
   id: string;
   type: string;
   /** Signal name within the category — e.g. "ARR", "Burn multiple". Used for subcategory grouping. */
@@ -2987,7 +2998,7 @@ type DataRoomFileRecord = {
   downloadUrl?: string;
 };
 
-type DataRoomDocumentSlot = {
+export type DataRoomDocumentSlot = {
   typeId: string;
   typeLabel: string;
   current: DataRoomFileRecord | null;
@@ -3010,7 +3021,7 @@ function slugifyDocumentLabel(label: string) {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "document";
 }
 
-function createInitialDocumentSlots(): DataRoomDocumentSlot[] {
+export function createInitialDocumentSlots(): DataRoomDocumentSlot[] {
   return [];
 }
 
@@ -3072,7 +3083,7 @@ function countLatestIntelligenceSignals(items: IntelligenceItem[]) {
   return keys.size;
 }
 
-function upsertDocumentSlot(
+export function upsertDocumentSlot(
   slots: DataRoomDocumentSlot[],
   params: {
     typeId: string;
@@ -3132,7 +3143,7 @@ function getFileFormat(fileName: string) {
   return extension.toUpperCase();
 }
 
-function createDocumentIntelligence(typeId: string, typeLabel: string, fileName: string): IntelligenceItem[] {
+export function createDocumentIntelligence(typeId: string, typeLabel: string, fileName: string): IntelligenceItem[] {
   const uploadedAt = new Date().toLocaleDateString("en-US");
   const docSource: IntelligenceSource = {
     id: `src-doc-${Date.now()}`,
@@ -4225,13 +4236,15 @@ function DocumentRowActions({
   );
 }
 
-function DocumentUploadDropdown({
+export function DocumentUploadDropdown({
   processingTypeId = null,
   onUpload,
   scope = "all",
   documentSlots,
   inline = false,
   attachedFileName,
+  initialOpen = false,
+  panelActive = true,
 }: {
   processingTypeId?: string | null;
   onUpload: (typeId: string, typeLabel: string, file: File) => void;
@@ -4239,10 +4252,13 @@ function DocumentUploadDropdown({
   documentSlots?: DataRoomDocumentSlot[];
   inline?: boolean;
   attachedFileName?: string;
+  initialOpen?: boolean;
+  /** When false (e.g. companion dock switched away), closes the floating menu. */
+  panelActive?: boolean;
 }) {
   const credits = useCreditsOptional();
   const creditBlocked = credits?.generationBlocked ?? false;
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(initialOpen);
   const [customLabel, setCustomLabel] = React.useState("");
   const [pendingType, setPendingType] = React.useState<{ typeId: string; typeLabel: string } | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -4252,6 +4268,10 @@ function DocumentUploadDropdown({
   const customSlots = documentSlots?.filter(slot => slot.typeId.startsWith("custom:") && slot.current) ?? [];
 
   const getSlotForType = (typeId: string) => documentSlots?.find(slot => slot.typeId === typeId);
+
+  React.useEffect(() => {
+    if (!panelActive) setOpen(false);
+  }, [panelActive]);
 
   const beginUpload = (typeId: string, typeLabel: string) => {
     if (typeId === "custom" && !customLabel.trim()) return;
@@ -5721,44 +5741,68 @@ function SourcesDrawer({
   );
 }
 
-function LogIntelligenceDrawer({
+export function LogIntelligenceDrawer({
   onLog,
   onClose,
+  embedded = false,
+  companionEyebrow = "✦ Fuel · Intelligence",
 }: {
   onLog: (item: IntelligenceItem) => void;
   onClose: () => void;
+  embedded?: boolean;
+  companionEyebrow?: string;
 }) {
   const submitRef = useRef<(() => void) | null>(null);
+
+  const panel = (
+    <>
+      <header className="bench-drawer-head">
+        <div>
+          <span className="sc-drawer-eyebrow f21-companion-eyebrow">{companionEyebrow}</span>
+          <h2 className="bench-drawer-title">Log intelligence</h2>
+          <p className="bench-drawer-sub">Record a metric value against a catalog signal. Select the signal and enter the value — it will appear in your intelligence timeline.</p>
+        </div>
+        <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
+      </header>
+      <div className="bench-drawer-body">
+        <IntelligenceLogForm
+          layout="drawer"
+          onLog={onLog}
+          onCancel={onClose}
+          hideActions
+          submitRef={submitRef}
+        />
+      </div>
+      <footer className="bench-drawer-actions">
+        <button type="button" className="bench-drawer-cancel" onClick={onClose}>Cancel</button>
+        <button
+          type="button"
+          className="bench-drawer-save"
+          onClick={() => submitRef.current?.()}
+        >
+          Log intelligence
+        </button>
+      </footer>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div
+        className="f21-companion-panel-fill bench-drawer"
+        onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-label="Log intelligence"
+      >
+        {panel}
+      </div>
+    );
+  }
 
   return (
     <div className="bench-drawer-scrim" onClick={onClose}>
       <aside className="bench-drawer" onClick={e => e.stopPropagation()} role="dialog" aria-label="Log intelligence">
-        <header className="bench-drawer-head">
-          <div>
-            <h2 className="bench-drawer-title">Log intelligence</h2>
-            <p className="bench-drawer-sub">Record a metric value against a catalog signal. Select the signal and enter the value — it will appear in your intelligence timeline.</p>
-          </div>
-          <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
-        </header>
-        <div className="bench-drawer-body">
-          <IntelligenceLogForm
-            layout="drawer"
-            onLog={onLog}
-            onCancel={onClose}
-            hideActions
-            submitRef={submitRef}
-          />
-        </div>
-        <footer className="bench-drawer-actions">
-          <button type="button" className="bench-drawer-cancel" onClick={onClose}>Cancel</button>
-          <button
-            type="button"
-            className="bench-drawer-save"
-            onClick={() => submitRef.current?.()}
-          >
-            Log intelligence
-          </button>
-        </footer>
+        {panel}
       </aside>
     </div>
   );
@@ -7063,13 +7107,13 @@ function initiativeTopicLabel(pillar: InitiativePillar, topicId?: string): strin
   return match?.label ?? topics[0]?.label ?? "Topic";
 }
 
-function normalizeInitiativeTopic(pillar: InitiativePillar, topicId?: string): string {
+export function normalizeInitiativeTopic(pillar: InitiativePillar, topicId?: string): string {
   const topics = INITIATIVE_TOPIC_CATALOG[pillar];
   if (topicId && topics.some(t => t.id === topicId)) return topicId;
   return defaultInitiativeTopic(pillar);
 }
 
-type InitiativeListStatus = "Active" | "Completed";
+export type InitiativeListStatus = "Active" | "Completed";
 
 function normalizeInitiativeStatus(status?: string): InitiativeStatus {
   const value = (status ?? "Active").trim().toLowerCase();
@@ -7115,7 +7159,7 @@ type InitiativeAdvisor = {
   title?: string;
 };
 
-type InitiativeRecord = {
+export type InitiativeRecord = {
   id: string;
   title: string;
   description: string;
@@ -7256,7 +7300,7 @@ function milestoneDueFromDateInput(value: string): string | undefined {
   return undefined;
 }
 
-function normalizeAssignees(owner?: string, assignees?: string[]): string[] {
+export function normalizeAssignees(owner?: string, assignees?: string[]): string[] {
   if (assignees?.length) {
     return Array.from(new Set(assignees.map(name => name.trim()).filter(Boolean)));
   }
@@ -7944,7 +7988,287 @@ function ReviewInitiativeDrawer({
   );
 }
 
-function emptyInitiativeDraft(): InitiativeRecord {
+function initiativePatchFromFuelAiNotes(notes: string): Partial<InitiativeRecord> {
+  const trimmed = notes.trim();
+  if (!trimmed) return {};
+
+  const lines = trimmed.split(/\n/).map(line => line.trim()).filter(Boolean);
+  let title = lines[0] || "New initiative";
+  if (title.length > 96) title = `${title.slice(0, 93)}…`;
+
+  const lower = trimmed.toLowerCase();
+  let pillar: InitiativePillar = "mkt";
+  if (/\b(engineering|product|release|roadmap|qa|velocity|ship|r&d|research|development)\b/.test(lower)) {
+    pillar = "dev";
+  } else if (/\b(finance|runway|burn|legal|hr|ops|g&a|administrative|cash)\b/.test(lower)) {
+    pillar = "rev";
+  }
+
+  const kind: InitiativeKind = /\bone[- ]time\b|\bonce\b|single sprint/.test(lower) ? "one-time" : "continuous";
+  const emailMatch = trimmed.match(/[\w.+-]+@[\w.-]+\.\w+/);
+  const assignees = emailMatch ? [emailMatch[0]] : undefined;
+
+  const now = new Date();
+  const quarter = INITIATIVE_QUARTERS[Math.floor(now.getMonth() / 3)] ?? "Q1";
+  const due = formatInitiativeDue(quarter, String(now.getFullYear()));
+
+  return {
+    title,
+    description: trimmed,
+    pillar,
+    topic: defaultInitiativeTopic(pillar),
+    kind,
+    due,
+    ...(assignees ? { assignees, owner: assignees[0] } : {}),
+  };
+}
+
+const INITIATIVE_FUEL_AI_COACH_WIDTH = 320;
+const INITIATIVE_FUEL_AI_COACH_OUTSET = 18;
+const INITIATIVE_FUEL_AI_POPOVER_MAX_WIDTH = 340;
+const INITIATIVE_FUEL_AI_FLOAT_MARGIN = 16;
+const INITIATIVE_FUEL_AI_DRAWER_INSET = 12;
+
+function measureInitiativeFuelAiPopoverPosition(
+  anchor: HTMLElement,
+  maxWidth: number,
+  topGap: number,
+): { top: number; left: number; width: number } {
+  const anchorRect = anchor.getBoundingClientRect();
+  const drawer =
+    anchor.closest(".f21-companion-drawer") ?? anchor.closest(".bench-drawer");
+  const drawerRect = drawer?.getBoundingClientRect();
+
+  let width = Math.min(maxWidth, window.innerWidth - INITIATIVE_FUEL_AI_FLOAT_MARGIN * 2);
+  let left = anchorRect.right - width;
+  const top = anchorRect.bottom + topGap;
+
+  if (drawerRect) {
+    const innerLeft = drawerRect.left + INITIATIVE_FUEL_AI_DRAWER_INSET;
+    const innerRight = drawerRect.right - INITIATIVE_FUEL_AI_DRAWER_INSET;
+    const available = innerRight - innerLeft;
+    if (width > available) {
+      width = Math.max(260, available);
+    }
+    if (width <= available) {
+      if (left < innerLeft) left = innerLeft;
+      if (left + width > innerRight) left = innerRight - width;
+    } else {
+      left = innerLeft;
+    }
+  }
+
+  const maxLeft = window.innerWidth - INITIATIVE_FUEL_AI_FLOAT_MARGIN - width;
+  left = Math.max(INITIATIVE_FUEL_AI_FLOAT_MARGIN, Math.min(left, maxLeft));
+
+  return { top, left, width };
+}
+
+function InitiativeFuelAiCoachPopover({
+  onDismiss,
+  anchorRef,
+  portalToBody = false,
+}: {
+  onDismiss: () => void;
+  anchorRef?: React.RefObject<HTMLDivElement | null>;
+  portalToBody?: boolean;
+}) {
+  const [fixedStyle, setFixedStyle] = useState<React.CSSProperties | null>(null);
+
+  useLayoutEffect(() => {
+    if (!portalToBody || !anchorRef) {
+      setFixedStyle(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const width = Math.min(INITIATIVE_FUEL_AI_COACH_WIDTH, window.innerWidth - 48);
+      const left = Math.max(
+        16,
+        rect.right - width - INITIATIVE_FUEL_AI_COACH_OUTSET,
+      );
+      setFixedStyle({
+        position: "fixed",
+        top: rect.bottom + 10,
+        left,
+        width,
+        zIndex: 12000,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [anchorRef, portalToBody]);
+
+  const coach = (
+    <div
+      className={`initiative-fuel-ai-coach${portalToBody ? " initiative-fuel-ai-coach--portal" : ""}`}
+      style={portalToBody ? fixedStyle ?? { visibility: "hidden" } : undefined}
+      role="dialog"
+      aria-label="Fuel AI tips"
+    >
+      <div className="initiative-fuel-ai-coach-head">
+        <strong className="initiative-fuel-ai-coach-title">
+          <span aria-hidden="true">✨</span>
+          Create initiatives smartly with Fuel AI
+        </strong>
+        <button type="button" className="initiative-fuel-ai-coach-x" onClick={onDismiss} aria-label="Close">
+          ×
+        </button>
+      </div>
+      <p className="initiative-fuel-ai-coach-body">
+        Have rough notes, meeting takeaways, or a quick goal? Click here to let Fuel AI draft your entire
+        initiative, milestones, and timeline.
+      </p>
+      <div className="initiative-fuel-ai-coach-foot">
+        <button type="button" className="initiative-fuel-ai-coach-got-it" onClick={onDismiss}>
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+
+  if (portalToBody && typeof document !== "undefined") {
+    return createPortal(coach, document.body);
+  }
+
+  return coach;
+}
+
+function InitiativeFuelAiPopover({
+  open,
+  draft,
+  generating,
+  onDraftChange,
+  onClose,
+  onGenerate,
+  anchorRef,
+  portalToBody = false,
+}: {
+  open: boolean;
+  draft: string;
+  generating: boolean;
+  onDraftChange: (value: string) => void;
+  onClose: () => void;
+  onGenerate: () => void;
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+  portalToBody?: boolean;
+}) {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [fixedStyle, setFixedStyle] = useState<React.CSSProperties | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !portalToBody) {
+      setFixedStyle(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const { top, left, width } = measureInitiativeFuelAiPopoverPosition(
+        anchor,
+        INITIATIVE_FUEL_AI_POPOVER_MAX_WIDTH,
+        8,
+      );
+      setFixedStyle({
+        position: "fixed",
+        top,
+        left,
+        width,
+        zIndex: 12000,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [anchorRef, open, portalToBody]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (anchorRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      onClose();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [anchorRef, onClose, open]);
+
+  if (!open) return null;
+
+  const canGenerate = draft.trim().length > 0 && !generating;
+
+  const popover = (
+    <div
+      ref={popoverRef}
+      className={`initiative-fuel-ai-popover${portalToBody ? " initiative-fuel-ai-popover--portal" : ""}`}
+      style={portalToBody ? fixedStyle ?? { visibility: "hidden" } : undefined}
+      role="dialog"
+      aria-label="Fuel AI"
+    >
+      <div className="initiative-fuel-ai-popover-head">
+        <span className="initiative-fuel-ai-popover-title">
+          <FuelIcon name="sparkles" size={13} strokeWidth={2} aria-hidden="true" />
+          Fuel AI
+        </span>
+        <button type="button" className="initiative-fuel-ai-popover-x" onClick={onClose} aria-label="Close">
+          ×
+        </button>
+      </div>
+      <textarea
+        className="initiative-fuel-ai-popover-input"
+        value={draft}
+        onChange={event => onDraftChange(event.target.value)}
+        placeholder="Paste notes, transcripts, bullet points, or describe updates to this initiative…"
+        rows={5}
+        autoFocus
+      />
+      <div className="initiative-fuel-ai-popover-foot">
+        <button type="button" className="initiative-fuel-ai-popover-cancel" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="initiative-fuel-ai-popover-generate"
+          disabled={!canGenerate}
+          onClick={onGenerate}
+        >
+          {generating ? "Generating…" : "Generate"}
+        </button>
+      </div>
+    </div>
+  );
+
+  if (portalToBody && typeof document !== "undefined") {
+    return createPortal(popover, document.body);
+  }
+
+  return popover;
+}
+
+export function emptyInitiativeDraft(): InitiativeRecord {
   const assignees = [DEFAULT_INITIATIVE_ASSIGNEE];
   const pillar: InitiativePillar = "mkt";
   return {
@@ -7964,7 +8288,7 @@ function emptyInitiativeDraft(): InitiativeRecord {
   };
 }
 
-function InitiativeDetailDrawer({
+export function InitiativeDetailDrawer({
   item,
   mode = "edit",
   availableIntelligence,
@@ -7975,6 +8299,8 @@ function InitiativeDetailDrawer({
   onCreate,
   onLogIntelligence,
   onStatusTabChange,
+  embedded = false,
+  companionEyebrow = "✦ Fuel · Initiatives",
 }: {
   item: InitiativeRecord;
   mode?: "edit" | "create";
@@ -7986,6 +8312,8 @@ function InitiativeDetailDrawer({
   onCreate?: () => void;
   onLogIntelligence?: (item: IntelligenceItem) => void;
   onStatusTabChange: (status: InitiativeListStatus) => void;
+  embedded?: boolean;
+  companionEyebrow?: string;
 }) {
   const isCreate = mode === "create";
   const status = normalizeInitiativeStatus(item.status);
@@ -8009,9 +8337,27 @@ function InitiativeDetailDrawer({
   const [advisorDraftId, setAdvisorDraftId] = useState("");
   const [showAdvisorForm, setShowAdvisorForm] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(isCreate);
+  const [fuelAiOpen, setFuelAiOpen] = useState(false);
+  const [fuelAiDraft, setFuelAiDraft] = useState("");
+  const [fuelAiGenerating, setFuelAiGenerating] = useState(false);
+  const [showFuelAiCoach, setShowFuelAiCoach] = useState(false);
+  const fuelAiAnchorRef = useRef<HTMLDivElement | null>(null);
   const [yorkNudgeHidden, setYorkNudgeHidden] = useState(
     () => !yorkOffer || isYorkOfferDismissed(yorkOffer.id),
   );
+
+  const dismissFuelAiCoach = useCallback(() => {
+    setShowFuelAiCoach(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isCreate) {
+      setShowFuelAiCoach(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowFuelAiCoach(true), 320);
+    return () => window.clearTimeout(timer);
+  }, [isCreate]);
 
   useEffect(() => {
     setYorkNudgeHidden(!yorkOffer || isYorkOfferDismissed(yorkOffer.id));
@@ -8057,6 +8403,19 @@ function InitiativeDetailDrawer({
     });
   };
 
+  const runFuelAiGenerate = () => {
+    const notes = fuelAiDraft.trim();
+    if (!notes || fuelAiGenerating) return;
+    setFuelAiGenerating(true);
+    window.setTimeout(() => {
+      onPatch(initiativePatchFromFuelAiNotes(notes));
+      setIsEditingDetails(true);
+      setFuelAiGenerating(false);
+      setFuelAiOpen(false);
+      setFuelAiDraft("");
+    }, 720);
+  };
+
   const addMilestone = () => {
     if (!milestoneDraft.title.trim()) return;
     const dueRaw = milestoneDraft.due.trim();
@@ -8076,17 +8435,13 @@ function InitiativeDetailDrawer({
     setShowMilestoneForm(false);
   };
 
-  return (
-    <div className="bench-drawer-scrim" onClick={onClose}>
-      <aside
-        className={`bench-drawer initiative-drawer${isCreate ? " initiative-create-drawer" : ""}`}
-        onClick={event => event.stopPropagation()}
-        role="dialog"
-        aria-label={isCreate ? "New initiative" : (item.title || "Initiative")}
-      >
+  const panelClassName = `bench-drawer initiative-drawer${isCreate ? " initiative-create-drawer" : ""}${embedded ? " f21-companion-panel-fill" : ""}`;
+
+  const panel = (
+    <>
         <header className="bench-drawer-head initiative-drawer-head">
           <div className="initiative-drawer-head-copy">
-            <div className="initiative-drawer-eyebrow">Initiative</div>
+            <div className="initiative-drawer-eyebrow sc-drawer-eyebrow f21-companion-eyebrow">{companionEyebrow}</div>
             <h2 className="bench-drawer-title">
               {isCreate ? "New initiative" : (item.title || "Untitled initiative")}
             </h2>
@@ -8107,6 +8462,41 @@ function InitiativeDetailDrawer({
             </p>
           </div>
           <div className="initiative-drawer-head-actions">
+            <div className="initiative-fuel-ai-anchor" ref={fuelAiAnchorRef}>
+              <button
+                type="button"
+                className={`initiative-fuel-ai-btn f21-topbar-ai-btn${fuelAiOpen ? " is-open" : ""}`}
+                aria-expanded={fuelAiOpen}
+                aria-haspopup="dialog"
+                onClick={() => {
+                  if (showFuelAiCoach) dismissFuelAiCoach();
+                  setFuelAiOpen(open => !open);
+                }}
+              >
+                <FuelIcon name="sparkles" size={13} strokeWidth={2} aria-hidden="true" />
+                <span>Fuel AI</span>
+              </button>
+              {showFuelAiCoach && !fuelAiOpen ? (
+                <InitiativeFuelAiCoachPopover
+                  onDismiss={dismissFuelAiCoach}
+                  anchorRef={fuelAiAnchorRef}
+                  portalToBody={embedded}
+                />
+              ) : null}
+              <InitiativeFuelAiPopover
+                open={fuelAiOpen}
+                draft={fuelAiDraft}
+                generating={fuelAiGenerating}
+                anchorRef={fuelAiAnchorRef}
+                portalToBody={embedded}
+                onDraftChange={setFuelAiDraft}
+                onClose={() => {
+                  if (fuelAiGenerating) return;
+                  setFuelAiOpen(false);
+                }}
+                onGenerate={runFuelAiGenerate}
+              />
+            </div>
             <div className="initiative-drawer-status" role="group" aria-label="Status">
               <button
                 type="button"
@@ -8598,12 +8988,37 @@ function InitiativeDetailDrawer({
             </button>
           ) : null}
         </footer>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div
+        className={panelClassName}
+        onClick={event => event.stopPropagation()}
+        role="dialog"
+        aria-label={isCreate ? "New initiative" : (item.title || "Initiative")}
+      >
+        {panel}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bench-drawer-scrim" onClick={onClose}>
+      <aside
+        className={panelClassName}
+        onClick={event => event.stopPropagation()}
+        role="dialog"
+        aria-label={isCreate ? "New initiative" : (item.title || "Initiative")}
+      >
+        {panel}
       </aside>
     </div>
   );
 }
 
-function createInitiativeRecord(input: {
+export function createInitiativeRecord(input: {
   id?: string;
   title: string;
   description?: string;
@@ -9540,228 +9955,6 @@ function PublicProfileAboutView({
           </button>
         </article>
       )}
-    </section>
-  );
-}
-
-function ExternalCompanyOverview({
-  company,
-}: {
-  company: { id: string; displayName: string; domain: string; meta: string; headquarters: string; employees: string; linkedin: string };
-}) {
-  const suggested = SUGGESTED_FOUNDERS.find(item => item.id === company.id);
-  const portfolio = INVESTOR_PORTFOLIO.find(item => item.id === company.id);
-  const access = sharedAdvisorAccess(company.id);
-  const founderProfile = access?.sharedProfile
-    ? findFounderCompanyProfile({ name: company.displayName, domain: company.domain })
-    : null;
-  const markets = publicMarketTags(company);
-  const headquarters = company.headquarters
-    || [founderProfile?.city, founderProfile?.stateRegion, founderProfile?.country].filter(Boolean).join(", ");
-  const industry = founderProfile?.industry || (access?.sharedProfile ? portfolio?.sector : "");
-  const similar = suggested?.similarTo ? [suggested.similarTo] : [];
-  const links = company.linkedin
-    ? [{ label: "LinkedIn", href: externalProfileLink(company.linkedin) }]
-    : [];
-  const sources = [
-    company.domain ? ["Website", "public"] : null,
-    company.linkedin ? ["LinkedIn", "company profile"] : null,
-  ].filter((row): row is [string, string] => Boolean(row));
-  const metrics = access?.approvedBenchmarks && portfolio
-    ? [
-      { label: "ARR", value: portfolio.arr },
-      { label: "Quarterly growth", value: `${portfolio.arrGrowthQoQ > 0 ? "+" : ""}${portfolio.arrGrowthQoQ}%` },
-      { label: "Runway", value: portfolio.runway },
-      { label: "Net revenue retention", value: `${portfolio.nrr}%` },
-    ]
-    : [
-      { label: "Total funding", value: "—" },
-      { label: "Funding rounds", value: "—" },
-      { label: "Last funding", value: "—" },
-      { label: "Founded", value: "—" },
-    ];
-  const sharedWaiting = access
-    ? [
-      access.sharedIntelligence ? "intelligence" : null,
-      access.sharedInitiatives ? "initiatives" : null,
-      access.sharedDataRoomFiles ? "data room files" : null,
-    ].filter((item): item is string => Boolean(item))
-    : [];
-
-  return (
-    <section className="overview-tour-page">
-      <div className="overview-metric-grid">
-        {metrics.map(metric => (
-          <div className="overview-metric-card" key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-          </div>
-        ))}
-      </div>
-
-      <div className="overview-layout-grid">
-        <div className="overview-main-column">
-          <div className="overview-panel">
-            <span>About</span>
-            <p>{founderProfile?.whatTheyDo || "No public description on record."}</p>
-          </div>
-
-          <div className="overview-panel">
-            <span>Company details</span>
-            <div className="overview-detail-list">
-              <div className="overview-detail-row">
-                <em>Headquarters</em>
-                <strong>{headquarters || "—"}</strong>
-              </div>
-              <div className="overview-detail-row">
-                <em>Employees</em>
-                <strong>{company.employees || "—"}</strong>
-              </div>
-              <div className="overview-detail-row">
-                <em>Founded</em>
-                <strong>{founderProfile?.founded || "—"}</strong>
-              </div>
-              {access?.sharedProfile && portfolio?.stage ? (
-                <div className="overview-detail-row">
-                  <em>Stage</em>
-                  <strong>{portfolio.stage}</strong>
-                </div>
-              ) : null}
-              {industry ? (
-                <div className="overview-detail-row">
-                  <em>Industry</em>
-                  <strong>{industry}</strong>
-                </div>
-              ) : null}
-              {founderProfile?.businessModel ? (
-                <div className="overview-detail-row">
-                  <em>Organization</em>
-                  <strong>{founderProfile.businessModel}</strong>
-                </div>
-              ) : null}
-              {access?.sharedProfile && portfolio?.founderEmail ? (
-                <div className="overview-detail-row">
-                  <em>Founder email</em>
-                  <strong>{portfolio.founderEmail}</strong>
-                </div>
-              ) : null}
-              {markets.length > 0 ? (
-                <div className="overview-detail-row">
-                  <em>Markets</em>
-                  <strong className="overview-market-chips">
-                    {markets.map(market => (
-                      <span className="overview-market-chip" key={market}>{market}</span>
-                    ))}
-                  </strong>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          {sharedWaiting.length > 0 ? (
-            <div className="overview-panel">
-              <span>Shared with you</span>
-              <p>
-                No {sharedWaiting.length === 1
-                  ? sharedWaiting[0]
-                  : `${sharedWaiting.slice(0, -1).join(", ")} or ${sharedWaiting[sharedWaiting.length - 1]}`} on file yet.
-              </p>
-            </div>
-          ) : null}
-
-          {founderProfile && founderProfile.funding.length > 0 ? (
-            <div className="overview-panel">
-              <div className="overview-panel-head">
-                <span>Funding rounds</span>
-                <em>{founderProfile.funding.length === 1 ? "1 round" : `${founderProfile.funding.length} rounds`}</em>
-              </div>
-              <div className="workspace-table data-room-list overview-funding-table">
-                <div className="workspace-table-head" role="row">
-                  <span>Round</span>
-                  <span>Amount</span>
-                  <span>Investors</span>
-                  <span>Date</span>
-                  <span>Notes</span>
-                </div>
-                {founderProfile.funding.map(round => (
-                  <div className="workspace-table-row" role="row" key={`${round.type}-${round.amount}`}>
-                    <div className="workspace-table-title-cell">
-                      <strong title={round.type}>{round.type}</strong>
-                    </div>
-                    <span className="workspace-table-badge">{round.amount}</span>
-                    <span className="workspace-table-keyfact" title={round.investors || undefined}>
-                      {round.investors || "—"}
-                    </span>
-                    <span className="workspace-table-date">—</span>
-                    <span className="workspace-table-muted">—</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="overview-panel">
-              <div className="overview-panel-head">
-                <span>Funding rounds</span>
-              </div>
-              <p>Loading…</p>
-            </div>
-          )}
-
-          <div className="overview-panel">
-            <span>Recent news</span>
-            <p>Loading…</p>
-          </div>
-        </div>
-
-        <aside className="overview-side-column">
-          <div className="overview-panel">
-            <span>Links</span>
-            {links.length > 0 ? (
-              <div className="overview-source-list">
-                {links.map(link => (
-                  <div key={link.href}>
-                    <a className="overview-public-link" href={link.href} target="_blank" rel="noreferrer">{link.label}</a>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p>No public links on record.</p>
-            )}
-          </div>
-
-          <div className="overview-panel">
-            <span>Similar companies</span>
-            {similar.length > 0 ? (
-              <div className="overview-company-list">
-                {similar.map(name => (
-                  <div key={name}>{name}</div>
-                ))}
-              </div>
-            ) : (
-              <p>Loading…</p>
-            )}
-          </div>
-
-          <div className="overview-panel">
-            <div className="overview-panel-head">
-              <span>Data sources</span>
-              <em>Public</em>
-            </div>
-            {sources.length > 0 ? (
-              <div className="overview-source-list">
-                {sources.map(([source, type]) => (
-                  <div key={source}>
-                    <strong>{source}</strong>
-                    <em>{type}</em>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p>No public sources on record.</p>
-            )}
-          </div>
-        </aside>
-      </div>
     </section>
   );
 }
@@ -10909,6 +11102,140 @@ function SidebarProfileFooter({
   );
 }
 
+/** Founder shell footer: profile row with plan status; row opens the account menu, gear opens plan details. */
+function FounderShellFooter({
+  companyName,
+  onOpenAccountSettings,
+  onOpenHelp,
+  onLogOut,
+}: {
+  companyName: string;
+  onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
+  onOpenHelp: () => void;
+  onLogOut?: () => void;
+}) {
+  const { snapshot, barTone, popoverOpen, setPopoverOpen } = useCredits();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const remaining = totalRemaining(snapshot);
+  const total = snapshot.monthlyLimit + snapshot.topUpBalance;
+
+  useEffect(() => {
+    if (!menuOpen && !popoverOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (wrapRef.current?.contains(event.target as Node)) return;
+      setMenuOpen(false);
+      setPopoverOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMenuOpen(false);
+      setPopoverOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen, popoverOpen, setPopoverOpen]);
+
+  const menu = menuOpen ? (
+    <div className="sidebar-user-menu" role="menu" aria-label="User menu">
+      <div className="sidebar-user-menu-head">
+        <strong>Shreya Gokani</strong>
+        <span>shreya.g@york.ie</span>
+      </div>
+      <div className="sidebar-user-menu-list">
+        <button
+          type="button"
+          role="menuitem"
+          className="sidebar-user-menu-item"
+          onClick={() => {
+            setMenuOpen(false);
+            onOpenAccountSettings("profile");
+          }}
+        >
+          <SidebarMenuIcon>
+            <FuelIcon name="account" size={16} />
+          </SidebarMenuIcon>
+          <span className="sidebar-user-menu-label">Account settings</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="sidebar-user-menu-item"
+          onClick={() => {
+            setMenuOpen(false);
+            onOpenAccountSettings("billing");
+          }}
+        >
+          <SidebarMenuIcon>
+            <FuelIcon name="gauge" size={16} />
+          </SidebarMenuIcon>
+          <span className="sidebar-user-menu-label">Plan and billing</span>
+        </button>
+      </div>
+      <div className="sidebar-user-menu-divider" role="separator" />
+      <div className="sidebar-user-menu-list">
+        <button
+          type="button"
+          role="menuitem"
+          className="sidebar-user-menu-item"
+          onClick={() => {
+            setMenuOpen(false);
+            onOpenHelp();
+          }}
+        >
+          <SidebarMenuIcon>
+            <FuelIcon name="help" size={16} />
+          </SidebarMenuIcon>
+          <span className="sidebar-user-menu-label">Help / FAQ</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="sidebar-user-menu-item"
+          onClick={() => {
+            setMenuOpen(false);
+            onLogOut?.();
+          }}
+        >
+          <SidebarMenuIcon>
+            <FuelIcon name="logout" size={16} />
+          </SidebarMenuIcon>
+          <span className="sidebar-user-menu-label">Log out</span>
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <div ref={wrapRef} className={`sidebar-foot-wrap${menuOpen || popoverOpen ? " is-menu-open" : ""}`}>
+      <Fuel21UserFooter
+        initials="SG"
+        name="Shreya Gokani"
+        subtitle={companyName}
+        tier={snapshot.plan === "pro" ? "PRO" : "FREE"}
+        remaining={remaining}
+        total={total}
+        low={barTone !== "teal"}
+        menuOpen={menuOpen}
+        onOpenMenu={() => {
+          setPopoverOpen(false);
+          setMenuOpen(open => !open);
+        }}
+        onOpenPlan={() => {
+          setMenuOpen(false);
+          setPopoverOpen(!popoverOpen);
+        }}
+        menu={menu}
+        planPopover={popoverOpen ? <CreditPopover /> : null}
+      />
+    </div>
+  );
+}
+
 export default function PatriotPayJourney({
   initialPage = "journey",
   initialBenchmark = null,
@@ -10960,6 +11287,21 @@ function PatriotPayJourneyInner({
   suppressProfileCompletionPrompt?: boolean;
 }) {
   const isInvestorPersona = persona === "investor";
+  /** Founders get the Fuel 2.1 shell (new left nav, top bar, right dock, dashboard). */
+  const usesFuelShell = !isInvestorPersona;
+  const [shellTheme, setShellTheme] = useState<"dark" | "light">(() => readFuelTheme());
+  /** Dashboard shortcuts into main's scorecard views (track detail, benchmark, full summary). */
+  const [scorecardEntry, setScorecardEntry] = useState<{ view: ScorecardView; summary: boolean } | null>(null);
+  const [founderNetworkNav, setFounderNetworkNav] = useState<"investors" | "watchlists">("watchlists");
+  const [shellDrawerRequest, setShellDrawerRequest] = useState<Fuel21DrawerRequest | null>(null);
+  const requestShellDrawer = useCallback((target: Fuel21DrawerRequest["target"]) => {
+    setShellDrawerRequest(previous => ({ key: (previous?.key ?? 0) + 1, target }));
+  }, []);
+  useEffect(() => {
+    if (!usesFuelShell) return;
+    applyFuelTheme(shellTheme);
+    document.documentElement.setAttribute("data-f21-theme", shellTheme);
+  }, [shellTheme, usesFuelShell]);
   const startsWithTour = initialPage === "guided-tour";
   const startsWithOverviewBuilding =
     initialPage === "overview-building" || initialPage === "signals-loading-tour";
@@ -11093,6 +11435,16 @@ function PatriotPayJourneyInner({
     setSelectedCompany(FOUNDER_COMPANY);
     setActivePage("scorecard-v2");
   }, []);
+  useEffect(() => {
+    if (!usesFuelShell || !openProfileModuleKey) return;
+    setScorecardEntry(null);
+    requestShellDrawer(openProfileModuleSection);
+    // Only a new open request should reopen the drawer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openProfileModuleKey]);
+  useEffect(() => {
+    if (activePage !== "scorecard-v2") setScorecardEntry(null);
+  }, [activePage]);
   const openInvestorPortfolios = useCallback(() => {
     setActivePage("investor-portfolios");
   }, []);
@@ -12091,172 +12443,10 @@ function PatriotPayJourneyInner({
     />
   );
 
-  return (
-    <LegalNavProvider openLegal={openLegal}>
-    <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
-    <div className={`app${profilePromptBlocking ? " is-profile-prompt-gated" : ""}`}>
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-logo">Y</div>
-          <div>
-            <div className="brand-name">YORK·IE</div>
-            <div className="brand-sub">FUEL 2.0</div>
-          </div>
-        </div>
-        <div
-          className="account-card"
-          onClick={openAccountHome}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              openAccountHome();
-            }
-          }}
-        >
-          <div className="account-avatar">M</div>
-          <div className="account-name">My Account</div>
-        </div>
-        <div className="sidebar-nav">
-        {isInvestorPersona ? (
-          <div className="nav-section">
-            <div className="nav-label">Fund</div>
-            <div
-              className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
-              style={{ cursor: "pointer" }}
-              onClick={() => setActivePage("investor-watchlists")}
-            >
-              ⊟ Watchlists
-            </div>
-            <div
-              className={`nav-item${activePage === "investor-pipeline" ? " is-active" : ""}`}
-              style={{ cursor: "pointer" }}
-              onClick={() => setActivePage("investor-pipeline")}
-            >
-              ▦ Pipeline <span className="nav-count">13</span>
-            </div>
-          </div>
-        ) : null}
-        {isInvestorPersona ? (
-          <div className="nav-section">
-            <div className="nav-label">Portfolio</div>
-            <div
-              className={`nav-item${activePage === "investor-portfolios" ? " is-active" : ""}`}
-              style={{ cursor: "pointer" }}
-              onClick={() => setActivePage("investor-portfolios")}
-            >
-              ▢ Portfolios <span className="nav-count">3</span>
-            </div>
-          </div>
-        ) : null}
-        {isInvestorPersona ? (
-          <div className="nav-section">
-            <div className="nav-label">Value creation</div>
-            <div className="nav-item">
-              ↗ Initiatives <span className="nav-count">0</span>
-            </div>
-            <div className="nav-item">▥ Benchmarks</div>
-            <div className="nav-item">▤ Playbooks</div>
-          </div>
-        ) : null}
-        {isInvestorPersona ? (
-          <div className="nav-section">
-            <div className="nav-label">Integrations</div>
-            <div className="nav-item" style={{ cursor: "pointer" }} onClick={() => setActivePage("connectors")}>
-              ⟳ Connectors <span className="nav-count">13</span>
-            </div>
-          </div>
-        ) : null}
-        <div className="nav-section">
-          <div className="nav-label">Network</div>
-          <div
-            className={`nav-item${activePage === "advisors" ? " is-active" : ""}`}
-            style={{ cursor: "pointer" }}
-            onClick={() => setActivePage("advisors")}
-          >
-            ◉ Advisors <span className="nav-count">{advisorNetworkCount}</span>
-          </div>
-          <div className="nav-item">
-            ⚉ Service providers <span className="nav-count">0</span>
-          </div>
-          <div className="nav-item">
-            ↗ Investors <span className="nav-count">0</span>
-          </div>
-        </div>
-        <div className="nav-section">
-          <div className="nav-label">Recently viewed</div>
-          {recentCompanies.map(company => (
-            <div
-              key={company.id}
-              className={`recent-item${selectedCompany.id === company.id && !isInvestorShellPage ? " active" : ""}`}
-              style={{ cursor: "pointer" }}
-              role="button"
-              tabIndex={0}
-              onClick={() => openRecentCompany(company.id)}
-              onKeyDown={e => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openRecentCompany(company.id);
-                }
-              }}
-            >
-              <div className="recent-favicon" style={{ background: company.logoBg, color: "#fff" }}>
-                {company.logo}
-              </div>
-              {company.displayName}
-            </div>
-          ))}
-        </div>
-        </div>
-        <SidebarProfileFooter
-          onOpenAccountSettings={openAccountSettings}
-          onOpenHelp={() => setActivePage("help")}
-          onOpenSuperAdmin={() => setSuperAdminOpen(true)}
-          onLogOut={onLogOut}
-          superAdminOpen={superAdminOpen}
-          yorkUpsellReady={overviewBuildPhase == null || overviewBuildPhase === "ready"}
-        />
-      </aside>
-
-      <div className="main">
-        {activePage === "connectors" ? (
-          <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
-        ) : activePage === "account" ? (
-          <>
-            <div className="topbar">
-              <div className="breadcrumb">
-                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-                <span className="current">{breadcrumbLabel}</span>
-              </div>
-              <div className="topbar-right">
-                <div className="search-box">
-                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
-                </div>
-                <NotificationCenter onAction={handleNotificationAction} />
-                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-              </div>
-            </div>
-            <div className="content">
+  const accountPageBody = (
               <AccountSettings tab={accountTab} onTabChange={setAccountTab} onOpenLegal={openLegal} />
-            </div>
-          </>
-        ) : activePage === "help" ? (
-          <>
-            <div className="topbar">
-              <div className="breadcrumb">
-                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-                <span className="current">{breadcrumbLabel}</span>
-              </div>
-              <div className="topbar-right">
-                <div className="search-box">
-                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
-                </div>
-                <NotificationCenter onAction={handleNotificationAction} />
-                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-              </div>
-            </div>
-            <div className="content">
+  );
+  const helpPageBody = (
               <FuelHelpFaqPage
                 audience={isInvestorPersona ? "investor" : "founder"}
                 onOpenLegal={openLegal}
@@ -12300,110 +12490,23 @@ function PatriotPayJourneyInner({
                   }
                 }}
               />
-            </div>
-          </>
-        ) : activePage === "legal" ? (
-          <>
-            <div className="topbar">
-              <div className="breadcrumb">
-                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-                <span className="current">{breadcrumbLabel}</span>
-              </div>
-              <div className="topbar-right">
-                <div className="search-box">
-                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
-                </div>
-                <NotificationCenter onAction={handleNotificationAction} />
-                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-              </div>
-            </div>
-            <div className="content">
+  );
+  const legalPageBody = (
               <FuelLegalPage
                 doc={legalDocId}
                 onDocChange={setLegalDocId}
                 onBack={closeLegal}
               />
-            </div>
-          </>
-        ) : activePage === "advisors" ? (
-          <>
-            <div className="topbar">
-              <div className="breadcrumb">
-                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-                <span className="current">{breadcrumbLabel}</span>
-              </div>
-              <div className="topbar-right">
-                <div className="search-box">
-                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
-                </div>
-                <NotificationCenter onAction={handleNotificationAction} />
-                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-              </div>
-            </div>
-            <div className="content">
+  );
+  const advisorsPageBody = (
               <AdvisorsPage
                 companyId={isInvestorPersona ? selectedCompany.id : FOUNDER_COMPANY.id}
                 companyName={isInvestorPersona ? selectedCompany.displayName : FOUNDER_COMPANY.displayName}
                 onOpenCompany={openInvestorCompany}
               />
-            </div>
-          </>
-        ) : (<><div className={`topbar${showTourCoachmark ? " has-tour-coachmark" : ""}`}>
-          <div className="breadcrumb">
-            Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
-            <span className="current">{breadcrumbLabel}</span>
-          </div>
-          <div className="topbar-right">
-            <div className="search-box">
-              <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
-            </div>
-            <NotificationCenter
-              tourActive={tourOpen && tourSteps[tourStep].target === "notifications"}
-              onAction={handleNotificationAction}
-            />
-            {!isProfileWizard && !tourTaken && headerTourEnabled ? (
-              <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
-                <button
-                  type="button"
-                  className={`header-btn header-tour-btn${showTourCoachmark ? " is-pointed" : ""}`}
-                  data-tour-target="header-tour"
-                  onClick={startTour}
-                >
-                  <span className="header-tour-icon" aria-hidden="true">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
-                      <path d="M8 3.5v2.2M8 10.3V12.5M3.5 8h2.2M10.3 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      <circle cx="8" cy="8" r="1.6" fill="currentColor" />
-                    </svg>
-                  </span>
-                  Tour
-                </button>
-                {showTourCoachmark ? (
-                  <div className="header-tour-coachmark" role="status">
-                    <span className="header-tour-coachmark-icon" aria-hidden="true">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
-                        <path d="M8 3.5v2.2M8 10.3V12.5M3.5 8h2.2M10.3 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        <circle cx="8" cy="8" r="1.6" fill="currentColor" />
-                      </svg>
-                    </span>
-                    <p>You can click here later to take a tour of the platform.</p>
-                    <button type="button" onClick={() => setShowTourCoachmark(false)}>OK</button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            <span
-              data-tour-target="ask-fuel-ai"
-              className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
-              style={{ display: "inline-flex" }}
-            >
-              <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
-            </span>
-          </div>
-        </div>
-
-        {!isProfileWizard && !isInvestorShellPage ? <div className="company-header">
+  );
+  const companyHeaderBlock = (
+        !isProfileWizard && !isInvestorShellPage ? <div className="company-header">
           <div className={`company-card${usesPerCompanyWorkspace ? " is-external" : ""}`}>
             <button
               type="button"
@@ -12510,9 +12613,10 @@ function PatriotPayJourneyInner({
               />
             </div>
           </div>
-        </div> : null}
-
-        {!isProfileWizard && !isInvestorShellPage && activePage === "profile" && isClaimedFounderCompany ? (
+        </div> : null
+  );
+  const profileSectionTabs = (
+        !isProfileWizard && !isInvestorShellPage && activePage === "profile" && isClaimedFounderCompany ? (
           <div className="tabs" role="tablist" aria-label="Company profile sections">
             <div
               role="tab"
@@ -12531,9 +12635,10 @@ function PatriotPayJourneyInner({
               About company
             </div>
           </div>
-        ) : null}
-
-        {!isProfileWizard && !isInvestorShellPage && !isFounderProfileHub ? <div className="tabs">
+        ) : null
+  );
+  const workspaceTabs = (
+        !isProfileWizard && !isInvestorShellPage && !isFounderProfileHub ? <div className="tabs">
           <div className={`tab ${(usesPerCompanyWorkspace && !showClaimedProfileBrief ? activePage === "overview" : isClaimedFounderCompany ? activePage === "scorecard-v2" : activePage === "overview") ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "tab-overview" ? "tab-overview" : undefined} onClick={() => setActivePage(isClaimedFounderCompany ? "scorecard-v2" : "overview")}>{usesPerCompanyWorkspace && !showClaimedProfileBrief ? "Profile" : "Overview"}</div>
           <div className={`tab ${activePage === "signals" || activePage === "context-feed" ? "active" : ""} ${tourOpen && tourSteps[tourStep].target === "signals" ? "tour-highlight" : ""}`} data-tour-target={tourOpen && tourSteps[tourStep].target === "signals" ? "signals" : undefined} onClick={() => setActivePage("signals")}>
             Intelligence
@@ -12574,17 +12679,19 @@ function PatriotPayJourneyInner({
               <span className="tab-count" style={{ color: "var(--text-3)", marginLeft: "4px" }}>{tabDataRoomCount}</span>
             ) : null}
           </div>
-        </div> : null}
-
-        {!isProfileWizard && showTourPrompt ? (
+        </div> : null
+  );
+  const tourPromptBanner = (
+        !isProfileWizard && showTourPrompt ? (
           <TourPromptBanner
             onStartTour={startTour}
             onDismiss={dismissTourPrompt}
             building={false}
           />
-        ) : null}
-
-        {!isProfileWizard
+        ) : null
+  );
+  const overviewBuildBanner = (
+        !isProfileWizard
           && overviewBuildPhase
           && overviewBuildPhase !== "ready"
           && activePage !== "scorecard-v2" ? (
@@ -12593,10 +12700,10 @@ function PatriotPayJourneyInner({
             <strong>Fuel is still generating scores and advisor context.</strong>
             <em>Other tabs stay usable — Overview updates when ready.</em>
           </div>
-        ) : null}
-
-        <div className={`content ${isProfileWizard ? "profile-wizard-content" : ""}`}>
-          {activePage === "development-setup" ? (
+        ) : null
+  );
+  const mainPageSwitch = (
+          activePage === "development-setup" ? (
             <IntegrationSetupPage
               onBack={() => setActivePage("journey")}
               onSave={(setup) => {
@@ -12969,7 +13076,10 @@ function PatriotPayJourneyInner({
               onProfileCreditsChange={setEarnedProfileCredits}
               onProfileCreditReward={handleProfileCreditReward}
               creditRewardVisible={Boolean(profileCreditReward)}
-              openProfileModuleKey={openProfileModuleKey}
+              openProfileModuleKey={usesFuelShell ? 0 : openProfileModuleKey}
+              initialView={usesFuelShell ? scorecardEntry?.view ?? "overview" : "overview"}
+              startWithFullSummary={usesFuelShell && Boolean(scorecardEntry?.summary)}
+              onExitToDashboard={usesFuelShell ? () => setScorecardEntry(null) : undefined}
               openProfileModuleSection={openProfileModuleSection}
               elevateDetailsDrawer={elevateDetailsDrawer}
               onDetailsFieldEdited={armProfileCreditToast}
@@ -13043,10 +13153,533 @@ function PatriotPayJourneyInner({
                 </div>
               ) : null}
             </>
-          ) : null}
+          ) : null
+  );
+
+  const openFounderPage = (page: string) => {
+    setSelectedCompany(FOUNDER_COMPANY);
+    setScorecardEntry(null);
+    setActivePage(page);
+  };
+  const handleShellNav = (id: string) => {
+    switch (id) {
+      case "dashboard":
+        openFounderPage("scorecard-v2");
+        return;
+      case "context":
+        openFounderPage("context-engine");
+        return;
+      case "intelligence":
+        openFounderPage("signals");
+        return;
+      case "initiatives":
+        setFocusInitiativeId(null);
+        openFounderPage("initiatives");
+        return;
+      case "benchmarks":
+        openFounderPage("scorecard-v2");
+        setScorecardEntry({ view: "benchmark", summary: false });
+        return;
+      case "dataroom":
+        openFounderPage("data-room");
+        return;
+      case "playbooks":
+        openBrowsePlaybooks();
+        return;
+      case "advisors":
+        openFounderPage("advisors");
+        return;
+      case "investors":
+      case "watchlists":
+        setFounderNetworkNav(id);
+        openFounderPage("investor-watchlists");
+        return;
+      case "public-profile":
+        setFounderProfileSectionTab("my-profile");
+        openFounderPage("profile");
+        return;
+      case "blog":
+        setFounderProfileSectionTab("about-company");
+        openFounderPage("profile");
+        return;
+    }
+  };
+  const handleShellDock = (id: Fuel21DockId) => {
+    switch (id) {
+      case "profile":
+        requestShellDrawer("profile");
+        return;
+      case "rd":
+        requestShellDrawer("dev");
+        return;
+      case "gtm":
+        requestShellDrawer("mkt");
+        return;
+      case "ga":
+        requestShellDrawer("rev");
+        return;
+      case "context":
+        requestShellDrawer("companion-context");
+        return;
+      case "intelligence":
+      case "initiatives":
+      case "dataroom":
+        requestShellDrawer(id);
+        return;
+      case "company":
+        requestShellDrawer("close");
+        setFounderProfileSectionTab("my-profile");
+        openFounderPage("profile");
+        return;
+      case "blog":
+        requestShellDrawer("close");
+        setFounderProfileSectionTab("about-company");
+        openFounderPage("profile");
+        return;
+      case "help":
+        requestShellDrawer("close");
+        setActivePage("help");
+        return;
+    }
+  };
+  const scorecardViewLabel: Record<ScorecardView, string> = {
+    overview: "Dashboard",
+    dev: "R&D",
+    mkt: "GTM",
+    rev: "G&A",
+    benchmark: "Benchmarks",
+  };
+  const onFounderProfilePage = activePage === "profile" || activePage === "public-profile";
+  const shellActiveNavId = usesPerCompanyWorkspace
+    ? null
+    : activePage === "scorecard-v2"
+      ? scorecardEntry?.view === "benchmark" ? "benchmarks" : "dashboard"
+      : activePage === "context-engine" ? "context"
+        : activePage === "signals" || activePage === "context-feed" || activePage === "signals-loading" ? "intelligence"
+          : activePage === "initiatives" ? "initiatives"
+            : activePage === "data-room" ? "dataroom"
+              : activePage === "advisors" ? "advisors"
+                : activePage === "investor-watchlists" ? founderNetworkNav
+                  : onFounderProfilePage
+                    ? founderProfileSectionTab === "about-company" || activePage === "public-profile" ? "blog" : "public-profile"
+                    : null;
+  const shellBreadcrumb = activePage === "scorecard-v2" && !usesPerCompanyWorkspace
+    ? scorecardEntry?.summary ? "Company brief" : scorecardViewLabel[scorecardEntry?.view ?? "overview"]
+    : activePage === "context-engine" ? "Context engine"
+      : shellActiveNavId === "intelligence" ? "Intelligence"
+        : activePage === "initiatives" ? "Initiatives"
+          : activePage === "data-room" ? "Data room"
+            : activePage === "research" ? "Research"
+              : activePage === "investor-watchlists" ? (founderNetworkNav === "investors" ? "Investors" : "Watchlist")
+                : onFounderProfilePage ? (shellActiveNavId === "blog" ? "Blog" : "Public profile")
+                  : breadcrumbLabel;
+  const shellBadge = (count: number) => (count > 0 ? String(count) : "");
+  const shellSurface = (body: React.ReactNode) => (
+    <div className={`content f21-legacy-surface${isProfileWizard ? " profile-wizard-content" : ""}`}>{body}</div>
+  );
+  const shellBody = activePage === "connectors" ? (
+    <ConnectorsPage onComplete={() => openFounderPage("scorecard-v2")} embedded />
+  ) : activePage === "account" ? shellSurface(accountPageBody)
+    : activePage === "help" ? shellSurface(helpPageBody)
+      : activePage === "legal" ? shellSurface(legalPageBody)
+        : activePage === "advisors" ? shellSurface(advisorsPageBody)
+          : activePage === "context-engine" ? (
+            <ContextEnginePage
+              artifacts={researchArtifacts.map(artifact => ({
+                id: artifact.id,
+                title: artifact.title,
+                meta: `${artifact.typeLabel} · ${artifact.companyName}`,
+              }))}
+            />
+          ) : activePage === "scorecard-v2" && !scorecardEntry && !usesPerCompanyWorkspace ? (
+            <DashboardPage
+              userName="Shreya Gokani"
+              onUpdateBenchmarks={() => requestShellDrawer("benchmark")}
+              onOpenTrack={track => setScorecardEntry({
+                view: track === "rd" ? "dev" : track === "gtm" ? "mkt" : "rev",
+                summary: false,
+              })}
+              onOpenProfileModule={section => requestShellDrawer(section)}
+              onViewFullSummary={() => setScorecardEntry({ view: "overview", summary: true })}
+              onOpenBenchmark={() => setScorecardEntry({ view: "benchmark", summary: false })}
+              onOpenIntelligence={() => openFounderPage("signals")}
+              onOpenInitiatives={() => {
+                setFocusInitiativeId(null);
+                openFounderPage("initiatives");
+              }}
+              onOpenDataRoom={() => openFounderPage("data-room")}
+              onOpenPlaybooks={openBrowsePlaybooks}
+              onOpenConnectors={() => openFounderPage("context-engine")}
+            />
+          ) : shellSurface(
+            <>
+              {usesPerCompanyWorkspace ? (
+                <>
+                  {companyHeaderBlock}
+                  {workspaceTabs}
+                </>
+              ) : null}
+              {overviewBuildBanner}
+              {mainPageSwitch}
+            </>,
+          );
+  const founderShell = (
+    <Fuel21DetailsDrawerProvider
+      companyName={FOUNDER_COMPANY.displayName}
+      benchmark={formValuesToOnboardingBenchmark(founderBenchmarkForm)}
+      benchmarkContext={{
+        notableCustomers: founderBenchmarkForm.notableCustomers,
+        notableHires: founderBenchmarkForm.notableHires,
+        biggestChallenges: founderBenchmarkForm.biggestChallenges,
+        otherUpdates: founderBenchmarkForm.otherUpdates,
+        openToIntros: founderBenchmarkForm.openToIntros,
+      }}
+      onBenchmarkChange={(next, context) => {
+        applyBenchmarkSubmission({
+          ...toBenchmarkFormValues(next),
+          notableCustomers: context.notableCustomers,
+          notableHires: context.notableHires,
+          biggestChallenges: context.biggestChallenges,
+          otherUpdates: context.otherUpdates,
+          openToIntros: context.openToIntros,
+        });
+      }}
+      live={{
+        intelligenceItems,
+        onLogIntelligence: item => setIntelligenceItems(previous => [item, ...previous]),
+        documentSlots,
+        processingDocumentTypeId,
+        onUploadDocument: (typeId, typeLabel, file) => handleDocumentUpload(typeId, typeLabel, file, "Data Room · Private upload"),
+        onCreateInitiative: record => setFounderInitiatives(previous => [record, ...previous]),
+      }}
+      onOpenContextEngine={() => openFounderPage("context-engine")}
+      request={shellDrawerRequest}
+      elevate={elevateDetailsDrawer}
+      onDetailsDrawerClosed={(saved) => {
+        setElevateDetailsDrawer(false);
+        if (!askFuelAwaitingBenchmarkRef.current) return;
+        askFuelAwaitingBenchmarkRef.current = false;
+        setAskFuelOpen(true);
+        if (saved) setAskFuelBenchmarkSubmitSignal(signal => signal + 1);
+      }}
+    >
+      <Fuel21Shell
+        theme={shellTheme}
+        activeNavId={shellActiveNavId}
+        breadcrumbRoot={selectedCompany.displayName}
+        breadcrumbCurrent={shellBreadcrumb}
+        navBadges={{
+          intelligence: shellBadge(tabIntelligenceCount),
+          initiatives: shellBadge(tabActiveInitiativeCount),
+          dataroom: shellBadge(tabDataRoomCount),
+          advisors: shellBadge(advisorNetworkCount),
+        }}
+        recentItems={recentCompanies
+          .filter(company => company.id !== FOUNDER_COMPANY.id)
+          .map(company => ({ id: company.id, label: company.displayName }))}
+        activeRecentId={usesPerCompanyWorkspace ? selectedCompany.id : null}
+        onSelectNav={handleShellNav}
+        onSelectRecent={openRecentCompany}
+        onSelectDock={handleShellDock}
+        onAskFuel={() => {
+          setBriefFocusSignal(0);
+          setAskFuelOpen(true);
+        }}
+        onToggleTheme={() => setShellTheme(previous => (previous === "dark" ? "light" : "dark"))}
+        topbarActions={<NotificationCenter onAction={handleNotificationAction} />}
+        footer={(
+          <FounderShellFooter
+            companyName={FOUNDER_COMPANY.displayName}
+            onOpenAccountSettings={openAccountSettings}
+            onOpenHelp={() => setActivePage("help")}
+            onLogOut={onLogOut}
+          />
+        )}
+      >
+        {shellBody}
+      </Fuel21Shell>
+    </Fuel21DetailsDrawerProvider>
+  );
+
+  return (
+    <LegalNavProvider openLegal={openLegal}>
+    <AccountSettingsNavProvider openAccountSettings={openAccountSettings}>
+    <div className={`app${usesFuelShell ? " app--fuel21" : ""}${profilePromptBlocking ? " is-profile-prompt-gated" : ""}`}>
+      {usesFuelShell ? founderShell : (<>
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-logo">Y</div>
+          <div>
+            <div className="brand-name">YORK·IE</div>
+            <div className="brand-sub">FUEL 2.0</div>
+          </div>
+        </div>
+        <div
+          className="account-card"
+          onClick={openAccountHome}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openAccountHome();
+            }
+          }}
+        >
+          <div className="account-avatar">M</div>
+          <div className="account-name">My Account</div>
+        </div>
+        <div className="sidebar-nav">
+        {isInvestorPersona ? (
+          <div className="nav-section">
+            <div className="nav-label">Fund</div>
+            <div
+              className={`nav-item${activePage === "investor-watchlists" ? " is-active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setActivePage("investor-watchlists")}
+            >
+              ⊟ Watchlists
+            </div>
+            <div
+              className={`nav-item${activePage === "investor-pipeline" ? " is-active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setActivePage("investor-pipeline")}
+            >
+              ▦ Pipeline <span className="nav-count">13</span>
+            </div>
+          </div>
+        ) : null}
+        {isInvestorPersona ? (
+          <div className="nav-section">
+            <div className="nav-label">Portfolio</div>
+            <div
+              className={`nav-item${activePage === "investor-portfolios" ? " is-active" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setActivePage("investor-portfolios")}
+            >
+              ▢ Portfolios <span className="nav-count">3</span>
+            </div>
+          </div>
+        ) : null}
+        {isInvestorPersona ? (
+          <div className="nav-section">
+            <div className="nav-label">Value creation</div>
+            <div className="nav-item">
+              ↗ Initiatives <span className="nav-count">0</span>
+            </div>
+            <div className="nav-item">▥ Benchmarks</div>
+            <div className="nav-item">▤ Playbooks</div>
+          </div>
+        ) : null}
+        {isInvestorPersona ? (
+          <div className="nav-section">
+            <div className="nav-label">Integrations</div>
+            <div className="nav-item" style={{ cursor: "pointer" }} onClick={() => setActivePage("connectors")}>
+              ⟳ Connectors <span className="nav-count">13</span>
+            </div>
+          </div>
+        ) : null}
+        <div className="nav-section">
+          <div className="nav-label">Network</div>
+          <div
+            className={`nav-item${activePage === "advisors" ? " is-active" : ""}`}
+            style={{ cursor: "pointer" }}
+            onClick={() => setActivePage("advisors")}
+          >
+            ◉ Advisors <span className="nav-count">{advisorNetworkCount}</span>
+          </div>
+          <div className="nav-item">
+            ⚉ Service providers <span className="nav-count">0</span>
+          </div>
+          <div className="nav-item">
+            ↗ Investors <span className="nav-count">0</span>
+          </div>
+        </div>
+        <div className="nav-section">
+          <div className="nav-label">Recently viewed</div>
+          {recentCompanies.map(company => (
+            <div
+              key={company.id}
+              className={`recent-item${selectedCompany.id === company.id && !isInvestorShellPage ? " active" : ""}`}
+              style={{ cursor: "pointer" }}
+              role="button"
+              tabIndex={0}
+              onClick={() => openRecentCompany(company.id)}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openRecentCompany(company.id);
+                }
+              }}
+            >
+              <div className="recent-favicon" style={{ background: company.logoBg, color: "#fff" }}>
+                {company.logo}
+              </div>
+              {company.displayName}
+            </div>
+          ))}
+        </div>
+        </div>
+        <SidebarProfileFooter
+          onOpenAccountSettings={openAccountSettings}
+          onOpenHelp={() => setActivePage("help")}
+          onOpenSuperAdmin={() => setSuperAdminOpen(true)}
+          onLogOut={onLogOut}
+          superAdminOpen={superAdminOpen}
+          yorkUpsellReady={overviewBuildPhase == null || overviewBuildPhase === "ready"}
+        />
+      </aside>
+
+      <div className="main">
+        {activePage === "connectors" ? (
+          <ConnectorsPage onComplete={() => setActivePage("journey")} embedded />
+        ) : activePage === "account" ? (
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
+                <NotificationCenter onAction={handleNotificationAction} />
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content">
+              {accountPageBody}
+            </div>
+          </>
+        ) : activePage === "help" ? (
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
+                <NotificationCenter onAction={handleNotificationAction} />
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content">
+              {helpPageBody}
+            </div>
+          </>
+        ) : activePage === "legal" ? (
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
+                <NotificationCenter onAction={handleNotificationAction} />
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content">
+              {legalPageBody}
+            </div>
+          </>
+        ) : activePage === "advisors" ? (
+          <>
+            <div className="topbar">
+              <div className="breadcrumb">
+                Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+                <span className="current">{breadcrumbLabel}</span>
+              </div>
+              <div className="topbar-right">
+                <div className="search-box">
+                  <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+                </div>
+                <NotificationCenter onAction={handleNotificationAction} />
+                <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+              </div>
+            </div>
+            <div className="content">
+              {advisorsPageBody}
+            </div>
+          </>
+        ) : (<><div className={`topbar${showTourCoachmark ? " has-tour-coachmark" : ""}`}>
+          <div className="breadcrumb">
+            Fuel <span style={{ margin: "0 5px", color: "var(--text-4)" }}>/</span>
+            <span className="current">{breadcrumbLabel}</span>
+          </div>
+          <div className="topbar-right">
+            <div className="search-box">
+              <span className="search-box-icon" style={{ opacity: 0.6 }}>⌕</span> Search companies...
+            </div>
+            <NotificationCenter
+              tourActive={tourOpen && tourSteps[tourStep].target === "notifications"}
+              onAction={handleNotificationAction}
+            />
+            {!isProfileWizard && !tourTaken && headerTourEnabled ? (
+              <div className={`header-tour-wrap${showTourCoachmark ? " is-coachmark" : ""}`}>
+                <button
+                  type="button"
+                  className={`header-btn header-tour-btn${showTourCoachmark ? " is-pointed" : ""}`}
+                  data-tour-target="header-tour"
+                  onClick={startTour}
+                >
+                  <span className="header-tour-icon" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="M8 3.5v2.2M8 10.3V12.5M3.5 8h2.2M10.3 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      <circle cx="8" cy="8" r="1.6" fill="currentColor" />
+                    </svg>
+                  </span>
+                  Tour
+                </button>
+                {showTourCoachmark ? (
+                  <div className="header-tour-coachmark" role="status">
+                    <span className="header-tour-coachmark-icon" aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+                        <path d="M8 3.5v2.2M8 10.3V12.5M3.5 8h2.2M10.3 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        <circle cx="8" cy="8" r="1.6" fill="currentColor" />
+                      </svg>
+                    </span>
+                    <p>You can click here later to take a tour of the platform.</p>
+                    <button type="button" onClick={() => setShowTourCoachmark(false)}>OK</button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            <span
+              data-tour-target="ask-fuel-ai"
+              className={tourOpen && tourSteps[tourStep].target === "ask-fuel-ai" ? "tour-highlight" : undefined}
+              style={{ display: "inline-flex" }}
+            >
+              <AskFuelAiButton onOpen={() => { setBriefFocusSignal(0); setAskFuelOpen(true); }} />
+            </span>
+          </div>
+        </div>
+
+        {companyHeaderBlock}
+
+        {profileSectionTabs}
+
+        {workspaceTabs}
+
+        {tourPromptBanner}
+
+        {overviewBuildBanner}
+
+        <div className={`content ${isProfileWizard ? "profile-wizard-content" : ""}`}>
+          {mainPageSwitch}
         </div>
         </>)}
       </div>
+      </>)}
       {tourOpen ? (
         <GuidedTourOverlay
           step={tourStep}

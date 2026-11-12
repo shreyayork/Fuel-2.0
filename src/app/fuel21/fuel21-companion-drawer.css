@@ -1,0 +1,329 @@
+html[data-f21-theme] {
+  --f21-companion-drawer-width: min(92vw, 540px);
+  --fuel-side-panel-width: var(--f21-companion-drawer-width);
+  --fuel-side-panel-max-width: var(--f21-companion-drawer-width);
+}
+
+html[data-f21-theme] .f21-companion-scrim {
+  animation: f21CompanionScrimIn 0.2s ease-out;
+}
+
+html[data-f21-theme] .f21-companion-drawer.bench-drawer {
+  width: var(--f21-companion-drawer-width);
+  max-width: var(--f21-companion-drawer-width);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  animation: f21CompanionDrawerIn 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html[data-f21-theme] .f21-companion-drawer .bench-drawer {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  animation: none;
+  border-left: none;
+  box-shadow: none;
+}
+
+html[data-f21-theme] .sc-drawer:not(.sc-drawer--over-ask-fuel) {
+  width: var(--f21-companion-drawer-width);
+  max-width: var(--f21-companion-drawer-width);
+}
+
+.f21-companion-panel-viewport {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.f21-companion-panel-fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.f21-companion-panel-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  animation: f21CompanionPanelIn 0.22s ease-out;
+}
+
+.f21-companion-panel-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+  background: color-mix(in srgb, var(--panel, #172632) 92%, transparent);
+  backdrop-filter: blur(2px);
+  animation: f21CompanionLoadingIn 0.16s ease-out;
+}
+
+.f21-companion-loading-bar {
+  height: 10px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--panel-inset, rgba(255, 255, 255, 0.06)) 0%,
+    rgba(255, 255, 255, 0.12) 45%,
+    var(--panel-inset, rgba(255, 255, 255, 0.06)) 90%
+  );
+  background-size: 200% 100%;
+  animation: f21CompanionShimmer 1.1s ease-in-out infinite;
+}
+
+.f21-companion-loading-bar--md {
+  height: 14px;
+  width: 72%;
+}
+
+.f21-companion-loading-bar--sm {
+  width: 48%;
+}
+
+.f21-companion-loading-bar--block {
+  flex: 1;
+  min-height: 120px;
+  border-radius: 10px;
+}
+
+.f21-companion-loading-label {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--panel-muted, var(--f21-text-muted));
+}
+
+@keyframes f21CompanionScrimIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes f21CompanionDrawerIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes f21CompanionPanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes f21CompanionLoadingIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes f21CompanionShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* —— Companion header + forms: align with Profile sc-drawer / detail tabs —— */
+html[data-f21-theme] .f21-companion-eyebrow,
+html[data-f21-theme] .f21-companion-drawer .f21-companion-eyebrow,
+html[data-f21-theme] .f21-companion-panel-fill .f21-companion-eyebrow,
+html[data-f21-theme] .f21-companion-drawer .add-sources-eyebrow,
+html[data-f21-theme] .f21-companion-drawer .initiative-drawer-eyebrow {
+  color: var(--accent, var(--status-good, #00b48a));
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+html[data-f21-theme] .f21-companion-drawer .bench-drawer-head,
+html[data-f21-theme] .f21-companion-panel-fill > header.bench-drawer-head,
+html[data-f21-theme] .f21-companion-panel-fill > .initiative-drawer-head,
+html[data-f21-theme] .f21-companion-panel-fill.bench-drawer > header:first-child {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border, var(--panel-border));
+}
+
+html[data-f21-theme] .f21-companion-drawer .bench-drawer-title,
+html[data-f21-theme] .f21-companion-panel-fill .bench-drawer-title,
+html[data-f21-theme] .f21-companion-drawer .initiative-drawer-head .bench-drawer-title {
+  color: var(--text-1, var(--f21-text));
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+
+html[data-f21-theme] .f21-companion-drawer .bench-drawer-sub,
+html[data-f21-theme] .f21-companion-panel-fill .bench-drawer-sub {
+  color: var(--text-3, var(--f21-text-muted));
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: none;
+}
+
+html[data-f21-theme] .f21-companion-drawer .bench-drawer-body,
+html[data-f21-theme] .f21-companion-panel-fill .bench-drawer-body,
+html[data-f21-theme] .f21-companion-panel-fill .initiative-drawer-body {
+  padding: 16px 24px 20px;
+}
+
+html[data-f21-theme] .f21-companion-drawer .bench-drawer-x,
+html[data-f21-theme] .f21-companion-panel-fill .bench-drawer-x {
+  background: var(--surface-2, var(--panel-inset));
+  border: 1px solid var(--border, var(--panel-border));
+  border-radius: 8px;
+  color: var(--text-2, var(--f21-text-muted));
+  font-size: 13px;
+  height: 32px;
+  width: 32px;
+}
+
+html[data-f21-theme] .f21-companion-drawer .bench-field-label,
+html[data-f21-theme] .f21-companion-panel-fill .bench-field-label,
+html[data-f21-theme] .f21-companion-panel-fill .signals-log-form--drawer .signals-log-label,
+html[data-f21-theme] .f21-companion-panel-fill .initiative-drawer-body .initiative-card-section-label {
+  color: var(--text-3, var(--f21-text-muted));
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-f21-theme] .f21-companion-drawer .sc-drawer-eyebrow,
+html[data-f21-theme] .f21-companion-panel-fill .sc-drawer-eyebrow {
+  color: var(--accent, var(--status-good, #00b48a));
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+html[data-f21-theme] .f21-companion-drawer .f21-context-drawer .bench-field-label,
+html[data-f21-theme] .f21-companion-panel-fill.f21-context-drawer .bench-field-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+html[data-f21-theme] .f21-companion-drawer .f21-context-drawer .bench-field-input,
+html[data-f21-theme] .f21-companion-panel-fill.f21-context-drawer .bench-field-input,
+html[data-f21-theme] .f21-companion-panel-fill.f21-context-drawer .f21-context-note-input {
+  font-size: 13px;
+  min-height: 40px;
+  padding: 10px 12px;
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .initiative-taxonomy-field > span,
+html[data-f21-theme] .f21-companion-panel-fill .initiative-field-label {
+  color: var(--text-3, var(--f21-text-muted));
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .initiative-form-row--owner {
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) minmax(148px, 176px);
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .initiative-form-card > input,
+html[data-f21-theme] .f21-companion-panel-fill .initiative-form-card > textarea,
+html[data-f21-theme] .f21-companion-panel-fill .initiative-form-row > input,
+html[data-f21-theme] .f21-companion-panel-fill .initiative-form-row > select,
+html[data-f21-theme] .f21-companion-panel-fill .initiative-taxonomy-field select {
+  font-size: 13px;
+  min-height: 40px;
+  padding: 10px 12px;
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .initiative-assignees-box input {
+  min-height: 0;
+  height: 28px;
+  padding: 0 4px;
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .initiative-due-selects select {
+  font-size: 13px;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  line-height: 38px;
+  padding: 0 28px 0 10px;
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .initiative-form-card textarea {
+  min-height: 96px;
+  line-height: 1.5;
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .signals-log-form--drawer .signals-log-select,
+html[data-f21-theme] .f21-companion-panel-fill .signals-log-form--drawer .signals-log-input,
+html[data-f21-theme] .f21-companion-panel-fill .signals-log-form--drawer .signals-log-textarea {
+  font-size: 13px;
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .f21-dataroom-upload-block .bench-field-label,
+html[data-f21-theme] .f21-companion-panel-fill .f21-dataroom-files .bench-field-label {
+  margin-bottom: 0;
+}
+
+html[data-f21-theme] .f21-companion-panel-fill .bench-field-input {
+  font-size: 13px;
+}
+
+html[data-f21-theme] .f21-companion-drawer .bench-drawer-actions,
+html[data-f21-theme] .f21-companion-panel-fill .bench-drawer-actions {
+  padding: 14px 24px 18px;
+  border-top: 1px solid var(--border, var(--panel-border));
+}
+
+html[data-f21-theme] .sc-drawer .sc-drawer-eyebrow {
+  color: var(--accent, var(--status-good, #00b48a));
+}
+
+html[data-f21-theme] .sc-drawer-co {
+  font-size: 17px;
+  font-weight: 650;
+}

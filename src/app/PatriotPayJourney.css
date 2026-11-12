@@ -13554,6 +13554,281 @@ html[data-theme="light"] .initiative-review-drawer .initiative-source-doc-downlo
   justify-content: flex-end;
 }
 
+.initiative-fuel-ai-anchor {
+  position: relative;
+}
+
+.initiative-fuel-ai-btn {
+  align-items: center;
+  background: linear-gradient(135deg, #00b48a 0%, #ecd67f 100%);
+  border: 1px solid rgba(0, 180, 138, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 180, 138, 0.22);
+  color: #042018;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  gap: 6px;
+  height: 32px;
+  letter-spacing: -0.01em;
+  padding: 0 12px;
+  white-space: nowrap;
+  transition:
+    filter 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.initiative-fuel-ai-btn svg {
+  flex-shrink: 0;
+}
+
+.initiative-fuel-ai-btn:hover,
+.initiative-fuel-ai-btn.is-open {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(0, 180, 138, 0.35);
+}
+
+html[data-f21-theme] .initiative-fuel-ai-btn {
+  background: var(--f21-gradient-accent, linear-gradient(135deg, #00b48a 0%, #ecd67f 100%));
+  border-color: rgba(236, 214, 127, 0.45);
+}
+
+.initiative-fuel-ai-coach {
+  background: var(--panel, rgb(23, 38, 50));
+  border: 1px solid rgba(0, 180, 138, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(320px, calc(100vw - 48px));
+  z-index: 45;
+}
+
+.initiative-fuel-ai-coach--portal {
+  position: fixed;
+  right: auto;
+  top: auto;
+}
+
+.initiative-fuel-ai-coach--portal::before {
+  right: 14px;
+}
+
+.initiative-fuel-ai-coach::before {
+  border-bottom: 8px solid rgba(0, 180, 138, 0.35);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  content: "";
+  height: 0;
+  position: absolute;
+  right: 28px;
+  top: -8px;
+  width: 0;
+}
+
+.initiative-fuel-ai-coach-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.initiative-fuel-ai-coach-title {
+  color: var(--panel-strong, var(--text-1));
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.initiative-fuel-ai-coach-title span {
+  margin-right: 4px;
+}
+
+.initiative-fuel-ai-coach-x {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--panel-muted, var(--text-2));
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1;
+  margin: -2px -4px 0 0;
+  padding: 2px 6px;
+}
+
+.initiative-fuel-ai-coach-x:hover {
+  background: var(--wash, rgba(255, 255, 255, 0.06));
+  color: var(--panel-strong, var(--text-1));
+}
+
+.initiative-fuel-ai-coach-body {
+  color: var(--panel-body, var(--text-2));
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.initiative-fuel-ai-coach-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.initiative-fuel-ai-coach-got-it {
+  background: rgba(0, 180, 138, 0.14);
+  border: 1px solid rgba(0, 180, 138, 0.38);
+  border-radius: 8px;
+  color: var(--status-good, #00b48a);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 14px;
+}
+
+.initiative-fuel-ai-coach-got-it:hover {
+  background: rgba(0, 180, 138, 0.22);
+  border-color: rgba(0, 180, 138, 0.55);
+}
+
+.initiative-fuel-ai-popover {
+  background: var(--panel, rgb(23, 38, 50));
+  border: 1px solid var(--panel-border, rgb(38, 57, 71));
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(340px, calc(100vw - 48px));
+  z-index: 40;
+}
+
+.initiative-fuel-ai-popover--portal {
+  position: fixed;
+  right: auto;
+  top: auto;
+}
+
+.initiative-fuel-ai-popover-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.initiative-fuel-ai-popover-title {
+  align-items: center;
+  color: var(--panel-strong, var(--text-1));
+  display: inline-flex;
+  font-size: 12.5px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.initiative-fuel-ai-popover-title svg {
+  color: var(--status-good, #00b48a);
+}
+
+.initiative-fuel-ai-popover-x {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--panel-muted, var(--text-2));
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+.initiative-fuel-ai-popover-x:hover {
+  background: var(--wash, rgba(255, 255, 255, 0.06));
+  color: var(--panel-strong, var(--text-1));
+}
+
+.initiative-fuel-ai-popover-input {
+  background: var(--panel-inset, rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--panel-border, rgb(38, 57, 71));
+  border-radius: 8px;
+  color: var(--panel-strong, var(--text-1));
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 112px;
+  padding: 10px 12px;
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.initiative-fuel-ai-popover-input:focus {
+  border-color: rgba(0, 180, 138, 0.55);
+  outline: none;
+}
+
+.initiative-fuel-ai-popover-input::placeholder {
+  color: var(--panel-muted, var(--text-3));
+}
+
+.initiative-fuel-ai-popover-foot {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.initiative-fuel-ai-popover-cancel {
+  background: transparent;
+  border: 1px solid var(--panel-border, rgb(38, 57, 71));
+  border-radius: 8px;
+  color: var(--panel-body, var(--text-2));
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  padding: 7px 12px;
+}
+
+.initiative-fuel-ai-popover-cancel:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--panel-strong, var(--text-1));
+}
+
+.initiative-fuel-ai-popover-generate {
+  background: var(--status-good, #00b48a);
+  border: 1px solid var(--status-good, #00b48a);
+  border-radius: 8px;
+  color: #042018;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 14px;
+}
+
+.initiative-fuel-ai-popover-generate:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.initiative-fuel-ai-popover-generate:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
 .initiative-drawer-status {
   background: var(--panel-inset);
   border: 1px solid var(--panel-border);

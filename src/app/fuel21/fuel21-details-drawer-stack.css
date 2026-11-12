@@ -1,0 +1,38 @@
+/* Keep main-branch details drawer above Fuel 2.1 shell chrome (nav z-index ~1000). */
+.sc-drawer-scrim {
+  z-index: 1200;
+}
+
+.sc-drawer-scrim--over-ask-fuel {
+  z-index: 120003;
+}
+
+.sc-drawer {
+  z-index: 1201;
+}
+
+.sc-drawer--over-ask-fuel {
+  z-index: 120004;
+}
+
+/* Fuel 2.1: keep the 60px companion dock visible and clickable beside any right panel. */
+html[data-f21-theme] {
+  --f21-right-dock-width: 60px;
+}
+
+html[data-f21-theme] .f21-right-dock {
+  position: relative;
+  z-index: 1210;
+}
+
+html[data-f21-theme] .bench-drawer-scrim {
+  right: var(--f21-right-dock-width);
+}
+
+html[data-f21-theme] .sc-drawer-scrim:not(.sc-drawer-scrim--over-ask-fuel) {
+  right: var(--f21-right-dock-width);
+}
+
+html[data-f21-theme] .sc-drawer:not(.sc-drawer--over-ask-fuel) {
+  right: var(--f21-right-dock-width);
+}

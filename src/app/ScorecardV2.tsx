@@ -104,7 +104,7 @@ const COLOUR_BELOW = () => toneColour("below");
 const COLOUR_WEAK = () => toneColour("weak");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type ScorecardView = "overview" | "dev" | "mkt" | "rev" | "benchmark";
+export type ScorecardView = "overview" | "dev" | "mkt" | "rev" | "benchmark";
 type ScorecardCategory = "dev" | "mkt" | "rev";
 type MetricKey = keyof OnboardingBenchmarkInput;
 type PositionTier = "top" | "upper" | "mid" | "lower" | "bottom";
@@ -321,6 +321,12 @@ export type ScorecardV2Props = {
   sharedBriefStartOpen?: boolean;
   onSharedBriefClose?: () => void;
   onClosePublicProfileEditor?: () => void;
+  /** Open directly on a track detail or benchmark view instead of the overview. */
+  initialView?: ScorecardView;
+  /** Open directly on the full company summary. */
+  startWithFullSummary?: boolean;
+  /** When set, Back from a detail view or the full summary leaves the scorecard instead of returning to its overview. */
+  onExitToDashboard?: () => void;
 };
 
 export type OverviewBuildPhase =
@@ -2011,13 +2017,13 @@ function CategoryCard({ cat, onClick, onViewDetails, onViewBenchmark, expanded, 
 
 // ─── Detail-enrichment form schema (see trackQuestions.ts) ───────────────────
 
-function loadDetailAnswers(companyName: string): DetailAnswers {
+export function loadDetailAnswers(companyName: string): DetailAnswers {
   try {
     const raw = window.localStorage.getItem(`fuel-details-${companyName}`);
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
-function saveDetailAnswers(companyName: string, answers: DetailAnswers) {
+export function saveDetailAnswers(companyName: string, answers: DetailAnswers) {
   try { window.localStorage.setItem(`fuel-details-${companyName}`, JSON.stringify(answers)); } catch { /* ignore */ }
 }
 
@@ -4337,7 +4343,7 @@ function ProfileFundingRoundsInput({
   );
 }
 
-type DrawerStepId = DetailSectionId | "benchmark";
+export type DrawerStepId = DetailSectionId | "benchmark";
 
 type DrawerStepDef = {
   id: DrawerStepId;
@@ -4360,6 +4366,11 @@ const DRAWER_STEPS: DrawerStepDef[] = [
     icon: "▦",
   },
 ];
+
+export function drawerStepIndexForId(stepId: DrawerStepId): number {
+  const idx = DRAWER_STEPS.findIndex(item => item.id === stepId);
+  return idx >= 0 ? idx : 0;
+}
 
 function emptyBenchmarkContext(source?: ScorecardBenchmarkContext): ScorecardBenchmarkContext {
   return {
@@ -4623,7 +4634,7 @@ function scrollDrawerNodeIntoView(node: HTMLElement | null) {
   scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
 }
 
-function DetailsDrawer({
+export function DetailsDrawer({
   companyName, answers, onSelect, onSaveClose, onClose, initialStep = 0,
   benchmark, benchmarkContext, onBenchmarkChange, creditRewardVisible = false,
   elevate = false,
@@ -4753,7 +4764,7 @@ function DetailsDrawer({
       <aside className={`sc-drawer${elevate ? " sc-drawer--over-ask-fuel" : ""}`} onClick={e => e.stopPropagation()} role="dialog" aria-label="Add company details">
         <header className="sc-drawer-head">
           <div>
-            <span className="sc-drawer-eyebrow">✦ Fuel AI · Add details</span>
+            <span className="sc-drawer-eyebrow f21-companion-eyebrow">✦ Fuel · Add details</span>
             <strong className="sc-drawer-co">{companyName}</strong>
           </div>
           <button type="button" className="sc-drawer-x" onClick={handleClose} aria-label="Close">✕</button>
@@ -6561,8 +6572,18 @@ export default function ScorecardV2({
   sharedBriefStartOpen = false,
   onSharedBriefClose,
   onClosePublicProfileEditor,
+  initialView = "overview",
+  startWithFullSummary = false,
+  onExitToDashboard,
 }: ScorecardV2Props) {
-  const [activeView, setActiveView] = useState<ScorecardView>("overview");
+  const [activeView, setActiveView] = useState<ScorecardView>(initialView);
+  useEffect(() => {
+    setActiveView(initialView);
+  }, [initialView]);
+  const leaveDetailView = useCallback(() => {
+    if (onExitToDashboard) onExitToDashboard();
+    else setActiveView("overview");
+  }, [onExitToDashboard]);
   const [benchmarkSaved, setBenchmarkSaved] = useState(false);
   const [benchmarkValues, setBenchmarkValues] = useState<OnboardingBenchmarkInput>(benchmark);
   const benchmarkSyncKey = useMemo(() => JSON.stringify(benchmark), [benchmark]);
@@ -6580,7 +6601,10 @@ export default function ScorecardV2({
   const [drawerStep, setDrawerStep] = useState(0);
   const [openGlancePopover, setOpenGlancePopover] = useState<ScorecardCategory | null>(null);
   const [advisorOpen, setAdvisorOpen] = useState(true);
-  const [wikiSummaryOpen, setWikiSummaryOpen] = useState(sharedBriefStartOpen);
+  const [wikiSummaryOpen, setWikiSummaryOpen] = useState(sharedBriefStartOpen || startWithFullSummary);
+  useEffect(() => {
+    if (startWithFullSummary) setWikiSummaryOpen(true);
+  }, [startWithFullSummary]);
   const [wikiHighlightRefId, setWikiHighlightRefId] = useState<number | null>(null);
   const [detailAnswers, setDetailAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(cName));
 
@@ -6917,7 +6941,7 @@ export default function ScorecardV2({
         benchmark={benchmarkValues}
         cohortLabel={cohortLabel}
         journeyStage={journeyStage}
-        onBack={() => setActiveView("overview")}
+        onBack={leaveDetailView}
         onOpenIntelligence={onOpenIntelligence}
         onGenerateInitiative={onGenerateInitiative}
       />
@@ -6959,6 +6983,7 @@ export default function ScorecardV2({
           onClose={() => {
             setWikiSummaryOpen(false);
             setWikiHighlightRefId(null);
+            onExitToDashboard?.();
           }}
         />
       ) : (
@@ -7059,7 +7084,7 @@ export default function ScorecardV2({
           runway={runway}
           intelligenceItems={intelligenceItems}
           activeInitiatives={activeInitiatives}
-          onBack={() => setActiveView("overview")}
+          onBack={leaveDetailView}
           onUpdateDetails={() => openDetailsDrawer(activeCategory.id)}
           onEditBenchmark={() => openDrawerStep("benchmark")}
           onOpenIntelligence={onOpenIntelligence}

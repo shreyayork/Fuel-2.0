@@ -1498,7 +1498,7 @@ export function BenchmarkCohortTrack({
 
   return (
     <div style={{
-      background: "#07131C",
+      background: "var(--fuel-benchmark-track-bg, #07131C)",
       borderRadius: 999,
       height: barHeight,
       marginBottom: compact ? 6 : 10,
@@ -1508,7 +1508,7 @@ export function BenchmarkCohortTrack({
       <div
         title="P25–P90 — where most of your peer cohort falls"
         style={{
-          background: "linear-gradient(90deg, rgba(0,180,138,0.25), rgba(0,180,138,0.85))",
+          background: "var(--fuel-benchmark-track-band, linear-gradient(90deg, rgba(0,180,138,0.25), rgba(0,180,138,0.85)))",
           borderRadius: 999,
           height: "100%",
           left: `${field.bandStart}%`,
