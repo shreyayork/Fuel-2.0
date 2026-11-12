@@ -205,6 +205,11 @@ html[data-theme="light"] .advisor-connection-permissions {
   width: 15px;
 }
 
+/* Shell buttons and checkboxes share one green (#00B48A). Investors keep the default accent. */
+html[data-f21-theme] .advisor-connection-permission input {
+  accent-color: #00B48A;
+}
+
 .advisor-connection-permission span {
   align-items: center;
   display: flex;
