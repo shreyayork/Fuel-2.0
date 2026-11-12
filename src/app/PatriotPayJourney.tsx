@@ -35,6 +35,7 @@ import { CreditPopover } from "./credits/CreditPopover";
 import { Fuel21Shell, Fuel21UserFooter, type Fuel21DockId } from "./fuel21/Fuel21Shell.tsx";
 import { DashboardPage } from "./fuel21/DashboardPage.tsx";
 import { ContextEnginePage } from "./fuel21/ContextEnginePage.tsx";
+import { BenchmarkReportPage } from "./fuel21/BenchmarkReportPage.tsx";
 import {
   Fuel21DetailsDrawerProvider,
   type Fuel21DrawerRequest,
@@ -13183,8 +13184,7 @@ function PatriotPayJourneyInner({
         openFounderPage("initiatives");
         return;
       case "benchmarks":
-        openFounderPage("scorecard-v2");
-        setScorecardEntry({ view: "benchmark", summary: false });
+        openFounderPage("benchmark-report");
         return;
       case "dataroom":
         openFounderPage("data-room");
@@ -13261,6 +13261,7 @@ function PatriotPayJourneyInner({
     : activePage === "scorecard-v2"
       ? scorecardEntry?.view === "benchmark" ? "benchmarks" : "dashboard"
       : activePage === "context-engine" ? "context"
+        : activePage === "benchmark-report" ? "benchmarks"
         : activePage === "signals" || activePage === "context-feed" || activePage === "signals-loading" ? "intelligence"
           : activePage === "initiatives" ? "initiatives"
             : activePage === "data-room" ? "dataroom"
@@ -13272,6 +13273,7 @@ function PatriotPayJourneyInner({
   const shellBreadcrumb = activePage === "scorecard-v2" && !usesPerCompanyWorkspace
     ? scorecardEntry?.summary ? "Company brief" : scorecardViewLabel[scorecardEntry?.view ?? "overview"]
     : activePage === "context-engine" ? "Context engine"
+      : activePage === "benchmark-report" ? "Benchmarks"
       : shellActiveNavId === "intelligence" ? "Intelligence"
         : activePage === "initiatives" ? "Initiatives"
           : activePage === "data-room" ? "Data room"
@@ -13289,7 +13291,9 @@ function PatriotPayJourneyInner({
     : activePage === "help" ? shellSurface(helpPageBody)
       : activePage === "legal" ? shellSurface(legalPageBody)
         : activePage === "advisors" ? shellSurface(advisorsPageBody)
-          : activePage === "context-engine" ? (
+          : activePage === "benchmark-report" ? (
+            <BenchmarkReportPage />
+          ) : activePage === "context-engine" ? (
             <ContextEnginePage
               artifacts={researchArtifacts.map(artifact => ({
                 id: artifact.id,

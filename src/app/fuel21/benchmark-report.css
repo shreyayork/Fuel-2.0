@@ -1,0 +1,276 @@
+/* Standalone peer benchmark report (Benchmarks nav). Uses the shell's theme tokens,
+   so dark and light themes both come from .f21-app[data-f21-theme]. */
+
+.f21-bench-report {
+  max-width: 1280px;
+}
+
+.f21-bench-layout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 232px minmax(0, 1fr);
+}
+
+.f21-bench-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.f21-bench-section-label {
+  color: var(--f21-text-faint);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.f21-bench-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.f21-bench-filter-label {
+  color: var(--f21-text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.f21-bench-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.f21-bench-pill {
+  background: transparent;
+  border: 1px solid var(--f21-border);
+  border-radius: 999px;
+  color: var(--f21-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 11px;
+}
+
+.f21-bench-pill:hover {
+  border-color: var(--f21-accent-border);
+  color: var(--f21-text);
+}
+
+.f21-bench-pill.is-active {
+  background: var(--f21-accent);
+  border-color: var(--f21-accent);
+  color: var(--f21-btn-primary-text);
+}
+
+.f21-bench-divider {
+  background: var(--f21-border);
+  height: 1px;
+}
+
+.f21-bench-cohort-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.f21-bench-cohort {
+  align-items: flex-start;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--f21-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  gap: 3px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.f21-bench-cohort strong {
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.f21-bench-cohort span {
+  color: var(--f21-text-faint);
+  font-size: 11px;
+}
+
+.f21-bench-cohort:hover {
+  background: var(--f21-nav-hover);
+}
+
+.f21-bench-cohort.is-active {
+  background: var(--f21-selected);
+  border-color: var(--f21-accent-border);
+}
+
+.f21-bench-main {
+  min-width: 0;
+}
+
+.f21-bench-main-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.f21-bench-main-head h2 {
+  color: var(--f21-text);
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 8px 0 0;
+}
+
+.f21-bench-chip {
+  border: 1px solid var(--f21-border);
+  border-radius: 6px;
+  color: var(--f21-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+}
+
+.f21-bench-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+.f21-bench-card {
+  background: var(--f21-panel-alt);
+  border: 1px solid var(--f21-border);
+  border-radius: 10px;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.f21-bench-card-head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.f21-bench-card-head strong {
+  color: var(--f21-text);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.f21-bench-tag {
+  color: var(--f21-text-faint);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.f21-bench-hint {
+  color: var(--f21-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0 0 6px;
+  min-height: 35px;
+}
+
+/* Two percentile columns in narrow cards, four across when the card has room. */
+.f21-bench-pcts {
+  display: grid;
+  gap: 10px 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@container (min-width: 250px) {
+  .f21-bench-pcts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .f21-bench-pct strong {
+    font-size: 12.5px;
+  }
+}
+
+.f21-bench-pct {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.f21-bench-pct span {
+  color: var(--f21-text-faint);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.f21-bench-pct strong {
+  color: var(--f21-text-body);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.f21-bench-pct strong.is-median {
+  color: var(--f21-text);
+}
+
+.f21-bench-track {
+  background: var(--f21-panel-inner);
+  border-radius: 3px;
+  height: 6px;
+  margin-top: 10px;
+  position: relative;
+}
+
+.f21-bench-band {
+  background: linear-gradient(90deg, var(--f21-accent-soft) 0%, var(--f21-accent) 100%);
+  border-radius: 3px;
+  bottom: 0;
+  position: absolute;
+  top: 0;
+}
+
+.f21-bench-median {
+  background: var(--f21-text);
+  border-radius: 1px;
+  bottom: -3px;
+  margin-left: -1px;
+  position: absolute;
+  top: -3px;
+  width: 2px;
+}
+
+.f21-bench-missing {
+  color: var(--f21-text-faint);
+  font-size: 12px;
+  margin: 0;
+  padding: 12px 0 2px;
+}
+
+.f21-bench-note {
+  color: var(--f21-text-faint);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 14px 0 0;
+}
+
+@media (max-width: 860px) {
+  .f21-bench-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
