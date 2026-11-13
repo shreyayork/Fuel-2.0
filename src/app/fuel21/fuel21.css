@@ -4513,6 +4513,7 @@ html[data-theme][data-f21-theme] .afc-suggest-btn,
 html[data-theme][data-f21-theme] .afc-chip,
 html[data-theme][data-f21-theme] .workspace-filter-btn,
 html[data-theme][data-f21-theme] .company-add-list-btn,
+html[data-theme][data-f21-theme] .intel-update-bench-btn,
 html[data-theme][data-f21-theme] .journey-soft-btn {
   box-sizing: border-box;
   display: inline-flex;
@@ -4537,5 +4538,22 @@ html[data-f21-theme="dark"] .f21-dashboard .f21-skip-btn:hover {
   background: #009E6D;
   border-color: #009E6D;
   color: #042018;
+}
+
+/* Intelligence header: Update benchmark uses transparent bg with primary border & font color */
+html[data-theme][data-f21-theme] .intel-update-bench-btn {
+  background: transparent;
+  border: 1px solid var(--btn-primary-border);
+  color: var(--btn-primary-border);
+}
+
+html[data-theme][data-f21-theme] .intel-update-bench-btn:hover {
+  background: rgba(39, 65, 85, 0.06);
+  border-color: var(--btn-primary-hover);
+  color: var(--btn-primary-hover);
+}
+
+html[data-theme][data-f21-theme="dark"] .intel-update-bench-btn:hover {
+  background: rgba(0, 180, 138, 0.08);
 }
 

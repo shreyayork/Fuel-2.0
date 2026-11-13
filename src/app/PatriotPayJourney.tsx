@@ -6293,6 +6293,15 @@ function SignalsPage({
                 Add source
               </button>
             ) : null}
+            {!showBenchmarkGatePanel ? (
+              <button
+                type="button"
+                className="initiatives-secondary-btn intel-update-bench-btn"
+                onClick={openBenchmarkDrawer}
+              >
+                Update benchmark
+              </button>
+            ) : null}
             <button
               type="button"
               className={`initiatives-primary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
@@ -6301,11 +6310,6 @@ function SignalsPage({
             >
               Log intelligence
             </button>
-            {!showBenchmarkGatePanel ? (
-              <button type="button" className="initiatives-primary-btn" onClick={openBenchmarkDrawer}>
-                Update benchmark
-              </button>
-            ) : null}
             {!hideSourceActions ? (
               <button
                 type="button"
