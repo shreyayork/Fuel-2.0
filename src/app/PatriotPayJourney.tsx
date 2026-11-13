@@ -13239,13 +13239,15 @@ function PatriotPayJourneyInner({
         requestShellDrawer("profile");
         return;
       case "rd":
-        requestShellDrawer("dev");
-        return;
       case "gtm":
-        requestShellDrawer("mkt");
-        return;
       case "ga":
-        requestShellDrawer("rev");
+        requestShellDrawer("close");
+        setSelectedCompany(FOUNDER_COMPANY);
+        setActivePage("scorecard-v2");
+        setScorecardEntry({
+          view: id === "rd" ? "dev" : id === "gtm" ? "mkt" : "rev",
+          summary: false,
+        });
         return;
       case "context":
         requestShellDrawer("companion-context");
