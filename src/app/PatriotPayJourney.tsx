@@ -11367,6 +11367,14 @@ function PatriotPayJourneyInner({
       : initialPage,
   );
   const [founderProfileSectionTab, setFounderProfileSectionTab] = useState<FounderProfileSectionTab>("my-profile");
+  const blogReturnRef = useRef<{ page: string; entry: { view: ScorecardView; summary: boolean } | null }>({
+    page: "scorecard-v2",
+    entry: null,
+  });
+  useEffect(() => {
+    if (activePage === "public-profile") return;
+    blogReturnRef.current = { page: activePage, entry: scorecardEntry };
+  }, [activePage, scorecardEntry]);
   const [tourOpen, setTourOpen] = useState(startsWithTour);
   const [tourStep, setTourStep] = useState(0);
   const [developmentIntegrations, setDevelopmentIntegrations] = useState({ integrations: [] });
@@ -12986,8 +12994,9 @@ function PatriotPayJourneyInner({
             <ScorecardV2
               presentation={activePage === "public-profile" ? "public-profile-editor" : "workspace"}
               onClosePublicProfileEditor={() => {
-                setFounderProfileSectionTab("about-company");
-                setActivePage("profile");
+                const back = blogReturnRef.current;
+                setScorecardEntry(back.entry);
+                setActivePage(back.page === "public-profile" ? "scorecard-v2" : back.page);
               }}
               benchmark={scorecardBenchmark}
               onBenchmarkChange={(next, context) => {

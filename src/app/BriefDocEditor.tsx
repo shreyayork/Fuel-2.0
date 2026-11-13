@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ChevronLeft, Eye, Pencil } from "lucide-react";
 import {
   buildAiNoteHtml,
   briefMenuGroups,
@@ -14,7 +15,6 @@ import {
   type BriefPublishRecord,
   briefDocsEqual,
   briefShareUrl,
-  clearBriefDraft,
   cloneBriefRecord,
   investorBriefSectionAsPublicBlogEmbed,
   htmlField,
@@ -625,16 +625,6 @@ export function BriefDocEditor({
     }
   };
 
-  const cancel = () => {
-    const restored = cloneBriefRecord(savedRef.current);
-    clearBriefDraft(companyName);
-    saveBriefDraft(companyName, restored);
-    draftRef.current = restored;
-    setDirty(false);
-    setEditing(false);
-    writePaper(restored[htmlField(audienceRef.current)], false);
-  };
-
   const restoreSection = (title: string | null) => {
     const paper = paperRef.current;
     const html = seedRef.current[htmlField(audienceRef.current)];
@@ -1084,7 +1074,10 @@ export function BriefDocEditor({
     <div className="brief-doc-screen" role="dialog" aria-modal="true" aria-label={`Edit ${companyName} brief`}>
       <header className="brief-doc-bar">
         <div className="brief-doc-identity">
-          <button type="button" className="brief-doc-back" onClick={onClose}>Brief</button>
+          <button type="button" className="brief-doc-back" onClick={onClose}>
+            <ChevronLeft size={16} strokeWidth={2} aria-hidden="true" />
+            Back
+          </button>
           <div>
             <strong>{companyName}</strong>
             <p>
@@ -1162,17 +1155,26 @@ export function BriefDocEditor({
               </div>
             ) : null}
           </div>
-          <button
-            type="button"
-            className={`brief-doc-editing${editing ? " is-on" : ""}`}
-            aria-pressed={editing}
-            onClick={() => setEditingMode(!editing)}
-          >
-            Editing
-          </button>
-          <button type="button" className="brief-doc-cancel" onClick={cancel} disabled={!dirty && !editing}>
-            Cancel
-          </button>
+          <div className="brief-doc-mode" role="group" aria-label="Edit or preview">
+            <button
+              type="button"
+              className={editing ? "is-active" : undefined}
+              aria-pressed={editing}
+              aria-label="Edit"
+              onClick={() => setEditingMode(true)}
+            >
+              <Pencil size={15} strokeWidth={1.85} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={editing ? undefined : "is-active"}
+              aria-pressed={!editing}
+              aria-label="Preview"
+              onClick={() => setEditingMode(false)}
+            >
+              <Eye size={15} strokeWidth={1.85} aria-hidden="true" />
+            </button>
+          </div>
           <button type="button" className="brief-doc-save" onClick={save} disabled={!dirty}>
             Save changes
           </button>
