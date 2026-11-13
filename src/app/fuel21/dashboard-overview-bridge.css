@@ -402,8 +402,16 @@
 
   .f21-dashboard .f21-page-head {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
+    text-align: left;
     gap: 12px;
+  }
+
+  .f21-dashboard .f21-dash-kicker,
+  .f21-dashboard .f21-page-head h1,
+  .f21-dashboard .f21-lede {
+    text-align: left;
+    align-self: flex-start;
   }
 
   .f21-dashboard .f21-page-head h1 {
@@ -435,14 +443,22 @@
   }
 
   .f21-dashboard .f21-v2-modules-head {
+    flex-direction: row;
     align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .f21-dashboard .f21-v2-modules-head > div {
+    flex: 1;
+    min-width: 0;
   }
 
   .f21-dashboard .f21-v2-modules-head .f21-skip-btn {
     align-self: flex-start;
+    flex-shrink: 0;
     width: auto;
+    margin-top: 1px;
   }
 
   .f21-dashboard .overview-tour-page .f21-v2-bento-grid {
@@ -456,10 +472,10 @@
     max-width: 100%;
   }
 
-  /* Similar tiles share one row and swipe, instead of stacking or clipping. */
+  /* Profile steps and company tracks are the same kind of card, so they swipe.
+     The workspace lists are different sections, so they stay stacked. */
   .f21-dashboard .f21-v2-modules-section .f21-module-grid,
-  .f21-dashboard .overview-tour-page .f21-v2-track-grid,
-  .f21-dashboard .overview-tour-page .f21-v2-list-hub {
+  .f21-dashboard .overview-tour-page .f21-v2-track-grid {
     display: flex;
     flex-wrap: nowrap;
     align-items: stretch;
@@ -476,30 +492,28 @@
   }
 
   .f21-dashboard .f21-v2-modules-section .f21-module-grid::-webkit-scrollbar,
-  .f21-dashboard .overview-tour-page .f21-v2-track-grid::-webkit-scrollbar,
-  .f21-dashboard .overview-tour-page .f21-v2-list-hub::-webkit-scrollbar {
+  .f21-dashboard .overview-tour-page .f21-v2-track-grid::-webkit-scrollbar {
     display: none;
   }
 
   .f21-dashboard .f21-v2-modules-section .f21-module-card,
-  .f21-dashboard .overview-tour-page .f21-v2-track-card,
-  .f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-panel {
+  .f21-dashboard .overview-tour-page .f21-v2-track-card {
     flex: 0 0 86%;
     width: 86%;
     max-width: 86%;
     min-width: 0;
-    grid-column: auto;
     scroll-snap-align: start;
   }
 
-  .f21-dashboard .overview-tour-page .f21-v2-list-hub.f21-snap-fit {
-    align-items: flex-start;
-    overflow-y: hidden;
-    transition: height 0.2s ease;
+  .f21-dashboard .overview-tour-page .f21-v2-list-hub {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
-  .f21-dashboard .overview-tour-page .f21-v2-list-hub.f21-snap-fit .f21-dash-list {
-    flex: 0 0 auto;
+  .f21-dashboard .overview-tour-page .f21-v2-list-hub .f21-dash-list-panel {
+    grid-column: 1;
+    width: auto;
+    max-width: none;
   }
 
   .f21-dashboard .f21-snap-dots {
@@ -544,8 +558,3 @@
   }
 }
 
-@media (max-width: 820px) and (prefers-reduced-motion: reduce) {
-  .f21-dashboard .overview-tour-page .f21-v2-list-hub.f21-snap-fit {
-    transition: none;
-  }
-}

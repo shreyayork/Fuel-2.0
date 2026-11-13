@@ -679,7 +679,7 @@ export function DashboardV2({
       {/* =====================================================================
           4 — List hub: Intelligence, Initiatives, Data room, Playbooks, Connectors
           ===================================================================== */}
-      <MobileSnap className="f21-v2-list-hub" label="Workspace lists" fitActive>
+      <div className="f21-v2-list-hub" aria-label="Workspace lists">
         <section className="f21-dash-list-panel f21-dash-list-panel--intel" aria-label="Latest intelligence">
           <DashListPanelHead title="Latest intelligence" />
           <div className="f21-dash-list">
@@ -815,7 +815,7 @@ export function DashboardV2({
           </div>
           <DashListPanelFoot label="Manage" onAction={onOpenConnectors} />
         </section>
-      </MobileSnap>
+      </div>
     </section>
   );
 }

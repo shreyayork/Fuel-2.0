@@ -4596,23 +4596,33 @@ html[data-f21-theme="dark"] .f21-dashboard .f21-skip-btn:hover {
   }
 
   .f21-topbar {
+    justify-content: flex-start;
     gap: 8px;
     padding: 0 12px;
   }
 
   .f21-breadcrumb {
+    flex: 1;
+    justify-content: flex-start;
     min-width: 0;
     overflow: hidden;
+    text-align: left;
   }
 
-  .f21-breadcrumb > span:first-child,
-  .f21-breadcrumb-sep {
-    display: none;
-  }
-
-  .f21-breadcrumb-current {
+  .f21-breadcrumb > span:first-child {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .f21-breadcrumb-sep,
+  .f21-breadcrumb-current {
+    flex-shrink: 0;
+  }
+
+  .f21-topbar-right {
+    margin-left: auto;
+    flex-shrink: 0;
   }
 
   .f21-content {
