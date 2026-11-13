@@ -4089,7 +4089,7 @@ function ResearchArtifactSidebar({
   artifact: ResearchArtifact;
   onClose: () => void;
 }) {
-  const title = researchRowTitle(artifact);
+  const title = artifact.typeLabel?.trim() || artifact.title;
   const [shellHost, setShellHost] = useState<Element | null>(null);
 
   useLayoutEffect(() => {
@@ -4117,7 +4117,6 @@ function ResearchArtifactSidebar({
             <span className="sc-drawer-eyebrow">Research</span>
             <strong className="sc-drawer-co">{title}</strong>
             <p className="research-artifact-sidebar-meta">
-              <span>{artifact.typeLabel}</span>
               <span>{researchAuthorLabel(artifact.authorEmail)}</span>
               <time dateTime={artifact.createdAt}>{formatResearchDisplayDate(artifact.createdAt)}</time>
             </p>
