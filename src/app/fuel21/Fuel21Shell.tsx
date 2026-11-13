@@ -283,7 +283,7 @@ export function Fuel21Shell({
           <div className="f21-topbar-right">
             <label className="f21-search">
               <Search size={14} strokeWidth={1.85} aria-hidden="true" />
-              <input type="search" placeholder="Search workspace" aria-label="Search workspace" />
+              <input type="search" placeholder="Search company" aria-label="Search company" />
               <kbd>⌘ K</kbd>
             </label>
             <button
