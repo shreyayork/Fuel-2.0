@@ -220,9 +220,13 @@ export function Fuel21Shell({
             type="button"
             className={`f21-nav-dashboard-item${activeNavId === "dashboard" ? " is-active" : ""}`}
             onClick={() => selectNav("dashboard")}
+            aria-label={`Dashboard, ${breadcrumbRoot}`}
           >
             <LayoutGrid size={15} strokeWidth={2} aria-hidden="true" className="f21-nav-item-icon" />
-            <span className="f21-nav-item-label">Dashboard</span>
+            <span className="f21-nav-dashboard-copy">
+              <span className="f21-nav-dashboard-kicker">Dashboard</span>
+              <span className="f21-nav-item-label">{breadcrumbRoot}</span>
+            </span>
           </button>
 
           {sections.map(section => (
