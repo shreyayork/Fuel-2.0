@@ -29,11 +29,11 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     id: "value-creation",
     label: "Value creation",
     items: [
-      { id: "context", label: "Context engine", badge: "4", badgeShape: "circle", targetNav: "context" },
-      { id: "intelligence", label: "Intelligence", badge: "5", badgeShape: "circle", targetNav: "dashboard", scrollTarget: ".f21-telemetry-panel" },
       { id: "initiatives", label: "Initiatives", badge: "3", badgeShape: "circle", targetNav: "dashboard", scrollTarget: ".f21-initiatives-panel" },
-      { id: "benchmarks", label: "Benchmarks", targetNav: "context" },
+      { id: "intelligence", label: "Intelligence", badge: "5", badgeShape: "circle", targetNav: "dashboard", scrollTarget: ".f21-telemetry-panel" },
       { id: "dataroom", label: "Data room", badge: "12", badgeShape: "pill", targetNav: "dashboard", scrollTarget: ".f21-dataroom-panel" },
+      { id: "context", label: "Context engine", badge: "4", badgeShape: "circle", targetNav: "context" },
+      { id: "benchmarks", label: "Benchmarks", targetNav: "context" },
     ],
   },
   {
