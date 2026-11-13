@@ -256,9 +256,14 @@
 
 .f21-ce-facts > div {
   padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--f21-inset);
+  border-radius: 10px;
+  background: rgba(10, 20, 28, 0.35);
+  border: 1px solid var(--panel-border, var(--f21-border));
   min-width: 0;
+}
+
+.f21-app[data-f21-theme="light"] .f21-ce-facts > div {
+  background: var(--wash);
 }
 
 .f21-ce-facts dt {
@@ -341,8 +346,13 @@
 
 .f21-ce-metrics > div {
   padding: 12px 14px;
-  border-radius: 8px;
-  background: var(--f21-inset);
+  border-radius: 10px;
+  background: rgba(10, 20, 28, 0.35);
+  border: 1px solid var(--panel-border, var(--f21-border));
+}
+
+.f21-app[data-f21-theme="light"] .f21-ce-metrics > div {
+  background: var(--wash);
 }
 
 .f21-ce-metrics dt {
