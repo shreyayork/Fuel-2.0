@@ -535,3 +535,66 @@
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* Upgrade dialog is themed for a dark surface. On white, those mint and gray
+   colors lose contrast, and the tab fill disappears. */
+html[data-theme="light"] .credit-upgrade-overlay {
+  background: rgba(40, 66, 86, 0.4);
+}
+
+html[data-theme="light"] .credit-upgrade-modal {
+  background: #ffffff;
+  border-color: #E4E8EC;
+  color: #274155;
+}
+
+html[data-theme="light"] .credit-upgrade-tabs button {
+  background: #ffffff;
+  border-color: #E4E8EC;
+  color: #274155;
+}
+
+html[data-theme="light"] .credit-upgrade-tabs button.active {
+  background: rgba(0, 180, 138, 0.1);
+  border-color: rgba(0, 180, 138, 0.45);
+  color: #274155;
+}
+
+html[data-theme="light"] .credit-upgrade-title,
+html[data-theme="light"] .credit-billing-option,
+html[data-theme="light"] .credit-topup-option,
+html[data-theme="light"] .credit-topup-option-head strong,
+html[data-theme="light"] .credit-topup-option-price {
+  color: #274155;
+}
+
+html[data-theme="light"] .credit-upgrade-subtitle,
+html[data-theme="light"] .credit-upgrade-includes,
+html[data-theme="light"] .credit-upgrade-footnote,
+html[data-theme="light"] .credit-topup-gate,
+html[data-theme="light"] .credit-topup-option-blurb,
+html[data-theme="light"] .credit-billing-label {
+  color: #3E5668;
+}
+
+html[data-theme="light"] .credit-billing-option,
+html[data-theme="light"] .credit-topup-option {
+  background: #ffffff;
+  border-color: #E4E8EC;
+}
+
+html[data-theme="light"] .credit-billing-sub,
+html[data-theme="light"] .credit-topup-option-credits,
+html[data-theme="light"] .credit-topup-badge.popular {
+  color: #008369;
+}
+
+html[data-theme="light"] .credit-topup-badge.discount {
+  color: #8A6A12;
+}
+
+html[data-theme="light"] .credit-upgrade-close {
+  background: #ffffff;
+  border-color: #E4E8EC;
+  color: #274155;
+}
