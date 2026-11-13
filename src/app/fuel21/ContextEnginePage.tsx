@@ -15,7 +15,17 @@ import {
 import { ConnectorBrandIcon, type ConnectorBrand } from "./BrandIcons.tsx";
 import { CONNECTORS, CONTEXT_ARTIFACTS, SOURCE_MATERIALS, type ContextTab } from "./demoData.ts";
 import { useFuel21DetailsDrawer } from "./Fuel21DetailsDrawer.tsx";
+import { OnboardingBenchmarkBar } from "../OnboardingFlow.tsx";
+import {
+  BENCHMARK_WIZARD_FIELDS,
+  formatBenchmarkDisplay,
+  getBenchmarkTier,
+  getBenchmarkTierStyle,
+  valueToMarkerPercent,
+} from "../FuelOnboardingChat.tsx";
+import { applyCohortPeersToField, loadBenchmarkCohortId } from "../benchmarkCohortData.ts";
 import { DETAIL_ANSWERS_CHANGE_EVENT, loadDetailAnswers } from "../ScorecardV2.tsx";
+import "./dashboard-v2.css";
 import {
   DETAIL_SECTIONS,
   getVisibleQuestions,
@@ -37,21 +47,6 @@ const FORMS: { id: FormId; label: string; title: string; icon: ReactNode }[] = [
   { id: "rev", label: "G&A", title: "General and administrative", icon: <Landmark size={14} strokeWidth={2} /> },
 ];
 
-const BENCHMARK_FIELDS: { key: string; label: string; unit: "millions" | "thousands" | "percent" | "months" | "multiple" | "count" }[] = [
-  { key: "arr", label: "Annual recurring revenue", unit: "millions" },
-  { key: "arrGrowth", label: "Revenue growth, year over year", unit: "percent" },
-  { key: "nrr", label: "Net revenue retention", unit: "percent" },
-  { key: "logoRetention", label: "Customer retention", unit: "percent" },
-  { key: "grossMargin", label: "Gross margin", unit: "percent" },
-  { key: "cacPayback", label: "Months to recover acquisition cost", unit: "months" },
-  { key: "burnMultiple", label: "Burn multiple", unit: "multiple" },
-  { key: "ruleOf40", label: "Rule of 40", unit: "percent" },
-  { key: "monthlyBurn", label: "Monthly burn", unit: "thousands" },
-  { key: "cashOnHand", label: "Cash on hand", unit: "thousands" },
-  { key: "headcount", label: "Headcount", unit: "count" },
-  { key: "payingCustomers", label: "Paying customers", unit: "count" },
-];
-
 const NOTE_TABS: ContextTab[] = ["manual", "files"];
 const EMPTY_ANSWERS: DetailAnswers = {};
 const MISSING_PREVIEW = 4;
@@ -67,26 +62,15 @@ function formatAnswer(question: DetailQuestion, value: string | undefined): stri
   return trimmed;
 }
 
-function formatMetric(unit: (typeof BENCHMARK_FIELDS)[number]["unit"], raw: string): string {
-  const value = raw.trim();
-  if (!value) return "";
-  const num = Number(value.replace(/[$,%x]/g, ""));
-  if (Number.isNaN(num)) return value;
-  switch (unit) {
-    case "millions":
-      return value.startsWith("$") ? value : `$${num}M`;
-    case "thousands":
-      if (value.startsWith("$")) return value;
-      return num >= 1000 ? `$${(num / 1000).toFixed(1)}M` : `$${num}K`;
-    case "percent":
-      return `${num}%`;
-    case "months":
-      return `${num} months`;
-    case "multiple":
-      return `${num}x`;
-    default:
-      return num.toLocaleString();
-  }
+/** Form stores ARR in millions and burn / cash in thousands. Cohort bars use dollars. */
+function benchmarkDollars(key: string, raw: string): number | null {
+  const cleaned = raw.replace(/[$,%x,\s]/gi, "").replace(/mo(nths?)?$/i, "");
+  if (!cleaned) return null;
+  const value = Number(cleaned);
+  if (!Number.isFinite(value)) return null;
+  if (key === "arr" && Math.abs(value) < 1000) return value * 1_000_000;
+  if ((key === "monthlyBurn" || key === "cashOnHand") && Math.abs(value) < 10_000) return value * 1_000;
+  return value;
 }
 
 function useDetailAnswers(companyName: string): DetailAnswers {
@@ -159,11 +143,13 @@ export function ContextEnginePage({
     [answers, profileFallback],
   );
 
-  const metrics = BENCHMARK_FIELDS.map(field => ({
-    ...field,
-    value: formatMetric(field.unit, String(benchmark[field.key] ?? "")),
-  }));
-  const metricsKnown = metrics.filter(m => m.value).length;
+  const cohortId = loadBenchmarkCohortId();
+  const metrics = BENCHMARK_WIZARD_FIELDS.map(template => {
+    const numeric = benchmarkDollars(template.key, String(benchmark[template.key] ?? ""));
+    const field = applyCohortPeersToField(template, cohortId);
+    return { template, field, numeric };
+  });
+  const metricsKnown = metrics.filter(metric => metric.numeric != null).length;
 
   const notes = SOURCE_MATERIALS.filter(item => NOTE_TABS.includes(item.tab));
   const connectorItems = (id: ConnectorId) => SOURCE_MATERIALS.filter(item => item.tab === id);
@@ -285,14 +271,48 @@ export function ContextEnginePage({
               Update metrics
             </button>
           </header>
-          <dl className="f21-ce-metrics">
-            {metrics.map(m => (
-              <div key={m.key} className={m.value ? "" : "is-empty"}>
-                <dt>{m.label}</dt>
-                <dd>{m.value || "Not added"}</dd>
-              </div>
-            ))}
-          </dl>
+          <div className="f21-telemetry-benchmark-list">
+            {metrics.map(({ template, field, numeric }) => {
+              const display =
+                numeric != null ? formatBenchmarkDisplay(numeric, template.unit) : "Not added";
+              const marker = numeric != null && field ? valueToMarkerPercent(numeric, field) : null;
+              const tierStyle =
+                numeric != null && field ? getBenchmarkTierStyle(getBenchmarkTier(numeric, field)) : null;
+              return (
+                <div key={template.key} className="f21-telemetry-benchmark-row">
+                  <div className="f21-telemetry-benchmark-row-head">
+                    <span className="f21-telemetry-label">{field?.label ?? template.label}</span>
+                    <span className="f21-telemetry-val is-inline">{display}</span>
+                  </div>
+                  {field ? (
+                    <div className="f21-telemetry-benchmark-track">
+                      <OnboardingBenchmarkBar
+                        field={field}
+                        dotPct={marker}
+                        dotColorValue={tierStyle?.marker ?? "var(--f21-accent)"}
+                        glow="none"
+                        dotHalfPx={5}
+                      />
+                      <div className="ob-bench-bar-labels ob-bench-bar-labels--equal f21-telemetry-benchmark-scale">
+                        {([
+                          { l: "P25", v: field.p25 },
+                          { l: "P50", v: field.p50 },
+                          { l: "P75", v: field.p75 },
+                          { l: "P90", v: field.p90 },
+                        ] as const).map(p => (
+                          <span key={p.l}>
+                            {p.l} {formatBenchmarkDisplay(p.v, field.unit)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="f21-ce-empty">Not in this peer group</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </>
       );
     }
