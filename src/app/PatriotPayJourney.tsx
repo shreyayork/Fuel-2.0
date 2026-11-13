@@ -13344,7 +13344,11 @@ function PatriotPayJourneyInner({
                 meta: researchBodyPreview(artifact.body),
               }))}
               onGenerateBrief={openGenerateBrief}
-              onBrowsePlaybooks={openBrowsePlaybooks}
+              onRunPlaybook={playbook => {
+                setPendingPlaybook(playbook);
+                setPlaybookFocusSignal(signal => signal + 1);
+                setAskFuelOpen(true);
+              }}
               onOpenArtifact={id => {
                 const artifact = researchArtifacts.find(item => item.id === id);
                 if (artifact) setSelectedResearchArtifact(artifact);

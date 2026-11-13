@@ -264,6 +264,15 @@
   gap: 8px;
 }
 
+.f21-ce-playbook-menu.afc-pb {
+  position: fixed;
+  bottom: auto;
+  left: auto;
+  inset-inline: auto;
+  width: min(440px, calc(100vw - 32px));
+  z-index: 80;
+}
+
 .f21-ce-artifact {
   width: 100%;
   display: flex;

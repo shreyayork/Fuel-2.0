@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   BarChart3,
   Building2,
@@ -24,6 +25,8 @@ import {
   valueToMarkerPercent,
 } from "../FuelOnboardingChat.tsx";
 import { applyCohortPeersToField, loadBenchmarkCohortId } from "../benchmarkCohortData.ts";
+import { PLAYBOOK_COUNT, PLAYBOOKS, type Playbook } from "../fuelBrief.ts";
+import { FuelIcon } from "../icons.tsx";
 import { DETAIL_ANSWERS_CHANGE_EVENT, loadDetailAnswers } from "../ScorecardV2.tsx";
 import "./dashboard-v2.css";
 import {
@@ -117,7 +120,7 @@ export function ContextEnginePage({
   benchmark = {},
   profileFallback = EMPTY_ANSWERS,
   onGenerateBrief,
-  onBrowsePlaybooks,
+  onRunPlaybook,
   onOpenArtifact,
 }: {
   artifacts?: ContextEngineArtifact[];
@@ -126,7 +129,7 @@ export function ContextEnginePage({
   /** Public company details shown until the founder saves their own profile answers. */
   profileFallback?: DetailAnswers;
   onGenerateBrief?: () => void;
-  onBrowsePlaybooks?: () => void;
+  onRunPlaybook?: (playbook: Playbook) => void;
   onOpenArtifact?: (id: string) => void;
 } = {}) {
   const { openDrawer, openContextDrawer } = useFuel21DetailsDrawer();
@@ -135,6 +138,64 @@ export function ContextEnginePage({
   const [active, setActive] = useState<SourceId>("profile");
   const [query, setQuery] = useState("");
   const [showAllMissing, setShowAllMissing] = useState(false);
+  const [playbooksOpen, setPlaybooksOpen] = useState(false);
+  const [playbookQuery, setPlaybookQuery] = useState("");
+  const playbookButtonRef = useRef<HTMLButtonElement>(null);
+  const playbookMenuRef = useRef<HTMLDivElement>(null);
+  const [playbookMenuBox, setPlaybookMenuBox] = useState<{ top: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!playbooksOpen) return;
+    const place = () => {
+      const rect = playbookButtonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setPlaybookMenuBox({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    };
+    place();
+    window.addEventListener("resize", place);
+    document.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      document.removeEventListener("scroll", place, true);
+    };
+  }, [playbooksOpen]);
+
+  useEffect(() => {
+    if (!playbooksOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (playbookButtonRef.current?.contains(target) || playbookMenuRef.current?.contains(target)) return;
+      setPlaybooksOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlaybooksOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [playbooksOpen]);
+
+  const playbookGroups = useMemo(() => {
+    const q = playbookQuery.trim().toLowerCase();
+    const filtered = PLAYBOOKS.filter(playbook =>
+      !q
+      || playbook.name.toLowerCase().includes(q)
+      || playbook.description.toLowerCase().includes(q)
+      || playbook.category.toLowerCase().includes(q),
+    );
+    const grouped: Record<string, Playbook[]> = {};
+    filtered.forEach(playbook => { (grouped[playbook.category] ||= []).push(playbook); });
+    return grouped;
+  }, [playbookQuery]);
+
+  const runPlaybook = (playbook: Playbook) => {
+    setPlaybooksOpen(false);
+    setPlaybookQuery("");
+    onRunPlaybook?.(playbook);
+  };
 
   const forms = useMemo(
     () =>
@@ -389,7 +450,14 @@ export function ContextEnginePage({
                 ) : null}
                 {active === "artifacts" ? (
                   <>
-                    <button type="button" className="f21-btn f21-btn-secondary" onClick={onBrowsePlaybooks}>
+                    <button
+                      ref={playbookButtonRef}
+                      type="button"
+                      className="f21-btn f21-btn-secondary"
+                      aria-expanded={playbooksOpen}
+                      aria-haspopup="dialog"
+                      onClick={() => setPlaybooksOpen(open => !open)}
+                    >
                       Browse playbooks
                     </button>
                     <button type="button" className="f21-btn f21-btn-primary" onClick={onGenerateBrief}>
@@ -525,6 +593,51 @@ export function ContextEnginePage({
 
         <section className="f21-panel f21-ce-panel">{renderPanel()}</section>
       </div>
+      {playbooksOpen && playbookMenuBox
+        ? createPortal(
+          <div
+            ref={playbookMenuRef}
+            className="afc-pb f21-ce-playbook-menu"
+            role="dialog"
+            aria-label="Playbooks"
+            style={{ top: playbookMenuBox.top, right: playbookMenuBox.right }}
+          >
+            <div className="afc-pb-search-wrap">
+              <FuelIcon name="search" size={14} className="afc-pb-search-ic" />
+              <input
+                className="afc-pb-search"
+                autoFocus
+                placeholder={`Search ${PLAYBOOK_COUNT} playbooks…`}
+                value={playbookQuery}
+                onChange={event => setPlaybookQuery(event.target.value)}
+              />
+            </div>
+            <div className="afc-pb-list">
+              {Object.keys(playbookGroups).length === 0 ? (
+                <div className="afc-pb-none">No playbooks match “{playbookQuery}”.</div>
+              ) : Object.entries(playbookGroups).map(([category, items]) => (
+                <div key={category} className="afc-pb-group">
+                  <div className="afc-pb-cat">{category.toUpperCase()}</div>
+                  {items.map(playbook => (
+                    <button key={playbook.id} type="button" className="afc-pb-item" onClick={() => runPlaybook(playbook)}>
+                      <div className="afc-pb-item-head">
+                        <span className="afc-pb-name">{playbook.name}</span>
+                        <span className="afc-pb-kind">{playbook.kind}</span>
+                      </div>
+                      <div className="afc-pb-desc">{playbook.description}</div>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="afc-pb-foot">
+              <span>Click to generate intelligence for {companyName}</span>
+              <span className="afc-pb-catalog">Full catalog →</span>
+            </div>
+          </div>,
+          document.body,
+        )
+        : null}
     </div>
   );
 }
