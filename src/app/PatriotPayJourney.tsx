@@ -6295,14 +6295,14 @@ function SignalsPage({
             ) : null}
             <button
               type="button"
-              className={`initiatives-secondary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
+              className={`initiatives-primary-btn${activeTourTarget === "log-intelligence" ? " tour-highlight" : ""}`}
               data-tour-target={activeTourTarget === "log-intelligence" ? "log-intelligence" : undefined}
               onClick={() => setShowLogForm(true)}
             >
               Log intelligence
             </button>
             {!showBenchmarkGatePanel ? (
-              <button type="button" className="initiatives-secondary-btn" onClick={openBenchmarkDrawer}>
+              <button type="button" className="initiatives-primary-btn" onClick={openBenchmarkDrawer}>
                 Update benchmark
               </button>
             ) : null}
