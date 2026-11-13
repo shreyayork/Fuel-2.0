@@ -37,6 +37,7 @@ import { DashboardPage } from "./fuel21/DashboardPage.tsx";
 import { ContextEnginePage } from "./fuel21/ContextEnginePage.tsx";
 import { BenchmarkReportPage } from "./fuel21/BenchmarkReportPage.tsx";
 import { FounderInvestorsPage } from "./fuel21/FounderInvestorsPage.tsx";
+import { FounderPlaybooksPage } from "./fuel21/FounderPlaybooksPage.tsx";
 import {
   Fuel21DetailsDrawerProvider,
   type Fuel21DrawerRequest,
@@ -13198,7 +13199,7 @@ function PatriotPayJourneyInner({
         openFounderPage("data-room");
         return;
       case "playbooks":
-        openBrowsePlaybooks();
+        openFounderPage("playbooks");
         return;
       case "advisors":
         openFounderPage("advisors");
@@ -13273,7 +13274,8 @@ function PatriotPayJourneyInner({
         : activePage === "signals" || activePage === "context-feed" || activePage === "signals-loading" ? "intelligence"
           : activePage === "initiatives" ? "initiatives"
             : activePage === "data-room" ? "dataroom"
-              : activePage === "advisors" ? "advisors"
+              : activePage === "playbooks" ? "playbooks"
+                : activePage === "advisors" ? "advisors"
                 : activePage === "investor-watchlists" ? founderNetworkNav
                   : onFounderProfilePage
                     ? founderProfileSectionTab === "about-company" || activePage === "public-profile" ? "blog" : "public-profile"
@@ -13285,6 +13287,7 @@ function PatriotPayJourneyInner({
       : shellActiveNavId === "intelligence" ? "Intelligence"
         : activePage === "initiatives" ? "Initiatives"
           : activePage === "data-room" ? "Data room"
+            : activePage === "playbooks" ? "Playbooks"
             : activePage === "research" ? "Research"
               : activePage === "investor-watchlists" ? (founderNetworkNav === "investors" ? "Investors" : "Watchlist")
                 : onFounderProfilePage ? (shellActiveNavId === "blog" ? "Blog" : "Public profile")
@@ -13326,8 +13329,22 @@ function PatriotPayJourneyInner({
                 openFounderPage("initiatives");
               }}
               onOpenDataRoom={() => openFounderPage("data-room")}
-              onOpenPlaybooks={openBrowsePlaybooks}
+              onOpenPlaybooks={() => openFounderPage("playbooks")}
               onOpenConnectors={() => openFounderPage("context-engine")}
+            />
+          ) : activePage === "playbooks" && usesFuelShell ? (
+            <FounderPlaybooksPage
+              onRun={playbook => {
+                setLastPlaybook({
+                  name: playbook.name,
+                  kind: playbook.kind,
+                  description: playbook.description,
+                  category: playbook.category,
+                });
+                setPendingPlaybook(playbook);
+                setPlaybookFocusSignal(signal => signal + 1);
+                setAskFuelOpen(true);
+              }}
             />
           ) : activePage === "investor-watchlists" && usesFuelShell && founderNetworkNav === "investors" ? (
             <FounderInvestorsPage />
