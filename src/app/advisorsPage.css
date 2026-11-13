@@ -659,6 +659,129 @@
   padding: 12px 14px;
 }
 
+html[data-theme="light"] .advisors-page-head h1,
+html[data-theme="light"] .advisors-card-copy strong,
+html[data-theme="light"] .advisors-profile-copy h2,
+html[data-theme="light"] .advisors-result-copy strong,
+html[data-theme="light"] .advisors-suggest-title strong,
+html[data-theme="light"] .advisors-company-tag strong,
+html[data-theme="light"] .advisors-facts strong,
+html[data-theme="light"] .advisors-empty h2,
+html[data-theme="light"] .advisors-search input,
+html[data-theme="light"] .advisors-field input,
+html[data-theme="light"] .advisors-typeahead > input {
+  color: #274155;
+}
+
+html[data-theme="light"] .advisors-page-head p,
+html[data-theme="light"] .advisors-empty p,
+html[data-theme="light"] .advisors-suggest-desc,
+html[data-theme="light"] .advisors-check,
+html[data-theme="light"] .advisors-scrape-note,
+html[data-theme="light"] .advisors-helper,
+html[data-theme="light"] .advisors-chip,
+html[data-theme="light"] .advisors-banner,
+html[data-theme="light"] .overview-panel.advisors-card > .advisors-count {
+  color: #3E5668;
+}
+
+html[data-theme="light"] .advisors-card-copy em,
+html[data-theme="light"] .advisors-result-copy em,
+html[data-theme="light"] .advisors-profile-copy p,
+html[data-theme="light"] .advisors-suggest-title em,
+html[data-theme="light"] .advisors-suggest-meta,
+html[data-theme="light"] .advisors-field span,
+html[data-theme="light"] .advisors-linkedin-note,
+html[data-theme="light"] .advisors-company-tag em,
+html[data-theme="light"] .advisors-facts em {
+  color: #667987;
+}
+
+html[data-theme="light"] .advisors-page-actions .secondary,
+html[data-theme="light"] .advisors-result-actions .secondary,
+html[data-theme="light"] .advisors-card-actions .secondary,
+html[data-theme="light"] .advisors-enhance-btn {
+  background: #ffffff;
+  border-color: #E4E8EC;
+  color: #274155;
+}
+
+html[data-theme="light"] .advisors-page-actions .secondary:hover,
+html[data-theme="light"] .advisors-result-actions .secondary:hover,
+html[data-theme="light"] .advisors-card-actions .secondary:hover,
+html[data-theme="light"] .advisors-enhance-btn:hover:not(:disabled) {
+  background: #F8FAFC;
+  border-color: #274155;
+  color: #274155;
+}
+
+html[data-theme="light"] .advisors-page-actions .primary,
+html[data-theme="light"] .advisors-result-actions .primary,
+html[data-theme="light"] .advisors-card-actions .primary {
+  background: #274155;
+  border-color: #274155;
+  color: #ffffff;
+}
+
+html[data-theme="light"] .advisors-page-actions .primary:hover,
+html[data-theme="light"] .advisors-result-actions .primary:hover,
+html[data-theme="light"] .advisors-card-actions .primary:hover {
+  background: #1c3142;
+  border-color: #1c3142;
+}
+
+html[data-theme="light"] .advisors-card:hover {
+  border-color: #274155;
+}
+
+html[data-theme="light"] .advisors-avatar {
+  color: #ffffff;
+}
+
+html[data-theme="light"] .advisors-search,
+html[data-theme="light"] .advisors-typeahead-input,
+html[data-theme="light"] .advisors-field input,
+html[data-theme="light"] .advisors-typeahead > input,
+html[data-theme="light"] .advisors-result,
+html[data-theme="light"] .advisors-company-tag,
+html[data-theme="light"] .advisors-chip,
+html[data-theme="light"] .advisors-banner,
+html[data-theme="light"] .advisors-card-badge.is-linked {
+  background: #F4F6F8;
+  border-color: #E4E8EC;
+  color: #274155;
+}
+
+html[data-theme="light"] .advisors-card-badge.is-active {
+  color: #008369;
+}
+
+html[data-theme="light"] .advisors-card-badge.is-invited {
+  color: #8A6A12;
+}
+
+html[data-theme="light"] .advisors-suggest-panel {
+  background: #ffffff;
+  border-color: #E4E8EC;
+  box-shadow: 0 10px 28px rgba(26, 35, 50, 0.08);
+}
+
+html[data-theme="light"] .advisors-suggest-item {
+  border-bottom-color: #E4E8EC;
+}
+
+html[data-theme="light"] .advisors-suggest-item.is-active,
+html[data-theme="light"] .advisors-suggest-item:hover,
+html[data-theme="light"] .advisors-card-menu-trigger:hover,
+html[data-theme="light"] .advisors-card-menu-panel button:hover {
+  background: rgba(39, 65, 85, 0.06);
+}
+
+html[data-theme="light"] .advisors-field input:focus,
+html[data-theme="light"] .advisors-typeahead > input:focus {
+  border-color: #274155;
+}
+
 @media (max-width: 720px) {
   .advisors-page-head {
     align-items: stretch;
