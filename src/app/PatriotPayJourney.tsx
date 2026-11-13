@@ -13241,8 +13241,7 @@ function PatriotPayJourneyInner({
         openFounderPage("profile");
         return;
       case "blog":
-        setFounderProfileSectionTab("about-company");
-        openFounderPage("profile");
+        openFounderPage("public-profile");
         return;
     }
   };
@@ -13277,8 +13276,7 @@ function PatriotPayJourneyInner({
         return;
       case "blog":
         requestShellDrawer("close");
-        setFounderProfileSectionTab("about-company");
-        openFounderPage("profile");
+        openFounderPage("public-profile");
         return;
       case "help":
         requestShellDrawer("close");
