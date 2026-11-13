@@ -7700,17 +7700,42 @@ html[data-theme="light"] .fuel-help-item {
 }
 
 .research-artifact-sidebar-meta {
-  align-items: center;
-  color: var(--panel-muted);
+  color: var(--text-3);
   display: flex;
   flex-wrap: wrap;
-  font-size: 11px;
-  gap: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 450;
+  gap: 4px 10px;
+  line-height: 1.45;
+  margin: 6px 0 0;
 }
 
 .research-artifact-sidebar-meta time {
-  color: var(--panel-muted);
-  font-size: 11px;
+  color: inherit;
+  font-size: inherit;
+}
+
+.research-artifact-sidebar-meta span + span::before,
+.research-artifact-sidebar-meta time::before {
+  content: "·";
+  margin-right: 10px;
+}
+
+.research-artifact-copy {
+  color: var(--panel-body);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+.research-artifact-copy p {
+  margin: 0 0 10px;
+}
+
+.research-artifact-sidebar .research-card-subject {
+  color: var(--text-3);
+  font-size: 12.5px;
+  margin: 4px 0 0;
 }
 
 /* Initiatives / Research / Data Room — list panel (matches Intelligence board) */

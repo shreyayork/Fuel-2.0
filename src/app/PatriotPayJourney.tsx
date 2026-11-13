@@ -4090,6 +4090,11 @@ function ResearchArtifactSidebar({
   onClose: () => void;
 }) {
   const title = researchRowTitle(artifact);
+  const [shellHost, setShellHost] = useState<Element | null>(null);
+
+  useLayoutEffect(() => {
+    setShellHost(document.querySelector(".f21-app"));
+  }, []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -4099,24 +4104,30 @@ function ResearchArtifactSidebar({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
-    <>
-      <button className="context-sidebar-scrim" aria-label="Close research" onClick={onClose} />
-      <aside className="document-history-sidebar research-artifact-sidebar">
-        <div className="provenance-head">
+  const drawer = (
+    <div className="sc-drawer-scrim" onClick={onClose}>
+      <aside
+        className="sc-drawer research-artifact-sidebar"
+        onClick={event => event.stopPropagation()}
+        role="dialog"
+        aria-label={title}
+      >
+        <header className="sc-drawer-head">
           <div>
-            <span className="document-history-sidebar-label">Research</span>
-            <strong>{title}</strong>
+            <span className="sc-drawer-eyebrow">Research</span>
+            <strong className="sc-drawer-co">{title}</strong>
+            <p className="research-artifact-sidebar-meta">
+              <span>{artifact.typeLabel}</span>
+              <span>{researchAuthorLabel(artifact.authorEmail)}</span>
+              <time dateTime={artifact.createdAt}>{formatResearchDisplayDate(artifact.createdAt)}</time>
+            </p>
           </div>
-          <button type="button" onClick={onClose}>Close · Esc</button>
-        </div>
-        <div className="document-history-sidebar-body research-artifact-sidebar-body">
-          <div className="research-artifact-sidebar-meta">
-            <span className="research-type-badge">{artifact.typeLabel}</span>
-            <span>{researchAuthorLabel(artifact.authorEmail)}</span>
-            <time dateTime={artifact.createdAt}>{formatResearchDisplayDate(artifact.createdAt)}</time>
-          </div>
-          <div className="research-card-body">
+          <button type="button" className="sc-drawer-x" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </header>
+        <div className="sc-drawer-body research-artifact-sidebar-body">
+          <div className="research-artifact-copy">
             {artifact.body.split("\n").map((line, index) => (
               line.trim() ? <p key={index}>{line}</p> : <br key={index} />
             ))}
@@ -4126,8 +4137,11 @@ function ResearchArtifactSidebar({
           ) : null}
         </div>
       </aside>
-    </>
+    </div>
   );
+
+  if (shellHost) return createPortal(drawer, shellHost);
+  return drawer;
 }
 
 function DocumentHistorySidebar({
