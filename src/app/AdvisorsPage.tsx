@@ -783,6 +783,7 @@ export function AdvisorsPage({
               onClick={() => openProfile(advisor.id)}
             >
               <div className="advisors-card-top">
+                <AdvisorAvatar advisor={advisor} />
                 <div className="advisors-card-copy">
                   <strong>{advisor.name}</strong>
                   <em title={[advisor.title, advisor.company].filter(Boolean).join(" · ")}>
