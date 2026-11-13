@@ -400,6 +400,10 @@
   grid-template-columns: 28px minmax(0, 1fr);
 }
 
+.f21-ce-item.is-plain {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .f21-ce-item + .f21-ce-item {
   border-top: 1px solid var(--f21-border-soft);
 }

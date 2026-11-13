@@ -178,26 +178,37 @@ export function ContextEnginePage({
 
   const matches = (text: string) => !query.trim() || text.toLowerCase().includes(query.trim().toLowerCase());
 
-  const renderMaterialList = (items: typeof SOURCE_MATERIALS, empty: string) => {
-    const shown = items.filter(item => matches(`${item.title} ${item.meta} ${item.intelligence}`));
+  const renderMaterialList = (items: typeof SOURCE_MATERIALS, empty: string, connector = false) => {
+    const shown = items.filter(item =>
+      matches(connector ? `${item.title} ${item.detail.summary}` : `${item.title} ${item.meta} ${item.intelligence}`),
+    );
     if (!shown.length) return <p className="f21-ce-empty">{query ? "Nothing matches that search." : empty}</p>;
     return (
       <ul className="f21-ce-items">
-        {shown.map(item => (
-          <li key={item.id} className="f21-ce-item">
-            <span className={`f21-source-icon brand-${item.tab}`} data-tab={item.tab}>
-              <SourceGlyph tab={item.tab} />
-            </span>
-            <div className="f21-ce-item-main">
-              <strong>{item.title}</strong>
-              <span>{item.meta}</span>
-            </div>
-            <div className="f21-ce-item-learned">
-              <span className="f21-ce-label">Fuel learned</span>
-              <strong>{item.intelligence}</strong>
-            </div>
-          </li>
-        ))}
+        {shown.map(item =>
+          connector ? (
+            <li key={item.id} className="f21-ce-item is-plain">
+              <div className="f21-ce-item-main">
+                <strong>{item.title}</strong>
+                <span>{item.detail.summary}</span>
+              </div>
+            </li>
+          ) : (
+            <li key={item.id} className="f21-ce-item">
+              <span className={`f21-source-icon brand-${item.tab}`} data-tab={item.tab}>
+                <SourceGlyph tab={item.tab} />
+              </span>
+              <div className="f21-ce-item-main">
+                <strong>{item.title}</strong>
+                <span>{item.meta}</span>
+              </div>
+              <div className="f21-ce-item-learned">
+                <span className="f21-ce-label">Fuel learned</span>
+                <strong>{item.intelligence}</strong>
+              </div>
+            </li>
+          ),
+        )}
       </ul>
     );
   };
@@ -396,7 +407,7 @@ export function ContextEnginePage({
               );
             })()
           ) : activeConnector ? (
-            renderMaterialList(connectorItems(activeConnector.id), "Nothing synced yet.")
+            renderMaterialList(connectorItems(activeConnector.id), "Nothing synced yet.", true)
           ) : null}
         </>
       );
