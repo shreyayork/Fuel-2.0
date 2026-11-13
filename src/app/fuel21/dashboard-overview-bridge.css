@@ -57,8 +57,8 @@
 }
 
 .f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-section.f21-complete-profile-panel {
-  background: #00B48A;
-  border-color: rgba(4, 32, 24, 0.12);
+  background: #F4F6F8;
+  border-color: #E4E8EC;
 }
 
 /* Calmer section headers — drop icon chips, overview-style weight */
@@ -152,7 +152,7 @@
   transform: none;
 }
 
-/* Light strip (#00B48A): white tiles, dark type, accent #00B48A */
+/* Light gray strip: white tiles, dark type */
 .f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-section.f21-complete-profile-panel .f21-module-card {
   background: #ffffff;
   border-color: rgba(4, 32, 24, 0.1);
@@ -343,14 +343,14 @@
 }
 
 .f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-head-with-icon {
-  color: #ffffff;
+  color: var(--f21-dash-ink);
 }
 
 .f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-complete-profile-panel .f21-section-hint {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--f21-text-muted, #667987);
 }
 
-/* Skip sits on #00B48A — navy fill so it stays a button */
+/* Skip stays a filled button on the gray panel */
 .f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-head .f21-skip-btn.f21-ghost-btn {
   background: #274155;
   border: none;
@@ -549,12 +549,5 @@
     background: var(--f21-text, #274155);
   }
 
-  .f21-app[data-f21-theme="light"] .f21-dashboard .f21-complete-profile-panel .f21-snap-dots button::before {
-    background: rgba(255, 255, 255, 0.5);
-  }
-
-  .f21-app[data-f21-theme="light"] .f21-dashboard .f21-complete-profile-panel .f21-snap-dots button.is-active::before {
-    background: #ffffff;
-  }
 }
 

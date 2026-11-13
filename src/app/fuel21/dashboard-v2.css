@@ -1078,8 +1078,8 @@
 }
 
 .f21-app[data-f21-theme="light"] .f21-v2-modules-section.f21-complete-profile-panel {
-  background: #00B48A;
-  border-color: rgba(4, 32, 24, 0.12);
+  background: #F4F6F8;
+  border-color: #E4E8EC;
 }
 
 .f21-v2-modules-section {
@@ -1163,11 +1163,11 @@
 }
 
 .f21-app[data-f21-theme="light"] .f21-v2-modules-section.f21-complete-profile-panel .f21-section-hint {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--f21-text-muted, #667987);
 }
 
 .f21-app[data-f21-theme="light"] .f21-v2-modules-section.f21-complete-profile-panel .f21-head-with-icon {
-  color: #ffffff;
+  color: var(--f21-text, #274155);
 }
 
 .f21-app[data-f21-theme="light"] .f21-v2-modules-section.f21-complete-profile-panel .f21-module-icon-wrap {
