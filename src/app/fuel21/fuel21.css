@@ -4483,7 +4483,6 @@ html[data-theme="light"][data-f21-theme="light"] .profile-complete-drawer .profi
 
 /* One size for action buttons inside the shell. Icon buttons and nav stay as they are. */
 html[data-theme][data-f21-theme] .f21-btn,
-html[data-theme][data-f21-theme] .f21-topbar-ai-btn,
 html[data-theme][data-f21-theme] .header-btn,
 html[data-theme][data-f21-theme] .initiatives-primary-btn,
 html[data-theme][data-f21-theme] .initiatives-secondary-btn,
@@ -4509,7 +4508,6 @@ html[data-theme][data-f21-theme] .header-tour-coachmark button,
 html[data-theme][data-f21-theme] .investor-suggested-primary,
 html[data-theme][data-f21-theme] .profile-complete-drawer .sc-drawer-btn,
 html[data-theme][data-f21-theme] .f21-skip-btn,
-html[data-theme][data-f21-theme] .f21-v2-btn-view-summary,
 html[data-theme][data-f21-theme] .f21-v2-btn-brief,
 html[data-theme][data-f21-theme] .afc-suggest-btn,
 html[data-theme][data-f21-theme] .afc-chip,
@@ -4527,49 +4525,6 @@ html[data-theme][data-f21-theme] .journey-soft-btn {
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1;
-}
-
-/* Light surfaces use navy. Dark surfaces keep the shell green. */
-html[data-f21-theme="light"] .f21-topbar-ai-btn,
-html[data-f21-theme="light"] .f21-v2-btn-view-summary,
-html[data-f21-theme="light"] .f21-v2-btn-brief {
-  background: #274155;
-  background-image: none;
-  color: #ffffff;
-  border: 1px solid #274155;
-  box-shadow: none;
-}
-
-html[data-f21-theme="light"] .f21-topbar-ai-btn:hover,
-html[data-f21-theme="light"] .f21-v2-btn-view-summary:hover,
-html[data-f21-theme="light"] .f21-v2-btn-brief:hover {
-  background: #1c3142;
-  background-image: none;
-  border-color: #1c3142;
-  color: #ffffff;
-  filter: none;
-  box-shadow: none;
-}
-
-html[data-f21-theme="dark"] .f21-app .f21-topbar-ai-btn,
-html[data-f21-theme="dark"] .f21-app .f21-v2-btn-view-summary,
-html[data-f21-theme="dark"] .f21-app .f21-v2-btn-brief {
-  background: #00B48A;
-  background-image: none;
-  color: #042018;
-  border: 1px solid #00B48A;
-  box-shadow: none;
-}
-
-html[data-f21-theme="dark"] .f21-app .f21-topbar-ai-btn:hover,
-html[data-f21-theme="dark"] .f21-app .f21-v2-btn-view-summary:hover,
-html[data-f21-theme="dark"] .f21-app .f21-v2-btn-brief:hover {
-  background: #009E6D;
-  background-image: none;
-  border-color: #009E6D;
-  color: #042018;
-  filter: none;
-  box-shadow: none;
 }
 
 html[data-f21-theme="dark"] .f21-dashboard .f21-skip-btn {

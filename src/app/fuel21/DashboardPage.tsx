@@ -1,6 +1,5 @@
 import { Settings2 } from "lucide-react";
 import { DashboardV2, type DashboardV2Actions } from "./DashboardV2.tsx";
-import { dashboardGreetingLine } from "./fuel21Greeting.ts";
 import "./dashboard-craft.css";
 import "./dashboard-v2.css";
 import "./dashboard-overview-bridge.css";
@@ -8,18 +7,19 @@ import "./dashboard-list-panels.css";
 import "../PatriotPayJourney.css";
 
 export function DashboardPage({
-  userName,
+  companyName,
   onUpdateBenchmarks,
   ...actions
 }: DashboardV2Actions & {
-  userName: string;
+  companyName: string;
   onUpdateBenchmarks: () => void;
 }) {
   return (
     <div className="f21-page f21-dashboard f21-dashboard-v2-page">
       <header className="f21-page-head">
         <div>
-          <h1>{dashboardGreetingLine(userName)}</h1>
+          <p className="f21-dash-kicker">Dashboard</p>
+          <h1>{companyName}</h1>
           <p className="f21-lede">Your company performance, cohort benchmarks, and strategic roadmap.</p>
         </div>
 

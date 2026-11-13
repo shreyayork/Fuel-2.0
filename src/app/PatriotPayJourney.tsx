@@ -13306,7 +13306,7 @@ function PatriotPayJourneyInner({
             />
           ) : activePage === "scorecard-v2" && !scorecardEntry && !usesPerCompanyWorkspace ? (
             <DashboardPage
-              userName="Shreya Gokani"
+              companyName={FOUNDER_COMPANY.displayName}
               onUpdateBenchmarks={() => requestShellDrawer("benchmark")}
               onOpenTrack={track => setScorecardEntry({
                 view: track === "rd" ? "dev" : track === "gtm" ? "mkt" : "rev",

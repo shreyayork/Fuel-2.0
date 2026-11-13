@@ -10,6 +10,16 @@
   padding: 0;
 }
 
+.f21-dashboard .f21-dash-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--f21-text-muted, #667085);
+}
+
 .f21-dashboard .f21-page-head h1,
 .f21-dashboard .f21-v2-main-title {
   font-size: 24px;
