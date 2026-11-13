@@ -603,7 +603,7 @@ export function AskFuelChatDrawer({
   onRecordResearch,
   onViewInitiatives,
   focusBriefSignal,
-  openPlaybooksSignal = 0,
+  chatSignal = 0,
   focusPlaybook,
   focusPlaybookSignal,
   benchmarkSubmitSignal = 0,
@@ -625,7 +625,8 @@ export function AskFuelChatDrawer({
   onRecordResearch?: (payload: { typeLabel: string; body: string }) => void;
   onViewInitiatives: () => void;
   focusBriefSignal: number;
-  openPlaybooksSignal?: number;
+  /** Bumped when Playbooks should open the chat, not the full catalog. */
+  chatSignal?: number;
   focusPlaybook?: Playbook | null;
   focusPlaybookSignal?: number;
   /** Bumped after benchmark metrics are submitted while Ask Fuel is open. */
@@ -640,7 +641,7 @@ export function AskFuelChatDrawer({
   const dialogRef = useRef<HTMLElement>(null);
   const lastFocus = useRef(0);
   const lastPbFocus = useRef(0);
-  const lastOpenPlaybooks = useRef(0);
+  const lastChat = useRef(0);
   const lastBenchSubmit = useRef(0);
   const busyRef = useRef(false);
   const benchmarkReady = hasBenchmark || hasBenchmarkMetrics(benchmark);
@@ -678,11 +679,11 @@ export function AskFuelChatDrawer({
   };
 
   useEffect(() => {
-    if (open && openPlaybooksSignal && openPlaybooksSignal !== lastOpenPlaybooks.current) {
-      lastOpenPlaybooks.current = openPlaybooksSignal;
-      setPlaybooksOpen(true);
-    }
-  }, [open, openPlaybooksSignal]);
+    if (!open || !chatSignal || chatSignal === lastChat.current) return;
+    lastChat.current = chatSignal;
+    setPlaybooksOpen(false);
+    setSearch("");
+  }, [open, chatSignal]);
 
   useEffect(() => {
     if (open && focusBriefSignal && focusBriefSignal !== lastFocus.current) {

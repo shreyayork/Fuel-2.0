@@ -11471,7 +11471,7 @@ function PatriotPayJourneyInner({
   const [pendingPlaybook, setPendingPlaybook] = useState<Playbook | null>(null);
   const [playbookFocusSignal, setPlaybookFocusSignal] = useState(0);
   const [briefFocusSignal, setBriefFocusSignal] = useState(0);
-  const [openPlaybooksSignal, setOpenPlaybooksSignal] = useState(0);
+  const [askFuelChatSignal, setAskFuelChatSignal] = useState(0);
   const { tryAction, syncFreeEarnedAllowance } = useCredits();
   useLayoutEffect(() => {
     if (isInvestorPersona) return;
@@ -11980,7 +11980,7 @@ function PatriotPayJourneyInner({
 
   const openBrowsePlaybooks = useCallback(() => {
     setPendingPlaybook(null);
-    setOpenPlaybooksSignal(signal => signal + 1);
+    setAskFuelChatSignal(signal => signal + 1);
     setAskFuelOpen(true);
   }, []);
 
@@ -13784,7 +13784,7 @@ function PatriotPayJourneyInner({
         onRecordResearch={({ typeLabel, body }) => recordResearchArtifact(typeLabel, body)}
         onViewInitiatives={() => { setAskFuelOpen(false); setActivePage("initiatives"); }}
         focusBriefSignal={briefFocusSignal}
-        openPlaybooksSignal={openPlaybooksSignal}
+        chatSignal={askFuelChatSignal}
         focusPlaybook={pendingPlaybook}
         focusPlaybookSignal={playbookFocusSignal}
         benchmarkSubmitSignal={askFuelBenchmarkSubmitSignal}
