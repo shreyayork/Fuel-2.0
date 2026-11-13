@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   BarChart3,
   Building2,
+  ChevronDown,
   Code2,
   FileText,
   Landmark,
@@ -142,14 +143,31 @@ export function ContextEnginePage({
   const [playbookQuery, setPlaybookQuery] = useState("");
   const playbookButtonRef = useRef<HTMLButtonElement>(null);
   const playbookMenuRef = useRef<HTMLDivElement>(null);
-  const [playbookMenuBox, setPlaybookMenuBox] = useState<{ top: number; right: number } | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  const [playbookMenuBox, setPlaybookMenuBox] = useState<{ top: number; right: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    const update = () => setNarrow(el.getBoundingClientRect().width <= 820);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useLayoutEffect(() => {
     if (!playbooksOpen) return;
     const place = () => {
       const rect = playbookButtonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setPlaybookMenuBox({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      const gutter = 12;
+      const width = Math.min(440, window.innerWidth - gutter * 2);
+      let right = window.innerWidth - rect.right;
+      if (window.innerWidth - right - width < gutter) right = Math.max(gutter, window.innerWidth - gutter - width);
+      const top = Math.min(rect.bottom + 8, Math.max(gutter, window.innerHeight - 280));
+      setPlaybookMenuBox({ top, right, width });
     };
     place();
     window.addEventListener("resize", place);
@@ -500,25 +518,31 @@ export function ContextEnginePage({
     return null;
   };
 
-  const railItem = (id: SourceId, icon: ReactNode, label: string, meta: ReactNode) => (
-    <li key={id}>
-      <button
-        type="button"
-        className={`f21-ce-rail-item${active === id ? " is-active" : ""}`}
-        aria-current={active === id ? "true" : undefined}
-        onClick={() => select(id)}
-      >
-        <span className="f21-ce-rail-icon" aria-hidden="true">
-          {icon}
-        </span>
-        <span className="f21-ce-rail-label">{label}</span>
-        <span className="f21-ce-rail-meta">{meta}</span>
-      </button>
-    </li>
-  );
+  const railItem = (id: SourceId, icon: ReactNode, label: string, meta: ReactNode) => {
+    const open = active === id;
+    return (
+      <li key={id} className={narrow && open ? "is-open" : undefined}>
+        <button
+          type="button"
+          className={`f21-ce-rail-item${open ? " is-active" : ""}`}
+          aria-current={open ? "true" : undefined}
+          aria-expanded={narrow ? open : undefined}
+          onClick={() => select(id)}
+        >
+          <span className="f21-ce-rail-icon" aria-hidden="true">
+            {icon}
+          </span>
+          <span className="f21-ce-rail-label">{label}</span>
+          <span className="f21-ce-rail-meta">{meta}</span>
+          <ChevronDown className="f21-ce-chevron" size={16} strokeWidth={2} aria-hidden="true" />
+        </button>
+        {narrow && open ? <div className="f21-ce-accordion-panel">{renderPanel()}</div> : null}
+      </li>
+    );
+  };
 
   return (
-    <div className="f21-page f21-context f21-ce">
+    <div className={`f21-page f21-context f21-ce${narrow ? " is-narrow" : ""}`} ref={pageRef}>
       <div className="f21-page-head">
         <div>
           <h1>Context Engine</h1>
@@ -591,7 +615,7 @@ export function ContextEnginePage({
           </div>
         </nav>
 
-        <section className="f21-panel f21-ce-panel">{renderPanel()}</section>
+        {narrow ? null : <section className="f21-panel f21-ce-panel">{renderPanel()}</section>}
       </div>
       {playbooksOpen && playbookMenuBox
         ? createPortal(
@@ -600,7 +624,7 @@ export function ContextEnginePage({
             className="afc-pb f21-ce-playbook-menu"
             role="dialog"
             aria-label="Playbooks"
-            style={{ top: playbookMenuBox.top, right: playbookMenuBox.right }}
+            style={{ top: playbookMenuBox.top, right: playbookMenuBox.right, width: playbookMenuBox.width }}
           >
             <div className="afc-pb-search-wrap">
               <FuelIcon name="search" size={14} className="afc-pb-search-ic" />

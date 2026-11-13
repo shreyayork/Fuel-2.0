@@ -1,6 +1,5 @@
 /* —— Context Engine: coverage strip, source rail, focused panel —— */
 .f21-ce {
-  container-type: inline-size;
   gap: 24px;
 }
 
@@ -112,6 +111,10 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.f21-ce-chevron {
+  display: none;
 }
 
 .f21-ce-rail-item {
@@ -482,28 +485,86 @@
   color: var(--f21-text-muted);
 }
 
-@container (max-width: 760px) {
-  .f21-ce-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* Narrow column: one group of accordions. A side menu plus a second panel does not fit. */
+.f21-ce.is-narrow .f21-page-head {
+  flex-direction: column;
+}
 
-  .f21-ce-rail {
-    position: static;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 12px 20px;
-  }
+.f21-ce.is-narrow .f21-page-actions,
+.f21-ce.is-narrow .f21-page-actions .f21-btn {
+  width: 100%;
+}
 
-  .f21-ce-coverage {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-  }
+.f21-ce.is-narrow .f21-ce-coverage {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
 
-  .f21-ce-item {
-    grid-template-columns: 28px minmax(0, 1fr);
-  }
+.f21-ce.is-narrow .f21-ce-next {
+  white-space: normal;
+  text-align: left;
+  line-height: 1.4;
+}
 
-  .f21-ce-item-learned {
-    grid-column: 2;
-  }
+.f21-ce.is-narrow .f21-ce-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.f21-ce.is-narrow .f21-ce-rail {
+  position: static;
+}
+
+.f21-ce.is-narrow .f21-panel {
+  padding: 16px 14px;
+}
+
+.f21-ce.is-narrow .f21-ce-rail-item {
+  grid-template-columns: 20px minmax(0, 1fr) auto 16px;
+  min-height: 44px;
+  padding: 10px;
+}
+
+.f21-ce.is-narrow .f21-ce-chevron {
+  display: block;
+  color: var(--f21-text-muted);
+  transition: transform 0.16s ease;
+}
+
+.f21-ce.is-narrow .f21-ce-rail-item[aria-expanded="true"] .f21-ce-chevron {
+  transform: rotate(180deg);
+  color: var(--f21-accent);
+}
+
+.f21-ce.is-narrow .f21-ce-accordion-panel {
+  margin: 2px 2px 8px;
+  padding: 14px 4px 4px;
+  border-top: 1px solid var(--f21-border-soft);
+}
+
+.f21-ce.is-narrow .f21-ce-accordion-panel .f21-ce-panel-head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.f21-ce.is-narrow .f21-ce-accordion-panel .f21-ce-panel-head h2 {
+  display: none;
+}
+
+.f21-ce.is-narrow .f21-ce-head-tools {
+  justify-content: stretch;
+}
+
+.f21-ce.is-narrow .f21-ce-head-tools .f21-btn,
+.f21-ce.is-narrow .f21-ce-search,
+.f21-ce.is-narrow .f21-ce-panel-head > .f21-btn {
+  width: 100%;
+}
+
+.f21-ce.is-narrow .f21-ce-item {
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+
+.f21-ce.is-narrow .f21-ce-item-learned {
+  grid-column: 2;
 }
