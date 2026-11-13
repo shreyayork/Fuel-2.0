@@ -1,22 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Filter,
+  BarChart3,
+  Building2,
+  Code2,
+  FileText,
+  Landmark,
   NotebookPen,
   Pencil,
   Plus,
   Search,
+  TrendingUp,
   Upload,
-  FileText,
 } from "lucide-react";
 import { ConnectorBrandIcon, type ConnectorBrand } from "./BrandIcons.tsx";
-import {
-  CONNECTORS,
-  CONTEXT_ARTIFACTS,
-  CONTEXT_TABS,
-  SOURCE_MATERIALS,
-  type ContextTab,
-} from "./demoData.ts";
-import { useFuel21DetailsDrawer, type Fuel21DrawerSection } from "./Fuel21DetailsDrawer.tsx";
+import { CONNECTORS, CONTEXT_ARTIFACTS, SOURCE_MATERIALS, type ContextTab } from "./demoData.ts";
+import { useFuel21DetailsDrawer } from "./Fuel21DetailsDrawer.tsx";
 import { DETAIL_ANSWERS_CHANGE_EVENT, loadDetailAnswers } from "../ScorecardV2.tsx";
 import {
   DETAIL_SECTIONS,
@@ -25,44 +23,38 @@ import {
   parseProfileFundingRounds,
   type DetailAnswers,
   type DetailQuestion,
-  type DetailSectionId,
 } from "../trackQuestions.ts";
+import "./context-engine.css";
 
-type FormTab = "profile" | "dev" | "mkt" | "rev";
-type EngineTab = "notes" | FormTab | "benchmark" | "artifacts" | "slack" | "granola" | "hubspot";
+type FormId = "profile" | "dev" | "mkt" | "rev";
+type ConnectorId = (typeof CONNECTORS)[number]["id"];
+type SourceId = FormId | "benchmark" | "notes" | "artifacts" | ConnectorId;
 
-const FORM_TABS: { id: FormTab; label: string; title: string }[] = [
-  { id: "profile", label: "Profile", title: "Company profile" },
-  { id: "dev", label: "R&D", title: "Research and development" },
-  { id: "mkt", label: "GTM", title: "Go-to-market" },
-  { id: "rev", label: "G&A", title: "General and administrative" },
+const FORMS: { id: FormId; label: string; title: string; icon: ReactNode }[] = [
+  { id: "profile", label: "Company profile", title: "Company profile", icon: <Building2 size={14} strokeWidth={2} /> },
+  { id: "dev", label: "R&D", title: "Research and development", icon: <Code2 size={14} strokeWidth={2} /> },
+  { id: "mkt", label: "GTM", title: "Go-to-market", icon: <TrendingUp size={14} strokeWidth={2} /> },
+  { id: "rev", label: "G&A", title: "General and administrative", icon: <Landmark size={14} strokeWidth={2} /> },
 ];
 
-const BENCHMARK_FIELDS: { key: string; label: string }[] = [
-  { key: "arr", label: "Annual recurring revenue" },
-  { key: "arrGrowth", label: "Revenue growth (year over year)" },
-  { key: "nrr", label: "Net revenue retention" },
-  { key: "logoRetention", label: "Customer retention" },
-  { key: "grossMargin", label: "Gross margin" },
-  { key: "cacPayback", label: "Months to recover acquisition cost" },
-  { key: "burnMultiple", label: "Burn multiple" },
-  { key: "ruleOf40", label: "Rule of 40" },
-  { key: "monthlyBurn", label: "Monthly burn" },
-  { key: "cashOnHand", label: "Cash on hand" },
-  { key: "headcount", label: "Headcount" },
-  { key: "payingCustomers", label: "Paying customers" },
+const BENCHMARK_FIELDS: { key: string; label: string; unit: "millions" | "thousands" | "percent" | "months" | "multiple" | "count" }[] = [
+  { key: "arr", label: "Annual recurring revenue", unit: "millions" },
+  { key: "arrGrowth", label: "Revenue growth, year over year", unit: "percent" },
+  { key: "nrr", label: "Net revenue retention", unit: "percent" },
+  { key: "logoRetention", label: "Customer retention", unit: "percent" },
+  { key: "grossMargin", label: "Gross margin", unit: "percent" },
+  { key: "cacPayback", label: "Months to recover acquisition cost", unit: "months" },
+  { key: "burnMultiple", label: "Burn multiple", unit: "multiple" },
+  { key: "ruleOf40", label: "Rule of 40", unit: "percent" },
+  { key: "monthlyBurn", label: "Monthly burn", unit: "thousands" },
+  { key: "cashOnHand", label: "Cash on hand", unit: "thousands" },
+  { key: "headcount", label: "Headcount", unit: "count" },
+  { key: "payingCustomers", label: "Paying customers", unit: "count" },
 ];
 
-const NOTE_SOURCE_TABS: ContextTab[] = ["manual", "files"];
-const CONNECTOR_TABS = CONTEXT_TABS.filter(t => t.id === "slack" || t.id === "granola" || t.id === "hubspot");
-
-function SourceGlyph({ tab }: { tab: ContextTab }) {
-  if (tab === "slack" || tab === "granola" || tab === "hubspot") {
-    return <ConnectorBrandIcon brand={tab as ConnectorBrand} size={13} />;
-  }
-  if (tab === "manual") return <NotebookPen size={13} strokeWidth={2} aria-hidden="true" />;
-  return <FileText size={13} strokeWidth={2} aria-hidden="true" />;
-}
+const NOTE_TABS: ContextTab[] = ["manual", "files"];
+const EMPTY_ANSWERS: DetailAnswers = {};
+const MISSING_PREVIEW = 4;
 
 function formatAnswer(question: DetailQuestion, value: string | undefined): string {
   const trimmed = value?.trim();
@@ -73,6 +65,28 @@ function formatAnswer(question: DetailQuestion, value: string | undefined): stri
   }
   if (question.multi) return parseMultiSelectAnswer(trimmed).join(", ");
   return trimmed;
+}
+
+function formatMetric(unit: (typeof BENCHMARK_FIELDS)[number]["unit"], raw: string): string {
+  const value = raw.trim();
+  if (!value) return "";
+  const num = Number(value.replace(/[$,%x]/g, ""));
+  if (Number.isNaN(num)) return value;
+  switch (unit) {
+    case "millions":
+      return value.startsWith("$") ? value : `$${num}M`;
+    case "thousands":
+      if (value.startsWith("$")) return value;
+      return num >= 1000 ? `$${(num / 1000).toFixed(1)}M` : `$${num}K`;
+    case "percent":
+      return `${num}%`;
+    case "months":
+      return `${num} months`;
+    case "multiple":
+      return `${num}x`;
+    default:
+      return num.toLocaleString();
+  }
 }
 
 function useDetailAnswers(companyName: string): DetailAnswers {
@@ -86,87 +100,292 @@ function useDetailAnswers(companyName: string): DetailAnswers {
   return answers;
 }
 
+function Meter({ value, total }: { value: number; total: number }) {
+  const pct = total ? Math.round((value / total) * 100) : 0;
+  return (
+    <span className="f21-ce-meter" aria-hidden="true">
+      <span style={{ width: `${pct}%` }} />
+    </span>
+  );
+}
+
+function SourceGlyph({ tab }: { tab: ContextTab }) {
+  if (tab === "slack" || tab === "granola" || tab === "hubspot") {
+    return <ConnectorBrandIcon brand={tab as ConnectorBrand} size={13} />;
+  }
+  if (tab === "manual") return <NotebookPen size={13} strokeWidth={2} aria-hidden="true" />;
+  return <FileText size={13} strokeWidth={2} aria-hidden="true" />;
+}
+
 export type ContextEngineArtifact = { id: string; title: string; meta: string };
 
 export function ContextEnginePage({
   artifacts,
   companyName = "Patriot Pay",
   benchmark = {},
+  profileFallback = EMPTY_ANSWERS,
 }: {
   artifacts?: ContextEngineArtifact[];
   companyName?: string;
   benchmark?: Record<string, string | undefined>;
+  /** Public company details shown until the founder saves their own profile answers. */
+  profileFallback?: DetailAnswers;
 } = {}) {
   const { openDrawer, openContextDrawer } = useFuel21DetailsDrawer();
   const answers = useDetailAnswers(companyName);
   const artifactList = artifacts && artifacts.length > 0 ? artifacts : CONTEXT_ARTIFACTS;
-  const [tab, setTab] = useState<EngineTab>("notes");
+  const [active, setActive] = useState<SourceId>("profile");
   const [query, setQuery] = useState("");
+  const [showAllMissing, setShowAllMissing] = useState(false);
 
-  const formProgress = useMemo(() => {
-    const progress: Partial<Record<FormTab, { answered: number; total: number }>> = {};
-    FORM_TABS.forEach(form => {
-      const section = DETAIL_SECTIONS.find(item => item.id === form.id);
-      const questions = section ? getVisibleQuestions(section, answers) : [];
-      progress[form.id] = {
-        answered: questions.filter(q => formatAnswer(q, answers[q.id])).length,
-        total: questions.length,
-      };
-    });
-    return progress;
-  }, [answers]);
+  const forms = useMemo(
+    () =>
+      FORMS.map(form => {
+        const section = DETAIL_SECTIONS.find(item => item.id === form.id);
+        const questions = section ? getVisibleQuestions(section, answers) : [];
+        const rows = questions.map(question => {
+          const saved = formatAnswer(question, answers[question.id]);
+          const fallback = form.id === "profile" && !saved ? profileFallback[question.id]?.trim() ?? "" : "";
+          return { question, value: saved || fallback, inferred: Boolean(fallback) };
+        });
+        return {
+          ...form,
+          known: rows.filter(row => row.value),
+          missing: rows.filter(row => !row.value),
+          inferredCount: rows.filter(row => row.inferred).length,
+          total: rows.length,
+        };
+      }),
+    [answers, profileFallback],
+  );
 
-  const benchmarkAnswered = BENCHMARK_FIELDS.filter(field => String(benchmark[field.key] ?? "").trim()).length;
-  const noteCount = SOURCE_MATERIALS.filter(item => NOTE_SOURCE_TABS.includes(item.tab)).length;
+  const metrics = BENCHMARK_FIELDS.map(field => ({
+    ...field,
+    value: formatMetric(field.unit, String(benchmark[field.key] ?? "")),
+  }));
+  const metricsKnown = metrics.filter(m => m.value).length;
 
-  const filteredArtifacts = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return artifactList;
-    return artifactList.filter(
-      item => item.title.toLowerCase().includes(q) || item.meta.toLowerCase().includes(q),
+  const notes = SOURCE_MATERIALS.filter(item => NOTE_TABS.includes(item.tab));
+  const connectorItems = (id: ConnectorId) => SOURCE_MATERIALS.filter(item => item.tab === id);
+
+  const knownTotal = forms.reduce((sum, f) => sum + f.known.length, 0) + metricsKnown;
+  const questionTotal = forms.reduce((sum, f) => sum + f.total, 0) + metrics.length;
+  const coverage = questionTotal ? Math.round((knownTotal / questionTotal) * 100) : 0;
+  const nextGap = [...forms].sort((a, b) => b.missing.length - a.missing.length)[0];
+
+  const select = (id: SourceId) => {
+    setActive(id);
+    setQuery("");
+    setShowAllMissing(false);
+  };
+
+  const activeForm = forms.find(f => f.id === active);
+  const activeConnector = CONNECTORS.find(c => c.id === active);
+
+  const matches = (text: string) => !query.trim() || text.toLowerCase().includes(query.trim().toLowerCase());
+
+  const renderMaterialList = (items: typeof SOURCE_MATERIALS, empty: string) => {
+    const shown = items.filter(item => matches(`${item.title} ${item.meta} ${item.intelligence}`));
+    if (!shown.length) return <p className="f21-ce-empty">{query ? "Nothing matches that search." : empty}</p>;
+    return (
+      <ul className="f21-ce-items">
+        {shown.map(item => (
+          <li key={item.id} className="f21-ce-item">
+            <span className={`f21-source-icon brand-${item.tab}`} data-tab={item.tab}>
+              <SourceGlyph tab={item.tab} />
+            </span>
+            <div className="f21-ce-item-main">
+              <strong>{item.title}</strong>
+              <span>{item.meta}</span>
+            </div>
+            <div className="f21-ce-item-learned">
+              <span className="f21-ce-label">Fuel learned</span>
+              <strong>{item.intelligence}</strong>
+            </div>
+          </li>
+        ))}
+      </ul>
     );
-  }, [artifactList, query]);
+  };
 
-  const filtered = useMemo(() => {
-    return SOURCE_MATERIALS.filter(item => {
-      if (tab === "notes") {
-        if (!NOTE_SOURCE_TABS.includes(item.tab)) return false;
-      } else if (item.tab !== tab) {
-        return false;
-      }
-      if (!query.trim()) return true;
-      const q = query.toLowerCase();
+  const renderPanel = () => {
+    if (activeForm) {
+      const missing = showAllMissing ? activeForm.missing : activeForm.missing.slice(0, MISSING_PREVIEW);
+      const hiddenCount = activeForm.missing.length - missing.length;
       return (
-        item.title.toLowerCase().includes(q) ||
-        item.intelligence.toLowerCase().includes(q) ||
-        item.meta.toLowerCase().includes(q)
+        <>
+          <header className="f21-ce-panel-head">
+            <div>
+              <h2>{activeForm.title}</h2>
+              <p>
+                {activeForm.known.length} of {activeForm.total} answered
+                {activeForm.inferredCount
+                  ? ` · ${activeForm.inferredCount} from your public profile`
+                  : ""}
+              </p>
+            </div>
+            <button type="button" className="f21-btn f21-btn-primary" onClick={() => openDrawer(activeForm.id)}>
+              <Pencil size={13} strokeWidth={2} aria-hidden="true" />
+              {activeForm.known.length ? "Edit answers" : "Start answering"}
+            </button>
+          </header>
+
+          <section className="f21-ce-block">
+            <h3 className="f21-ce-label">What Fuel knows</h3>
+            {activeForm.known.length ? (
+              <dl className="f21-ce-facts">
+                {activeForm.known.map(({ question, value }) => (
+                  <div key={question.id}>
+                    <dt>{question.prompt}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="f21-ce-empty">Nothing yet. Answer a few questions so Fuel can tailor its advice.</p>
+            )}
+          </section>
+
+          {activeForm.missing.length ? (
+            <section className="f21-ce-block">
+              <h3 className="f21-ce-label">Still missing · {activeForm.missing.length}</h3>
+              <ul className="f21-ce-missing">
+                {missing.map(({ question }) => (
+                  <li key={question.id}>
+                    <button type="button" onClick={() => openDrawer(activeForm.id)}>
+                      <span>{question.prompt}</span>
+                      <Plus size={13} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {hiddenCount > 0 ? (
+                <button type="button" className="f21-ce-more" onClick={() => setShowAllMissing(true)}>
+                  Show {hiddenCount} more
+                </button>
+              ) : null}
+            </section>
+          ) : null}
+        </>
       );
-    });
-  }, [tab, query]);
+    }
 
-  const activeForm = FORM_TABS.find(form => form.id === tab);
-  const isFormTab = Boolean(activeForm) || tab === "benchmark";
+    if (active === "benchmark") {
+      return (
+        <>
+          <header className="f21-ce-panel-head">
+            <div>
+              <h2>Benchmark metrics</h2>
+              <p>
+                {metricsKnown} of {metrics.length} metrics added · used to compare you with peers
+              </p>
+            </div>
+            <button type="button" className="f21-btn f21-btn-primary" onClick={() => openDrawer("benchmark")}>
+              <Pencil size={13} strokeWidth={2} aria-hidden="true" />
+              Update metrics
+            </button>
+          </header>
+          <dl className="f21-ce-metrics">
+            {metrics.map(m => (
+              <div key={m.key} className={m.value ? "" : "is-empty"}>
+                <dt>{m.label}</dt>
+                <dd>{m.value || "Not added"}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      );
+    }
 
-  const tabs: { id: EngineTab; label: string; count: string }[] = [
-    { id: "notes", label: "Notes", count: String(noteCount) },
-    ...FORM_TABS.map(form => ({
-      id: form.id,
-      label: form.label,
-      count: `${formProgress[form.id]?.answered ?? 0}/${formProgress[form.id]?.total ?? 0}`,
-    })),
-    { id: "benchmark", label: "Benchmark", count: `${benchmarkAnswered}/${BENCHMARK_FIELDS.length}` },
-    { id: "artifacts", label: "Artifacts", count: String(artifactList.length) },
-    ...CONNECTOR_TABS.map(t => ({ id: t.id as EngineTab, label: t.label, count: String(t.count) })),
-  ];
+    if (active === "notes" || active === "artifacts" || activeConnector) {
+      const title =
+        active === "notes" ? "Notes and files" : active === "artifacts" ? "Artifacts" : activeConnector?.name ?? "";
+      const sub =
+        active === "notes"
+          ? "Your notes and uploads"
+          : active === "artifacts"
+            ? "Saved by Fuel for you"
+            : "Connected · synced automatically";
+      return (
+        <>
+          <header className="f21-ce-panel-head">
+            <div>
+              <h2>{title}</h2>
+              <p>{sub}</p>
+            </div>
+            <div className="f21-ce-head-tools">
+              <label className="f21-ce-search">
+                <Search size={13} strokeWidth={2} aria-hidden="true" />
+                <input
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Search"
+                  aria-label={`Search ${title}`}
+                />
+              </label>
+              {active === "notes" ? (
+                <button type="button" className="f21-btn f21-btn-primary" onClick={openContextDrawer}>
+                  <Plus size={14} strokeWidth={2} aria-hidden="true" />
+                  Add new
+                </button>
+              ) : null}
+            </div>
+          </header>
+          {active === "notes" ? (
+            renderMaterialList(notes, "No notes or files yet.")
+          ) : active === "artifacts" ? (
+            (() => {
+              const shown = artifactList.filter(item => matches(`${item.title} ${item.meta}`));
+              return shown.length ? (
+                <ul className="f21-ce-items">
+                  {shown.map(item => (
+                    <li key={item.id} className="f21-ce-item is-simple">
+                      <span className="f21-source-icon" aria-hidden="true">
+                        <FileText size={13} strokeWidth={2} />
+                      </span>
+                      <div className="f21-ce-item-main">
+                        <strong>{item.title}</strong>
+                        <span>{item.meta}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="f21-ce-empty">Nothing matches that search.</p>
+              );
+            })()
+          ) : activeConnector ? (
+            renderMaterialList(connectorItems(activeConnector.id), "Nothing synced yet.")
+          ) : null}
+        </>
+      );
+    }
+    return null;
+  };
 
-  const openForm = (section: Fuel21DrawerSection) => openDrawer(section);
+  const railItem = (id: SourceId, icon: ReactNode, label: string, meta: ReactNode) => (
+    <li key={id}>
+      <button
+        type="button"
+        className={`f21-ce-rail-item${active === id ? " is-active" : ""}`}
+        aria-current={active === id ? "true" : undefined}
+        onClick={() => select(id)}
+      >
+        <span className="f21-ce-rail-icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="f21-ce-rail-label">{label}</span>
+        <span className="f21-ce-rail-meta">{meta}</span>
+      </button>
+    </li>
+  );
 
   return (
-    <div className="f21-page f21-context">
+    <div className="f21-page f21-context f21-ce">
       <div className="f21-page-head">
         <div>
           <h1>Context Engine</h1>
-          <p className="f21-lede">Everything Fuel knows about your company, in one place.</p>
+          <p className="f21-lede">Everything Fuel knows about {companyName}. Better context means sharper advice.</p>
         </div>
         <div className="f21-page-actions">
           <button type="button" className="f21-btn f21-btn-primary" onClick={openContextDrawer}>
@@ -176,151 +395,67 @@ export function ContextEnginePage({
         </div>
       </div>
 
-      <div className="f21-context-tabs" role="tablist" aria-label="Context sources">
-        {tabs.map(t => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            className={`f21-context-tab${tab === t.id ? " is-active" : ""}`}
-            onClick={() => {
-              setTab(t.id);
-              setQuery("");
-            }}
-          >
-            {t.label} {t.count}
+      <section className="f21-panel f21-ce-coverage" aria-label="Context coverage">
+        <div className="f21-ce-coverage-score">
+          <strong>{coverage}%</strong>
+          <span>
+            {knownTotal} of {questionTotal} answers in place
+          </span>
+        </div>
+        <Meter value={knownTotal} total={questionTotal} />
+        {nextGap && nextGap.missing.length ? (
+          <button type="button" className="f21-ce-next" onClick={() => select(nextGap.id)}>
+            Biggest gap: {nextGap.label}, {nextGap.missing.length} questions left
           </button>
-        ))}
-        <button type="button" className="f21-link-btn f21-add-connector">
-          Add connector +
-        </button>
-      </div>
+        ) : null}
+      </section>
 
-      {isFormTab ? (
-        <section className="f21-panel f21-context-form-panel">
-          <div className="f21-panel-head f21-context-list-head">
-            <div>
-              <h2>{activeForm ? activeForm.title : "Benchmark"}</h2>
-              <p className="f21-context-form-sub">
-                {activeForm
-                  ? `${formProgress[activeForm.id]?.answered ?? 0} of ${formProgress[activeForm.id]?.total ?? 0} answered`
-                  : `${benchmarkAnswered} of ${BENCHMARK_FIELDS.length} metrics added`}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="f21-btn f21-btn-primary"
-              onClick={() => openForm(activeForm ? (activeForm.id as DetailSectionId) : "benchmark")}
-            >
-              <Pencil size={13} strokeWidth={2} aria-hidden="true" />
-              Edit {activeForm ? activeForm.label : "benchmark"}
+      <div className="f21-ce-body">
+        <nav className="f21-ce-rail" aria-label="Context sources">
+          <div className="f21-ce-rail-group">
+            <h2 className="f21-ce-label">About your company</h2>
+            <ul>
+              {forms.map(f =>
+                railItem(f.id, f.icon, f.label, (
+                  <>
+                    <Meter value={f.known.length} total={f.total} />
+                    {f.known.length}/{f.total}
+                  </>
+                )),
+              )}
+              {railItem("benchmark", <BarChart3 size={14} strokeWidth={2} />, "Benchmark", (
+                <>
+                  <Meter value={metricsKnown} total={metrics.length} />
+                  {metricsKnown}/{metrics.length}
+                </>
+              ))}
+            </ul>
+          </div>
+
+          <div className="f21-ce-rail-group">
+            <h2 className="f21-ce-label">Your material</h2>
+            <ul>
+              {railItem("notes", <NotebookPen size={14} strokeWidth={2} />, "Notes and files", notes.length)}
+              {railItem("artifacts", <FileText size={14} strokeWidth={2} />, "Artifacts", artifactList.length)}
+            </ul>
+          </div>
+
+          <div className="f21-ce-rail-group">
+            <h2 className="f21-ce-label">Connected apps</h2>
+            <ul>
+              {CONNECTORS.map(c =>
+                railItem(c.id, <ConnectorBrandIcon brand={c.id} size={13} />, c.name, connectorItems(c.id).length),
+              )}
+            </ul>
+            <button type="button" className="f21-ce-connect">
+              <Plus size={13} strokeWidth={2} aria-hidden="true" />
+              Connect an app
             </button>
           </div>
-          <dl className="f21-context-answers">
-            {activeForm
-              ? (() => {
-                  const section = DETAIL_SECTIONS.find(item => item.id === activeForm.id);
-                  const questions = section ? getVisibleQuestions(section, answers) : [];
-                  return questions.map(question => {
-                    const value = formatAnswer(question, answers[question.id]);
-                    return (
-                      <div key={question.id} className="f21-context-answer">
-                        <dt>{question.prompt}</dt>
-                        <dd className={value ? "" : "is-empty"}>{value || "Not answered yet"}</dd>
-                      </div>
-                    );
-                  });
-                })()
-              : BENCHMARK_FIELDS.map(field => {
-                  const value = String(benchmark[field.key] ?? "").trim();
-                  return (
-                    <div key={field.key} className="f21-context-answer">
-                      <dt>{field.label}</dt>
-                      <dd className={value ? "" : "is-empty"}>{value || "Not added yet"}</dd>
-                    </div>
-                  );
-                })}
-          </dl>
-        </section>
-      ) : (
-        <section className="f21-panel f21-context-list-panel">
-            <div className="f21-panel-head f21-context-list-head">
-              <h2>{tab === "artifacts" ? "Artifacts" : tab === "notes" ? "Notes and files" : "Source material"}</h2>
-              <div className="f21-context-list-tools">
-                <label className="f21-find">
-                  <Search size={13} strokeWidth={2} aria-hidden="true" />
-                  <input
-                    value={query}
-                    onChange={e => setQuery(e.target.value)}
-                    placeholder="Find material"
-                    aria-label="Find material"
-                  />
-                  <Filter size={13} strokeWidth={2} aria-hidden="true" />
-                </label>
-                {tab === "notes" ? (
-                  <button type="button" className="f21-btn f21-btn-primary" onClick={openContextDrawer}>
-                    <Plus size={14} strokeWidth={2} aria-hidden="true" />
-                    Add new
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            {tab === "artifacts" ? null : (
-              <div className="f21-context-cols">
-                <span>Material / source</span>
-                <span>Intelligence / related work</span>
-              </div>
-            )}
-            <ul className="f21-source-list">
-              {tab === "artifacts"
-                ? filteredArtifacts.map(item => (
-                      <li key={item.id}>
-                        <div className="f21-source-row">
-                          <span className="f21-source-icon" aria-hidden="true">
-                            <FileText size={13} strokeWidth={2} />
-                          </span>
-                          <span className="f21-source-main">
-                            <strong>{item.title}</strong>
-                            <em>{item.meta}</em>
-                          </span>
-                        </div>
-                      </li>
-                    ))
-                : filtered.map(item => (
-                      <li key={item.id}>
-                        <div className="f21-source-row">
-                          <span className={`f21-source-icon brand-${item.tab}`} data-tab={item.tab}>
-                            <SourceGlyph tab={item.tab} />
-                          </span>
-                          <span className="f21-source-main">
-                            <strong>{item.title}</strong>
-                            <em>{item.meta}</em>
-                          </span>
-                          <span className="f21-source-side">
-                            <strong>{item.intelligence}</strong>
-                            {item.related ? <em className="f21-related">{item.related}</em> : null}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-            </ul>
-          </section>
-      )}
+        </nav>
 
-      <footer className="f21-context-footer">
-        <div className="f21-connector-status">
-          {CONNECTORS.map(c => (
-            <span key={c.id} className="f21-connector-status-item">
-              <span className={`f21-connector-mark brand-${c.id} is-compact`} aria-hidden="true">
-                <ConnectorBrandIcon brand={c.id} size={11} />
-              </span>
-              {c.name} · Connected
-            </span>
-          ))}
-        </div>
-        <span className="f21-footer-note">Example workspace data</span>
-      </footer>
+        <section className="f21-panel f21-ce-panel">{renderPanel()}</section>
+      </div>
     </div>
   );
 }

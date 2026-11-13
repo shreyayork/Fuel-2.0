@@ -4564,6 +4564,20 @@ const FOUNDER_COMPANY = {
   linkedin: "linkedin.com/company/patriotsoftware",
 };
 
+const FOUNDER_PUBLIC_PROFILE = (() => {
+  const [city = "", state = "", country = ""] = FOUNDER_COMPANY.headquarters.split(",").map(part => part.trim());
+  return {
+    profile_company: FOUNDER_COMPANY.displayName,
+    profile_industry: FOUNDER_COMPANY.meta.split(" · ").slice(0, 2).join(" · "),
+    profile_city: city,
+    profile_state: state,
+    profile_country: country,
+    profile_website: FOUNDER_COMPANY.domain,
+    profile_linkedin: FOUNDER_COMPANY.linkedin,
+    profile_headcount: FOUNDER_COMPANY.employees,
+  };
+})();
+
 function hasInvestorWorkspaceOnCompany(
   companyId: string,
   intelligenceByCompany: Record<string, IntelligenceItem[]>,
@@ -13307,6 +13321,7 @@ function PatriotPayJourneyInner({
           ) : activePage === "context-engine" ? (
             <ContextEnginePage
               companyName={FOUNDER_COMPANY.displayName}
+              profileFallback={FOUNDER_PUBLIC_PROFILE}
               benchmark={formValuesToOnboardingBenchmark(founderBenchmarkForm)}
               artifacts={researchArtifacts.map(artifact => ({
                 id: artifact.id,
