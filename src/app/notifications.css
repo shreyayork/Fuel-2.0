@@ -430,12 +430,97 @@
   font-size: 11.5px;
 }
 
-html[data-theme="light"] .notification-panel {
+html[data-theme="light"] .notification-panel,
+html[data-theme="light"] .notification-drawer {
   background: #fff;
-  border-color: var(--border);
+  border-color: #e4e8ec;
   box-shadow: 0 18px 48px rgba(25, 49, 65, 0.18);
+  color: #284256;
 }
 
 html[data-theme="light"] .notification-badge {
   border-color: #fff;
+}
+
+html[data-theme="light"] .notification-bell {
+  background: #fff;
+  border-color: #e4e8ec;
+  color: #667987;
+}
+
+html[data-theme="light"] .notification-bell:hover,
+html[data-theme="light"] .notification-bell.is-open {
+  border-color: rgba(0, 180, 138, 0.45);
+  color: #284256;
+}
+
+html[data-theme="light"] .notification-panel-head,
+html[data-theme="light"] .notification-panel-foot,
+html[data-theme="light"] .notification-item,
+html[data-theme="light"] .notification-archived-bar,
+html[data-theme="light"] .notification-drawer-head,
+html[data-theme="light"] .notification-drawer-tabs,
+html[data-theme="light"] .notification-drawer-toolbar {
+  border-color: #e4e8ec;
+}
+
+html[data-theme="light"] .notification-panel-head > div > span,
+html[data-theme="light"] .notification-drawer-head > div > span,
+html[data-theme="light"] .notification-item-meta,
+html[data-theme="light"] .notification-archived-label,
+html[data-theme="light"] .notification-empty,
+html[data-theme="light"] .notification-empty-archived-hint,
+html[data-theme="light"] .notification-drawer-toolbar,
+html[data-theme="light"] .notification-dismiss {
+  color: #667987;
+}
+
+html[data-theme="light"] .notification-panel-head h2,
+html[data-theme="light"] .notification-drawer-head h2,
+html[data-theme="light"] .notification-item h3,
+html[data-theme="light"] .notification-empty strong {
+  color: #284256;
+}
+
+html[data-theme="light"] .notification-item p {
+  color: #3e5668;
+}
+
+html[data-theme="light"] .notification-panel-expand,
+html[data-theme="light"] .notification-panel-head button,
+html[data-theme="light"] .notification-item-content button,
+html[data-theme="light"] .notification-drawer-close,
+html[data-theme="light"] .notification-drawer-toolbar button {
+  background: #fff;
+  border-color: #e4e8ec;
+  color: #284256;
+}
+
+html[data-theme="light"] .notification-panel-expand:hover,
+html[data-theme="light"] .notification-panel-head button:hover,
+html[data-theme="light"] .notification-item-content button:hover,
+html[data-theme="light"] .notification-drawer-close:hover,
+html[data-theme="light"] .notification-drawer-toolbar button:hover,
+html[data-theme="light"] .notification-archived-bar:hover {
+  background: #f8fafc;
+  border-color: #e4e8ec;
+  color: #284256;
+}
+
+html[data-theme="light"] .notification-archived-bar {
+  background: #f8fafc;
+  color: #667987;
+}
+
+html[data-theme="light"] .notification-panel-open-drawer:hover,
+html[data-theme="light"] .notification-drawer-tabs button.is-active {
+  color: #284256;
+}
+
+html[data-theme="light"] .notification-item.is-unread {
+  background: rgba(0, 180, 138, 0.08);
+}
+
+html[data-theme="light"] .notification-drawer-scrim {
+  background: rgba(40, 66, 86, 0.4);
 }

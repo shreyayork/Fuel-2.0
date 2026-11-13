@@ -25,6 +25,16 @@ html[data-f21-theme] .f21-right-dock {
   z-index: 1210;
 }
 
+/* The bell sits above the dock. Keep the dropdown and inbox clear of that rail. */
+html[data-f21-theme] .f21-topbar .notification-panel {
+  right: calc(var(--f21-right-dock-width, 60px) - 8px);
+  z-index: 1220;
+}
+
+html[data-f21-theme] .notification-drawer-scrim {
+  right: var(--f21-right-dock-width, 60px);
+}
+
 html[data-f21-theme] .bench-drawer-scrim {
   right: var(--f21-right-dock-width);
 }
