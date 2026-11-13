@@ -2342,7 +2342,6 @@
   padding: 12px 8px;
   border-top: 1px solid var(--f21-border-soft);
   border-radius: 8px;
-  cursor: pointer;
   position: relative;
 }
 
@@ -2401,6 +2400,52 @@
 .f21-related {
   color: var(--f21-accent) !important;
   font-weight: 650;
+}
+
+.f21-context-list-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.f21-context-form-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--f21-text-muted);
+}
+
+.f21-context-answers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 0 24px;
+  margin: 0;
+}
+
+.f21-context-answer {
+  padding: 12px 0;
+  border-top: 1px solid var(--f21-border-soft);
+  min-width: 0;
+}
+
+.f21-context-answer dt {
+  font-size: 11.5px;
+  color: var(--f21-text-muted);
+  line-height: 1.4;
+}
+
+.f21-context-answer dd {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--f21-text);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.f21-context-answer dd.is-empty {
+  font-weight: 500;
+  color: var(--f21-text-muted);
+  font-style: italic;
 }
 
 .f21-manual-cta {

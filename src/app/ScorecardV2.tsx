@@ -2023,8 +2023,10 @@ export function loadDetailAnswers(companyName: string): DetailAnswers {
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
+export const DETAIL_ANSWERS_CHANGE_EVENT = "fuel-details-change";
 export function saveDetailAnswers(companyName: string, answers: DetailAnswers) {
   try { window.localStorage.setItem(`fuel-details-${companyName}`, JSON.stringify(answers)); } catch { /* ignore */ }
+  window.dispatchEvent(new Event(DETAIL_ANSWERS_CHANGE_EVENT));
 }
 
 const INTEL_TYPE_TO_CATEGORY: Record<string, ScorecardCategory> = {

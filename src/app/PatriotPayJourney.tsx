@@ -13306,6 +13306,8 @@ function PatriotPayJourneyInner({
             <BenchmarkReportPage />
           ) : activePage === "context-engine" ? (
             <ContextEnginePage
+              companyName={FOUNDER_COMPANY.displayName}
+              benchmark={formValuesToOnboardingBenchmark(founderBenchmarkForm)}
               artifacts={researchArtifacts.map(artifact => ({
                 id: artifact.id,
                 title: artifact.title,
