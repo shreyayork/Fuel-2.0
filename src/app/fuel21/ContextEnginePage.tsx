@@ -48,6 +48,14 @@ const FORMS: { id: FormId; label: string; title: string; icon: ReactNode }[] = [
 ];
 
 const NOTE_TABS: ContextTab[] = ["manual", "files"];
+
+const BENCHMARK_SECTIONS: { label: string; keys: string[] }[] = [
+  { label: "Growth", keys: ["arr", "arrGrowth"] },
+  { label: "Retention", keys: ["nrr", "logoRetention"] },
+  { label: "Efficiency", keys: ["grossMargin", "cacPayback", "burnMultiple", "ruleOf40"] },
+  { label: "Capital", keys: ["monthlyBurn", "cashOnHand"] },
+  { label: "Team", keys: ["headcount", "payingCustomers"] },
+];
 const EMPTY_ANSWERS: DetailAnswers = {};
 const MISSING_PREVIEW = 4;
 
@@ -268,48 +276,61 @@ export function ContextEnginePage({
             </div>
             <button type="button" className="f21-btn f21-btn-primary" onClick={() => openDrawer("benchmark")}>
               <Pencil size={13} strokeWidth={2} aria-hidden="true" />
-              Update metrics
+              Update benchmark
             </button>
           </header>
-          <div className="f21-telemetry-benchmark-list">
-            {metrics.map(({ template, field, numeric }) => {
-              const display =
-                numeric != null ? formatBenchmarkDisplay(numeric, template.unit) : "Not added";
-              const marker = numeric != null && field ? valueToMarkerPercent(numeric, field) : null;
-              const tierStyle =
-                numeric != null && field ? getBenchmarkTierStyle(getBenchmarkTier(numeric, field)) : null;
+          <div className="f21-ce-bench-sections">
+            {BENCHMARK_SECTIONS.map(section => {
+              const rows = section.keys
+                .map(key => metrics.find(metric => metric.template.key === key))
+                .filter((metric): metric is (typeof metrics)[number] => Boolean(metric));
+              if (!rows.length) return null;
               return (
-                <div key={template.key} className="f21-telemetry-benchmark-row">
-                  <div className="f21-telemetry-benchmark-row-head">
-                    <span className="f21-telemetry-label">{field?.label ?? template.label}</span>
-                    <span className="f21-telemetry-val is-inline">{display}</span>
+                <section key={section.label} className="f21-ce-bench-section">
+                  <h3 className="f21-ce-label">{section.label}</h3>
+                  <div className="f21-telemetry-benchmark-list">
+                    {rows.map(({ template, field, numeric }) => {
+                      const display =
+                        numeric != null ? formatBenchmarkDisplay(numeric, template.unit) : "Not added";
+                      const marker = numeric != null && field ? valueToMarkerPercent(numeric, field) : null;
+                      const tierStyle =
+                        numeric != null && field ? getBenchmarkTierStyle(getBenchmarkTier(numeric, field)) : null;
+                      return (
+                        <div key={template.key} className="f21-telemetry-benchmark-row">
+                          <div className="f21-telemetry-benchmark-row-head">
+                            <span className="f21-telemetry-label">{field?.label ?? template.label}</span>
+                            <span className="f21-telemetry-val is-inline">{display}</span>
+                          </div>
+                          {field ? (
+                            <div className="f21-telemetry-benchmark-track">
+                              <OnboardingBenchmarkBar
+                                field={field}
+                                dotPct={marker}
+                                dotColorValue={tierStyle?.marker ?? "var(--f21-accent)"}
+                                glow="none"
+                                dotHalfPx={7}
+                              />
+                              <div className="ob-bench-bar-labels ob-bench-bar-labels--equal f21-telemetry-benchmark-scale">
+                                {([
+                                  { l: "P25", v: field.p25 },
+                                  { l: "P50", v: field.p50 },
+                                  { l: "P75", v: field.p75 },
+                                  { l: "P90", v: field.p90 },
+                                ] as const).map(p => (
+                                  <span key={p.l}>
+                                    {p.l} {formatBenchmarkDisplay(p.v, field.unit)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="f21-ce-empty">Not in this peer group</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {field ? (
-                    <div className="f21-telemetry-benchmark-track">
-                      <OnboardingBenchmarkBar
-                        field={field}
-                        dotPct={marker}
-                        dotColorValue={tierStyle?.marker ?? "var(--f21-accent)"}
-                        glow="none"
-                        dotHalfPx={5}
-                      />
-                      <div className="ob-bench-bar-labels ob-bench-bar-labels--equal f21-telemetry-benchmark-scale">
-                        {([
-                          { l: "P25", v: field.p25 },
-                          { l: "P50", v: field.p50 },
-                          { l: "P75", v: field.p75 },
-                          { l: "P90", v: field.p90 },
-                        ] as const).map(p => (
-                          <span key={p.l}>
-                            {p.l} {formatBenchmarkDisplay(p.v, field.unit)}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="f21-ce-empty">Not in this peer group</p>
-                  )}
-                </div>
+                </section>
               );
             })}
           </div>
@@ -432,7 +453,7 @@ export function ContextEnginePage({
 
       <div className="f21-ce-body">
         <nav className="f21-ce-rail" aria-label="Context sources">
-          <div className="f21-ce-rail-group">
+          <div className="f21-panel f21-ce-rail-group">
             <h2 className="f21-ce-label">About your company</h2>
             <ul>
               {forms.map(f =>
@@ -452,7 +473,7 @@ export function ContextEnginePage({
             </ul>
           </div>
 
-          <div className="f21-ce-rail-group">
+          <div className="f21-panel f21-ce-rail-group">
             <h2 className="f21-ce-label">Your material</h2>
             <ul>
               {railItem("notes", <NotebookPen size={14} strokeWidth={2} />, "Notes and files", notes.length)}
@@ -460,7 +481,7 @@ export function ContextEnginePage({
             </ul>
           </div>
 
-          <div className="f21-ce-rail-group">
+          <div className="f21-panel f21-ce-rail-group">
             <h2 className="f21-ce-label">Connected apps</h2>
             <ul>
               {CONNECTORS.map(c =>

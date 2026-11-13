@@ -1,6 +1,11 @@
 /* —— Context Engine: coverage strip, source rail, focused panel —— */
 .f21-ce {
   container-type: inline-size;
+  gap: 24px;
+}
+
+.f21-ce .f21-panel {
+  padding: 22px 24px;
 }
 
 .f21-ce-label {
@@ -34,8 +39,7 @@
   display: grid;
   grid-template-columns: auto minmax(120px, 1fr) auto;
   align-items: center;
-  gap: 20px;
-  padding: 14px 18px;
+  gap: 24px;
 }
 
 .f21-ce-coverage-score {
@@ -80,17 +84,21 @@
 /* Body: rail + panel */
 .f21-ce-body {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
 }
 
 .f21-ce-rail {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   position: sticky;
   top: 0;
+}
+
+.f21-ce .f21-ce-rail-group {
+  padding: 16px 14px 14px;
 }
 
 .f21-ce-rail-group > .f21-ce-label {
@@ -103,7 +111,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .f21-ce-rail-item {
@@ -184,8 +192,40 @@
 .f21-ce-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
   min-height: 360px;
+}
+
+.f21-ce-block + .f21-ce-block {
+  padding-top: 8px;
+  border-top: 1px solid var(--f21-border-soft);
+}
+
+.f21-ce-bench-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.f21-ce-bench-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.f21-ce-bench-section + .f21-ce-bench-section {
+  padding-top: 28px;
+  border-top: 1px solid var(--f21-border-soft);
+}
+
+.f21-ce .f21-telemetry-benchmark-list {
+  gap: 28px;
+}
+
+.f21-ce .f21-telemetry-benchmark-track .ob-bench-bar-dot {
+  height: 14px;
+  width: 14px;
+  top: -4px;
 }
 
 .f21-ce-panel-head {
