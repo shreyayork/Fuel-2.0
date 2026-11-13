@@ -62,8 +62,6 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   advisors: MessageSquare,
   investors: Users,
   watchlists: Bookmark,
-  "public-profile": Globe,
-  blog: PenLine,
   help: CircleHelp,
 };
 

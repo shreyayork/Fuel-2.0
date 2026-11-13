@@ -53,14 +53,6 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     ],
   },
   {
-    id: "public-presence",
-    label: "Public presence",
-    items: [
-      { id: "public-profile", label: "Public profile", targetNav: "context" },
-      { id: "blog", label: "Blog", targetNav: "context" },
-    ],
-  },
-  {
     id: "recently-viewed",
     label: "Recently viewed",
     items: [
