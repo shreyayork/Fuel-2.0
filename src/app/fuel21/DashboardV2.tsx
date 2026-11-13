@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -331,6 +331,99 @@ function TrackScoreRing({
   );
 }
 
+function MobileSnap({
+  className,
+  label,
+  fitActive = false,
+  children,
+}: {
+  className: string;
+  label: string;
+  /** Size the row to the visible slide so a short card does not inherit a taller neighbor. */
+  fitActive?: boolean;
+  children: ReactNode;
+}) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const count = Children.count(children);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el || !fitActive) return;
+    const slide = el.children[index] as HTMLElement | undefined;
+    if (!slide) return;
+    const apply = () => {
+      if (!window.matchMedia("(max-width: 820px)").matches) {
+        el.style.height = "";
+        return;
+      }
+      const next = `${slide.offsetHeight}px`;
+      if (el.style.height !== next) el.style.height = next;
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(slide);
+    window.addEventListener("resize", apply);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", apply);
+      el.style.height = "";
+    };
+  }, [fitActive, index, count]);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const slide = el.firstElementChild as HTMLElement | null;
+      if (!slide) return;
+      const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
+      const step = slide.offsetWidth + gap;
+      if (step <= 0) return;
+      const next = Math.round(el.scrollLeft / step);
+      setIndex(current => {
+        const clamped = Math.max(0, Math.min(count - 1, next));
+        return current === clamped ? current : clamped;
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [count]);
+
+  const goTo = (next: number) => {
+    const el = scrollerRef.current;
+    const slide = el?.children[next] as HTMLElement | undefined;
+    if (!el || !slide) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const left = slide.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+    setIndex(next);
+    el.scrollTo({ left, behavior: reduce ? "auto" : "smooth" });
+  };
+
+  return (
+    <div className="f21-mobile-snap">
+      <div ref={scrollerRef} className={`${className}${fitActive ? " f21-snap-fit" : ""}`} aria-label={label}>
+        {children}
+      </div>
+      {count > 1 ? (
+        <div className="f21-snap-dots" role="tablist" aria-label={`${label} slides`}>
+          {Array.from({ length: count }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={i === index}
+              aria-label={`${label}, slide ${i + 1} of ${count}`}
+              className={i === index ? "is-active" : ""}
+              onClick={() => goTo(i)}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export type DashboardTrackId = "rd" | "gtm" | "ga";
 
 export type DashboardV2Actions = {
@@ -361,7 +454,7 @@ export function DashboardV2({
   const [isRoadmapSkipped, setIsRoadmapSkipped] = useState(false);
 
   const trackPulseSection = (
-      <div className="f21-v2-track-grid" aria-label="Executive track pulse">
+      <MobileSnap className="f21-v2-track-grid" label="Company tracks">
         {SCORE_CARDS.map(card => {
           const ScoreIcon = SCORE_ICONS[card.id] ?? Code2;
           const diag = TRACK_DIAGNOSTICS[card.id] ?? {
@@ -411,7 +504,7 @@ export function DashboardV2({
             </button>
           );
         })}
-      </div>
+      </MobileSnap>
   );
 
   return (
@@ -446,7 +539,7 @@ export function DashboardV2({
             </button>
           </div>
 
-          <div className="f21-module-grid">
+          <MobileSnap className="f21-module-grid" label="Profile steps">
             {DASHBOARD_MODULES.map(mod => {
               const Icon = MODULE_ICONS[mod.id as keyof typeof MODULE_ICONS] ?? Sparkles;
               const statusClass =
@@ -504,7 +597,7 @@ export function DashboardV2({
                 </button>
               );
             })}
-          </div>
+          </MobileSnap>
         </section>
       ) : null}
 
@@ -586,7 +679,7 @@ export function DashboardV2({
       {/* =====================================================================
           4 — List hub: Intelligence, Initiatives, Data room, Playbooks, Connectors
           ===================================================================== */}
-      <div className="f21-v2-list-hub" aria-label="Workspace lists">
+      <MobileSnap className="f21-v2-list-hub" label="Workspace lists" fitActive>
         <section className="f21-dash-list-panel f21-dash-list-panel--intel" aria-label="Latest intelligence">
           <DashListPanelHead title="Latest intelligence" />
           <div className="f21-dash-list">
@@ -722,7 +815,7 @@ export function DashboardV2({
           </div>
           <DashListPanelFoot label="Manage" onAction={onOpenConnectors} />
         </section>
-      </div>
+      </MobileSnap>
     </section>
   );
 }
