@@ -144,6 +144,15 @@ import { getCompanyLogoColors } from "./companyLogoColors";
 
 const TOUR_TAKEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+function readWorkspaceTourTaken() {
+  try {
+    const lastTakenAt = Number(window.localStorage.getItem("fuelWorkspaceTourTakenAt") || 0);
+    return lastTakenAt > 0 && Date.now() - lastTakenAt < TOUR_TAKEN_COOLDOWN_MS;
+  } catch {
+    return false;
+  }
+}
+
 const tracks = [
   {
     id: "rd",
@@ -11288,6 +11297,8 @@ export default function PatriotPayJourney({
   onNotificationAction,
   onLogOut,
   suppressProfileCompletionPrompt = false,
+  onWorkspaceTourSettled,
+  onProfileCompletionPromptChange,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
@@ -11296,6 +11307,8 @@ export default function PatriotPayJourney({
   onNotificationAction?: (action: NotificationAction, notification: WorkspaceNotification) => void;
   onLogOut?: () => void;
   suppressProfileCompletionPrompt?: boolean;
+  onWorkspaceTourSettled?: () => void;
+  onProfileCompletionPromptChange?: (open: boolean) => void;
 }) {
   return (
     <CreditProvider audience={persona === "investor" ? "investor" : "founder"}>
@@ -11307,6 +11320,8 @@ export default function PatriotPayJourney({
         onNotificationAction={onNotificationAction}
         onLogOut={onLogOut}
         suppressProfileCompletionPrompt={suppressProfileCompletionPrompt}
+        onWorkspaceTourSettled={onWorkspaceTourSettled}
+        onProfileCompletionPromptChange={onProfileCompletionPromptChange}
       />
       <CreditToastHost />
     </CreditProvider>
@@ -11321,6 +11336,8 @@ function PatriotPayJourneyInner({
   onNotificationAction,
   onLogOut,
   suppressProfileCompletionPrompt = false,
+  onWorkspaceTourSettled,
+  onProfileCompletionPromptChange,
 }: {
   initialPage?: string;
   initialBenchmark?: OnboardingBenchmarkInput | null;
@@ -11329,6 +11346,8 @@ function PatriotPayJourneyInner({
   onNotificationAction?: (action: NotificationAction, notification: WorkspaceNotification) => void;
   onLogOut?: () => void;
   suppressProfileCompletionPrompt?: boolean;
+  onWorkspaceTourSettled?: () => void;
+  onProfileCompletionPromptChange?: (open: boolean) => void;
 }) {
   const isInvestorPersona = persona === "investor";
   /** Founders get the Fuel 2.1 shell (new left nav, top bar, right dock, dashboard). */
@@ -11425,8 +11444,10 @@ function PatriotPayJourneyInner({
     if (!creditToastArmedRef.current) return;
     setProfileCreditReward(reward);
   }, []);
+  const shellTourWillRun = usesFuelShell && startsWithOverviewBuilding && !readWorkspaceTourTaken();
   const [profileCompletionPromptOpen, setProfileCompletionPromptOpen] = useState(() =>
     !suppressProfileCompletionPrompt
+    && !shellTourWillRun
     && persona !== "investor"
     && isProfileCompletionPromptDue(
       FOUNDER_CLAIMED_COMPANY_ID,
@@ -12084,14 +12105,19 @@ function PatriotPayJourneyInner({
   const [contextHintOpen, setContextHintOpen] = useState(false);
   const [dockTourOffer, setDockTourOffer] = useState(false);
   const [contextAnswersTick, setContextAnswersTick] = useState(0);
-  const [tourTaken, setTourTaken] = useState(() => {
-    try {
-      const lastTakenAt = Number(window.localStorage.getItem("fuelWorkspaceTourTakenAt") || 0);
-      return lastTakenAt > 0 && Date.now() - lastTakenAt < TOUR_TAKEN_COOLDOWN_MS;
-    } catch {
-      return false;
-    }
-  });
+  const [tourTaken, setTourTaken] = useState(() => readWorkspaceTourTaken());
+  const [tourGateSettled, setTourGateSettled] = useState(() => !usesFuelShell || readWorkspaceTourTaken());
+  const tourSettledNotifiedRef = useRef(false);
+  const onWorkspaceTourSettledRef = useRef(onWorkspaceTourSettled);
+  const onProfileCompletionPromptChangeRef = useRef(onProfileCompletionPromptChange);
+  onWorkspaceTourSettledRef.current = onWorkspaceTourSettled;
+  onProfileCompletionPromptChangeRef.current = onProfileCompletionPromptChange;
+  const reportTourSettled = useCallback(() => {
+    setTourGateSettled(true);
+    if (tourSettledNotifiedRef.current) return;
+    tourSettledNotifiedRef.current = true;
+    onWorkspaceTourSettledRef.current?.();
+  }, []);
   const isProfileWizard = activePage === "profile-wizard" || activePage === "benchmark-form";
   const shellTourSteps = [
     {
@@ -12338,7 +12364,19 @@ function PatriotPayJourneyInner({
   }, [overviewBuildActive]);
 
   useEffect(() => {
+    onProfileCompletionPromptChangeRef.current?.(profileCompletionPromptOpen);
+  }, [profileCompletionPromptOpen]);
+
+  useEffect(() => {
+    if (tourGateSettled) reportTourSettled();
+  }, [tourGateSettled, reportTourSettled]);
+
+  useEffect(() => {
     if (suppressProfileCompletionPrompt) {
+      setProfileCompletionPromptOpen(false);
+      return;
+    }
+    if (tourOpen || (usesFuelShell && startsWithOverviewBuilding && !tourGateSettled)) {
       setProfileCompletionPromptOpen(false);
       return;
     }
@@ -12363,6 +12401,10 @@ function PatriotPayJourneyInner({
     selectedCompany.displayName,
     selectedCompany.id,
     suppressProfileCompletionPrompt,
+    startsWithOverviewBuilding,
+    tourGateSettled,
+    tourOpen,
+    usesFuelShell,
   ]);
 
   const profilePromptBlocking = !suppressProfileCompletionPrompt && shouldGateFounderProfilePrompt(
@@ -12444,6 +12486,7 @@ function PatriotPayJourneyInner({
     setTourOpen(false);
     if (completed) {
       setTourTaken(true);
+      reportTourSettled();
       try {
         window.localStorage.setItem("fuelWorkspaceTourTakenAt", String(Date.now()));
         window.localStorage.setItem("fuelWorkspaceTourTaken", "true");
@@ -12459,6 +12502,7 @@ function PatriotPayJourneyInner({
   function skipTour() {
     closeTour(false);
     setTourTaken(false);
+    reportTourSettled();
     setDockTourOffer(true);
     setShowTourCoachmark(true);
     try {

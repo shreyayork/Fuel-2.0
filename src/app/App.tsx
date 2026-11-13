@@ -114,6 +114,8 @@ export default function App() {
   const [companyAdvisorInviteReview, setCompanyAdvisorInviteReview] = useState<CompanyAdvisorLink | null>(null);
   const [pendingCompanyAdvisorInvite, setPendingCompanyAdvisorInvite] = useState<CompanyAdvisorLink | null>(null);
   const [companyAdvisorAutoPromptShown, setCompanyAdvisorAutoPromptShown] = useState(false);
+  const [founderTourSettled, setFounderTourSettled] = useState(false);
+  const [profileCompletionPromptVisible, setProfileCompletionPromptVisible] = useState(false);
 
   function companyAdvisorNotificationId(link: CompanyAdvisorLink) {
     return `company-advisor-invite:${link.id}:${link.invitedAt ?? "pending"}`;
@@ -182,7 +184,6 @@ export default function App() {
       return;
     }
     setAdvisorAutoPromptShown(false);
-    setProfilePromptSuppressed(true);
     const source = connection.source ?? (connection.status === "invite_sent" ? "invite" : "request");
     upsertNotification({
       id: advisorNotificationId(connection),
@@ -233,6 +234,7 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!founderTourSettled || profileCompletionPromptVisible) return;
     if (view !== "workspace" || !pendingAdvisorConnection || advisorAutoPromptShown) return;
     if (isInvestorPersona(onboardingAnswers)) return;
     const timer = window.setTimeout(() => {
@@ -240,9 +242,10 @@ export default function App() {
       setAdvisorAutoPromptShown(true);
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [advisorAutoPromptShown, onboardingAnswers, pendingAdvisorConnection, view]);
+  }, [advisorAutoPromptShown, founderTourSettled, onboardingAnswers, pendingAdvisorConnection, profileCompletionPromptVisible, view]);
 
   useEffect(() => {
+    if (!founderTourSettled || profileCompletionPromptVisible) return;
     if (view !== "workspace" || !pendingCompanyAdvisorInvite || companyAdvisorAutoPromptShown) return;
     const email = getAuthEmail();
     const link = pendingCompanyAdvisorInvite;
@@ -258,7 +261,7 @@ export default function App() {
       setCompanyAdvisorAutoPromptShown(true);
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [companyAdvisorAutoPromptShown, onboardingAnswers, pendingCompanyAdvisorInvite, view]);
+  }, [companyAdvisorAutoPromptShown, founderTourSettled, onboardingAnswers, pendingCompanyAdvisorInvite, profileCompletionPromptVisible, view]);
 
   function releaseProfilePromptAfterAdvisor() {
     window.setTimeout(() => setProfilePromptSuppressed(false), 900);
@@ -304,6 +307,8 @@ export default function App() {
     setPendingCompanyAdvisorInvite(null);
     setCompanyAdvisorAutoPromptShown(false);
     setProfilePromptSuppressed(false);
+    setFounderTourSettled(false);
+    setProfileCompletionPromptVisible(false);
   }
 
   function handleLogOut() {
@@ -451,6 +456,8 @@ export default function App() {
             || Boolean(connectionReview)
             || Boolean(companyAdvisorInviteReview)
           }
+          onWorkspaceTourSettled={() => setFounderTourSettled(true)}
+          onProfileCompletionPromptChange={setProfileCompletionPromptVisible}
         />
         <AdvisorConnectionDialog
           open={Boolean(connectionReview) || Boolean(companyAdvisorInviteReview)}
