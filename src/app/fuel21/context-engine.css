@@ -486,6 +486,16 @@
 }
 
 /* Narrow column: one group of accordions. A side menu plus a second panel does not fit. */
+.f21-ce.is-narrow,
+.f21-ce.is-narrow * {
+  overflow-anchor: none;
+}
+
+/* Extra room so the last section title can scroll to the top on open and close. */
+.f21-ce.is-narrow {
+  padding-bottom: calc(100dvh - 140px);
+}
+
 .f21-ce.is-narrow .f21-page-head {
   flex-direction: column;
 }
@@ -512,6 +522,14 @@
 
 .f21-ce.is-narrow .f21-ce-rail {
   position: static;
+}
+
+.f21-ce.is-narrow .f21-ce-rail li {
+  scroll-margin-top: 16px;
+}
+
+.f21-ce.is-narrow .f21-ce-rail li.is-open {
+  margin-top: 10px;
 }
 
 .f21-ce.is-narrow .f21-panel {

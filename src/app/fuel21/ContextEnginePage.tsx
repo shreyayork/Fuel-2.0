@@ -137,6 +137,10 @@ export function ContextEnginePage({
   const answers = useDetailAnswers(companyName);
   const artifactList = artifacts ?? CONTEXT_ARTIFACTS;
   const [active, setActive] = useState<SourceId>("profile");
+  const [openIds, setOpenIds] = useState<SourceId[]>(["profile"]);
+  const [scrollToken, setScrollToken] = useState(0);
+  const sectionRefs = useRef(new Map<SourceId, HTMLLIElement>());
+  const pendingScroll = useRef<SourceId | null>(null);
   const [query, setQuery] = useState("");
   const [showAllMissing, setShowAllMissing] = useState(false);
   const [playbooksOpen, setPlaybooksOpen] = useState(false);
@@ -252,10 +256,46 @@ export function ContextEnginePage({
   const coverage = questionTotal ? Math.round((knownTotal / questionTotal) * 100) : 0;
   const nextGap = [...forms].sort((a, b) => b.missing.length - a.missing.length)[0];
 
+  const scrollSectionToStart = (id: SourceId) => {
+    const el = sectionRefs.current.get(id);
+    const scroller = el?.closest(".f21-content");
+    if (!el || !(scroller instanceof HTMLElement)) return;
+    const pad = parseFloat(getComputedStyle(scroller).paddingTop) || 0;
+    const gap = 16;
+    const delta = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - pad - gap;
+    scroller.scrollTo({ top: Math.max(0, scroller.scrollTop + delta), behavior: "auto" });
+  };
+
+  useLayoutEffect(() => {
+    if (!narrow) return;
+    const id = pendingScroll.current;
+    if (!id) return;
+    pendingScroll.current = null;
+    scrollSectionToStart(id);
+    const frame = window.requestAnimationFrame(() => scrollSectionToStart(id));
+    return () => window.cancelAnimationFrame(frame);
+  }, [scrollToken, narrow]);
+
+  const queueSectionScroll = (id: SourceId) => {
+    pendingScroll.current = id;
+    setScrollToken(token => token + 1);
+  };
+
   const select = (id: SourceId) => {
     setActive(id);
     setQuery("");
     setShowAllMissing(false);
+    if (!narrow) return;
+    setOpenIds([id]);
+    queueSectionScroll(id);
+  };
+
+  const toggleSection = (id: SourceId) => {
+    setActive(id);
+    setQuery("");
+    setShowAllMissing(false);
+    setOpenIds(prev => (prev.length === 1 && prev[0] === id ? [] : [id]));
+    queueSectionScroll(id);
   };
 
   const activeForm = forms.find(f => f.id === active);
@@ -519,15 +559,22 @@ export function ContextEnginePage({
   };
 
   const railItem = (id: SourceId, icon: ReactNode, label: string, meta: ReactNode) => {
-    const open = active === id;
+    const open = narrow ? openIds.includes(id) : active === id;
     return (
-      <li key={id} className={narrow && open ? "is-open" : undefined}>
+      <li
+        key={id}
+        className={narrow && open ? "is-open" : undefined}
+        ref={node => {
+          if (node) sectionRefs.current.set(id, node);
+          else sectionRefs.current.delete(id);
+        }}
+      >
         <button
           type="button"
           className={`f21-ce-rail-item${open ? " is-active" : ""}`}
-          aria-current={open ? "true" : undefined}
+          aria-current={!narrow && open ? "true" : undefined}
           aria-expanded={narrow ? open : undefined}
-          onClick={() => select(id)}
+          onClick={() => (narrow ? toggleSection(id) : select(id))}
         >
           <span className="f21-ce-rail-icon" aria-hidden="true">
             {icon}
