@@ -36,6 +36,7 @@ import { Fuel21Shell, Fuel21UserFooter, type Fuel21DockId } from "./fuel21/Fuel2
 import { DashboardPage } from "./fuel21/DashboardPage.tsx";
 import { ContextEnginePage } from "./fuel21/ContextEnginePage.tsx";
 import { BenchmarkReportPage } from "./fuel21/BenchmarkReportPage.tsx";
+import { FounderInvestorsPage } from "./fuel21/FounderInvestorsPage.tsx";
 import {
   Fuel21DetailsDrawerProvider,
   type Fuel21DrawerRequest,
@@ -13328,6 +13329,8 @@ function PatriotPayJourneyInner({
               onOpenPlaybooks={openBrowsePlaybooks}
               onOpenConnectors={() => openFounderPage("context-engine")}
             />
+          ) : activePage === "investor-watchlists" && usesFuelShell && founderNetworkNav === "investors" ? (
+            <FounderInvestorsPage />
           ) : shellSurface(
             <>
               {usesPerCompanyWorkspace ? (
