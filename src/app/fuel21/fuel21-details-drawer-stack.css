@@ -46,3 +46,8 @@ html[data-f21-theme] .sc-drawer-scrim:not(.sc-drawer-scrim--over-ask-fuel) {
 html[data-f21-theme] .sc-drawer:not(.sc-drawer--over-ask-fuel) {
   right: var(--f21-right-dock-width);
 }
+
+html[data-f21-theme] .afc-scrim,
+html[data-f21-theme] .afc {
+  right: var(--f21-right-dock-width);
+}

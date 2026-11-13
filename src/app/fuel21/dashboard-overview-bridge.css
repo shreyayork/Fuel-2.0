@@ -340,21 +340,21 @@
   color: rgba(255, 255, 255, 0.92);
 }
 
-/* Skip sits on #00B48A — dark fill so it stays a button */
+/* Skip sits on #00B48A — navy fill so it stays a button */
 .f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-head .f21-skip-btn.f21-ghost-btn {
-  background: #284256;
+  background: #274155;
   border: none;
   box-shadow: none;
   color: #ffffff;
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
   filter: none;
   transform: none;
 }
 
 .f21-app[data-f21-theme="light"] .f21-dashboard .overview-tour-page .f21-v2-modules-head .f21-skip-btn.f21-ghost-btn:hover {
-  background: #1e3142;
+  background: #1c3142;
   border: none;
   box-shadow: none;
   color: #ffffff;
