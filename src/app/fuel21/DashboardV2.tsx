@@ -438,6 +438,8 @@ export type DashboardV2Actions = {
   onOpenDataRoom: () => void;
   onOpenPlaybooks: () => void;
   onOpenConnectors: () => void;
+  onSkipProfile?: () => void;
+  activeTourTarget?: string;
 };
 
 export function DashboardV2({
@@ -450,6 +452,8 @@ export function DashboardV2({
   onOpenDataRoom,
   onOpenPlaybooks,
   onOpenConnectors,
+  onSkipProfile,
+  activeTourTarget,
 }: DashboardV2Actions) {
   const [isRoadmapSkipped, setIsRoadmapSkipped] = useState(false);
 
@@ -516,7 +520,11 @@ export function DashboardV2({
           1 — Diagnostic Roadmap (Your 5 Modules) - Top by default with Skip
           ===================================================================== */}
       {!isRoadmapSkipped ? (
-        <section className="f21-v2-modules-section f21-complete-profile-panel" aria-label="Complete your profile">
+        <section
+          className={`f21-v2-modules-section f21-complete-profile-panel${activeTourTarget === "recommended-actions" ? " tour-highlight" : ""}`}
+          aria-label="Complete your profile"
+          data-tour-target="recommended-actions"
+        >
           <div className="f21-v2-modules-head">
             <div>
               <h2 className="f21-head-with-icon">
@@ -532,7 +540,10 @@ export function DashboardV2({
             <button
               type="button"
               className="f21-ghost-btn f21-skip-btn"
-              onClick={() => setIsRoadmapSkipped(true)}
+              onClick={() => {
+                setIsRoadmapSkipped(true);
+                onSkipProfile?.();
+              }}
               title="Hide complete your profile"
             >
               Skip
@@ -608,7 +619,11 @@ export function DashboardV2({
           ===================================================================== */}
       <div className="f21-v2-bento-grid">
         {/* Left: AI Executive Brief */}
-        <section className="f21-panel f21-v2-brief-card" aria-label="AI executive brief">
+        <section
+          className={`f21-panel f21-v2-brief-card${activeTourTarget === "ai-advisor" ? " tour-highlight" : ""}`}
+          aria-label="AI executive brief"
+          data-tour-target="ai-advisor"
+        >
           <div className="f21-v2-brief-meta-head">
             <div className="f21-head-title-wrap">
               <h2 className="f21-head-with-icon">

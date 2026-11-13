@@ -734,6 +734,61 @@
   border-color: rgba(0, 180, 138, 0.18);
 }
 
+.f21-context-hint {
+  background: var(--f21-panel, #172632);
+  border: 1px solid rgba(0, 180, 138, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  color: var(--f21-text);
+  padding: 12px 14px;
+  position: fixed;
+  width: 260px;
+  z-index: 1400;
+}
+
+.f21-context-hint::before {
+  border-bottom: 7px solid transparent;
+  border-right: 7px solid var(--f21-panel, #172632);
+  border-top: 7px solid transparent;
+  content: "";
+  left: -7px;
+  position: absolute;
+  top: 16px;
+}
+
+.f21-context-hint p {
+  color: var(--f21-text);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0 0 10px;
+}
+
+.f21-context-hint button {
+  background: #00b48a;
+  border: 0;
+  border-radius: 8px;
+  color: #07131c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 6px 10px;
+}
+
+.f21-app[data-f21-theme="light"] .f21-context-hint {
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  color: rgb(44, 64, 82);
+}
+
+.f21-app[data-f21-theme="light"] .f21-context-hint::before {
+  border-right-color: #ffffff;
+}
+
+.f21-app[data-f21-theme="light"] .f21-context-hint p {
+  color: rgb(44, 64, 82);
+}
+
 .f21-nav-badge.is-circle {
   width: 16px;
   height: 16px;

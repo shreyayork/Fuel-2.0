@@ -69,7 +69,7 @@ interface Answers extends OnboardingTrackAnswers {
   profileFundingRounds?: string;
 }
 
-const STEPS_DEFAULT: StepId[] = ["profile", "development", "gtm", "revops", "benchmarking"];
+const STEPS_DEFAULT: StepId[] = ["profile", "benchmarking"];
 const STEPS_INVESTOR_BASE: StepId[] = ["profile", "investment"];
 const STEPS_INVESTOR_WITH_HUBSPOT: StepId[] = ["profile", "investment", "hubspot"];
 
@@ -1367,7 +1367,12 @@ export function hasCompletedOnboardingTracks(answers: OnboardingFlowAnswers | nu
   if (INVESTOR_MODELS.includes(answers.profileBusinessModel ?? "")) {
     return Boolean(answers.investCheckSize && answers.investGeography?.length);
   }
-  return ONBOARDING_TRACK_FIELDS.every(key => Boolean(answers[key]?.trim()));
+  return Boolean(
+    answers.profileCompany?.trim()
+    && answers.profileBusinessModel?.trim()
+    && (answers.profileProductDescription || answers.profileCompany)?.trim()
+    && answers.profileIndustry?.trim()
+  );
 }
 
 export function answersToOnboardingBenchmark(answers: Answers): OnboardingBenchmarkInput {

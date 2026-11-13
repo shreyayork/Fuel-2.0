@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   Bookmark,
   Building2,
@@ -114,20 +115,27 @@ function SidebarNavButton({
   item,
   active,
   badge,
+  highlighted = false,
+  buttonRef,
   onSelect,
 }: {
   item: SidebarNavItem;
   active: boolean;
   badge?: string;
+  highlighted?: boolean;
+  buttonRef?: (node: HTMLButtonElement | null) => void;
   onSelect: (id: string) => void;
 }) {
   const Icon = NAV_ICONS[item.id] ?? FileText;
   const shownBadge = badge ?? item.badge;
+  const progressBadge = Boolean(shownBadge?.endsWith("%"));
   return (
     <button
+      ref={buttonRef}
       type="button"
-      className={`f21-nav-item${active ? " is-active" : ""}`}
+      className={`f21-nav-item${active ? " is-active" : ""}${highlighted ? " tour-highlight" : ""}`}
       aria-current={active ? "page" : undefined}
+      data-tour-target={`nav-${item.id}`}
       onClick={() => onSelect(item.id)}
     >
       <Icon size={15} strokeWidth={1.85} aria-hidden="true" className="f21-nav-item-icon" />
@@ -135,7 +143,7 @@ function SidebarNavButton({
       {shownBadge ? (
         <span
           className={`f21-nav-badge${
-            item.badgeTone === "green" ? " is-green" : item.badgeShape === "circle" ? " is-circle" : ""
+            progressBadge || item.badgeTone === "green" ? " is-green" : item.badgeShape === "circle" ? " is-circle" : ""
           }`}
         >
           {shownBadge}
@@ -159,6 +167,9 @@ export function Fuel21Shell({
   onSelectDock,
   onAskFuel,
   onToggleTheme,
+  tourTarget = null,
+  showContextHint = false,
+  onDismissContextHint,
   topbarActions,
   footer,
   children,
@@ -177,6 +188,9 @@ export function Fuel21Shell({
   onSelectDock: (id: Fuel21DockId) => void;
   onAskFuel: () => void;
   onToggleTheme: () => void;
+  tourTarget?: string | null;
+  showContextHint?: boolean;
+  onDismissContextHint?: () => void;
   /** Rendered between the theme toggle and Ask Fuel AI (e.g. notifications). */
   topbarActions?: ReactNode;
   footer: ReactNode;
@@ -184,6 +198,7 @@ export function Fuel21Shell({
 }) {
   const sections = SIDEBAR_SECTIONS.filter(section => section.id !== "recently-viewed");
   const [navOpen, setNavOpen] = useState(false);
+  const [contextAnchor, setContextAnchor] = useState<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     setNavOpen(false);
@@ -218,9 +233,10 @@ export function Fuel21Shell({
 
           <button
             type="button"
-            className={`f21-nav-dashboard-item${activeNavId === "dashboard" ? " is-active" : ""}`}
+            className={`f21-nav-dashboard-item${activeNavId === "dashboard" ? " is-active" : ""}${tourTarget === "nav-dashboard" ? " tour-highlight" : ""}`}
             onClick={() => selectNav("dashboard")}
             aria-label={`Dashboard, ${breadcrumbRoot}`}
+            data-tour-target="nav-dashboard"
           >
             <LayoutGrid size={15} strokeWidth={2} aria-hidden="true" className="f21-nav-item-icon" />
             <span className="f21-nav-dashboard-copy">
@@ -238,6 +254,8 @@ export function Fuel21Shell({
                   item={item}
                   active={activeNavId === item.id}
                   badge={item.id in navBadges ? navBadges[item.id] : undefined}
+                  highlighted={tourTarget === `nav-${item.id}`}
+                  buttonRef={item.id === "context" ? setContextAnchor : undefined}
                   onSelect={selectNav}
                 />
               ))}
@@ -292,7 +310,7 @@ export function Fuel21Shell({
             </label>
             <button
               type="button"
-              className="f21-topbar-ai-btn"
+              className={`f21-topbar-ai-btn${tourTarget === "ask-fuel-ai" ? " tour-highlight" : ""}`}
               data-tour-target="ask-fuel-ai"
               onClick={onAskFuel}
               aria-label="Ask Fuel AI"
@@ -315,6 +333,9 @@ export function Fuel21Shell({
             {topbarActions}
           </div>
         </header>
+        {showContextHint ? (
+          <ContextEngineHint anchor={contextAnchor} onDismiss={() => onDismissContextHint?.()} />
+        ) : null}
         <div className="f21-workspace-layout">
           <main className="f21-content">{children}</main>
 
@@ -388,6 +409,41 @@ function DockButton({
         <p className="f21-dock-tooltip-desc">{item.description}</p>
       </div>
     </div>
+  );
+}
+
+function ContextEngineHint({
+  anchor,
+  onDismiss,
+}: {
+  anchor: HTMLButtonElement | null;
+  onDismiss: () => void;
+}) {
+  const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!anchor) return;
+    const place = () => {
+      const rect = anchor.getBoundingClientRect();
+      setBox({ top: rect.top, left: rect.right + 12 });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [anchor]);
+
+  if (!box) return null;
+  const host = anchor?.closest(".f21-app") ?? document.body;
+  return createPortal(
+    <div className="f21-context-hint" style={{ top: box.top, left: box.left }} role="status">
+      <p>Add the rest here. Context engine is where company answers, notes, and files go — and where you earn the credit for finishing them.</p>
+      <button type="button" onClick={onDismiss}>OK</button>
+    </div>,
+    host,
   );
 }
 

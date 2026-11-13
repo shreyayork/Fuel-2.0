@@ -85,6 +85,29 @@ function benchmarkDollars(key: string, raw: string): number | null {
   return value;
 }
 
+export function measureContextProgress(
+  answers: DetailAnswers,
+  benchmark: Record<string, string | undefined>,
+  profileFallback: Record<string, string | undefined> = {},
+): { known: number; total: number } {
+  let known = 0;
+  let total = 0;
+  FORMS.forEach(form => {
+    const section = DETAIL_SECTIONS.find(item => item.id === form.id);
+    const questions = section ? getVisibleQuestions(section, answers) : [];
+    total += questions.length;
+    known += questions.filter(question => {
+      const saved = formatAnswer(question, answers[question.id]);
+      const fallback = form.id === "profile" && !saved ? profileFallback[question.id]?.trim() ?? "" : "";
+      return Boolean(saved || fallback);
+    }).length;
+  });
+  const metricsKnown = BENCHMARK_WIZARD_FIELDS.filter(field => (
+    benchmarkDollars(field.key, String(benchmark[field.key] ?? "")) != null
+  )).length;
+  return { known: known + metricsKnown, total: total + BENCHMARK_WIZARD_FIELDS.length };
+}
+
 function useDetailAnswers(companyName: string): DetailAnswers {
   const [answers, setAnswers] = useState<DetailAnswers>(() => loadDetailAnswers(companyName));
   useEffect(() => {

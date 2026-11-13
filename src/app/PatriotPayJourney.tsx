@@ -30,11 +30,13 @@ import ScorecardV2, {
   type OverviewBuildPhase,
   type ScorecardView,
   BenchmarkEditDrawer,
+  DETAIL_ANSWERS_CHANGE_EVENT,
+  loadDetailAnswers,
 } from "./ScorecardV2";
 import { CreditPopover } from "./credits/CreditPopover";
 import { Fuel21Shell, Fuel21UserFooter, type Fuel21DockId } from "./fuel21/Fuel21Shell.tsx";
 import { DashboardPage } from "./fuel21/DashboardPage.tsx";
-import { ContextEnginePage } from "./fuel21/ContextEnginePage.tsx";
+import { ContextEnginePage, measureContextProgress } from "./fuel21/ContextEnginePage.tsx";
 import { BenchmarkReportPage } from "./fuel21/BenchmarkReportPage.tsx";
 import { FounderInvestorsPage } from "./fuel21/FounderInvestorsPage.tsx";
 import { FounderPlaybooksPage } from "./fuel21/FounderPlaybooksPage.tsx";
@@ -12079,6 +12081,8 @@ function PatriotPayJourneyInner({
   const [showTourPrompt, setShowTourPrompt] = useState(false);
   const [headerTourEnabled, setHeaderTourEnabled] = useState(!startsWithOverviewBuilding);
   const [showTourCoachmark, setShowTourCoachmark] = useState(false);
+  const [contextHintOpen, setContextHintOpen] = useState(false);
+  const [contextAnswersTick, setContextAnswersTick] = useState(0);
   const [tourTaken, setTourTaken] = useState(() => {
     try {
       const lastTakenAt = Number(window.localStorage.getItem("fuelWorkspaceTourTakenAt") || 0);
@@ -12088,7 +12092,69 @@ function PatriotPayJourneyInner({
     }
   });
   const isProfileWizard = activePage === "profile-wizard" || activePage === "benchmark-form";
-  const coreTourSteps = [
+  const shellTourSteps = [
+    {
+      page: "scorecard-v2",
+      target: "nav-dashboard",
+      title: "Dashboard",
+      text: "This is your operating home. Track scores, the Fuel brief, and the company snapshot live here. They fill in as you add context.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "notifications",
+      title: "Notifications",
+      text: "The bell keeps advisor invitations and important workspace updates in one place. Open a notification when you are ready to act on it.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "ai-advisor",
+      title: "Fuel brief",
+      text: "The brief highlights what matters across the tracks and points you to the details, sources, and initiatives. Open the full summary when you want the longer read.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "recommended-actions",
+      title: "Complete your profile",
+      text: "Start here after signup. Update benchmarks, review what Fuel already knows, and fill the remaining company context. Each answer sharpens the scores and what Fuel recommends next.",
+    },
+    {
+      page: "context-engine",
+      target: "nav-context",
+      title: "Context engine",
+      text: "Add the rest of the company here — answers, notes, and files. This is where you finish the profile and earn the credit.",
+    },
+    {
+      page: "signals",
+      target: "nav-intelligence",
+      title: "Intelligence",
+      text: "Intelligence groups benchmarks, uploads, and logged signals by category. Open any row for the source and the history.",
+    },
+    {
+      page: "initiatives",
+      target: "nav-initiatives",
+      title: "Initiatives",
+      text: "Turn what you learn into work. Suggested initiatives from each track can be added here and tracked with milestones.",
+    },
+    {
+      page: "data-room",
+      target: "nav-dataroom",
+      title: "Data room",
+      text: "Store decks, notes, and models privately. Uploads feed Intelligence and stay in your workspace.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "ask-fuel-ai",
+      title: "Ask Fuel",
+      text: "Chat with Fuel about this company. Dig into the scores, ask what matters next, and follow the story behind the numbers.",
+    },
+    {
+      page: "playbooks",
+      target: "nav-playbooks",
+      title: "Playbooks",
+      text: "Playbooks are structured runbooks — diligence, pricing, audits, and planning — run against this company's context.",
+    },
+  ] as const;
+  const coreTourSteps = usesFuelShell ? shellTourSteps : [
     {
       page: "scorecard-v2",
       target: "tab-overview",
@@ -12168,7 +12234,7 @@ function PatriotPayJourneyInner({
       text: "Generate brief runs against live benchmarks and signals, then saves the read here for your team. You can open any run in Ask Fuel to follow up.",
     },
   ] as const;
-  const tourSteps = profileComplete
+  const tourSteps = usesFuelShell || profileComplete
     ? [...coreTourSteps]
     : [
         ...coreTourSteps,
@@ -12221,6 +12287,12 @@ function PatriotPayJourneyInner({
   }, []);
 
   useEffect(() => {
+    const bump = () => setContextAnswersTick(tick => tick + 1);
+    window.addEventListener(DETAIL_ANSWERS_CHANGE_EVENT, bump);
+    return () => window.removeEventListener(DETAIL_ANSWERS_CHANGE_EVENT, bump);
+  }, []);
+
+  useEffect(() => {
     if (activePage !== "signals-loading") return;
 
     const timer = window.setTimeout(() => {
@@ -12238,6 +12310,15 @@ function PatriotPayJourneyInner({
       window.clearTimeout(timer);
     };
   }, [activePage, startsWithOverview]);
+
+  const shellTourStartedRef = useRef(false);
+  useEffect(() => {
+    if (!usesFuelShell || !startsWithOverviewBuilding || tourTaken || shellTourStartedRef.current) return;
+    shellTourStartedRef.current = true;
+    setScorecardEntry(null);
+    setTourStep(0);
+    setTourOpen(true);
+  }, [usesFuelShell, startsWithOverviewBuilding, tourTaken]);
 
   useEffect(() => {
     if (!overviewBuildActive) return;
@@ -12329,6 +12410,7 @@ function PatriotPayJourneyInner({
   function setTourIndex(index) {
     const nextIndex = Math.max(0, Math.min(index, tourSteps.length - 1));
     setTourStep(nextIndex);
+    if (usesFuelShell) setScorecardEntry(null);
     setActivePage(tourSteps[nextIndex].page);
   }
 
@@ -13329,6 +13411,17 @@ function PatriotPayJourneyInner({
                 : onFounderProfilePage ? (shellActiveNavId === "blog" ? "Blog" : "Public profile")
                   : breadcrumbLabel;
   const shellBadge = (count: number) => (count > 0 ? String(count) : "");
+  const contextProgress = useMemo(
+    () => measureContextProgress(
+      loadDetailAnswers(FOUNDER_COMPANY.displayName),
+      founderBenchmarkForm,
+      FOUNDER_PUBLIC_PROFILE,
+    ),
+    [contextAnswersTick, founderBenchmarkForm],
+  );
+  const contextProgressLabel = contextProgress.total > 0 && contextProgress.known < contextProgress.total
+    ? `${Math.round((contextProgress.known / contextProgress.total) * 100)}%`
+    : "";
   const shellSurface = (body: React.ReactNode) => (
     <div className={`content f21-legacy-surface${isProfileWizard ? " profile-wizard-content" : ""}`}>{body}</div>
   );
@@ -13364,6 +13457,8 @@ function PatriotPayJourneyInner({
           ) : activePage === "scorecard-v2" && !scorecardEntry && !usesPerCompanyWorkspace ? (
             <DashboardPage
               companyName={FOUNDER_COMPANY.displayName}
+              activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
+              onSkipProfile={() => setContextHintOpen(true)}
               onUpdateBenchmarks={() => requestShellDrawer("benchmark")}
               onOpenTrack={track => setScorecardEntry({
                 view: track === "rd" ? "dev" : track === "gtm" ? "mkt" : "rev",
@@ -13465,6 +13560,7 @@ function PatriotPayJourneyInner({
           initiatives: shellBadge(tabActiveInitiativeCount),
           dataroom: shellBadge(tabDataRoomCount),
           advisors: shellBadge(advisorNetworkCount),
+          context: contextProgressLabel,
         }}
         recentItems={recentCompanies
           .filter(company => company.id !== FOUNDER_COMPANY.id)
@@ -13478,7 +13574,18 @@ function PatriotPayJourneyInner({
           setAskFuelOpen(true);
         }}
         onToggleTheme={() => setShellTheme(previous => (previous === "dark" ? "light" : "dark"))}
-        topbarActions={<NotificationCenter onAction={handleNotificationAction} />}
+        tourTarget={tourOpen ? tourSteps[tourStep].target : null}
+        showContextHint={contextHintOpen}
+        onDismissContextHint={() => setContextHintOpen(false)}
+        topbarActions={(
+          <span
+            data-tour-target="notifications"
+            className={tourOpen && tourSteps[tourStep].target === "notifications" ? "tour-highlight" : undefined}
+            style={{ display: "inline-flex" }}
+          >
+            <NotificationCenter onAction={handleNotificationAction} />
+          </span>
+        )}
         footer={(
           <FounderShellFooter
             companyName={FOUNDER_COMPANY.displayName}
@@ -13490,6 +13597,18 @@ function PatriotPayJourneyInner({
       >
         {shellBody}
       </Fuel21Shell>
+      {tourOpen ? (
+        <GuidedTourOverlay
+          step={tourStep}
+          total={tourSteps.length}
+          title={tourSteps[tourStep].title}
+          text={tourSteps[tourStep].text}
+          highlightTarget={tourSteps[tourStep].target}
+          onNext={nextTourStep}
+          onPrevious={previousTourStep}
+          onSkip={skipTour}
+        />
+      ) : null}
     </Fuel21DetailsDrawerProvider>
   );
 
