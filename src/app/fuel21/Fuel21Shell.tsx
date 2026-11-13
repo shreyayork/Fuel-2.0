@@ -170,6 +170,10 @@ export function Fuel21Shell({
   tourTarget = null,
   showContextHint = false,
   onDismissContextHint,
+  showDockTour = false,
+  dockTourCoachmark = false,
+  onStartDockTour,
+  onDismissDockTour,
   topbarActions,
   footer,
   children,
@@ -191,6 +195,10 @@ export function Fuel21Shell({
   tourTarget?: string | null;
   showContextHint?: boolean;
   onDismissContextHint?: () => void;
+  showDockTour?: boolean;
+  dockTourCoachmark?: boolean;
+  onStartDockTour?: () => void;
+  onDismissDockTour?: () => void;
   /** Rendered between the theme toggle and Ask Fuel AI (e.g. notifications). */
   topbarActions?: ReactNode;
   footer: ReactNode;
@@ -357,6 +365,27 @@ export function Fuel21Shell({
             ))}
 
             <div className="f21-dock-foot">
+              {showDockTour ? (
+                <div className={`f21-dock-tour${dockTourCoachmark ? " is-coachmark" : ""}`}>
+                  <button
+                    type="button"
+                    className={`f21-dock-tour-btn${dockTourCoachmark ? " is-pointed" : ""}`}
+                    aria-label="Tour"
+                    onClick={onStartDockTour}
+                  >
+                    <TourMark />
+                  </button>
+                  {dockTourCoachmark ? (
+                    <div className="f21-dock-tour-coachmark" role="status">
+                      <span className="f21-dock-tour-coachmark-icon" aria-hidden="true">
+                        <TourMark />
+                      </span>
+                      <p>You can click here later to take a tour of the platform.</p>
+                      <button type="button" onClick={onDismissDockTour}>OK</button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <DockButton
                 item={{ id: "help", label: "Help and feedback", description: "Guides, questions, and product feedback", icon: CircleHelp }}
                 active={activeDockId === "help"}
@@ -368,6 +397,16 @@ export function Fuel21Shell({
         </div>
       </div>
     </div>
+  );
+}
+
+function TourMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 3.5v2.2M8 10.3V12.5M3.5 8h2.2M10.3 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="8" cy="8" r="1.6" fill="currentColor" />
+    </svg>
   );
 }
 

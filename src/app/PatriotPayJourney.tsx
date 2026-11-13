@@ -12082,6 +12082,7 @@ function PatriotPayJourneyInner({
   const [headerTourEnabled, setHeaderTourEnabled] = useState(!startsWithOverviewBuilding);
   const [showTourCoachmark, setShowTourCoachmark] = useState(false);
   const [contextHintOpen, setContextHintOpen] = useState(false);
+  const [dockTourOffer, setDockTourOffer] = useState(false);
   const [contextAnswersTick, setContextAnswersTick] = useState(0);
   const [tourTaken, setTourTaken] = useState(() => {
     try {
@@ -12458,6 +12459,8 @@ function PatriotPayJourneyInner({
   function skipTour() {
     closeTour(false);
     setTourTaken(false);
+    setDockTourOffer(true);
+    setShowTourCoachmark(true);
     try {
       window.localStorage.removeItem("fuelWorkspaceTourTakenAt");
       window.localStorage.removeItem("fuelWorkspaceTourTaken");
@@ -13458,7 +13461,11 @@ function PatriotPayJourneyInner({
             <DashboardPage
               companyName={FOUNDER_COMPANY.displayName}
               activeTourTarget={tourOpen ? tourSteps[tourStep].target : undefined}
-              onSkipProfile={() => setContextHintOpen(true)}
+              onSkipProfile={() => {
+                setContextHintOpen(true);
+                setDockTourOffer(true);
+                setShowTourCoachmark(true);
+              }}
               onUpdateBenchmarks={() => requestShellDrawer("benchmark")}
               onOpenTrack={track => setScorecardEntry({
                 view: track === "rd" ? "dev" : track === "gtm" ? "mkt" : "rev",
@@ -13577,6 +13584,10 @@ function PatriotPayJourneyInner({
         tourTarget={tourOpen ? tourSteps[tourStep].target : null}
         showContextHint={contextHintOpen}
         onDismissContextHint={() => setContextHintOpen(false)}
+        showDockTour={dockTourOffer && !tourTaken}
+        dockTourCoachmark={showTourCoachmark}
+        onStartDockTour={startTour}
+        onDismissDockTour={() => setShowTourCoachmark(false)}
         topbarActions={(
           <span
             data-tour-target="notifications"

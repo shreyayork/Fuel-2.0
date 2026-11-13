@@ -1427,6 +1427,98 @@
   width: 100%;
   padding: 10px 0 4px;
   border-top: 1px solid var(--f21-border);
+  gap: 6px;
+}
+
+.f21-dock-tour {
+  position: relative;
+}
+
+.f21-dock-tour.is-coachmark {
+  z-index: 50;
+}
+
+.f21-dock-tour-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #00b48a;
+  cursor: pointer;
+  display: grid;
+  height: 42px;
+  place-items: center;
+  width: 42px;
+}
+
+.f21-dock-tour-btn.is-pointed {
+  background: rgba(0, 180, 138, 0.14);
+  border-color: rgba(0, 180, 138, 0.55);
+  box-shadow: 0 0 0 3px rgba(0, 180, 138, 0.28);
+}
+
+.f21-dock-tour-coachmark {
+  align-items: flex-start;
+  background: var(--panel, #172632);
+  border: 1px solid rgba(0, 180, 138, 0.4);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 240px;
+  z-index: 51;
+}
+
+.f21-dock-tour-coachmark::before {
+  border: 7px solid transparent;
+  border-left-color: rgba(0, 180, 138, 0.4);
+  content: "";
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.f21-dock-tour-coachmark::after {
+  border: 6px solid transparent;
+  border-left-color: var(--panel, #172632);
+  content: "";
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.f21-dock-tour-coachmark-icon {
+  color: #00b48a;
+  display: inline-flex;
+}
+
+.f21-dock-tour-coachmark p {
+  color: var(--text-1, var(--f21-text));
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.f21-dock-tour-coachmark button {
+  align-self: flex-end;
+  background: #00b48a;
+  border: 1px solid #00b48a;
+  border-radius: 7px;
+  color: #07131c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
 }
 
 .f21-dock-icon--help {
