@@ -14,17 +14,17 @@
 .f21-investors-head h1 {
   margin: 0;
   color: var(--f21-text, #274155);
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 .f21-investors-head p,
 .f21-investors-count,
 .f21-investors-empty {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--f21-text-muted, #667987);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .f21-investors-tabs {
@@ -41,7 +41,7 @@
   background: transparent;
   color: var(--f21-text-muted, #667987);
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -64,7 +64,7 @@
 
 .f21-investors-filter input {
   width: 100%;
-  height: 38px;
+  height: 34px;
   box-sizing: border-box;
   padding: 0 12px;
   border: 1px solid var(--f21-border, #E4E8EC);
@@ -72,7 +72,7 @@
   background: var(--f21-panel, #ffffff);
   color: var(--f21-text, #274155);
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .f21-investors-filter input:focus {
@@ -89,13 +89,13 @@
 }
 
 .f21-investors-layout button {
-  height: 38px;
+  height: 34px;
   padding: 0 14px;
   border: 0;
   background: var(--f21-panel, #ffffff);
   color: var(--f21-text, #274155);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -114,24 +114,51 @@
 }
 
 .f21-investors-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  container-type: inline-size;
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-}
-
-.f21-investors-grid.is-list {
-  grid-template-columns: 1fr;
 }
 
 .f21-investors-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
+  flex: 1 1 100%;
+  max-width: 100%;
   min-width: 0;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid var(--f21-border, #E4E8EC);
   border-radius: 10px;
   background: var(--f21-panel, #ffffff);
+}
+
+@container (min-width: 560px) {
+  .f21-investors-grid:not(.is-list) .f21-investors-card {
+    flex-basis: calc((100% - 12px) / 2);
+    max-width: calc((100% - 12px) / 2);
+  }
+}
+
+@container (min-width: 780px) {
+  .f21-investors-grid:not(.is-list) .f21-investors-card {
+    flex-basis: calc((100% - 24px) / 3);
+    max-width: calc((100% - 24px) / 3);
+  }
+}
+
+@container (min-width: 1120px) {
+  .f21-investors-grid:not(.is-list) .f21-investors-card {
+    flex-basis: calc((100% - 36px) / 4);
+    max-width: calc((100% - 36px) / 4);
+  }
+}
+
+.f21-investors-grid.is-list .f21-investors-card {
+  flex-basis: 100%;
+  max-width: 100%;
 }
 
 .f21-investors-grid.is-list .f21-investors-card {
@@ -143,8 +170,13 @@
 .f21-investors-card-main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+}
+
+.f21-investors-card-copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .f21-investors-card-main strong,
@@ -157,18 +189,19 @@
 
 .f21-investors-card-main strong {
   color: var(--f21-text, #274155);
-  font-size: 13.5px;
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .f21-investors-card-main span,
 .f21-investors-card-foot > span {
   color: var(--f21-text-muted, #667987);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .f21-investors-mark {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border: 1px solid var(--f21-border, #E4E8EC);
   border-radius: 8px;
@@ -199,15 +232,15 @@
 .f21-investors-bookmark {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 10px;
   border: 1px solid #274155;
   border-radius: 8px;
   background: #274155;
   color: #ffffff;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -274,24 +307,15 @@
   }
 }
 
-@media (max-width: 1100px) {
-  .f21-investors-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@container (max-width: 520px) {
+  .f21-investors-grid.is-list .f21-investors-card {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
 @media (max-width: 720px) {
   .f21-investors-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .f21-investors-grid,
-  .f21-investors-grid.is-list {
-    grid-template-columns: 1fr;
-  }
-
-  .f21-investors-grid.is-list .f21-investors-card {
     flex-direction: column;
     align-items: stretch;
   }

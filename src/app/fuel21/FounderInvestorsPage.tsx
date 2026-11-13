@@ -105,7 +105,7 @@ export function FounderInvestorsPage() {
               <article key={investor.id} className="f21-investors-card">
                 <div className="f21-investors-card-main">
                   <InvestorMark investor={investor} />
-                  <div>
+                  <div className="f21-investors-card-copy">
                     <strong>{investor.name}</strong>
                     <span>{investor.domain}</span>
                   </div>
