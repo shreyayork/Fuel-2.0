@@ -51,3 +51,9 @@ html[data-f21-theme] .afc-scrim,
 html[data-f21-theme] .afc {
   right: var(--f21-right-dock-width);
 }
+
+@media (max-width: 820px) {
+  html[data-f21-theme] {
+    --f21-right-dock-width: 0px;
+  }
+}

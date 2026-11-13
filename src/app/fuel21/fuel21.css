@@ -4540,6 +4540,98 @@ html[data-f21-theme="dark"] .f21-dashboard .f21-skip-btn:hover {
   color: #042018;
 }
 
+.f21-menu-btn,
+.f21-nav-scrim {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .f21-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    border: 1px solid var(--f21-border);
+    background: transparent;
+    color: var(--f21-text);
+    cursor: pointer;
+  }
+
+  .f21-nav-scrim.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1390;
+    border: 0;
+    padding: 0;
+    background: rgba(15, 23, 32, 0.46);
+    cursor: pointer;
+  }
+
+  .f21-sidebar {
+    position: fixed;
+    z-index: 1400;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(86vw, 300px);
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+  }
+
+  .f21-sidebar.is-open {
+    transform: translateX(0);
+    box-shadow: 12px 0 36px rgba(8, 16, 24, 0.28);
+  }
+
+  .f21-right-dock {
+    display: none;
+  }
+
+  .f21-search {
+    display: none;
+  }
+
+  .f21-topbar {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .f21-breadcrumb {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .f21-breadcrumb > span:first-child,
+  .f21-breadcrumb-sep {
+    display: none;
+  }
+
+  .f21-breadcrumb-current {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .f21-content {
+    padding: 16px 14px 32px;
+  }
+}
+
+@media (max-width: 420px) {
+  .f21-topbar-ai-btn span {
+    display: none;
+  }
+
+  .f21-topbar-ai-btn {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
 /* Intelligence header: Update benchmark uses transparent bg with primary border & font color */
 html[data-theme][data-f21-theme] .intel-update-bench-btn {
   background: transparent;

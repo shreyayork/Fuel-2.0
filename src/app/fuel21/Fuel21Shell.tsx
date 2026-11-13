@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
   Bookmark,
   Building2,
@@ -10,6 +10,7 @@ import {
   Layers,
   LayoutGrid,
   ListTodo,
+  Menu,
   MessageSquare,
   Moon,
   PenLine,
@@ -182,17 +183,43 @@ export function Fuel21Shell({
   children: ReactNode;
 }) {
   const sections = SIDEBAR_SECTIONS.filter(section => section.id !== "recently-viewed");
+  const [navOpen, setNavOpen] = useState(false);
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [activeNavId]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
+  const selectNav = (id: string) => {
+    setNavOpen(false);
+    onSelectNav(id);
+  };
 
   return (
     <div className="f21-app" data-f21-theme={theme}>
-      <aside className="f21-sidebar">
+      <button
+        type="button"
+        className={`f21-nav-scrim${navOpen ? " is-open" : ""}`}
+        aria-label="Close menu"
+        tabIndex={navOpen ? 0 : -1}
+        onClick={() => setNavOpen(false)}
+      />
+      <aside className={`f21-sidebar${navOpen ? " is-open" : ""}`}>
         <div className="f21-sidebar-top">
           <FuelSidebarBrand theme={theme} className="f21-sidebar-brand-header" />
 
           <button
             type="button"
             className={`f21-nav-dashboard-item${activeNavId === "dashboard" ? " is-active" : ""}`}
-            onClick={() => onSelectNav("dashboard")}
+            onClick={() => selectNav("dashboard")}
           >
             <LayoutGrid size={15} strokeWidth={2} aria-hidden="true" className="f21-nav-item-icon" />
             <span className="f21-nav-item-label">Dashboard</span>
@@ -207,7 +234,7 @@ export function Fuel21Shell({
                   item={item}
                   active={activeNavId === item.id}
                   badge={item.id in navBadges ? navBadges[item.id] : undefined}
-                  onSelect={onSelectNav}
+                  onSelect={selectNav}
                 />
               ))}
             </div>
@@ -221,7 +248,10 @@ export function Fuel21Shell({
                   key={item.id}
                   type="button"
                   className={`f21-nav-item${activeRecentId === item.id ? " is-active" : ""}`}
-                  onClick={() => onSelectRecent?.(item.id)}
+                  onClick={() => {
+                    setNavOpen(false);
+                    onSelectRecent?.(item.id);
+                  }}
                 >
                   <FileText size={15} strokeWidth={1.85} aria-hidden="true" className="f21-nav-item-icon" />
                   <span className="f21-nav-item-label">{item.label}</span>
@@ -236,6 +266,15 @@ export function Fuel21Shell({
 
       <div className="f21-main">
         <header className="f21-topbar">
+          <button
+            type="button"
+            className="f21-menu-btn"
+            aria-label={navOpen ? "Close menu" : "Open menu"}
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen(open => !open)}
+          >
+            <Menu size={18} strokeWidth={1.85} aria-hidden="true" />
+          </button>
           <div className="f21-breadcrumb">
             <span>{breadcrumbRoot}</span>
             <span className="f21-breadcrumb-sep">/</span>
