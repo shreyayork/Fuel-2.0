@@ -208,14 +208,6 @@ const EMPTY_DRAFT: AdvisorDraftInput = {
   publicCard: true,
 };
 
-function AdvisorAvatar({ advisor, size = 40 }: { advisor: FuelAdvisorProfile; size?: number }) {
-  return (
-    <span className="advisors-avatar" style={{ height: size, width: size, fontSize: size > 40 ? 16 : 13 }}>
-      {advisor.photoUrl ? <img src={advisor.photoUrl} alt="" /> : advisorInitials(advisor.name)}
-    </span>
-  );
-}
-
 function cardLinkStatus(status: CompanyAdvisorLink["status"]) {
   if (status === "connected") return { label: "Active", tone: "active" };
   if (status === "invite_sent") return { label: "Invited", tone: "invited" };
@@ -791,7 +783,6 @@ export function AdvisorsPage({
               onClick={() => openProfile(advisor.id)}
             >
               <div className="advisors-card-top">
-                <AdvisorAvatar advisor={advisor} />
                 <div className="advisors-card-copy">
                   <strong>{advisor.name}</strong>
                   <em title={[advisor.title, advisor.company].filter(Boolean).join(" · ")}>
