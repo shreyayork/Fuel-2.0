@@ -116,16 +116,22 @@ export function ContextEnginePage({
   companyName = "Patriot Pay",
   benchmark = {},
   profileFallback = EMPTY_ANSWERS,
+  onGenerateBrief,
+  onBrowsePlaybooks,
+  onOpenArtifact,
 }: {
   artifacts?: ContextEngineArtifact[];
   companyName?: string;
   benchmark?: Record<string, string | undefined>;
   /** Public company details shown until the founder saves their own profile answers. */
   profileFallback?: DetailAnswers;
+  onGenerateBrief?: () => void;
+  onBrowsePlaybooks?: () => void;
+  onOpenArtifact?: (id: string) => void;
 } = {}) {
   const { openDrawer, openContextDrawer } = useFuel21DetailsDrawer();
   const answers = useDetailAnswers(companyName);
-  const artifactList = artifacts && artifacts.length > 0 ? artifacts : CONTEXT_ARTIFACTS;
+  const artifactList = artifacts ?? CONTEXT_ARTIFACTS;
   const [active, setActive] = useState<SourceId>("profile");
   const [query, setQuery] = useState("");
   const [showAllMissing, setShowAllMissing] = useState(false);
@@ -356,7 +362,7 @@ export function ContextEnginePage({
         active === "notes"
           ? "Your notes and uploads"
           : active === "artifacts"
-            ? "Saved by Fuel for you"
+            ? "Briefs and playbook runs from Ask Fuel"
             : "Connected · synced automatically";
       return (
         <>
@@ -376,11 +382,21 @@ export function ContextEnginePage({
                 />
               </label>
               {active === "notes" ? (
-                <button type="button" className="f21-btn f21-btn-primary" onClick={openContextDrawer}>
-                  <Plus size={14} strokeWidth={2} aria-hidden="true" />
-                  Add new
-                </button>
-              ) : null}
+                  <button type="button" className="f21-btn f21-btn-primary" onClick={openContextDrawer}>
+                    <Plus size={14} strokeWidth={2} aria-hidden="true" />
+                    Add new
+                  </button>
+                ) : null}
+                {active === "artifacts" ? (
+                  <>
+                    <button type="button" className="f21-btn f21-btn-secondary" onClick={onBrowsePlaybooks}>
+                      Browse playbooks
+                    </button>
+                    <button type="button" className="f21-btn f21-btn-primary" onClick={onGenerateBrief}>
+                      Generate brief
+                    </button>
+                  </>
+                ) : null}
             </div>
           </header>
           {active === "notes" ? (
@@ -391,19 +407,20 @@ export function ContextEnginePage({
               return shown.length ? (
                 <ul className="f21-ce-items">
                   {shown.map(item => (
-                    <li key={item.id} className="f21-ce-item is-simple">
-                      <span className="f21-source-icon" aria-hidden="true">
-                        <FileText size={13} strokeWidth={2} />
-                      </span>
-                      <div className="f21-ce-item-main">
+                    <li key={item.id} className="f21-ce-item is-plain">
+                      <button type="button" className="f21-ce-artifact" onClick={() => onOpenArtifact?.(item.id)}>
                         <strong>{item.title}</strong>
                         <span>{item.meta}</span>
-                      </div>
+                      </button>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="f21-ce-empty">Nothing matches that search.</p>
+                <p className="f21-ce-empty">
+                  {query
+                    ? "Nothing matches that search."
+                    : "No artifacts yet. Generate a brief or browse playbooks — Fuel saves the response here."}
+                </p>
               );
             })()
           ) : activeConnector ? (

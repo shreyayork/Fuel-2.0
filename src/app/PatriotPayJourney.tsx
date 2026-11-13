@@ -12012,7 +12012,7 @@ function PatriotPayJourneyInner({
   }, [activePage, isClaimedFounderCompany]);
 
   useEffect(() => {
-    if (activePage !== "research") {
+    if (activePage !== "research" && activePage !== "context-engine") {
       setSelectedResearchArtifact(null);
     }
   }, [activePage]);
@@ -13327,9 +13327,15 @@ function PatriotPayJourneyInner({
               benchmark={formValuesToOnboardingBenchmark(founderBenchmarkForm)}
               artifacts={researchArtifacts.map(artifact => ({
                 id: artifact.id,
-                title: artifact.title,
-                meta: `${artifact.typeLabel} · ${artifact.companyName}`,
+                title: researchRowTitle(artifact),
+                meta: researchBodyPreview(artifact.body),
               }))}
+              onGenerateBrief={openGenerateBrief}
+              onBrowsePlaybooks={openBrowsePlaybooks}
+              onOpenArtifact={id => {
+                const artifact = researchArtifacts.find(item => item.id === id);
+                if (artifact) setSelectedResearchArtifact(artifact);
+              }}
             />
           ) : activePage === "scorecard-v2" && !scorecardEntry && !usesPerCompanyWorkspace ? (
             <DashboardPage
