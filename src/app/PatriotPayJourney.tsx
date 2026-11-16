@@ -8515,6 +8515,7 @@ export function InitiativeDetailDrawer({
             <button type="button" className="bench-drawer-x" onClick={onClose} aria-label="Close">✕</button>
           </div>
           <div className="initiative-drawer-head-actions">
+            {isCreate ? (
             <div className="initiative-fuel-ai-anchor" ref={fuelAiAnchorRef}>
               <button
                 type="button"
@@ -8550,6 +8551,7 @@ export function InitiativeDetailDrawer({
                 onGenerate={runFuelAiGenerate}
               />
             </div>
+            ) : null}
             <div className="initiative-drawer-status" role="group" aria-label="Status">
               <button
                 type="button"
@@ -10196,6 +10198,21 @@ function OverviewPage({
   );
 }
 
+function visibleTourTarget(highlightTarget?: string) {
+  const nodes = highlightTarget
+    ? [...document.querySelectorAll(`[data-tour-target="${highlightTarget}"]`)]
+    : [...document.querySelectorAll(".tour-highlight")];
+  return nodes.find(node => {
+    const style = window.getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    const rect = node.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return false;
+    if (rect.right <= 8 || rect.bottom <= 8) return false;
+    if (rect.left >= window.innerWidth - 8 || rect.top >= window.innerHeight - 8) return false;
+    return true;
+  }) ?? null;
+}
+
 function GuidedTourOverlay({ step, total, title, text, highlightTarget, onNext, onPrevious, onSkip }: {
   step: number;
   total: number;
@@ -10211,9 +10228,7 @@ function GuidedTourOverlay({ step, total, title, text, highlightTarget, onNext, 
 
   useEffect(() => {
     function layoutTourChrome() {
-      const highlighted = highlightTarget
-        ? document.querySelector(`[data-tour-target="${highlightTarget}"]`)
-        : document.querySelector(".tour-highlight");
+      const highlighted = visibleTourTarget(highlightTarget);
       if (!highlighted) {
         setPopoverStyle({});
         setBackdropStyle({});
@@ -10238,17 +10253,31 @@ function GuidedTourOverlay({ step, total, title, text, highlightTarget, onNext, 
         clipPath: `polygon(evenodd, 0px 0px, ${vw}px 0px, ${vw}px ${vh}px, 0px ${vh}px, 0px 0px, ${hole.left}px ${hole.top}px, ${hole.left}px ${hole.bottom}px, ${hole.right}px ${hole.bottom}px, ${hole.right}px ${hole.top}px, ${hole.left}px ${hole.top}px)`,
       });
 
-      const popoverWidth = 306;
-      const popoverHeight = 200;
-      const pageMargin = 24;
+      const narrow = vw <= 820;
+      const popoverWidth = narrow ? Math.min(306, vw - 24) : 306;
+      const popoverHeight = narrow ? 280 : 200;
+      const pageMargin = narrow ? 12 : 24;
       const gap = 16;
+      const bottomReserve = narrow ? 88 : pageMargin;
       const spaceRight = vw - hole.right;
       const spaceLeft = hole.left;
-      const spaceBelow = vh - hole.bottom;
+      const spaceBelow = vh - hole.bottom - (narrow ? 72 : 0);
       const spaceAbove = hole.top;
 
       let left: number;
       let top: number;
+
+      if (narrow) {
+        const center = (hole.top + hole.bottom) / 2;
+        const bottomTop = Math.max(pageMargin, vh - popoverHeight - bottomReserve);
+        const topTop = 64;
+        top = center < vh * 0.5 ? bottomTop : topTop;
+        const overlaps = top < hole.bottom + gap && top + popoverHeight > hole.top - gap;
+        if (overlaps) top = center < vh * 0.5 ? topTop : bottomTop;
+        left = pageMargin;
+        setPopoverStyle({ left, right: "auto", top, width: popoverWidth, maxWidth: popoverWidth });
+        return;
+      }
 
       // Prefer beside the target when there's room; otherwise below/above — never under the hole
       if (spaceRight >= popoverWidth + gap + pageMargin) {
@@ -10285,12 +10314,14 @@ function GuidedTourOverlay({ step, total, title, text, highlightTarget, onNext, 
     const frame = window.requestAnimationFrame(layoutTourChrome);
     const retry = window.setTimeout(layoutTourChrome, 120);
     const retryLate = window.setTimeout(layoutTourChrome, 320);
+    const retrySettled = window.setTimeout(layoutTourChrome, 480);
     window.addEventListener("resize", layoutTourChrome);
     window.addEventListener("scroll", layoutTourChrome, true);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(retry);
       window.clearTimeout(retryLate);
+      window.clearTimeout(retrySettled);
       window.removeEventListener("resize", layoutTourChrome);
       window.removeEventListener("scroll", layoutTourChrome, true);
     };
@@ -11160,11 +11191,13 @@ function FounderShellFooter({
   onOpenAccountSettings,
   onOpenHelp,
   onLogOut,
+  tourTarget = null,
 }: {
   companyName: string;
   onOpenAccountSettings: (tab?: AccountSettingsTab) => void;
   onOpenHelp: () => void;
   onLogOut?: () => void;
+  tourTarget?: string | null;
 }) {
   const { snapshot, barTone, popoverOpen, setPopoverOpen } = useCredits();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -11192,6 +11225,12 @@ function FounderShellFooter({
     };
   }, [menuOpen, popoverOpen, setPopoverOpen]);
 
+  useEffect(() => {
+    if (tourTarget !== "profile-integrations") return;
+    setPopoverOpen(false);
+    setMenuOpen(true);
+  }, [tourTarget, setPopoverOpen]);
+
   const menu = menuOpen ? (
     <div className="sidebar-user-menu" role="menu" aria-label="User menu">
       <div className="sidebar-user-menu-head">
@@ -11212,6 +11251,21 @@ function FounderShellFooter({
             <FuelIcon name="account" size={16} />
           </SidebarMenuIcon>
           <span className="sidebar-user-menu-label">Account settings</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className={`sidebar-user-menu-item${tourTarget === "profile-integrations" ? " tour-highlight" : ""}`}
+          data-tour-target="profile-integrations"
+          onClick={() => {
+            setMenuOpen(false);
+            onOpenAccountSettings("integrations");
+          }}
+        >
+          <SidebarMenuIcon>
+            <FuelIcon name="connectors" size={16} />
+          </SidebarMenuIcon>
+          <span className="sidebar-user-menu-label">Integrations</span>
         </button>
         <button
           type="button"
@@ -12124,61 +12178,49 @@ function PatriotPayJourneyInner({
       page: "scorecard-v2",
       target: "nav-dashboard",
       title: "Dashboard",
-      text: "This is your operating home. Track scores, the Fuel brief, and the company snapshot live here. They fill in as you add context.",
+      text: "Start with a picture of where your business stands. Review scores across research and development (R&D), go-to-market (GTM), and general and administrative operations (G&A), then use the advisor’s suggestions to choose an area to explore.",
     },
     {
       page: "scorecard-v2",
-      target: "notifications",
-      title: "Notifications",
-      text: "The bell keeps advisor invitations and important workspace updates in one place. Open a notification when you are ready to act on it.",
+      target: "dock-quick-actions",
+      title: "Fuel AI advisor",
+      text: "See the priorities Fuel highlights across your business. Explore the supporting details and sources before deciding what to act on. For the company summary behind these suggestions, open About.",
     },
     {
       page: "scorecard-v2",
-      target: "ai-advisor",
-      title: "Fuel brief",
-      text: "The brief highlights what matters across the tracks and points you to the details, sources, and initiatives. Open the full summary when you want the longer read.",
-    },
-    {
-      page: "scorecard-v2",
-      target: "recommended-actions",
-      title: "Complete your profile",
-      text: "Start here after signup. Update benchmarks, review what Fuel already knows, and fill the remaining company context. Each answer sharpens the scores and what Fuel recommends next.",
-    },
-    {
-      page: "context-engine",
-      target: "nav-context",
-      title: "Context engine",
-      text: "Add the rest of the company here — answers, notes, and files. This is where you finish the profile and earn the credit.",
-    },
-    {
-      page: "signals",
       target: "nav-intelligence",
       title: "Intelligence",
-      text: "Intelligence groups benchmarks, uploads, and logged signals by category. Open any row for the source and the history.",
+      text: "Record a business metric, such as annual recurring revenue (ARR), cash burn, or retention. These entries appear in Intelligence with their history, giving you context for reviewing how the business is changing.",
     },
     {
-      page: "initiatives",
+      page: "scorecard-v2",
       target: "nav-initiatives",
       title: "Initiatives",
-      text: "Turn what you learn into work. Suggested initiatives from each track can be added here and tracked with milestones.",
+      text: "Turn a priority into a plan. Add a suggested initiative from a business area, break the work into milestones, and link relevant intelligence to review progress. Start with one initiative and define what success would look like.",
     },
     {
-      page: "data-room",
+      page: "scorecard-v2",
       target: "nav-dataroom",
-      title: "Data room",
-      text: "Store decks, notes, and models privately. Uploads feed Intelligence and stay in your workspace.",
+      title: "Data Room",
+      text: "Keep company decks, notes, and models together. Upload a current document to give Fuel more context for Intelligence, and use this space to organize the material behind your plan.",
     },
     {
       page: "scorecard-v2",
       target: "ask-fuel-ai",
-      title: "Ask Fuel",
-      text: "Chat with Fuel about this company. Dig into the scores, ask what matters next, and follow the story behind the numbers.",
+      title: "Ask Fuel AI",
+      text: "Explore a business question in conversation. Try “What should we focus on next, and why?” or “What evidence supports this score?” Use the answers to test assumptions and decide what to investigate further.",
     },
     {
-      page: "playbooks",
+      page: "scorecard-v2",
       target: "nav-playbooks",
       title: "Playbooks",
-      text: "Playbooks are structured runbooks — diligence, pricing, audits, and planning — run against this company's context.",
+      text: "Use a structured framework to work through a decision, such as pricing, diligence, or planning. Open the sparkle menu, then choose Playbooks. Pick the framework that matches your question and apply it to your company’s context.",
+    },
+    {
+      page: "scorecard-v2",
+      target: "profile-integrations",
+      title: "Integrations",
+      text: "Connect a source your team already uses, such as HubSpot, Granola, or Slack, to bring more context into Intelligence. Open your profile menu and choose Integrations to see the available connections.",
     },
   ] as const;
   const coreTourSteps = usesFuelShell ? shellTourSteps : [
@@ -12460,6 +12502,7 @@ function PatriotPayJourneyInner({
   function startTour() {
     setShowTourPrompt(false);
     setShowTourCoachmark(false);
+    setContextHintOpen(false);
     setHeaderTourEnabled(true);
     setTourOpen(true);
     setTourIndex(0);
@@ -13342,10 +13385,31 @@ function PatriotPayJourneyInner({
     setScorecardEntry(null);
     setActivePage(page);
   };
+  const openScorecardTrack = (view: ScorecardView, summary = false) => {
+    requestShellDrawer("close");
+    setSelectedCompany(FOUNDER_COMPANY);
+    setActivePage("scorecard-v2");
+    setScorecardEntry({ view, summary });
+  };
   const handleShellNav = (id: string) => {
     switch (id) {
       case "dashboard":
         openFounderPage("scorecard-v2");
+        return;
+      case "summary":
+        openScorecardTrack("overview", true);
+        return;
+      case "rd":
+        openScorecardTrack("dev");
+        return;
+      case "gtm":
+        openScorecardTrack("mkt");
+        return;
+      case "ga":
+        openScorecardTrack("rev");
+        return;
+      case "profile":
+        requestShellDrawer("profile");
         return;
       case "context":
         openFounderPage("context-engine");
@@ -13375,29 +13439,28 @@ function PatriotPayJourneyInner({
         openFounderPage("investor-watchlists");
         return;
       case "public-profile":
+        requestShellDrawer("close");
         setFounderProfileSectionTab("my-profile");
         openFounderPage("profile");
         return;
       case "blog":
+        requestShellDrawer("close");
         openFounderPage("public-profile");
         return;
     }
   };
   const handleShellDock = (id: Fuel21DockId) => {
     switch (id) {
+      case "summary":
+        openScorecardTrack("overview", true);
+        return;
       case "profile":
         requestShellDrawer("profile");
         return;
       case "rd":
       case "gtm":
       case "ga":
-        requestShellDrawer("close");
-        setSelectedCompany(FOUNDER_COMPANY);
-        setActivePage("scorecard-v2");
-        setScorecardEntry({
-          view: id === "rd" ? "dev" : id === "gtm" ? "mkt" : "rev",
-          summary: false,
-        });
+        openScorecardTrack(id === "rd" ? "dev" : id === "gtm" ? "mkt" : "rev");
         return;
       case "context":
         requestShellDrawer("companion-context");
@@ -13408,13 +13471,10 @@ function PatriotPayJourneyInner({
         requestShellDrawer(id);
         return;
       case "company":
-        requestShellDrawer("close");
-        setFounderProfileSectionTab("my-profile");
-        openFounderPage("profile");
+        handleShellNav("public-profile");
         return;
       case "blog":
-        requestShellDrawer("close");
-        openFounderPage("public-profile");
+        handleShellNav("blog");
         return;
       case "help":
         requestShellDrawer("close");
@@ -13433,7 +13493,12 @@ function PatriotPayJourneyInner({
   const shellActiveNavId = usesPerCompanyWorkspace
     ? null
     : activePage === "scorecard-v2"
-      ? scorecardEntry?.view === "benchmark" ? "benchmarks" : "dashboard"
+      ? scorecardEntry?.summary && scorecardEntry.view === "overview" ? "summary"
+        : scorecardEntry?.view === "dev" ? "rd"
+        : scorecardEntry?.view === "mkt" ? "gtm"
+        : scorecardEntry?.view === "rev" ? "ga"
+        : scorecardEntry?.view === "benchmark" ? "benchmarks"
+        : "dashboard"
       : activePage === "context-engine" ? "context"
         : activePage === "benchmark-report" ? "benchmarks"
         : activePage === "signals" || activePage === "context-feed" || activePage === "signals-loading" ? "intelligence"
@@ -13445,6 +13510,14 @@ function PatriotPayJourneyInner({
                   : onFounderProfilePage
                     ? founderProfileSectionTab === "about-company" || activePage === "public-profile" ? "blog" : "public-profile"
                     : null;
+  const shellActiveDockId: Fuel21DockId | null = shellActiveNavId === "summary" ? "summary"
+    : shellActiveNavId === "rd" ? "rd"
+    : shellActiveNavId === "gtm" ? "gtm"
+    : shellActiveNavId === "ga" ? "ga"
+    : shellActiveNavId === "public-profile" ? "company"
+    : shellActiveNavId === "blog" ? "blog"
+    : activePage === "help" ? "help"
+    : null;
   const shellBreadcrumb = activePage === "scorecard-v2" && !usesPerCompanyWorkspace
     ? scorecardEntry?.summary ? "Company brief" : scorecardViewLabel[scorecardEntry?.view ?? "overview"]
     : activePage === "context-engine" ? "Context engine"
@@ -13517,7 +13590,7 @@ function PatriotPayJourneyInner({
               })}
               onOpenProfileModule={section => requestShellDrawer(section)}
               onViewFullSummary={() => setScorecardEntry({ view: "overview", summary: true })}
-              onOpenBenchmark={() => setScorecardEntry({ view: "benchmark", summary: false })}
+              onOpenBenchmark={() => requestShellDrawer("benchmark")}
               onOpenIntelligence={() => openFounderPage("signals")}
               onOpenInitiatives={() => {
                 setFocusInitiativeId(null);
@@ -13526,6 +13599,14 @@ function PatriotPayJourneyInner({
               onOpenDataRoom={() => openFounderPage("data-room")}
               onOpenPlaybooks={() => openFounderPage("playbooks")}
               onOpenConnectors={() => openFounderPage("context-engine")}
+              overviewBuildPhase={overviewBuildPhase}
+              onStartOptionalTour={() => {
+                setOverviewBuildPhase(null);
+                setOverviewBuildActive(false);
+                setHeaderTourEnabled(true);
+                startTour();
+              }}
+              onDismissOverviewReady={skipOverviewReadyPrompt}
             />
           ) : activePage === "playbooks" && usesFuelShell ? (
             <FounderPlaybooksPage
@@ -13604,6 +13685,7 @@ function PatriotPayJourneyInner({
       <Fuel21Shell
         theme={shellTheme}
         activeNavId={shellActiveNavId}
+        activeDockId={shellActiveDockId}
         breadcrumbRoot={selectedCompany.displayName}
         breadcrumbCurrent={shellBreadcrumb}
         navBadges={{
@@ -13647,23 +13729,12 @@ function PatriotPayJourneyInner({
             onOpenAccountSettings={openAccountSettings}
             onOpenHelp={() => setActivePage("help")}
             onLogOut={onLogOut}
+            tourTarget={tourOpen ? tourSteps[tourStep].target : null}
           />
         )}
       >
         {shellBody}
       </Fuel21Shell>
-      {tourOpen ? (
-        <GuidedTourOverlay
-          step={tourStep}
-          total={tourSteps.length}
-          title={tourSteps[tourStep].title}
-          text={tourSteps[tourStep].text}
-          highlightTarget={tourSteps[tourStep].target}
-          onNext={nextTourStep}
-          onPrevious={previousTourStep}
-          onSkip={skipTour}
-        />
-      ) : null}
     </Fuel21DetailsDrawerProvider>
   );
 

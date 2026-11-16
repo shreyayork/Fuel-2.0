@@ -155,6 +155,29 @@
   border-color: var(--track-border);
 }
 
+.f21-v2-track-card--loading,
+.f21-v2-track-card--loading:hover {
+  background: var(--f21-widget-surface);
+  border-color: var(--f21-border);
+  cursor: default;
+  pointer-events: none;
+}
+
+.f21-v2-skel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.f21-dashboard .sc-overview-build,
+.f21-dashboard .sc-overview-ready-bar {
+  margin: 0;
+}
+
+.f21-dashboard .sc-overview-ready-bar {
+  flex-wrap: wrap;
+}
+
 .f21-v2-track-top-bar {
   display: flex;
   align-items: flex-start;

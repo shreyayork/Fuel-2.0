@@ -24,6 +24,7 @@ export function Fuel21ContextDrawerPanel({
   embedded?: boolean;
 }) {
   const [addMode, setAddMode] = useState<AddMode>("file");
+  const [draftTitle, setDraftTitle] = useState("");
   const [draftText, setDraftText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<ContextListItem[]>(() =>
@@ -70,7 +71,8 @@ export function Fuel21ContextDrawerPanel({
   const addTextContext = () => {
     const trimmed = draftText.trim();
     if (!trimmed) return;
-    const title = trimmed.length > 64 ? `${trimmed.slice(0, 61)}…` : trimmed;
+    const named = draftTitle.trim();
+    const title = named || (trimmed.length > 64 ? `${trimmed.slice(0, 61)}…` : trimmed);
     setItems(prev => [
       {
         id: `text-${Date.now()}`,
@@ -80,6 +82,7 @@ export function Fuel21ContextDrawerPanel({
       },
       ...prev,
     ]);
+    setDraftTitle("");
     setDraftText("");
   };
 
@@ -150,6 +153,17 @@ export function Fuel21ContextDrawerPanel({
           <div className="f21-context-add-panel-body">
             {addMode === "note" ? (
               <div className="f21-context-note-panel f21-context-add-panel-pane" role="tabpanel">
+                <label className="bench-field-label" htmlFor="f21-context-note-title">
+                  Title
+                </label>
+                <input
+                  id="f21-context-note-title"
+                  className="bench-field-input f21-context-note-title"
+                  type="text"
+                  value={draftTitle}
+                  onChange={event => setDraftTitle(event.target.value)}
+                  placeholder="e.g. Q3 pipeline risk"
+                />
                 <label className="bench-field-label" htmlFor="f21-context-note">
                   Note
                 </label>

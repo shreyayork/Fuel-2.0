@@ -2,7 +2,8 @@
    so dark and light themes both come from .f21-app[data-f21-theme]. */
 
 .f21-bench-report {
-  max-width: 1280px;
+  max-width: none;
+  width: 100%;
 }
 
 .f21-bench-layout {

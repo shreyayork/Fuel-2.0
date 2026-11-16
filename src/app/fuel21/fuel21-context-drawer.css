@@ -143,6 +143,12 @@
   gap: 8px;
 }
 
+.f21-context-note-title {
+  min-height: 40px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .f21-context-note-input {
   min-height: 96px;
   resize: vertical;

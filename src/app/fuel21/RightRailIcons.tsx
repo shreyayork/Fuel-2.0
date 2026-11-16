@@ -6,6 +6,7 @@ export const FUEL21_DOCK_ICON_SIZE = 17;
 
 /** Soft hover wash + icon accent colors keyed by dock item id */
 export const DOCK_ICON_META: Record<string, { color: string; wash: string }> = {
+  summary: { color: "#00B48A", wash: "rgba(0, 180, 138, 0.12)" },
   company: { color: "#4F6BED", wash: "rgba(79, 107, 237, 0.12)" },
   profile: { color: "#0CA678", wash: "rgba(12, 166, 120, 0.12)" },
   context: { color: "#E67700", wash: "rgba(230, 119, 0, 0.12)" },

@@ -61,4 +61,31 @@ html[data-f21-theme] .document-history-sidebar {
   html[data-f21-theme] {
     --f21-right-dock-width: 0px;
   }
+
+  html[data-f21-theme] .f21-topbar .notification-panel {
+    position: fixed;
+    top: 60px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - 60px - 88px);
+  }
+
+  html[data-f21-theme] .notification-drawer-scrim,
+  html[data-f21-theme] .notification-drawer {
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    height: 100dvh;
+    border-radius: 0;
+  }
+
+  html[data-f21-theme] .notification-drawer {
+    position: fixed;
+  }
 }

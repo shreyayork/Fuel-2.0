@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   Bookmark,
@@ -14,6 +14,11 @@ import {
   Menu,
   MessageSquare,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  ChevronLeft,
+  Ellipsis,
   PenLine,
   Radio,
   Search,
@@ -32,6 +37,7 @@ import { FuelSidebarBrand } from "./FuelPlatformMark.tsx";
 import { SIDEBAR_SECTIONS, type SidebarNavItem } from "./demoData.ts";
 
 export type Fuel21DockId =
+  | "summary"
   | "profile"
   | "rd"
   | "gtm"
@@ -51,6 +57,8 @@ export type Fuel21RecentItem = {
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutGrid,
+  summary: Sparkles,
+  profile: User,
   rd: Code2,
   gtm: TrendingUp,
   ga: Building2,
@@ -64,6 +72,8 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   advisors: MessageSquare,
   investors: Users,
   watchlists: Bookmark,
+  "public-profile": Globe,
+  blog: PenLine,
   help: CircleHelp,
 };
 
@@ -76,40 +86,93 @@ type DockItem = {
 
 const RIGHT_DOCK_GROUPS: { id: string; label: string; items: DockItem[] }[] = [
   {
-    id: "profile",
-    label: "Profile",
+    id: "company",
+    label: "Company",
     items: [
-      { id: "profile", label: "Profile", description: "Verified founder credentials & operating team", icon: User },
-    ],
-  },
-  {
-    id: "tracks",
-    label: "Tracks",
-    items: [
+      { id: "summary", label: "Summary", description: "Full company brief across product, go-to-market, and finance", icon: Sparkles },
       { id: "rd", label: "R&D", description: "Engineering velocity, test coverage & ship cadence", icon: Code2 },
       { id: "gtm", label: "GTM", description: "Go-to-market engine, CAC payback & deal pipeline", icon: TrendingUp },
       { id: "ga", label: "G&A", description: "General & administrative governance & cash model", icon: Building2 },
     ],
   },
   {
-    id: "value-creation",
-    label: "Value creation",
+    id: "public",
+    label: "Public",
     items: [
+      { id: "company", label: "Public profile", description: "Company identity, industry & legal profile", icon: Globe },
+      { id: "blog", label: "Blog", description: "Company writing and public updates", icon: PenLine },
+    ],
+  },
+  {
+    id: "actions",
+    label: "Actions",
+    items: [
+      { id: "profile", label: "Profile", description: "Verified founder credentials & operating team", icon: User },
       { id: "context", label: "Context", description: "Context engine, live documents & knowledge graph", icon: Layers },
       { id: "intelligence", label: "Intelligence", description: "Continuous telemetry & live ecosystem signals", icon: Radio },
       { id: "initiatives", label: "Initiatives", description: "Active execution playbooks & strategic milestones", icon: ListTodo },
       { id: "dataroom", label: "Data room", description: "Investor data room with institutional verified files", icon: Folder },
     ],
   },
-  {
-    id: "public-presence",
-    label: "Public presence",
-    items: [
-      { id: "company", label: "Company", description: "Company identity, industry & legal profile", icon: Globe },
-      { id: "blog", label: "Blog", description: "Company writing and public updates", icon: PenLine },
-    ],
-  },
 ];
+
+const HELP_DOCK_ITEM: DockItem = {
+  id: "help",
+  label: "Help",
+  description: "Guides, questions, and product feedback",
+  icon: CircleHelp,
+};
+
+const MOBILE_LABELS: Partial<Record<Fuel21DockId, string>> = {
+  rd: "Research & Development",
+  gtm: "Go-to-market",
+  ga: "General & Administrative",
+};
+
+const MOBILE_PINS: Fuel21DockId[] = ["summary", "rd", "gtm", "initiatives"];
+
+const MOBILE_BAR_LABELS: Partial<Record<Fuel21DockId, string>> = {
+  rd: "R&D",
+  gtm: "GTM",
+  ga: "G&A",
+};
+
+function mobileDockLabel(item: DockItem, compact = false) {
+  if (compact) return MOBILE_BAR_LABELS[item.id] ?? item.label;
+  return MOBILE_LABELS[item.id] ?? item.label;
+}
+
+function MobileQuickIcon({ item, size, plain = false }: { item: DockItem; size: number; plain?: boolean }) {
+  if (item.id === "summary" && !plain) {
+    return (
+      <span className="f21-mobile-summary-chip">
+        <SummaryAiIcon size={16} />
+      </span>
+    );
+  }
+  const Icon = item.icon;
+  const color = item.id === "summary" || item.id === "help" ? undefined : DOCK_ICON_META[item.id]?.color;
+  return <Icon size={size} strokeWidth={1.85} color={color} aria-hidden="true" />;
+}
+
+function SummaryAiIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="3.8 0.75 17.8 22.1" fill="none" aria-hidden="true" className="f21-summary-ai-icon">
+      <path
+        d="M13.4 2.4H7.2A2.2 2.2 0 0 0 5 4.6v14.8A2.2 2.2 0 0 0 7.2 21.6h9.6a2.2 2.2 0 0 0 2.2-2.2V9.1"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M8.2 12.2h6.1M8.2 16h4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path
+        d="M16.7 0.85 17.95 4.35 21.45 5.6 17.95 6.85 16.7 10.35 15.45 6.85 11.95 5.6 15.45 4.35 16.7 0.85Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 function SidebarNavButton({
   item,
@@ -136,6 +199,8 @@ function SidebarNavButton({
       className={`f21-nav-item${active ? " is-active" : ""}${highlighted ? " tour-highlight" : ""}`}
       aria-current={active ? "page" : undefined}
       data-tour-target={`nav-${item.id}`}
+      title={item.label}
+      aria-label={item.label}
       onClick={() => onSelect(item.id)}
     >
       <Icon size={15} strokeWidth={1.85} aria-hidden="true" className="f21-nav-item-icon" />
@@ -150,6 +215,130 @@ function SidebarNavButton({
         </span>
       ) : null}
     </button>
+  );
+}
+
+function MobileQuickBar({
+  activeId,
+  onSelect,
+  tourTarget = null,
+}: {
+  activeId: string | null;
+  onSelect: (id: Fuel21DockId) => void;
+  tourTarget?: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const pinned = new Set<string>(MOBILE_PINS);
+  const moreActive = Boolean(activeId && !pinned.has(activeId));
+  const sheetGroups = RIGHT_DOCK_GROUPS.map(group =>
+    group.id === "actions" ? { ...group, items: [...group.items, HELP_DOCK_ITEM] } : group,
+  );
+
+  useEffect(() => {
+    setOpen(false);
+  }, [tourTarget]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth > 820) setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open]);
+
+  const choose = (id: Fuel21DockId) => {
+    setOpen(false);
+    onSelect(id);
+  };
+
+  const pinItem = (id: Fuel21DockId) =>
+    RIGHT_DOCK_GROUPS.flatMap(group => group.items).find(item => item.id === id);
+
+  return (
+    <>
+      <nav
+        className={`f21-mobile-quick${tourTarget === "dock-quick-actions" ? " tour-highlight" : ""}`}
+        aria-label="Quick actions"
+        data-tour-target="dock-quick-actions"
+      >
+        {MOBILE_PINS.map(id => {
+          const item = pinItem(id);
+          if (!item) return null;
+          const label = mobileDockLabel(item, true);
+          const active = activeId === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              className={`f21-mobile-tab${active ? " is-active" : ""}`}
+              aria-current={active ? "page" : undefined}
+              onClick={() => choose(id)}
+            >
+              <span className="f21-mobile-tab-icon">
+                <MobileQuickIcon item={item} size={18} />
+              </span>
+              <span className="f21-mobile-tab-label">{label}</span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className={`f21-mobile-tab${moreActive || open ? " is-active" : ""}`}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          onClick={() => setOpen(current => !current)}
+        >
+          <span className="f21-mobile-tab-icon" aria-hidden="true">
+            <Ellipsis size={18} strokeWidth={1.85} />
+          </span>
+          <span className="f21-mobile-tab-label">More</span>
+        </button>
+      </nav>
+      {open ? (
+        <>
+          <button type="button" className="f21-mobile-sheet-scrim" aria-label="Close quick actions" onClick={() => setOpen(false)} />
+          <div className="f21-mobile-sheet" role="dialog" aria-modal="true" aria-label="More quick actions">
+            <div className="f21-mobile-sheet-handle" aria-hidden="true" />
+            <div className="f21-mobile-sheet-head">
+              <strong>More</strong>
+            </div>
+            {sheetGroups.map(group => (
+              <section key={group.id} className="f21-mobile-sheet-group" aria-label={group.label}>
+                <div className="f21-mobile-sheet-label">{group.label}</div>
+                <div className="f21-mobile-sheet-grid">
+                  {group.items.map(item => {
+                    const label = mobileDockLabel(item);
+                    const active = activeId === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`f21-mobile-sheet-item${active ? " is-active" : ""}`}
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => choose(item.id)}
+                      >
+                        <span className={`f21-mobile-sheet-icon${item.id === "summary" ? " is-summary" : ""}`}>
+                          <MobileQuickIcon item={item} size={20} plain />
+                        </span>
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -206,7 +395,53 @@ export function Fuel21Shell({
 }) {
   const sections = SIDEBAR_SECTIONS.filter(section => section.id !== "recently-viewed");
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readRailCollapsed("fuel21-sidebar-collapsed"));
+  const [dockCollapsed, setDockCollapsed] = useState(() => readRailCollapsed("fuel21-dock-collapsed"));
   const [contextAnchor, setContextAnchor] = useState<HTMLButtonElement | null>(null);
+  const openedNavForHint = useRef(false);
+
+  useEffect(() => {
+    writeRailCollapsed("fuel21-sidebar-collapsed", sidebarCollapsed);
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    writeRailCollapsed("fuel21-dock-collapsed", dockCollapsed);
+  }, [dockCollapsed]);
+
+  useEffect(() => {
+    if (tourTarget === "dock-quick-actions") setDockCollapsed(false);
+  }, [tourTarget]);
+
+  useLayoutEffect(() => {
+    const narrow = window.matchMedia("(max-width: 820px)").matches;
+    if (!narrow) return;
+    const opensMenu = Boolean(tourTarget && (tourTarget.startsWith("nav-") || tourTarget === "profile-integrations"));
+    if (showContextHint) {
+      openedNavForHint.current = true;
+      setNavOpen(true);
+      return;
+    }
+    if (openedNavForHint.current) {
+      openedNavForHint.current = false;
+      if (!opensMenu) setNavOpen(false);
+    }
+    if (tourTarget) setNavOpen(opensMenu);
+  }, [tourTarget, showContextHint]);
+
+  useEffect(() => {
+    const applyDockWidth = () => {
+      const narrow = window.matchMedia("(max-width: 820px)").matches;
+      const width = narrow || dockCollapsed ? "0px" : "60px";
+      document.documentElement.style.setProperty("--f21-right-dock-width", width);
+    };
+    applyDockWidth();
+    const query = window.matchMedia("(max-width: 820px)");
+    query.addEventListener("change", applyDockWidth);
+    return () => {
+      query.removeEventListener("change", applyDockWidth);
+      document.documentElement.style.removeProperty("--f21-right-dock-width");
+    };
+  }, [dockCollapsed]);
 
   useEffect(() => {
     setNavOpen(false);
@@ -235,9 +470,24 @@ export function Fuel21Shell({
         tabIndex={navOpen ? 0 : -1}
         onClick={() => setNavOpen(false)}
       />
-      <aside className={`f21-sidebar${navOpen ? " is-open" : ""}`}>
+      <aside className={`f21-sidebar${navOpen ? " is-open" : ""}${sidebarCollapsed ? " is-collapsed" : ""}`}>
         <div className="f21-sidebar-top">
-          <FuelSidebarBrand theme={theme} className="f21-sidebar-brand-header" />
+          <div className="f21-sidebar-brand-row">
+            <FuelSidebarBrand theme={theme} className="f21-sidebar-brand-header" />
+            <button
+              type="button"
+              className="f21-rail-toggle"
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!sidebarCollapsed}
+              onClick={() => setSidebarCollapsed(collapsed => !collapsed)}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen size={16} strokeWidth={1.85} aria-hidden="true" />
+              ) : (
+                <PanelLeftClose size={16} strokeWidth={1.85} aria-hidden="true" />
+              )}
+            </button>
+          </div>
 
           <button
             type="button"
@@ -278,6 +528,8 @@ export function Fuel21Shell({
                   key={item.id}
                   type="button"
                   className={`f21-nav-item${activeRecentId === item.id ? " is-active" : ""}`}
+                  title={item.label}
+                  aria-label={item.label}
                   onClick={() => {
                     setNavOpen(false);
                     onSelectRecent?.(item.id);
@@ -339,6 +591,27 @@ export function Fuel21Shell({
               )}
             </button>
             {topbarActions}
+            {showDockTour ? (
+              <div className={`f21-mobile-tour${dockTourCoachmark && !showContextHint ? " is-coachmark" : ""}`}>
+                <button
+                  type="button"
+                  className={`f21-dock-tour-btn${dockTourCoachmark && !showContextHint ? " is-pointed" : ""}`}
+                  aria-label="Tour"
+                  onClick={onStartDockTour}
+                >
+                  <TourMark />
+                </button>
+                {dockTourCoachmark && !showContextHint ? (
+                  <div className="f21-mobile-tour-coachmark" role="status">
+                    <span className="f21-dock-tour-coachmark-icon" aria-hidden="true">
+                      <TourMark />
+                    </span>
+                    <p>You can click here later to take a tour of the platform.</p>
+                    <button type="button" onClick={onDismissDockTour}>OK</button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </header>
         {showContextHint ? (
@@ -347,7 +620,24 @@ export function Fuel21Shell({
         <div className="f21-workspace-layout">
           <main className="f21-content">{children}</main>
 
-          <aside className="f21-right-dock" aria-label="Workspace quick companion">
+          {dockCollapsed ? (
+            <button
+              type="button"
+              className="f21-dock-edge"
+              aria-label="Show side panel"
+              title="Show side panel"
+              onClick={() => setDockCollapsed(false)}
+            >
+              <ChevronLeft size={16} strokeWidth={2} aria-hidden="true" />
+            </button>
+          ) : null}
+
+          <aside
+            className={`f21-right-dock${dockCollapsed ? " is-collapsed" : ""}${tourTarget === "dock-quick-actions" ? " tour-highlight" : ""}`}
+            aria-label="Workspace quick companion"
+            data-tour-target="dock-quick-actions"
+            hidden={dockCollapsed}
+          >
             {RIGHT_DOCK_GROUPS.map((group, index) => (
               <div key={group.id} className="f21-dock-section">
                 {index > 0 ? <div className="f21-dock-divider" role="separator" /> : null}
@@ -358,6 +648,7 @@ export function Fuel21Shell({
                       item={item}
                       active={activeDockId === item.id}
                       onSelect={onSelectDock}
+                      spotlight={tourTarget === "dock-quick-actions" && item.id === "summary"}
                     />
                   ))}
                 </div>
@@ -392,12 +683,45 @@ export function Fuel21Shell({
                 onSelect={onSelectDock}
                 muted
               />
+              <button
+                type="button"
+                className="f21-rail-toggle f21-dock-toggle"
+                aria-label="Collapse side menu"
+                aria-expanded
+                onClick={() => setDockCollapsed(true)}
+              >
+                <PanelRightClose size={16} strokeWidth={1.85} aria-hidden="true" />
+              </button>
             </div>
           </aside>
         </div>
+        <MobileQuickBar
+          activeId={activeDockId}
+          tourTarget={tourTarget}
+          onSelect={id => {
+            setNavOpen(false);
+            onSelectDock(id);
+          }}
+        />
       </div>
     </div>
   );
+}
+
+function readRailCollapsed(key: string) {
+  try {
+    return window.localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeRailCollapsed(key: string, collapsed: boolean) {
+  try {
+    window.localStorage.setItem(key, collapsed ? "1" : "0");
+  } catch {
+    /* ignore quota errors in preview */
+  }
 }
 
 function TourMark() {
@@ -415,11 +739,13 @@ function DockButton({
   active,
   onSelect,
   muted = false,
+  spotlight = false,
 }: {
   item: DockItem;
   active: boolean;
   onSelect: (id: Fuel21DockId) => void;
   muted?: boolean;
+  spotlight?: boolean;
 }) {
   const Icon = item.icon;
   const meta = DOCK_ICON_META[item.id];
@@ -428,19 +754,26 @@ function DockButton({
     <div className="f21-dock-item-wrap">
       <button
         type="button"
-        className={`f21-dock-item${active ? " is-active" : ""}`}
+        className={`f21-dock-item${item.id === "summary" ? " is-emphasis" : ""}${active ? " is-active" : ""}${spotlight ? " tour-highlight" : ""}`}
         data-dock={item.id}
-        style={wash ? ({ ["--dock-wash"]: wash } as CSSProperties) : undefined}
+        style={item.id === "summary" || !wash ? undefined : ({ ["--dock-wash"]: wash } as CSSProperties)}
         onClick={() => onSelect(item.id)}
         aria-label={`${item.label} — ${item.description}`}
       >
-        <span className={`f21-dock-icon${muted ? " f21-dock-icon--help" : ""}`} aria-hidden="true">
-          <Icon
-            size={FUEL21_DOCK_ICON_SIZE}
-            strokeWidth={1.85}
-            color={muted ? undefined : meta?.color}
-            aria-hidden="true"
-          />
+        <span
+          className={`f21-dock-icon${muted ? " f21-dock-icon--help" : ""}${item.id === "summary" ? " f21-dock-icon--chip" : ""}`}
+          aria-hidden="true"
+        >
+          {item.id === "summary" ? (
+            <SummaryAiIcon size={18} />
+          ) : (
+            <Icon
+              size={FUEL21_DOCK_ICON_SIZE}
+              strokeWidth={1.85}
+              color={muted ? undefined : meta?.color}
+              aria-hidden="true"
+            />
+          )}
         </span>
       </button>
       <div className="f21-dock-tooltip" role="tooltip">
@@ -458,30 +791,69 @@ function ContextEngineHint({
   anchor: HTMLButtonElement | null;
   onDismiss: () => void;
 }) {
-  const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+  const [frame, setFrame] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
 
   useLayoutEffect(() => {
     if (!anchor) return;
     const place = () => {
       const rect = anchor.getBoundingClientRect();
-      setBox({ top: rect.top, left: rect.right + 12 });
+      setFrame({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
     };
+    anchor.scrollIntoView({ block: "nearest" });
     place();
+    const retries = [80, 220, 420].map(ms => window.setTimeout(place, ms));
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => {
+      retries.forEach(id => window.clearTimeout(id));
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
   }, [anchor]);
 
-  if (!box) return null;
+  if (!frame || frame.left < -8 || frame.width < 2) return null;
   const host = anchor?.closest(".f21-app") ?? document.body;
+  const pad = 12;
+  const hole = {
+    left: Math.max(0, frame.left - pad),
+    top: Math.max(0, frame.top - pad),
+    right: Math.min(window.innerWidth, frame.left + frame.width + pad),
+    bottom: Math.min(window.innerHeight, frame.top + frame.height + pad),
+  };
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const cardWidth = Math.min(260, vw - 24);
+  const roomRight = vw - (frame.left + frame.width + 12);
+  const placeBelow = roomRight < cardWidth + 8;
+  const cardLeft = placeBelow
+    ? Math.max(12, Math.min(frame.left, vw - cardWidth - 12))
+    : frame.left + frame.width + 12;
+  const belowTop = frame.top + frame.height + 14;
+  const cardTop = placeBelow
+    ? (belowTop + 160 < vh ? belowTop : Math.max(12, frame.top - 168))
+    : frame.top;
   return createPortal(
-    <div className="f21-context-hint" style={{ top: box.top, left: box.left }} role="status">
-      <p>Add the rest here. Context engine is where company answers, notes, and files go — and where you earn the credit for finishing them.</p>
-      <button type="button" onClick={onDismiss}>OK</button>
-    </div>,
+    <>
+      <div
+        className="f21-context-hint-backdrop"
+        style={{
+          clipPath: `polygon(evenodd, 0px 0px, ${vw}px 0px, ${vw}px ${vh}px, 0px ${vh}px, 0px 0px, ${hole.left}px ${hole.top}px, ${hole.left}px ${hole.bottom}px, ${hole.right}px ${hole.bottom}px, ${hole.right}px ${hole.top}px, ${hole.left}px ${hole.top}px)`,
+        }}
+      />
+      <div
+        className="f21-context-hint-ring"
+        style={{ top: frame.top, left: frame.left, width: frame.width, height: frame.height }}
+        aria-hidden="true"
+      />
+      <div
+        className={`f21-context-hint${placeBelow ? " is-below" : ""}`}
+        style={{ top: cardTop, left: cardLeft, width: cardWidth }}
+        role="status"
+      >
+        <p>Add the rest here. Context engine is where company answers, notes, and files go — and where you earn the credit for finishing them.</p>
+        <button type="button" onClick={onDismiss}>OK</button>
+      </div>
+    </>,
     host,
   );
 }

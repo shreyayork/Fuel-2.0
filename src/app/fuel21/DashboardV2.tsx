@@ -47,6 +47,7 @@ import { applyCohortPeersToField } from "../benchmarkCohortData.ts";
 import {
   type Fuel21DrawerSection,
 } from "./Fuel21DetailsDrawer.tsx";
+import { OverviewBuildPanel, type OverviewBuildPhase } from "../ScorecardV2.tsx";
 import "./dashboard-v2.css";
 import "./dashboard-list-panels.css";
 
@@ -90,6 +91,16 @@ function scoreToneFromScore(score: number): "good" | "watch" | "bad" {
   if (score >= 65) return "good";
   if (score >= 35) return "watch";
   return "bad";
+}
+
+function LoadingLines({ widths = ["88%", "64%", "78%"] }: { widths?: string[] }) {
+  return (
+    <div className="f21-v2-skel-stack" aria-hidden="true">
+      {widths.map((width, index) => (
+        <span key={`${width}-${index}`} className="sc-skel-line" style={{ width }} />
+      ))}
+    </div>
+  );
 }
 
 function ExecutiveBenchmarkRow({ metric }: { metric: ExecutiveBenchmarkMetric }) {
@@ -440,7 +451,42 @@ export type DashboardV2Actions = {
   onOpenConnectors: () => void;
   onSkipProfile?: () => void;
   activeTourTarget?: string;
+  /** Post-signup overview build. Null once the founder is past that sequence. */
+  overviewBuildPhase?: OverviewBuildPhase | null;
+  onStartOptionalTour?: () => void;
+  onDismissOverviewReady?: () => void;
 };
+
+const OVERVIEW_BUILD_ORDER: OverviewBuildPhase[] = [
+  "summary",
+  "dev",
+  "mkt",
+  "rev",
+  "suggestions",
+  "ready",
+];
+
+function overviewBuildIndex(phase: OverviewBuildPhase): number {
+  return OVERVIEW_BUILD_ORDER.indexOf(phase);
+}
+
+function dashboardTrackLoaded(
+  id: "rd" | "gtm" | "ga",
+  phase: OverviewBuildPhase | null | undefined,
+): boolean {
+  if (phase == null || phase === "ready" || phase === "suggestions") return true;
+  if (phase === "summary") return false;
+  const step: OverviewBuildPhase = id === "rd" ? "dev" : id === "gtm" ? "mkt" : "rev";
+  return overviewBuildIndex(phase) > overviewBuildIndex(step);
+}
+
+function dashboardBriefLoaded(phase: OverviewBuildPhase | null | undefined): boolean {
+  return phase == null || overviewBuildIndex(phase) > overviewBuildIndex("summary");
+}
+
+function dashboardNumbersLoaded(phase: OverviewBuildPhase | null | undefined): boolean {
+  return phase == null || phase === "ready" || phase === "suggestions";
+}
 
 export function DashboardV2({
   onOpenTrack,
@@ -454,12 +500,39 @@ export function DashboardV2({
   onOpenConnectors,
   onSkipProfile,
   activeTourTarget,
+  overviewBuildPhase = null,
+  onStartOptionalTour,
+  onDismissOverviewReady,
 }: DashboardV2Actions) {
   const [isRoadmapSkipped, setIsRoadmapSkipped] = useState(false);
+  const spotlight = (id: string) => (activeTourTarget === id ? " tour-highlight" : "");
+  const building = Boolean(overviewBuildPhase && overviewBuildPhase !== "ready");
+  const briefReady = dashboardBriefLoaded(overviewBuildPhase);
+  const numbersReady = dashboardNumbersLoaded(overviewBuildPhase);
+  const listsReady = overviewBuildPhase == null || overviewBuildPhase === "ready";
 
   const trackPulseSection = (
       <MobileSnap className="f21-v2-track-grid" label="Company tracks">
         {SCORE_CARDS.map(card => {
+          if (!dashboardTrackLoaded(card.id, overviewBuildPhase)) {
+            return (
+              <article
+                key={card.id}
+                className={`f21-v2-track-card track-${card.id} f21-v2-track-card--loading`}
+                aria-busy="true"
+                aria-label={`Loading ${TRACK_FULL_NAMES[card.id] ?? card.label}`}
+              >
+                <div className="f21-v2-track-title-row">
+                  <span className="sc-skel-ring" />
+                  <div className="f21-v2-track-titles-col">
+                    <strong className="f21-v2-track-name">{card.label}</strong>
+                    <span className="f21-v2-track-full-name">{TRACK_FULL_NAMES[card.id]}</span>
+                  </div>
+                </div>
+                <LoadingLines widths={["92%", "70%", "80%"]} />
+              </article>
+            );
+          }
           const ScoreIcon = SCORE_ICONS[card.id] ?? Code2;
           const diag = TRACK_DIAGNOSTICS[card.id] ?? {
             score: card.score,
@@ -515,6 +588,7 @@ export function DashboardV2({
     <section
       className="overview-tour-page f21-v2-container"
       aria-label="Executive dashboard"
+      aria-busy={building || undefined}
     >
       {/* =====================================================================
           1 — Diagnostic Roadmap (Your 5 Modules) - Top by default with Skip
@@ -612,7 +686,27 @@ export function DashboardV2({
         </section>
       ) : null}
 
-      {trackPulseSection}
+      {building ? (
+        <OverviewBuildPanel phase={overviewBuildPhase!} />
+      ) : null}
+      {overviewBuildPhase === "ready" ? (
+        <div className="sc-overview-ready-bar" role="status">
+          <div>
+            <strong>Your Overview is ready</strong>
+            <span>Scores, advisor, and first suggestions are live.</span>
+          </div>
+          <div className="sc-overview-ready-actions">
+            {onStartOptionalTour ? (
+              <button type="button" onClick={onStartOptionalTour}>Take a quick tour</button>
+            ) : null}
+            <button type="button" className="secondary" onClick={onDismissOverviewReady}>Skip</button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className={spotlight("dash-scores")} data-tour-target="dash-scores">
+        {trackPulseSection}
+      </div>
 
       {/* =====================================================================
           3 — AI Executive Synthesis & Live Intelligence (Bento Architecture)
@@ -636,25 +730,33 @@ export function DashboardV2({
           </div>
 
           <div className="f21-v2-narrative-wrap">
-            {FUEL_BRIEF.executiveLeads.map(lead => (
-              <p key={lead} className="f21-v2-narrative-lead">
-                {lead}
-              </p>
-            ))}
-            <ul className="f21-v2-narrative-bullets">
-              {FUEL_BRIEF.executiveBullets.map(point => (
-                <li key={point}>{point}</li>
-              ))}
-            </ul>
+            {briefReady ? (
+              <>
+                {FUEL_BRIEF.executiveLeads.map(lead => (
+                  <p key={lead} className="f21-v2-narrative-lead">
+                    {lead}
+                  </p>
+                ))}
+                <ul className="f21-v2-narrative-bullets">
+                  {FUEL_BRIEF.executiveBullets.map(point => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <LoadingLines widths={["96%", "88%", "72%", "80%"]} />
+            )}
           </div>
 
-          <div className="f21-v2-brief-footer">
-            <button type="button" className="f21-v2-btn-view-summary" onClick={onViewFullSummary}>
-              <Sparkles size={13} strokeWidth={2} aria-hidden="true" />
-              <span>View full summary</span>
-              <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
-            </button>
-          </div>
+          {briefReady ? (
+            <div className="f21-v2-brief-footer">
+              <button type="button" className="f21-v2-btn-view-summary" onClick={onViewFullSummary}>
+                <Sparkles size={13} strokeWidth={2} aria-hidden="true" />
+                <span>View full summary</span>
+                <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
         </section>
 
         {/* Right: Benchmark — cohort progress bars */}
@@ -671,11 +773,16 @@ export function DashboardV2({
           </div>
 
           <div className="f21-telemetry-benchmark-list">
-            {EXECUTIVE_BENCHMARK_METRICS.slice(0, 3).map(metric => (
-              <ExecutiveBenchmarkRow key={metric.fieldKey} metric={metric} />
-            ))}
+            {numbersReady ? (
+              EXECUTIVE_BENCHMARK_METRICS.slice(0, 3).map(metric => (
+                <ExecutiveBenchmarkRow key={metric.fieldKey} metric={metric} />
+              ))
+            ) : (
+              <LoadingLines widths={["100%", "92%", "84%"]} />
+            )}
           </div>
 
+          {numbersReady ? (
           <div className="f21-telemetry-panel-foot f21-v2-track-cta-row">
             <button
               type="button"
@@ -688,6 +795,7 @@ export function DashboardV2({
               </span>
             </button>
           </div>
+          ) : null}
         </section>
       </div>
 
@@ -695,23 +803,25 @@ export function DashboardV2({
           4 — List hub: Intelligence, Initiatives, Data room, Playbooks, Connectors
           ===================================================================== */}
       <div className="f21-v2-list-hub" aria-label="Workspace lists">
-        <section className="f21-dash-list-panel f21-dash-list-panel--intel" aria-label="Latest intelligence">
+        <section className={`f21-dash-list-panel f21-dash-list-panel--intel${spotlight("dash-intelligence")}`} aria-label="Latest intelligence" data-tour-target="dash-intelligence">
           <DashListPanelHead title="Latest intelligence" />
           <div className="f21-dash-list">
-            {LATEST_INTELLIGENCE.map(row => (
+            {listsReady ? LATEST_INTELLIGENCE.map(row => (
               <div key={row.label} className="f21-dash-intel-row">
                 <span className="f21-dash-intel-label">{row.label}</span>
                 <span className="f21-dash-intel-value">{row.value}</span>
               </div>
-            ))}
+            )) : (
+              <LoadingLines widths={["100%", "84%", "92%"]} />
+            )}
           </div>
-          <DashListPanelFoot label="View all" onAction={onOpenIntelligence} />
+          {listsReady ? <DashListPanelFoot label="View all" onAction={onOpenIntelligence} /> : null}
         </section>
 
-        <section className="f21-dash-list-panel f21-dash-list-panel--initiatives" aria-label="Initiatives">
+        <section className={`f21-dash-list-panel f21-dash-list-panel--initiatives${spotlight("dash-initiatives")}`} aria-label="Initiatives" data-tour-target="dash-initiatives">
           <DashListPanelHead title="Initiatives" />
           <div className="f21-dash-list">
-            {INITIATIVES_DATA.map(item => {
+            {listsReady ? INITIATIVES_DATA.map(item => {
               const TrackIcon = SCORE_ICONS[item.trackKey] ?? Target;
               return (
                 <div key={item.title} className="f21-dash-initiative-row">
@@ -736,15 +846,17 @@ export function DashboardV2({
                   </button>
                 </div>
               );
-            })}
+            }) : (
+              <LoadingLines widths={["100%", "76%", "88%"]} />
+            )}
           </div>
-          <DashListPanelFoot label="View all" onAction={onOpenInitiatives} />
+          {listsReady ? <DashListPanelFoot label="View all" onAction={onOpenInitiatives} /> : null}
         </section>
 
-        <section className="f21-dash-list-panel f21-dash-list-panel--dataroom" aria-label="Data room">
+        <section className={`f21-dash-list-panel f21-dash-list-panel--dataroom${spotlight("dash-dataroom")}`} aria-label="Data room" data-tour-target="dash-dataroom">
           <DashListPanelHead title="Data room" />
           <div className="f21-dash-list">
-            {DATA_ROOM_DATA.map(file => (
+            {listsReady ? DATA_ROOM_DATA.map(file => (
               <button
                 key={file.name}
                 type="button"
@@ -761,15 +873,17 @@ export function DashboardV2({
                 </span>
                 <ArrowUpRight size={14} strokeWidth={2} className="f21-dash-dataroom-open" aria-hidden="true" />
               </button>
-            ))}
+            )) : (
+              <LoadingLines widths={["100%", "80%", "70%"]} />
+            )}
           </div>
-          <DashListPanelFoot label="View all" onAction={onOpenDataRoom} />
+          {listsReady ? <DashListPanelFoot label="View all" onAction={onOpenDataRoom} /> : null}
         </section>
 
-        <section className="f21-dash-list-panel f21-dash-list-panel--playbooks" aria-label="Playbook suggestions">
+        <section className={`f21-dash-list-panel f21-dash-list-panel--playbooks${spotlight("dash-playbooks")}`} aria-label="Playbook suggestions" data-tour-target="dash-playbooks">
           <DashListPanelHead title="Playbook suggestions" />
           <div className="f21-dash-list">
-            {PLAYBOOKS_DATA.map(item => (
+            {listsReady ? PLAYBOOKS_DATA.map(item => (
               <button
                 key={item.title}
                 type="button"
@@ -783,52 +897,60 @@ export function DashboardV2({
                 </span>
                 <ArrowRight size={14} strokeWidth={2} className="f21-dash-row-chevron" aria-hidden="true" />
               </button>
-            ))}
+            )) : (
+              <LoadingLines widths={["92%", "74%", "86%"]} />
+            )}
           </div>
         </section>
 
-        <section className="f21-dash-list-panel f21-dash-list-panel--connectors" aria-label="Connectors">
+        <section className={`f21-dash-list-panel f21-dash-list-panel--connectors${spotlight("dash-integrations")}`} aria-label="Connectors" data-tour-target="dash-integrations">
           <DashListPanelHead title="Connectors" />
           <div className="f21-dash-list">
-            {CONNECTORS_DATA.map(c => (
-              <button
-                key={c.id}
-                type="button"
-                className="f21-dash-list-row f21-dash-connector-row"
-                onClick={onOpenConnectors}
-                aria-label={`${c.name} connector`}
-              >
-                <span className={`f21-dash-connector-mark brand-${c.id}`} aria-hidden="true">
-                  <ConnectorBrandIcon brand={c.id} size={20} />
-                </span>
-                <span className="f21-dash-list-row-main">
-                  <strong>{c.name}</strong>
-                </span>
-                <span className="f21-dash-connector-status">
-                  <span className="f21-status-dot" aria-hidden="true" />
-                  {c.status}
-                </span>
-              </button>
-            ))}
-            <button
-              type="button"
-              className="f21-dash-list-row f21-dash-connector-row"
-              onClick={onOpenConnectors}
-              aria-label="Upload files"
-            >
-              <span className="f21-dash-connector-mark" aria-hidden="true">
-                <FolderLock size={16} strokeWidth={1.85} />
-              </span>
-              <span className="f21-dash-list-row-main">
-                <strong>File upload</strong>
-              </span>
-              <span className="f21-dash-connector-upload">
-                Upload files
-                <ArrowUpRight size={13} strokeWidth={2} aria-hidden="true" />
-              </span>
-            </button>
+            {listsReady ? (
+              <>
+                {CONNECTORS_DATA.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="f21-dash-list-row f21-dash-connector-row"
+                    onClick={onOpenConnectors}
+                    aria-label={`${c.name} connector`}
+                  >
+                    <span className={`f21-dash-connector-mark brand-${c.id}`} aria-hidden="true">
+                      <ConnectorBrandIcon brand={c.id} size={20} />
+                    </span>
+                    <span className="f21-dash-list-row-main">
+                      <strong>{c.name}</strong>
+                    </span>
+                    <span className="f21-dash-connector-status">
+                      <span className="f21-status-dot" aria-hidden="true" />
+                      {c.status}
+                    </span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="f21-dash-list-row f21-dash-connector-row"
+                  onClick={onOpenConnectors}
+                  aria-label="Upload files"
+                >
+                  <span className="f21-dash-connector-mark" aria-hidden="true">
+                    <FolderLock size={16} strokeWidth={1.85} />
+                  </span>
+                  <span className="f21-dash-list-row-main">
+                    <strong>File upload</strong>
+                  </span>
+                  <span className="f21-dash-connector-upload">
+                    Upload files
+                    <ArrowUpRight size={13} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                </button>
+              </>
+            ) : (
+              <LoadingLines widths={["100%", "68%", "84%"]} />
+            )}
           </div>
-          <DashListPanelFoot label="Manage" onAction={onOpenConnectors} />
+          {listsReady ? <DashListPanelFoot label="Manage" onAction={onOpenConnectors} /> : null}
         </section>
       </div>
     </section>
