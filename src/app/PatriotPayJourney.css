@@ -31541,6 +31541,21 @@ html[data-theme="light"] .intel-signal-history {
   flex: 1;
   min-width: 180px;
 }
+
+/* Stacked toolbar: a later align-items:center was pinning the search to its content width. */
+@media (max-width: 900px) {
+  .signals-intel-toolbar {
+    align-items: stretch;
+  }
+
+  .signals-intel-toolbar .signals-intel-search {
+    align-self: stretch;
+    box-sizing: border-box;
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+}
 .signals-intel-toolbar-right {
   display: flex;
   align-items: center;

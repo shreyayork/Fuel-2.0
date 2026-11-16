@@ -733,6 +733,14 @@
   background: var(--f21-nav-hover);
   color: var(--f21-text);
 }
+
+/* The tour ring is an 8px outer shadow. The scrolling sidebar clips overflow on
+   the x-axis, which shears that ring off the left and right of a full-width row. */
+.f21-sidebar .f21-nav-item.tour-highlight,
+.f21-sidebar .f21-nav-dashboard-item.tour-highlight {
+  margin-inline: 10px;
+  width: calc(100% - 20px);
+}
 .f21-nav-item:hover .f21-nav-item-icon {
   opacity: 1;
 }
@@ -1551,6 +1559,13 @@
 
 .f21-dock-toggle {
   margin-top: 2px;
+}
+
+.f21-right-dock.tour-highlight,
+html[data-theme="light"] .f21-right-dock.tour-highlight {
+  /* Inset so the ring stays inside the rail. An outer shadow is clipped at the screen edge. */
+  animation: none;
+  box-shadow: inset 0 0 0 2px rgba(0, 180, 138, 0.95);
 }
 
 .f21-right-dock.is-collapsed {

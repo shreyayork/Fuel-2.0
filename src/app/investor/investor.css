@@ -7554,6 +7554,20 @@ html[data-theme="dark"] .investor-portfolios-companies .investor-portfolio-more-
   }
 }
 
+@media (max-width: 900px) {
+  .investor-portfolios-tabs {
+    flex: 0 1 auto;
+  }
+
+  .investor-watchlists-search.investor-portfolios-search {
+    flex: 1 1 160px;
+    margin-left: 0;
+    max-width: none;
+    min-width: 0;
+    width: auto;
+  }
+}
+
 @media (max-width: 720px) {
   .investor-portfolios-page-head-card,
   .investor-portfolios-page-head {

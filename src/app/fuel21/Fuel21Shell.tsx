@@ -235,7 +235,9 @@ function MobileQuickBar({
   );
 
   useEffect(() => {
-    setOpen(false);
+    const narrow = window.matchMedia("(max-width: 820px)").matches;
+    const inSheet = tourTarget === "dock-ga" || tourTarget === "dock-company" || tourTarget === "dock-blog" || tourTarget === "dock-help";
+    setOpen(narrow && inSheet);
   }, [tourTarget]);
 
   useEffect(() => {
@@ -274,11 +276,13 @@ function MobileQuickBar({
           if (!item) return null;
           const label = mobileDockLabel(item, true);
           const active = activeId === id;
+          const dockTarget = `dock-${id}`;
           return (
             <button
               key={id}
               type="button"
-              className={`f21-mobile-tab${active ? " is-active" : ""}`}
+              className={`f21-mobile-tab${active ? " is-active" : ""}${tourTarget === dockTarget ? " tour-highlight" : ""}`}
+              data-tour-target={dockTarget}
               aria-current={active ? "page" : undefined}
               onClick={() => choose(id)}
             >
@@ -317,11 +321,13 @@ function MobileQuickBar({
                   {group.items.map(item => {
                     const label = mobileDockLabel(item);
                     const active = activeId === item.id;
+                    const dockTarget = `dock-${item.id}`;
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        className={`f21-mobile-sheet-item${active ? " is-active" : ""}`}
+                        className={`f21-mobile-sheet-item${active ? " is-active" : ""}${tourTarget === dockTarget ? " tour-highlight" : ""}`}
+                        data-tour-target={dockTarget}
                         aria-current={active ? "page" : undefined}
                         onClick={() => choose(item.id)}
                       >
@@ -409,13 +415,13 @@ export function Fuel21Shell({
   }, [dockCollapsed]);
 
   useEffect(() => {
-    if (tourTarget === "dock-quick-actions") setDockCollapsed(false);
+    if (tourTarget?.startsWith("dock-")) setDockCollapsed(false);
   }, [tourTarget]);
 
   useLayoutEffect(() => {
     const narrow = window.matchMedia("(max-width: 820px)").matches;
     if (!narrow) return;
-    const opensMenu = Boolean(tourTarget && (tourTarget.startsWith("nav-") || tourTarget === "profile-integrations"));
+    const opensMenu = Boolean(tourTarget?.startsWith("nav-"));
     if (showContextHint) {
       openedNavForHint.current = true;
       setNavOpen(true);
@@ -648,7 +654,7 @@ export function Fuel21Shell({
                       item={item}
                       active={activeDockId === item.id}
                       onSelect={onSelectDock}
-                      spotlight={tourTarget === "dock-quick-actions" && item.id === "summary"}
+                      tourTarget={tourTarget}
                     />
                   ))}
                 </div>
@@ -681,6 +687,7 @@ export function Fuel21Shell({
                 item={{ id: "help", label: "Help and feedback", description: "Guides, questions, and product feedback", icon: CircleHelp }}
                 active={activeDockId === "help"}
                 onSelect={onSelectDock}
+                tourTarget={tourTarget}
                 muted
               />
               <button
@@ -739,23 +746,25 @@ function DockButton({
   active,
   onSelect,
   muted = false,
-  spotlight = false,
+  tourTarget = null,
 }: {
   item: DockItem;
   active: boolean;
   onSelect: (id: Fuel21DockId) => void;
   muted?: boolean;
-  spotlight?: boolean;
+  tourTarget?: string | null;
 }) {
   const Icon = item.icon;
   const meta = DOCK_ICON_META[item.id];
   const wash = muted ? "rgba(40, 66, 86, 0.08)" : meta?.wash;
+  const dockTarget = `dock-${item.id}`;
   return (
     <div className="f21-dock-item-wrap">
       <button
         type="button"
-        className={`f21-dock-item${item.id === "summary" ? " is-emphasis" : ""}${active ? " is-active" : ""}${spotlight ? " tour-highlight" : ""}`}
+        className={`f21-dock-item${item.id === "summary" ? " is-emphasis" : ""}${active ? " is-active" : ""}${tourTarget === dockTarget ? " tour-highlight" : ""}`}
         data-dock={item.id}
+        data-tour-target={dockTarget}
         style={item.id === "summary" || !wash ? undefined : ({ ["--dock-wash"]: wash } as CSSProperties)}
         onClick={() => onSelect(item.id)}
         aria-label={`${item.label} — ${item.description}`}
