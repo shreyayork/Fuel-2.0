@@ -526,7 +526,7 @@ export function Fuel21Shell({
             </div>
           ))}
 
-          {recentItems && recentItems.length > 0 ? (
+          {!sidebarCollapsed && recentItems && recentItems.length > 0 ? (
             <div className="f21-sidebar-section">
               <div className="f21-sidebar-section-label">Recently viewed</div>
               {recentItems.map(item => (

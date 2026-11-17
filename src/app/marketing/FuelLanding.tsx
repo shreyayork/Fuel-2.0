@@ -1,15 +1,41 @@
-import React, { useEffect, useRef, useState } from "react";
-import { FuelIcon, type FuelIconName } from "../icons";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { LegalDocId } from "../legal/legalContent";
-import { FuelMarketingFaq } from "./FuelMarketingFaq";
-import { FuelMarketingFooter, FuelMarketingHeader } from "./FuelMarketingChrome";
-import { FuelMark, YorkMark } from "./FuelMark";
-import "./marketing.css";
+import arrowRight from "./landing-assets/arrow-right.svg";
+import browserGreen from "./landing-assets/browser-green.svg";
+import browserRed from "./landing-assets/browser-red.svg";
+import browserYellow from "./landing-assets/browser-yellow.svg";
+import cardGlow from "./landing-assets/card-glow.svg";
+import checkDone from "./landing-assets/check-done.svg";
+import chevronDown from "./landing-assets/chevron-down.svg";
+import heroIconBottom from "./landing-assets/hero-icon-bottom.svg";
+import heroIconLeft from "./landing-assets/hero-icon-left.svg";
+import heroIconTopLeft from "./landing-assets/hero-icon-top-left.svg";
+import heroIconTopRight from "./landing-assets/hero-icon-top-right.svg";
+import heroOverlay from "./landing-assets/hero-overlay.svg";
+import heroOverlayRotated from "./landing-assets/hero-overlay-rotated.svg";
+import heroSparkles from "./landing-assets/hero-sparkles.svg";
+import iconBuilding from "./landing-assets/icon-building.svg";
+import iconFounderTile from "./landing-assets/icon-founder-tile.svg";
+import iconInvestor from "./landing-assets/icon-investor.svg";
+import liveDot from "./landing-assets/live-dot.svg";
+import patternDemo from "./landing-assets/pattern-demo.svg";
+import patternMaskDemo from "./landing-assets/pattern-mask-demo.svg";
+import patternMaskSteps from "./landing-assets/pattern-mask-steps.svg";
+import patternSteps from "./landing-assets/pattern-steps.svg";
+import trendingUp from "./landing-assets/trending-up.svg";
+import valueIconBenchmark from "./landing-assets/value-icon-benchmark.svg";
+import valueIconPlaybooks from "./landing-assets/value-icon-playbooks.svg";
+import valueIconScorecard from "./landing-assets/value-icon-scorecard.svg";
+import { LandingFooter, LandingNav, useHeroFloatingNav } from "./landingNav";
+import "./landing.css";
 
-const TYPED = "Move your company forward";
-const LETTER_DELAY_S = 0.045;
+const VALUE_POINTS = [
+  { icon: valueIconScorecard, text: "Scorecard across product, go-to-market, and finance" },
+  { icon: valueIconBenchmark, text: "Peer performance benchmarks. See lower, typical, above-average, and top results" },
+  { icon: valueIconPlaybooks, text: "Turn your questions into tailored playbooks and actionable initiatives" },
+];
 
-const HOW = [
+const STEPS = [
   {
     n: "01",
     title: "Understand the landscape",
@@ -37,365 +63,262 @@ const HOW = [
   },
 ];
 
-const START: { n: string; title: string; body: string; icon: FuelIconName }[] = [
+/** Bar geometry as a percent of the track, taken from the Figma benchmark card. */
+const BENCHMARKS = [
   {
-    n: "01",
-    title: "Choose your focus",
-    body: "Start with your own company, your investment pipeline, or your portfolio.",
-    icon: "strategic",
+    label: "ARR Growth (YoY)",
+    rank: "~P10",
+    value: "10%",
+    median: "Median 42%",
+    fill: 6.6,
+    range: [14.6, 82.2],
+    medianAt: 31.8,
+    ticks: ["P25 18%", "P50 42%", "P75 80%", "P90 140%"],
   },
   {
-    n: "02",
-    title: "Bring the context together",
-    body: "Build a picture of the companies and markets that matter to you.",
-    icon: "layoutGrid",
+    label: "Net Revenue Retention",
+    rank: "~P5",
+    value: "10%",
+    median: "Median 108%",
+    fill: 6.3,
+    range: [7.8, 82.2],
+    medianAt: 43.2,
+    ticks: ["P25 88%", "P50 108%", "P75 118%", "P90 130%"],
   },
   {
-    n: "03",
-    title: "Find your next move",
-    body: "Explore insights and benchmarks to identify a strategic priority, a company to investigate, or an opportunity to help.",
-    icon: "investors",
+    label: "Gross Margin",
+    rank: "~P95",
+    value: "100%",
+    median: "Median 61%",
+    fill: 74,
+    range: [35.3, 60.5],
+    medianAt: 44.9,
+    ticks: ["P25 48%", "P50 61%", "P75 74%", "P90 82%"],
   },
 ];
 
-const FEATURES: { label: string; icon: FuelIconName; ring: "outer" | "inner" }[] = [
-  { label: "Benchmarks", icon: "benchmarks", ring: "outer" },
-  { label: "Intelligence", icon: "sparkles", ring: "outer" },
-  { label: "Initiatives", icon: "initiatives", ring: "outer" },
-  { label: "Ask Fuel", icon: "wand", ring: "outer" },
-  { label: "Playbooks", icon: "playbooks", ring: "outer" },
-  { label: "Data room", icon: "file", ring: "outer" },
-  { label: "Research", icon: "search", ring: "inner" },
-  { label: "Portfolio", icon: "portfolios", ring: "inner" },
-  { label: "Pitch deck", icon: "boardReporting", ring: "inner" },
-  { label: "Scorecard", icon: "gauge", ring: "inner" },
-];
+const DEMO = {
+  founder: {
+    title: "For Founders",
+    body: "Turn insight into focused initiatives. Compare conversion with peers, uncover gaps with market and competitive context, and align sales and marketing around clear priorities. Track progress through conversion and pipeline quality.",
+    capabilities: [
+      "Peer benchmarking",
+      "Pipeline quality tracking",
+      "Competitive context",
+      "Sales & marketing alignment",
+      "Growth priorities",
+      "Pipeline quality tracking",
+    ],
+  },
+  investor: {
+    title: "For Investors",
+    body: "Turn company visibility into informed attention. Follow developments across companies in your pipeline and portfolio, use market signals and benchmarks to see where to dig deeper, and follow the progress of the priorities you help support.",
+    capabilities: [
+      "Pipeline monitoring",
+      "Portfolio benchmarks",
+      "Market signals",
+      "Company conversation prep",
+      "Support priorities",
+      "Progress tracking",
+    ],
+  },
+} as const;
 
-const COHORT_P50 = 42;
+type DemoAudience = keyof typeof DEMO;
 
-function useInView<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries.some(entry => entry.isIntersecting)) setInView(true);
-      },
-      { threshold: 0.2 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  return { ref, inView };
+/** Matches the Fuel site's bar ease, cubic-bezier(0.22, 1, 0.36, 1). */
+function benchEase(t: number) {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  let low = 0;
+  let high = 1;
+  for (let step = 0; step < 14; step += 1) {
+    const mid = (low + high) / 2;
+    const rest = 1 - mid;
+    const x = 3 * rest * rest * mid * 0.22 + 3 * rest * mid * mid * 0.36 + mid * mid * mid;
+    if (x < t) low = mid;
+    else high = mid;
+  }
+  const at = (low + high) / 2;
+  const rest = 1 - at;
+  return 3 * rest * rest * at + 3 * rest * at * at + at * at * at;
 }
 
-function Aurora() {
-  return (
-    <div className="mkt-aurora" aria-hidden="true">
-      <div className="mkt-aurora-a" />
-      <div className="mkt-aurora-b" />
-      <div className="mkt-aurora-c" />
-      <div className="mkt-aurora-grid" />
-      <div className="mkt-aurora-noise" />
-    </div>
-  );
+function BenchValue({ target, active, delay }: { target: number; active: boolean; delay: number }) {
+  const [shown, setShown] = useState(0);
+
+  useEffect(() => {
+    if (!active) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setShown(target);
+      return;
+    }
+    const duration = 900;
+    const begin = performance.now() + delay;
+    let frame = 0;
+    const tick = (now: number) => {
+      const progress = benchEase(Math.min(1, Math.max(0, (now - begin) / duration)));
+      setShown(Math.round(target * progress));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [active, delay, target]);
+
+  return <strong>{shown}%</strong>;
 }
 
 function scrollToId(id: string) {
-  const node = document.getElementById(id);
-  if (!node) return;
-  const top = node.getBoundingClientRect().top + window.scrollY - 76;
-  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function HowIcon({ n }: { n: string }) {
-  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  if (n === "01") {
-    return (
-      <svg {...common} aria-hidden="true">
-        <circle cx="12" cy="12" r="8" />
-        <path d="M12 8v4l2.5 1.5" />
-      </svg>
-    );
-  }
-  if (n === "02") {
-    return (
-      <svg {...common} aria-hidden="true">
-        <path d="M5 19V10M12 19V5M19 19v-7" />
-      </svg>
-    );
-  }
-  if (n === "03") {
-    return (
-      <svg {...common} aria-hidden="true">
-        <circle cx="12" cy="12" r="7" />
-        <circle cx="12" cy="12" r="2.5" />
-      </svg>
-    );
-  }
-  if (n === "04") {
-    return (
-      <svg {...common} aria-hidden="true">
-        <path d="M5 12h14M13 6l6 6-6 6" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common} aria-hidden="true">
-      <path d="M4 16l5-5 3 3 8-8" />
-      <path d="M14 6h6v6" />
-    </svg>
-  );
-}
+/** Renders fixed-size Figma artwork and scales it down to fit narrower containers. */
+function ScaledBox({ width, height, className, children }: { width: number; height: number; className?: string; children: React.ReactNode }) {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
 
-function HowFuelWorks({ onGetStarted }: { onGetStarted: () => void }) {
-  const sectionRef = useRef<HTMLElement | null>(null);
-  const copyRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const section = sectionRef.current;
-    const copy = copyRef.current;
-    if (!section || !copy) return;
-
-    const place = () => {
-      if (window.matchMedia("(max-width: 900px)").matches) {
-        copy.style.top = "";
-        copy.style.transform = "";
-        return;
-      }
-      const copyH = copy.offsetHeight;
-      const viewH = window.innerHeight;
-      const rect = section.getBoundingClientRect();
-      const travel = rect.height - viewH;
-      const scrolled = Math.min(Math.max(-rect.top, 0), Math.max(travel, 0));
-      const progress = travel > 0 ? scrolled / travel : 0;
-      const center = Math.max(88, (viewH - copyH) / 2);
-      const driftSpan = Math.min(36, Math.max(travel, 0) * 0.2);
-      const drift = (progress - 0.5) * driftSpan;
-      copy.style.top = `${center}px`;
-      copy.style.transform = `translateY(${drift}px)`;
-    };
-
-    place();
-    window.addEventListener("scroll", place, { passive: true });
-    window.addEventListener("resize", place);
-    return () => {
-      window.removeEventListener("scroll", place);
-      window.removeEventListener("resize", place);
-    };
-  }, []);
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const update = () => setScale(Math.min(1, frame.clientWidth / width));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [width]);
 
   return (
-    <section className="mkt-section mkt-how-section is-shade" id="how-fuel-works" ref={sectionRef}>
-      <div className="mkt-how">
-        <div className="mkt-how-sticky" ref={copyRef}>
-          <div className="mkt-kicker is-left">How Fuel works</div>
-          <h2>
-            <span>From understanding the opportunity</span>
-            to moving it forward.
-          </h2>
-        </div>
-        <div className="mkt-how-cards">
-          {HOW.map(step => (
-            <article key={step.n} className="mkt-how-card">
-              <span className="mkt-how-icon">
-                <HowIcon n={step.n} />
-              </span>
-              <h3>{step.title}</h3>
-              <p>{step.body}</p>
-            </article>
-          ))}
-          <button type="button" className="mkt-how-start" onClick={onGetStarted}>
-            <span className="mkt-how-start-kicker">Get started</span>
-            <strong>Get Started with Fuel</strong>
-            <p>Start with your own company, your investment pipeline, or your portfolio.</p>
-            <span className="mkt-how-start-go">Continue <span aria-hidden="true">→</span></span>
-          </button>
-        </div>
+    <div ref={frameRef} className={`fl-scaled${className ? ` ${className}` : ""}`} style={{ maxWidth: width, height: height * scale }}>
+      <div className="fl-scaled-inner" style={{ width, height, transform: `scale(${scale})` }}>
+        {children}
       </div>
-    </section>
+    </div>
   );
 }
 
-function OrbitRing({
-  features,
-  radius,
-  duration,
-  reverse,
-  offset = 0,
+function PrimaryButton({
+  children,
+  onClick,
+  variant = "deep",
+  className,
 }: {
-  features: typeof FEATURES;
-  radius: number;
-  duration: string;
-  reverse?: boolean;
-  offset?: number;
+  children: React.ReactNode;
+  onClick: () => void;
+  variant?: "deep" | "bright" | "nav";
+  className?: string;
 }) {
   return (
-    <div
-      className={`mkt-orbit-ring${reverse ? " is-reverse" : ""}`}
-      style={{ ["--orbit-duration" as string]: duration, ["--orbit-size" as string]: `${radius * 2}px` }}
-    >
-      {features.map((feature, index) => {
-        const angle = offset + (360 / features.length) * index;
-        return (
-          <div
-            key={feature.label}
-            className="mkt-orbit-slot"
-            style={{ ["--a" as string]: `${angle}deg`, ["--r" as string]: `${radius}px` }}
-          >
-            <div className="mkt-orbit-counter">
-              <div className="mkt-orbit-upright">
-                <div className="mkt-orbit-tile">
-                  <FuelIcon name={feature.icon} size={14} />
-                  <span>{feature.label}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+    <button type="button" className={`fl-btn is-${variant}${className ? ` ${className}` : ""}`} onClick={onClick}>
+      <span>{children}</span>
+      <img alt="" src={arrowRight} width={24} height={24} />
+    </button>
   );
 }
 
-const CHAT_QUESTION = "Review my pitch deck";
-const CHAT_ROWS = [
-  { label: "Problem", score: "18", note: "Clear and specific." },
-  { label: "Market", score: "15", note: "Name the peers." },
-  { label: "Traction", score: "12", note: "Put the number next to the cohort." },
-  { label: "Ask", score: "14", note: "Use of funds is thin." },
-];
-
-function FuelChatDemo() {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const [inView, setInView] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const [typed, setTyped] = useState(0);
-  const [sent, setSent] = useState(false);
-  const [thinking, setThinking] = useState(false);
-  const [reply, setReply] = useState(false);
-  const [rows, setRows] = useState(0);
-
-  useEffect(() => {
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    setReduceMotion(true);
-    setTyped(CHAT_QUESTION.length);
-    setSent(true);
-    setReply(true);
-    setRows(CHAT_ROWS.length);
-  }, []);
-
-  useEffect(() => {
-    const node = rootRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      entries => setInView(entries.some(entry => entry.isIntersecting)),
-      { threshold: 0.4 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!inView || reduceMotion) return;
-    let alive = true;
-    const timers: number[] = [];
-    const later = (ms: number, fn: () => void) => {
-      timers.push(window.setTimeout(() => {
-        if (alive) fn();
-      }, ms));
-    };
-    const run = () => {
-      setTyped(0);
-      setSent(false);
-      setThinking(false);
-      setReply(false);
-      setRows(0);
-      const typeStart = 420;
-      for (let i = 1; i <= CHAT_QUESTION.length; i += 1) {
-        later(typeStart + i * 42, () => setTyped(i));
-      }
-      const typedDone = typeStart + CHAT_QUESTION.length * 42;
-      later(typedDone + 320, () => {
-        setSent(true);
-        setThinking(true);
-      });
-      later(typedDone + 1200, () => {
-        setThinking(false);
-        setReply(true);
-      });
-      CHAT_ROWS.forEach((_, index) => {
-        later(typedDone + 1450 + index * 240, () => setRows(index + 1));
-      });
-      later(typedDone + 1450 + CHAT_ROWS.length * 240 + 3200, run);
-    };
-    run();
-    return () => {
-      alive = false;
-      timers.forEach(id => window.clearTimeout(id));
-    };
-  }, [inView, reduceMotion]);
-
+export function HeroGraphic() {
   return (
-    <div className="mkt-chat" ref={rootRef} aria-label="Ask Fuel reviewing a pitch deck">
-      <div className="mkt-chat-bar">
-        <YorkMark size={16} />
-        <span>Ask Fuel</span>
-        <span className="mkt-chat-live">Live</span>
-      </div>
-      <div className="mkt-chat-thread">
-        {sent ? <div className="mkt-chat-user">{CHAT_QUESTION}</div> : null}
-        {thinking ? (
-          <div className="mkt-chat-thinking" aria-hidden="true">
-            <span /><span /><span />
-          </div>
-        ) : null}
-        {reply ? (
-          <div className="mkt-chat-reply">
-            <div className="mkt-chat-reply-kicker">Pitch deck evaluation</div>
-            <strong>Investor-ready score: 74/100</strong>
-            <p>Problem is sharp. Traction still needs the peer comparison before this goes out.</p>
-            <div className="mkt-chat-rows">
-              {CHAT_ROWS.slice(0, rows).map(row => (
-                <div key={row.label} className="mkt-chat-row">
-                  <span>{row.label}</span>
-                  <strong>{row.score}</strong>
-                  <em>{row.note}</em>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-      <div className="mkt-chat-compose">
-        {sent ? (
-          <span className="mkt-caret" />
-        ) : (
-          <span className="mkt-chat-draft">
-            {CHAT_QUESTION.slice(0, typed)}
-            <span className="mkt-caret" />
+    <ScaledBox width={500} height={500} className="fl-hero-graphic fl-reveal">
+      <div className="fl-graphic" aria-hidden="true">
+        <span className="fl-graphic-cell" style={{ left: 167, top: 167 }} />
+        <img className="fl-graphic-overlay" alt="" src={heroOverlay} />
+        <img className="fl-graphic-overlay is-rotated" alt="" src={heroOverlayRotated} />
+        <span className="fl-graphic-core">
+          <span className="fl-fuel-type">
+            <span className="fl-fuel-reserve">FUEL</span>
+            <span className="fl-fuel-clip">FUEL</span>
           </span>
-        )}
+        </span>
+        <span className="fl-graphic-cell fl-spot is-scorecard" style={{ left: 0, top: 250 }} />
+        <img className="fl-graphic-icon fl-spot is-scorecard" alt="" src={heroIconLeft} style={{ left: 31, top: 282, width: 20, height: 20 }} />
+        <span className="fl-graphic-cell fl-spot is-growth" style={{ left: 83, top: 83 }} />
+        <img className="fl-graphic-icon fl-spot is-growth" alt="" src={heroIconTopLeft} style={{ left: 113, top: 113, width: 24, height: 24 }} />
+        <span className="fl-graphic-cell fl-spot is-calendar" style={{ left: 334, top: 83 }} />
+        <img className="fl-graphic-icon fl-spot is-calendar" alt="" src={heroIconTopRight} style={{ left: 364, top: 113, width: 24, height: 24 }} />
+        <span className="fl-graphic-cell fl-spot is-portfolio" style={{ left: 83, top: 417 }} />
+        <span className="fl-graphic-icon-frame fl-spot is-portfolio" style={{ left: 113, top: 447 }}>
+          <img alt="" src={heroIconBottom} />
+        </span>
+        <span className="fl-graphic-cell fl-spot is-sparkles" style={{ left: 250, top: 334 }} />
+        <img className="fl-graphic-icon fl-spot is-sparkles" alt="" src={heroSparkles} style={{ left: 281, top: 365, width: 22, height: 22 }} />
       </div>
+    </ScaledBox>
+  );
+}
+
+function SectionPattern({ pattern, mask, height }: { pattern: string; mask: string; height: number }) {
+  return (
+    <div className="fl-pattern" style={{ height }} aria-hidden="true">
+      <img
+        alt=""
+        src={pattern}
+        style={{
+          maskImage: `url("${mask}")`,
+          WebkitMaskImage: `url("${mask}")`,
+          maskSize: `1440px ${height}px`,
+          WebkitMaskSize: `1440px ${height}px`,
+        }}
+      />
     </div>
   );
 }
 
-function FeatureOrbit() {
-  const outer = FEATURES.filter(feature => feature.ring === "outer");
-  const inner = FEATURES.filter(feature => feature.ring === "inner");
+function DashboardMockup() {
   return (
-    <div className="mkt-orbit-fit">
-    <div className="mkt-orbit" role="img" aria-label="Fuel features: Benchmarks, Intelligence, Initiatives, Ask Fuel, Playbooks, Data room, Research, Portfolio, Pitch deck, and Scorecard">
-      <OrbitRing features={outer} radius={196} duration="52s" />
-      <OrbitRing features={inner} radius={112} duration="36s" reverse offset={45} />
-      <div className="mkt-orbit-core">
-        <span>Features</span>
+    <ScaledBox width={560} height={420} className="fl-mock-frame">
+      <div className="fl-mock" aria-hidden="true">
+        <div className="fl-mock-metrics">
+          {[0, 1, 2].map(index => (
+            <span key={index}>
+              <i />
+            </span>
+          ))}
+        </div>
+        <div className="fl-mock-chart">
+          {[187, 139, 91, 43].map(top => (
+            <span key={top} className="fl-mock-grid" style={{ top }} />
+          ))}
+          <span className="fl-mock-bar" style={{ left: 299, top: 38, height: 171, background: "rgba(0, 180, 138, 0.8)" }} />
+          <span className="fl-mock-bar" style={{ left: 231, top: 76, height: 133, background: "#25e2b0" }} />
+          <span className="fl-mock-bar" style={{ left: 163, top: 133, height: 76, background: "#63f2c7" }} />
+          <span className="fl-mock-bar" style={{ left: 95, top: 114, height: 95, background: "#a0fada" }} />
+          <span className="fl-mock-bar" style={{ left: 27, top: 152, height: 57, background: "#a0fada" }} />
+          <div className="fl-mock-stat">
+            <p>Monthly Growth</p>
+            <div>
+              <strong>+24.8%</strong>
+              <span className="fl-mock-trend">
+                <img alt="" src={trendingUp} />
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="fl-mock-head">
+          <span />
+          <span />
+        </div>
+        <div className="fl-mock-sidebar">
+          <span className="fl-skel" style={{ width: 80, height: 12 }} />
+          <div className="fl-mock-nav">
+            <span className="fl-skel is-active" style={{ width: 108, height: 24 }} />
+            <span className="fl-skel" style={{ width: 88 }} />
+            <span className="fl-skel" style={{ width: 96 }} />
+            <span className="fl-skel" style={{ width: 72 }} />
+            <span className="fl-skel" style={{ width: 84 }} />
+          </div>
+          <span className="fl-mock-divider" />
+          <span className="fl-mock-avatar" />
+          <span className="fl-mock-account" />
+        </div>
+        <div className="fl-mock-browser">
+          <img alt="" src={browserRed} width={8} height={8} />
+          <img alt="" src={browserYellow} width={8} height={8} />
+          <img alt="" src={browserGreen} width={8} height={8} />
+          <div className="fl-mock-address">
+            <span />
+          </div>
+        </div>
       </div>
-    </div>
-    </div>
+    </ScaledBox>
   );
 }
 
@@ -403,269 +326,452 @@ export default function FuelLanding({
   onSignIn,
   onGetStarted,
   onOpenLegal,
+  onOpenCompanies,
 }: {
   onSignIn: () => void;
   onGetStarted: () => void;
   onOpenLegal?: (doc: LegalDocId) => void;
+  onOpenCompanies: () => void;
 }) {
-  const typedDoneAt = 0.28 + TYPED.length * LETTER_DELAY_S;
-  const close = useInView<HTMLDivElement>();
-  const [typedCount, setTypedCount] = useState(0);
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const rootRef = useRef<HTMLElement | null>(null);
+  const stepsRef = useRef<HTMLElement | null>(null);
+  const stepRowRef = useRef<HTMLOListElement | null>(null);
+  const floatingNav = useHeroFloatingNav(heroRef);
+  const [audience, setAudience] = useState<DemoAudience>("founder");
   const [vertical, setVertical] = useState("b2b_saas");
+  const [benchLive, setBenchLive] = useState(false);
+  const benchRef = useRef<HTMLDivElement | null>(null);
   const [stage, setStage] = useState("seed");
+  const demo = DEMO[audience];
 
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (media.matches) {
-      setReduceMotion(true);
-      setTypedCount(TYPED.length);
-      return;
-    }
-    const start = window.setTimeout(() => setTypedCount(1), 280);
-    return () => window.clearTimeout(start);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const items = [...root.querySelectorAll<HTMLElement>(".fl-reveal")];
+    const revealed = new Set<HTMLElement>();
+    const show = (list: HTMLElement[]) => {
+      const ordered = [...list].sort((a, b) => (a === b ? 0 : a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+      ordered.forEach((el, index) => {
+        el.style.animationDelay = `${index * 100}ms`;
+        el.dataset.reveal = "in";
+        revealed.add(el);
+      });
+    };
+    const group = (list: HTMLElement[]) => {
+      const groups = new Map<HTMLElement, HTMLElement[]>();
+      list.forEach(el => {
+        const section = (el.closest("section, footer") as HTMLElement | null) ?? root;
+        const bucket = groups.get(section) ?? [];
+        bucket.push(el);
+        groups.set(section, bucket);
+      });
+      groups.forEach(show);
+    };
+    const seen = (el: HTMLElement) => {
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight - 32 && rect.bottom > 32 && rect.left < window.innerWidth && rect.right > 0;
+    };
+    const stepRow = root.querySelector<HTMLElement>(".fl-step-row");
+    const stepCards = items.filter(el => el.classList.contains("fl-step-card"));
+    const inView = (el: HTMLElement) => seen(el.classList.contains("fl-step-card") && stepRow ? stepRow : el);
+
+    root.classList.add("is-motion");
+    group(items.filter(inView));
+
+    const observer = new IntersectionObserver(
+      entries => {
+        const hit = new Set(entries.filter(entry => entry.isIntersecting).map(entry => entry.target as HTMLElement));
+        const fresh = items.filter(el => !revealed.has(el) && hit.has(el));
+        if (fresh.some(el => el.classList.contains("fl-step-card"))) fresh.push(...stepCards.filter(el => !revealed.has(el) && !fresh.includes(el)));
+        fresh.forEach(el => observer.unobserve(el));
+        group(fresh);
+      },
+      { rootMargin: "0px 0px -48px 0px", threshold: 0 },
+    );
+    items.forEach(el => {
+      if (!revealed.has(el)) observer.observe(el);
+    });
+    return () => {
+      observer.disconnect();
+      root.classList.remove("is-motion");
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const section = stepsRef.current;
+    const row = stepRowRef.current;
+    const pin = section?.querySelector<HTMLElement>(".fl-steps-pin");
+    if (!section || !row || !pin) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let distance = 0;
+
+    const release = () => {
+      distance = 0;
+      section.classList.remove("is-slider");
+      section.style.height = "";
+      pin.style.position = "";
+      pin.style.top = "";
+      pin.style.left = "";
+      pin.style.right = "";
+      pin.style.width = "";
+      row.style.transform = "";
+    };
+
+    const measure = () => {
+      row.style.transform = "translate3d(0,0,0)";
+      section.classList.add("is-slider");
+      distance = Math.max(0, row.scrollWidth - window.innerWidth);
+      if (distance <= 0) {
+        release();
+        return;
+      }
+      pin.style.position = "absolute";
+      pin.style.left = "0";
+      pin.style.right = "0";
+      pin.style.width = "100%";
+      pin.style.top = "0";
+      section.style.height = `${pin.offsetHeight + distance}px`;
+      place();
+    };
+
+    const place = () => {
+      if (distance <= 0) return;
+      const start = section.getBoundingClientRect().top + window.scrollY;
+      const traveled = Math.min(distance, Math.max(0, window.scrollY - start));
+      pin.style.left = "0";
+      pin.style.right = "0";
+      pin.style.width = "100%";
+      if (traveled <= 0) {
+        pin.style.position = "absolute";
+        pin.style.top = "0";
+      } else if (traveled >= distance) {
+        pin.style.position = "absolute";
+        pin.style.top = `${distance}px`;
+      } else {
+        pin.style.position = "fixed";
+        pin.style.top = "0";
+      }
+      row.style.transform = `translate3d(${-traveled}px,0,0)`;
+    };
+
+    measure();
+    window.addEventListener("scroll", place, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", place);
+      window.removeEventListener("resize", measure);
+      release();
+    };
   }, []);
 
   useEffect(() => {
-    if (reduceMotion || typedCount === 0 || typedCount >= TYPED.length) return;
-    const tick = window.setTimeout(() => setTypedCount(count => count + 1), LETTER_DELAY_S * 1000);
-    return () => window.clearTimeout(tick);
-  }, [reduceMotion, typedCount]);
+    const board = benchRef.current;
+    if (!board) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setBenchLive(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setBenchLive(true);
+        observer.disconnect();
+      },
+      { threshold: 0.35 },
+    );
+    observer.observe(board);
+    return () => observer.disconnect();
+  }, []);
+
+  const openDemo = (next: DemoAudience) => {
+    setAudience(next);
+    scrollToId("product-demo");
+  };
 
   return (
-    <main className="mkt-root">
-      <FuelMarketingHeader onSignIn={onSignIn} onGetStarted={onGetStarted} />
+    <main className="fl-root" ref={rootRef}>
+      <div className={`fl-float-nav${floatingNav ? " is-visible" : ""}`} aria-hidden={!floatingNav}>
+        <LandingNav
+          variant="float"
+          interactive={floatingNav}
+          onSignIn={onSignIn}
+          onHome={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          onCompanies={onOpenCompanies}
+          onSection={scrollToId}
+        />
+      </div>
 
-      <section className="mkt-hero">
-        <Aurora />
-        <div className="mkt-hero-inner">
-          <div className="mkt-live mkt-rise" style={{ animationDelay: "0s" }}>
-            <span className="mkt-live-dot" aria-hidden="true">
-              <span />
-              <span />
-            </span>
-            <span>For founders, operators, and investors</span>
+      <section className="fl-hero" ref={heroRef}>
+        <LandingNav
+          variant="top"
+          reveal
+          onSignIn={onSignIn}
+          onHome={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          onCompanies={onOpenCompanies}
+          onSection={scrollToId}
+        />
+
+        <div className="fl-hero-content">
+          <div className="fl-hero-copy">
+            <div className="fl-hero-headline">
+              <h1 className="fl-reveal">
+                Build your strategy.
+                <br />
+                Focus your team.
+                <span>Move your company forward</span>
+              </h1>
+              <p className="fl-reveal">
+                For the people building companies—and those backing them.
+                <br />
+                Fuel brings market intelligence, benchmarking, planning, and execution into one AI-powered workspace.
+              </p>
+            </div>
+            <PrimaryButton className="fl-reveal" onClick={onGetStarted}>Get Started with Fuel</PrimaryButton>
           </div>
-
-          <h1>
-            <span className="mkt-h1-line mkt-rise" style={{ animationDelay: reduceMotion ? "0s" : "0.15s" }}>
-              Build your strategy.
-            </span>
-            <span className="mkt-h1-line mkt-rise" style={{ animationDelay: reduceMotion ? "0s" : "0.3s" }}>
-              Focus your team.
-            </span>
-            <span className="mkt-h1-line">
-              <span className="mkt-h1-typed">
-                <span className="mkt-h1-gradient">
-                  {(reduceMotion ? TYPED : TYPED.slice(0, typedCount)).replaceAll(" ", "\u00a0")}
-                </span>
-                {typedCount > 0 && typedCount < TYPED.length && !reduceMotion ? (
-                  <span className="mkt-caret" aria-hidden="true" />
-                ) : null}
-              </span>
-            </span>
-          </h1>
-
-          <p className="mkt-hero-kicker mkt-rise" style={{ animationDelay: `${typedDoneAt + 0.15}s` }}>
-            For the people building companies—and those backing them.
-          </p>
-          <p className="mkt-hero-lede mkt-rise" style={{ animationDelay: `${typedDoneAt + 0.3}s` }}>
-            Fuel brings market intelligence, benchmarking, planning, and execution into one AI-powered workspace. Build and execute your company’s strategy, or monitor your investment pipeline and portfolio—with the context to know where to focus and how to help companies move forward.
-          </p>
-
-          <div className="mkt-hero-ctas mkt-rise" style={{ animationDelay: `${typedDoneAt + 0.45}s` }}>
-            <button type="button" className="mkt-cta mkt-cta-lg" onClick={onGetStarted}>
-              <span className="mkt-shimmer" aria-hidden="true" />
-              <span>Get Started with Fuel</span>
-              <span className="mkt-arrow">→</span>
-            </button>
-            <button type="button" className="mkt-ghost-cta" onClick={() => scrollToId("how-fuel-works")}>
-              <span>See How Fuel Works</span>
-              <span className="mkt-arrow is-muted">→</span>
-            </button>
-          </div>
+          <HeroGraphic />
         </div>
       </section>
 
-      <section className="mkt-section is-shade" id="who-its-for">
-        <div className="mkt-kicker">Who it’s for</div>
-        <h2 className="mkt-section-title is-lg">Different perspectives. A shared ambition.</h2>
-        <div className="mkt-split is-plain">
-          <article className="mkt-panel-card" id="for-builders">
-            <div className="mkt-kicker is-left">For founders and operators</div>
-            <h3>Build with clarity. Execute with purpose.</h3>
-            <p>
-              Ground your strategy in market and competitive intelligence. Understand how you compare with peers, focus your team on the right initiatives, and track progress against your business goals.
-            </p>
-            <button type="button" className="mkt-card-link" onClick={() => scrollToId("for-builders-demo")}>
-              Explore Fuel for Builders <span aria-hidden="true">→</span>
-            </button>
+      <section className="fl-section is-white fl-audience" id="who-its-for">
+        <header className="fl-section-head">
+          <p className="fl-eyebrow fl-reveal">Who it’s for</p>
+          <h2 className="fl-reveal">
+            Different perspectives. <span className="is-green">A shared ambition.</span>
+          </h2>
+        </header>
+        <div className="fl-audience-cards">
+          <article className="fl-audience-card fl-reveal is-up">
+            <img alt="" src={iconBuilding} width={56} height={56} />
+            <div className="fl-audience-text">
+              <div>
+                <p className="fl-card-eyebrow">For founders and operators</p>
+                <h3>Build with clarity. Execute with purpose.</h3>
+              </div>
+              <p>
+                Ground your strategy in market and competitive intelligence. Understand how you compare with peers, focus your team on the right initiatives, and track progress against your business goals.
+              </p>
+            </div>
+            <PrimaryButton variant="bright" onClick={() => openDemo("founder")}>Explore Fuel for Builders</PrimaryButton>
           </article>
-          <article className="mkt-panel-card" id="for-investors">
-            <div className="mkt-kicker is-left">For investors</div>
-            <h3>See the opportunity. Support the growth.</h3>
-            <p>
-              Monitor companies across your investment pipeline and portfolio. Follow market developments, put company performance in context, and identify where your attention and support could make the greatest difference.
-            </p>
-            <button type="button" className="mkt-card-link" onClick={() => scrollToId("for-investors-demo")}>
-              Explore Fuel for Investors <span aria-hidden="true">→</span>
-            </button>
+          <article className="fl-audience-card fl-reveal is-up">
+            <img alt="" src={iconInvestor} width={56} height={56} />
+            <div className="fl-audience-text">
+              <div>
+                <p className="fl-card-eyebrow">For investors</p>
+                <h3>See the opportunity. Support the growth.</h3>
+              </div>
+              <p>
+                Monitor companies across your investment pipeline and portfolio. Follow market developments, put company performance in context, and identify where your attention and support could make the greatest difference.
+              </p>
+            </div>
+            <PrimaryButton variant="bright" onClick={() => openDemo("investor")}>Explore Fuel for Investors</PrimaryButton>
           </article>
         </div>
       </section>
 
-      <section className="mkt-section">
-        <div className="mkt-kicker">The value</div>
-        <h2 className="mkt-section-title is-lg">A clearer view of what comes next.</h2>
-        <div className="mkt-prose">
-          <p>Better decisions start with understanding the company and the market around it.</p>
-          <p>
-            Fuel connects external intelligence with company performance and strategic priorities. Founders and operators can see where to focus their teams. Investors can see which companies warrant a closer look and where portfolio companies could benefit from support.
-          </p>
-          <p>Together, those perspectives help turn insight into meaningful progress.</p>
+      <section className="fl-section is-dark fl-value" id="platform">
+        <div className="fl-value-copy">
+          <div>
+            <p className="fl-eyebrow is-mint fl-reveal">The value</p>
+            <h2 className="fl-reveal">
+              <span className="is-white">A clearer view of</span>
+              <br />
+              <span className="is-gold">what comes next.</span>
+            </h2>
+          </div>
+          <div className="fl-value-body">
+            <p className="fl-reveal">
+              Better decisions start with understanding the company and the market around it. Fuel connects external intelligence with company performance and strategic priorities. Founders and operators can see where to focus their teams. Investors can see which companies warrant a closer look and where portfolio companies could benefit from support.
+            </p>
+            <p className="fl-reveal">Together, those perspectives help turn insight into meaningful progress.</p>
+          </div>
         </div>
-        <ul className="mkt-value-points">
-          <li><span className="mkt-check">✓</span><span>Scorecard across product, go-to-market, and finance</span></li>
-          <li>
-            <span className="mkt-check">✓</span>
-            <span>Peer-cohort benchmarks<span className="mkt-value-sub">p25 / p50 / p75 / p90</span></span>
-          </li>
-          <li><span className="mkt-check">✓</span><span>Ask Fuel — playbooks and pitch deck evaluation against your numbers</span></li>
+        <ul className="fl-value-points">
+          {VALUE_POINTS.map(point => (
+            <li key={point.text} className="fl-reveal is-up">
+              <img alt="" src={point.icon} width={32} height={32} />
+              <p>{point.text}</p>
+            </li>
+          ))}
         </ul>
       </section>
 
-      <HowFuelWorks onGetStarted={onGetStarted} />
-
-      <section className="mkt-section is-wash" id="benchmarks">
-        <div className="mkt-kicker">Benchmarking preview</div>
-        <h2 className="mkt-section-title is-lg">Understand where a company stands—and what that could mean.</h2>
-        <p className="mkt-benchmark-lede">
-          Compare company performance with relevant peers by market and stage. Bring context to your growth targets, investment research, and conversations about where to improve.
-        </p>
-        <div className="mkt-benchmark-board">
-          <div className="mkt-benchmark-side">
-            <span>p25</span>
-            <strong>18%</strong>
-          </div>
-          <div className="mkt-benchmark-main">
-            <span>Median ARR growth · cohort p50</span>
-            <strong>{COHORT_P50}%</strong>
-          </div>
-          <div className="mkt-benchmark-side">
-            <span>p90</span>
-            <strong>140%</strong>
-          </div>
-        </div>
-        <div className="mkt-benchmark-controls">
-          <div className="mkt-cohort-fields">
-            <label>
-              Vertical
-              <select value={vertical} onChange={event => setVertical(event.target.value)}>
-                <option value="b2b_saas">B2B SaaS</option>
-                <option value="dev_tools">Developer Tools</option>
-              </select>
-            </label>
-            <label>
-              Stage
-              <select value={stage} onChange={event => setStage(event.target.value)}>
-                <option value="seed">Seed</option>
-                <option value="series_a">Series A</option>
-                <option value="growth">Growth</option>
-              </select>
-            </label>
-          </div>
-          <button type="button" className="mkt-cta mkt-cta-lg" onClick={onGetStarted}>
-            <span>Explore Company Benchmarks</span>
-            <span className="mkt-arrow">→</span>
-          </button>
-        </div>
-      </section>
-
-      <section className="mkt-section is-shade" id="product-demo">
-        <header className="mkt-demo-head">
-          <div className="mkt-kicker is-left">Product demonstration</div>
-          <h2>See what Fuel makes possible.</h2>
+      <section className="fl-section is-white fl-steps" id="how-fuel-works" ref={stepsRef}>
+        <div className="fl-steps-pin">
+        <SectionPattern pattern={patternSteps} mask={patternMaskSteps} height={653} />
+        <header className="fl-section-head is-narrow">
+          <p className="fl-eyebrow fl-reveal">How Fuel works</p>
+          <h2 className="fl-reveal">
+            From understanding the <span className="is-green">opportunity to moving it forward.</span>
+          </h2>
         </header>
-        <div className="mkt-demo-grid">
-          <article className="mkt-story" id="for-builders-demo">
-            <div className="mkt-demo-index">01</div>
-            <div className="mkt-kicker is-left">For founders and operators</div>
-            <h3>Turn a performance gap into a focused initiative.</h3>
-            <p>
-              Compare your sales conversion rate with peers. Use market and competitive context to investigate the gap, align sales and marketing around a response, and track the initiative alongside changes in conversion and pipeline quality.
-            </p>
-          </article>
-          <article className="mkt-story" id="for-investors-demo">
-            <div className="mkt-demo-index">02</div>
-            <div className="mkt-kicker is-left">For investors</div>
-            <h3>Turn company visibility into informed attention.</h3>
-            <p>
-              Follow developments across companies in your pipeline and portfolio. Use market signals and benchmarks to identify where to dig deeper, prepare for company conversations, and follow the progress of priorities you’re helping support.
-            </p>
-          </article>
+        <div className="fl-step-viewport">
+        <ol className="fl-step-row" ref={stepRowRef}>
+          {STEPS.map(step => (
+            <li key={step.n} className="fl-step-card fl-reveal is-up">
+              <div className="fl-step-index">
+                <span>Step</span>
+                <strong>{step.n}</strong>
+              </div>
+              <div className="fl-step-text">
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        </div>
         </div>
       </section>
 
-      <section className="mkt-section is-wash">
-        <div className="mkt-ai">
-          <div className="mkt-ai-copy">
-            <div className="mkt-kicker is-left">AI support</div>
-            <h2>More context. Less manual work.</h2>
-            <p>
-              Fuel’s AI helps synthesize market developments, interpret benchmarks, and guide next steps—giving you more time to make decisions and work with the people moving companies forward.
-            </p>
-            <p>
-              Whether you’re setting company priorities or reviewing your portfolio, bring the relevant intelligence into focus without piecing the story together manually.
-            </p>
-          </div>
-          <FuelChatDemo />
-        </div>
-      </section>
-
-      <section className="mkt-section mkt-section-last is-shade" id="getting-started">
-        <div className="mkt-start">
-          <FeatureOrbit />
-          <div className="mkt-start-copy">
-            <div className="mkt-kicker is-left">Getting started</div>
-            <h2>
-              <span>Start with the companies</span>
-              you’re moving forward.
-            </h2>
-            <div className="mkt-start-cards">
-            {START.map(step => (
-              <article key={step.n} className="mkt-start-card">
-                <div className="mkt-start-card-head">
-                  <h3>{step.title}</h3>
-                  <span className="mkt-start-card-icon">
-                    <FuelIcon name={step.icon} size={16} />
+      <section className="fl-section is-dark fl-bench" id="benchmarks">
+        <header className="fl-section-head">
+          <p className="fl-eyebrow is-mint fl-reveal">Benchmarking preview</p>
+          <h2 className="is-white fl-reveal">
+            Understand where a <span className="is-gold">company stands</span>
+            <br />
+            and what that could mean.
+          </h2>
+        </header>
+        <div className="fl-bench-layout">
+          <div className="fl-bench-board fl-reveal is-up" ref={benchRef}>
+            <div className="fl-bench-top">
+              <div className="fl-bench-row">
+                <p className="fl-bench-kicker">Benchmark Report</p>
+                <span className="fl-bench-live">
+                  <img alt="" src={liveDot} width={6} height={6} />
+                  Live Cohort
+                </span>
+              </div>
+              <div className="fl-bench-row">
+                <div className="fl-bench-company">
+                  <span className="fl-bench-avatar">A</span>
+                  <div>
+                    <strong>Acme Corp</strong>
+                    <span>SaaS · $10–50M ARR · Series B</span>
+                  </div>
+                </div>
+                <div className="fl-bench-legend">
+                  <span>
+                    <i className="is-you" />
+                    Your company
+                  </span>
+                  <span>
+                    <i className="is-range" />
+                    Peer cohort range
                   </span>
                 </div>
-                <p>{step.body}</p>
-              </article>
-            ))}
+              </div>
             </div>
+            <span className="fl-bench-rule" />
+            <div className={`fl-bench-metrics${benchLive ? " is-live" : ""}`}>
+              {BENCHMARKS.map((metric, index) => (
+                <div key={metric.label} className="fl-bench-metric" style={{ ["--fl-i" as string]: index }}>
+                  <div className="fl-bench-row">
+                    <p className="fl-bench-label">{metric.label}</p>
+                    <span className="fl-bench-chip">{metric.rank}</span>
+                  </div>
+                  <div className="fl-bench-value">
+                    <BenchValue target={Number(metric.value.replace("%", ""))} active={benchLive} delay={index * 80} />
+                    <span className="fl-bench-chip">{metric.median}</span>
+                  </div>
+                  <div className="fl-bench-track">
+                    <span className="fl-bench-fill" style={{ width: `${metric.fill}%` }} />
+                    <span className="fl-bench-range" style={{ left: `${metric.range[0]}%`, width: `${metric.range[1] - metric.range[0]}%` }} />
+                    <span className="fl-bench-tick" style={{ left: `${metric.range[0]}%` }} />
+                    <span className="fl-bench-tick" style={{ left: `${metric.range[1]}%` }} />
+                    <span className="fl-bench-tick is-median" style={{ left: `${metric.medianAt}%` }} />
+                  </div>
+                  <div className="fl-bench-ticks">
+                    {metric.ticks.map(tick => (
+                      <span key={tick}>{tick}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="fl-bench-filters">
+            <div className="fl-bench-fields">
+              <label className="fl-select fl-reveal">
+                <span>Vertical</span>
+                <span className="fl-select-control">
+                  <select value={vertical} onChange={event => setVertical(event.target.value)}>
+                    <option value="b2b_saas">B2B SaaS</option>
+                    <option value="dev_tools">Developer Tools</option>
+                  </select>
+                  <img alt="" src={chevronDown} width={18} height={18} />
+                </span>
+              </label>
+              <label className="fl-select fl-reveal">
+                <span>Stage</span>
+                <span className="fl-select-control">
+                  <select value={stage} onChange={event => setStage(event.target.value)}>
+                    <option value="seed">Seed</option>
+                    <option value="series_a">Series A</option>
+                    <option value="growth">Growth</option>
+                  </select>
+                  <img alt="" src={chevronDown} width={18} height={18} />
+                </span>
+              </label>
+            </div>
+            <PrimaryButton className="is-block fl-reveal" onClick={onGetStarted}>Explore Company Benchmark</PrimaryButton>
           </div>
         </div>
       </section>
 
-      <FuelMarketingFaq />
-
-      <section className="mkt-close">
-        <Aurora />
-        <div className={`mkt-close-inner${close.inView ? " is-in" : ""}`} ref={close.ref}>
-          <h2>
-            Build with vision. <span>Execute with conviction.</span>
+      <section className="fl-section is-white fl-demo" id="product-demo">
+        <SectionPattern pattern={patternDemo} mask={patternMaskDemo} height={907} />
+        <header className="fl-section-head">
+          <p className="fl-eyebrow fl-reveal">Product demonstration</p>
+          <h2 className="fl-reveal">
+            See what <span className="is-green">Fuel makes possible.</span>
           </h2>
-          <p>Bring intelligence, strategy, and progress into view—with Fuel AI supporting your next move.</p>
-          <button type="button" className="mkt-cta mkt-cta-lg" onClick={onGetStarted}>
-            <span className="mkt-shimmer" aria-hidden="true" />
-            <span>Get Started with Fuel</span>
-            <span className="mkt-arrow">→</span>
-          </button>
+        </header>
+        <div className="fl-demo-body">
+          <div className="fl-demo-tabs fl-reveal" role="tablist" aria-label="Product demonstration">
+            {(["founder", "investor"] as const).map(id => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={audience === id}
+                className={audience === id ? "is-active" : undefined}
+                onClick={() => setAudience(id)}
+              >
+                {id === "founder" ? "Founder" : "Investor"}
+              </button>
+            ))}
+          </div>
+          <div className="fl-demo-card fl-reveal is-up" role="tabpanel">
+            <img className="fl-demo-glow" alt="" src={cardGlow} aria-hidden="true" />
+            <div className="fl-demo-details">
+              <span className="fl-demo-icon">
+                <img alt="" src={iconFounderTile} width={32} height={32} />
+              </span>
+              <div className="fl-demo-description" key={audience}>
+                <h3>{demo.title}</h3>
+                <p>{demo.body}</p>
+              </div>
+              <ul className="fl-demo-capabilities" key={`${audience}-capabilities`}>
+                {demo.capabilities.map((capability, index) => (
+                  <li key={`${capability}-${index}`}>
+                    <img alt="" src={checkDone} width={24} height={24} />
+                    <span>{capability}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <DashboardMockup />
+          </div>
         </div>
       </section>
 
-      <FuelMarketingFooter onSignIn={onSignIn} onOpenLegal={onOpenLegal} />
+      <LandingFooter onHome={() => window.scrollTo({ top: 0, behavior: "smooth" })} onOpenLegal={onOpenLegal} />
     </main>
   );
 }

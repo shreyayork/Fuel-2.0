@@ -90,7 +90,7 @@ export const PATRIOT_PUBLIC_WAGER_PARA =
 export const PATRIOT_PUBLIC_WAGER_FUEL_PERSPECTIVE =
   "We've got your back. Team Patriot, closing the about page.";
 
-export const PATRIOT_PUBLIC_BLOG_MARKER = "brief-paper-public-blog-v12";
+export const PATRIOT_PUBLIC_BLOG_MARKER = "brief-paper-public-blog-v13";
 
 /** True when stored HTML matches the Figma Make company profile shell. */
 export function isCurrentPatriotPublicHtml(html: string): boolean {
@@ -102,7 +102,7 @@ export function isCurrentPatriotPublicHtml(html: string): boolean {
   );
 }
 
-const PATRIOT_LOGO_SRC = "https://bulk-kiwi-86535553.figma.site/assets/5bfb0.svg";
+const PATRIOT_LOGO_SRC = "/company-logos/patriot-software.svg";
 
 function esc(value: string): string {
   return value

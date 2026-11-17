@@ -8,6 +8,9 @@ import OnboardingFlow, {
 } from "./OnboardingFlow.tsx";
 import IntegrationSetupPage from "./IntegrationSetupPage.tsx";
 import FuelLanding from "./marketing/FuelLanding.tsx";
+import FuelCompanies from "./marketing/FuelCompanies.tsx";
+import FuelCompanyStory from "./marketing/FuelCompanyStory.tsx";
+import type { LandingSectionId } from "./marketing/landingNav.tsx";
 import FuelSignIn from "./marketing/FuelSignIn.tsx";
 import { FuelLegalPage } from "./legal/FuelLegalPage.tsx";
 import { LegalNavProvider } from "./legal/LegalNavContext.tsx";
@@ -62,7 +65,7 @@ import {
   type WorkspaceNotification,
 } from "./notificationStorage.ts";
 
-type View = "landing" | "signin" | "onboarding" | "integrations" | "workspace" | "legal";
+type View = "landing" | "companies" | "signin" | "onboarding" | "integrations" | "workspace" | "legal";
 
 export function resetInviteWorkflowDemoState() {
   resetAdvisorInviteWorkflowDemoState();
@@ -102,6 +105,7 @@ function founderCompanyIdFromAnswers(answers: OnboardingFlowAnswers | null | und
 
 export default function App() {
   const [view, setView] = useState<View>(() => readAdvisorInviteTokenFromUrl() ? "signin" : "landing");
+  const [companyStoryToken, setCompanyStoryToken] = useState<string | null>(null);
   const [legalDoc, setLegalDoc] = useState<LegalDocId>("terms");
   const [legalReturnView, setLegalReturnView] = useState<View>("landing");
   const [onboardingBenchmark, setOnboardingBenchmark] = useState<OnboardingBenchmarkInput | null>(null);
@@ -378,6 +382,26 @@ export default function App() {
     );
   }
 
+  const openHome = () => {
+    setCompanyStoryToken(null);
+    setView("landing");
+    window.scrollTo(0, 0);
+  };
+
+  const openLandingSection = (id: LandingSectionId) => {
+    setCompanyStoryToken(null);
+    setView("landing");
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 160);
+  };
+
+  const openCompanies = () => {
+    setCompanyStoryToken(null);
+    setView("companies");
+    window.scrollTo(0, 0);
+  };
+
   if (view === "legal") {
     return (
       <LegalNavProvider openLegal={doc => openLegal(doc, legalReturnView)}>
@@ -385,16 +409,52 @@ export default function App() {
           variant="marketing"
           doc={legalDoc}
           onDocChange={setLegalDoc}
-          onBack={() => setView(legalReturnView)}
+          onBack={openHome}
           onSignIn={() => setView("signin")}
           onGetStarted={() => setView("signin")}
           onOpenLegal={doc => openLegal(doc, legalReturnView)}
-          onFaq={() => {
+          onHome={openHome}
+          onCompanies={openCompanies}
+          onSection={openLandingSection}
+        />
+      </LegalNavProvider>
+    );
+  }
+
+  if (view === "companies" && companyStoryToken) {
+    return (
+      <LegalNavProvider openLegal={doc => openLegal(doc, "companies")}>
+        <FuelCompanyStory
+          token={companyStoryToken}
+          onSignIn={() => setView("signin")}
+          onOpenLegal={doc => openLegal(doc, "companies")}
+          onCompanies={openCompanies}
+          onHome={() => {
+            setCompanyStoryToken(null);
             setView("landing");
-            window.setTimeout(() => {
-              document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" });
-            }, 80);
+            window.scrollTo(0, 0);
           }}
+          onSection={openLandingSection}
+        />
+      </LegalNavProvider>
+    );
+  }
+
+  if (view === "companies") {
+    return (
+      <LegalNavProvider openLegal={doc => openLegal(doc, "companies")}>
+        <FuelCompanies
+          onSignIn={() => setView("signin")}
+          onOpenLegal={doc => openLegal(doc, "companies")}
+          onOpenStory={token => {
+            setCompanyStoryToken(token);
+            window.scrollTo(0, 0);
+          }}
+          onHome={() => {
+            setView("landing");
+            window.scrollTo(0, 0);
+          }}
+          onSection={openLandingSection}
         />
       </LegalNavProvider>
     );
@@ -407,6 +467,7 @@ export default function App() {
           onSignIn={() => setView("signin")}
           onGetStarted={() => setView("signin")}
           onOpenLegal={doc => openLegal(doc, "landing")}
+          onOpenCompanies={openCompanies}
         />
       </LegalNavProvider>
     );

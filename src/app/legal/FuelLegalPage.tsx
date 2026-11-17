@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FUEL_SUPPORT_EMAIL } from "../FuelHelpFaq";
-import { FuelMarketingFooter, FuelMarketingHeader } from "../marketing/FuelMarketingChrome";
+import { LandingFooter, LandingNav, type LandingSectionId } from "../marketing/landingNav";
+import "../marketing/landing.css";
 import "../marketing/marketing.css";
 import {
   getLegalDocument,
@@ -65,9 +66,10 @@ export function FuelLegalPage({
   onBack,
   variant = "workspace",
   onSignIn,
-  onGetStarted,
   onOpenLegal,
-  onFaq,
+  onHome,
+  onCompanies,
+  onSection,
 }: {
   doc: LegalDocId;
   onDocChange: (doc: LegalDocId) => void;
@@ -77,31 +79,45 @@ export function FuelLegalPage({
   onGetStarted?: () => void;
   onOpenLegal?: (doc: LegalDocId) => void;
   onFaq?: () => void;
+  onHome?: () => void;
+  onCompanies?: () => void;
+  onSection?: (id: LandingSectionId) => void;
 }) {
   const active = useMemo(() => getLegalDocument(doc), [doc]);
+  const [floatingNav, setFloatingNav] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [doc]);
 
-  if (variant === "marketing") {
-    return (
-      <main className="mkt-root">
-        <FuelMarketingHeader
-          onSignIn={onSignIn ?? onBack ?? (() => undefined)}
-          onGetStarted={onGetStarted ?? onSignIn ?? onBack ?? (() => undefined)}
-          onBrandClick={onBack}
-        />
+  useEffect(() => {
+    if (variant !== "marketing") return;
+    const onScroll = () => setFloatingNav(window.scrollY > 72);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [variant]);
 
+  if (variant === "marketing") {
+    const goHome = onHome ?? onBack ?? (() => undefined);
+    const navProps = {
+      onSignIn: onSignIn ?? goHome,
+      onHome: goHome,
+      onCompanies: onCompanies ?? goHome,
+      onSection: onSection ?? (() => goHome()),
+    };
+    return (
+      <main className="fl-root fl-legal">
+        <div className={`fl-float-nav${floatingNav ? " is-visible" : ""}`} aria-hidden={!floatingNav}>
+          <LandingNav variant="float" interactive={floatingNav} {...navProps} />
+        </div>
+        <header className="fl-story-nav">
+          <LandingNav variant="top" {...navProps} />
+        </header>
         <div className="mkt-legal-page">
           <LegalDocumentBody doc={doc} />
         </div>
-
-        <FuelMarketingFooter
-          onSignIn={onSignIn ?? onBack ?? (() => undefined)}
-          onOpenLegal={onOpenLegal}
-          onFaq={onFaq ?? onBack}
-        />
+        <LandingFooter onHome={goHome} onOpenLegal={onOpenLegal} />
       </main>
     );
   }

@@ -67,6 +67,7 @@ const DRAFT_PREFIX = "fuel-brief-doc-draft:v7:";
 const ALLOWED_TAGS = new Set([
   "H1", "H2", "H3", "H4", "P", "UL", "OL", "LI", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD",
   "STRONG", "EM", "B", "I", "U", "BR", "SECTION", "HEADER", "DIV", "SPAN", "BLOCKQUOTE", "A",
+  "ARTICLE", "NAV", "ASIDE", "DL", "DT", "DD", "TIME", "IMG", "SVG", "PATH",
 ]);
 
 function esc(value: string): string {
@@ -296,6 +297,13 @@ function sanitizeNode(node: Node, doc: Document): Node | null {
     .filter(token => token.startsWith("brief-paper-") && token !== "brief-paper-dragging")
     .join(" ");
   if (className) copy.setAttribute("class", className);
+  const id = el.getAttribute("id") || "";
+  if (/^[A-Za-z][\w-]{0,40}$/.test(id)) copy.setAttribute("id", id);
+  const ariaLabel = el.getAttribute("aria-label") || "";
+  if (ariaLabel && ariaLabel.length <= 80 && !/[\u0000-\u001f<>"]/.test(ariaLabel)) {
+    copy.setAttribute("aria-label", ariaLabel);
+  }
+  if (el.getAttribute("aria-hidden") === "true") copy.setAttribute("aria-hidden", "true");
   if (el.tagName === "OL") {
     const start = Number(el.getAttribute("start"));
     if (Number.isInteger(start) && start > 1 && start < 1000) copy.setAttribute("start", String(start));
@@ -306,7 +314,27 @@ function sanitizeNode(node: Node, doc: Document): Node | null {
       copy.setAttribute("href", href);
       copy.setAttribute("target", "_blank");
       copy.setAttribute("rel", "noreferrer");
+    } else if (/^#[A-Za-z][\w-]{0,40}$/.test(href)) {
+      copy.setAttribute("href", href);
     }
+  }
+  if (el.tagName === "IMG") {
+    const src = el.getAttribute("src") || "";
+    if (/^https:\/\/[^\s]+$/.test(src) || /^\/company-logos\/[a-z0-9-]+\.svg$/.test(src)) copy.setAttribute("src", src);
+    const alt = (el.getAttribute("alt") || "").slice(0, 120);
+    copy.setAttribute("alt", alt);
+    (["width", "height"] as const).forEach(attr => {
+      const size = Number(el.getAttribute(attr));
+      if (Number.isFinite(size) && size > 0 && size < 2000) copy.setAttribute(attr, String(size));
+    });
+  }
+  if (el.tagName === "SVG" || el.tagName === "PATH") {
+    ["viewBox", "fill", "stroke", "d", "stroke-width", "stroke-linecap", "stroke-linejoin"].forEach(attr => {
+      const value = el.getAttribute(attr) || "";
+      if (!value || value.length > 400 || /[<>"]/.test(value)) return;
+      if (attr === "viewBox" && !/^[\d.\s-]+$/.test(value)) return;
+      copy.setAttribute(attr, value);
+    });
   }
   if (
     el.getAttribute("contenteditable") === "false"
@@ -526,6 +554,20 @@ export function loadPublishedBrief(companyName: string, audience: BriefAudience)
     ) ?? record;
   }
   return record;
+}
+
+/** Public blogs published from a company login: Blog in the right nav, then Publish. */
+export function listPublishedBriefs(audience: BriefAudience = "public"): BriefPublishRecord[] {
+  const suffix = `\n${audience}`;
+  const records: BriefPublishRecord[] = [];
+  for (const [id, token] of Object.entries(readPublishIndex())) {
+    if (!id.endsWith(suffix)) continue;
+    const record = loadPublishedBriefByToken(token);
+    if (!record || record.audience !== audience) continue;
+    records.push(record);
+  }
+  records.sort((a, b) => a.companyName.localeCompare(b.companyName));
+  return records;
 }
 
 export function loadPublishedBriefByToken(token: string): BriefPublishRecord | null {

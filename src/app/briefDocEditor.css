@@ -510,7 +510,8 @@ html[data-theme="light"] .brief-doc-canvas.is-public-blog {
 .brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v8,
 .brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v10,
 .brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v11,
-.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v12 {
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v12,
+.brief-doc-canvas.is-public-blog:has(.brief-paper-tail) .brief-paper-public-blog-v13 {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
