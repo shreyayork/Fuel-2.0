@@ -13,6 +13,15 @@ import "./legal.css";
 function LegalDocumentBody({ doc }: { doc: LegalDocId }) {
   const active = useMemo(() => getLegalDocument(doc), [doc]);
 
+  const jumpTo = (event: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    event.preventDefault();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    window.history.replaceState(null, "", `#${id}`);
+  };
+
   return (
     <>
       <header className="mkt-legal-head">
@@ -23,11 +32,17 @@ function LegalDocumentBody({ doc }: { doc: LegalDocId }) {
       </header>
 
       <nav className="mkt-legal-toc" aria-label="On this page">
-        {active.sections.map(section => (
-          <a key={section.id} href={`#legal-${active.id}-${section.id}`}>
-            {section.title}
-          </a>
-        ))}
+        <p className="mkt-legal-toc-label">On this page</p>
+        <div className="mkt-legal-toc-links">
+          {active.sections.map(section => {
+            const id = `legal-${active.id}-${section.id}`;
+            return (
+              <a key={section.id} href={`#${id}`} onClick={event => jumpTo(event, id)}>
+                {section.title}
+              </a>
+            );
+          })}
+        </div>
       </nav>
 
       <article className="mkt-legal-article">
